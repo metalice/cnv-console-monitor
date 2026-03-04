@@ -5,7 +5,7 @@ import { updateDefectType, addTestItemComment } from '../../clients/reportportal
 const router = Router();
 
 router.post('/:itemId', async (req: Request, res: Response) => {
-  const itemId = parseInt(req.params.itemId);
+  const itemId = parseInt(req.params.itemId as string);
   const { defectType, comment, performedBy } = req.body;
 
   if (!defectType) {
@@ -40,7 +40,7 @@ router.post('/:itemId', async (req: Request, res: Response) => {
 });
 
 router.post('/:itemId/comment', async (req: Request, res: Response) => {
-  const itemId = parseInt(req.params.itemId);
+  const itemId = parseInt(req.params.itemId as string);
   const { comment, performedBy } = req.body;
 
   if (!comment) {

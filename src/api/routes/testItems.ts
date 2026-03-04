@@ -5,8 +5,8 @@ import { fetchTestItemLogs } from '../../clients/reportportal';
 const router = Router();
 
 router.get('/launch/:launchId', (req: Request, res: Response) => {
-  const launchId = parseInt(req.params.launchId);
-  const status = req.query.status as string;
+  const launchId = parseInt(req.params.launchId as string);
+  const status = req.query.status as string | undefined;
 
   const items = status === 'FAILED'
     ? getFailedTestItems(launchId)
@@ -23,7 +23,7 @@ router.get('/untriaged', (_req: Request, res: Response) => {
 });
 
 router.get('/:itemId/logs', async (req: Request, res: Response) => {
-  const itemId = parseInt(req.params.itemId);
+  const itemId = parseInt(req.params.itemId as string);
   const level = (req.query.level as string) || 'ERROR';
 
   try {

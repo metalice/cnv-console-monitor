@@ -19,7 +19,7 @@ router.get('/today', (_req: Request, res: Response) => {
 });
 
 router.get('/:date', (req: Request, res: Response) => {
-  const acks = getAcknowledgmentsForDate(req.params.date);
+  const acks = getAcknowledgmentsForDate(req.params.date as string);
   res.json({
     date: req.params.date,
     acknowledged: acks.length > 0,

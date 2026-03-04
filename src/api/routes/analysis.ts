@@ -8,7 +8,7 @@ import {
 const router = Router();
 
 router.post('/:launchId/auto', async (req: Request, res: Response) => {
-  const launchId = parseInt(req.params.launchId);
+  const launchId = parseInt(req.params.launchId as string);
 
   try {
     await triggerAutoAnalysis(launchId);
@@ -20,7 +20,7 @@ router.post('/:launchId/auto', async (req: Request, res: Response) => {
 });
 
 router.post('/:launchId/pattern', async (req: Request, res: Response) => {
-  const launchId = parseInt(req.params.launchId);
+  const launchId = parseInt(req.params.launchId as string);
 
   try {
     await triggerPatternAnalysis(launchId);
@@ -32,7 +32,7 @@ router.post('/:launchId/pattern', async (req: Request, res: Response) => {
 });
 
 router.post('/:launchId/unique', async (req: Request, res: Response) => {
-  const launchId = parseInt(req.params.launchId);
+  const launchId = parseInt(req.params.launchId as string);
 
   try {
     await triggerUniqueErrorAnalysis(launchId);
