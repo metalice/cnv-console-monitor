@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cnv-console-monitor
+  labels:
+    app: cnv-console-monitor
+spec:
+  selector:
+    app: cnv-console-monitor
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  type: ClusterIP

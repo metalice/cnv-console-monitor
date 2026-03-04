@@ -1,0 +1,16 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: cnv-console-monitor
+  labels:
+    app: cnv-console-monitor
+spec:
+  to:
+    kind: Service
+    name: cnv-console-monitor
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

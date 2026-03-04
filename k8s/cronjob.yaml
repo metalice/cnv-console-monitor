@@ -1,0 +1,48 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cnv-console-monitor-poll
+  labels:
+    app: cnv-console-monitor
+spec:
+  schedule: "0 7 * * *"
+  timeZone: "Asia/Jerusalem"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: cnv-console-monitor
+            component: poller
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: poller
+              image: quay.io/openshift-cnv/cnv-console-monitor:latest
+              command: ["node", "dist/index.js"]
+              envFrom:
+                - configMapRef:
+                    name: cnv-console-monitor-config
+                - secretRef:
+                    name: cnv-console-monitor-secrets
+              env:
+                - name: DASHBOARD_URL
+                  value: "https://cnv-console-monitor.apps.your-cluster.example.com"
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+              resources:
+                requests:
+                  cpu: 200m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: cnv-console-monitor-data

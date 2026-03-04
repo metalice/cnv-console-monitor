@@ -1,0 +1,32 @@
+{
+  "name": "cnv-console-monitor",
+  "version": "1.0.0",
+  "main": "dist/serve.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/serve.js",
+    "poll": "node dist/index.js",
+    "dev": "ts-node src/serve.ts",
+    "dev:poll": "ts-node src/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Daily monitoring dashboard for CNV Console test launches from ReportPortal",
+  "dependencies": {
+    "axios": "^1.13.6",
+    "better-sqlite3": "^12.6.2",
+    "express": "^5.2.1",
+    "node-cron": "^4.2.1",
+    "nodemailer": "^8.0.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.3.3",
+    "@types/node-cron": "^3.0.11",
+    "@types/nodemailer": "^7.0.11",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}

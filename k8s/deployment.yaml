@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cnv-console-monitor
+  labels:
+    app: cnv-console-monitor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cnv-console-monitor
+  template:
+    metadata:
+      labels:
+        app: cnv-console-monitor
+    spec:
+      containers:
+        - name: dashboard
+          image: quay.io/openshift-cnv/cnv-console-monitor:latest
+          command: ["node", "dist/serve.js"]
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - configMapRef:
+                name: cnv-console-monitor-config
+            - secretRef:
+                name: cnv-console-monitor-secrets
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: cnv-console-monitor-data

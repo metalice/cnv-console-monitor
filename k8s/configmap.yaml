@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cnv-console-monitor-config
+  labels:
+    app: cnv-console-monitor
+data:
+  REPORTPORTAL_URL: "https://reportportal-cnv.apps.dno.ocp-hub.prod.psi.redhat.com"
+  REPORTPORTAL_PROJECT: "CNV"
+  LAUNCH_FILTER: "test-kubevirt-console"
+  DASHBOARD_PORT: "8080"
+  DB_PATH: "/data/monitor.db"
+  CRON_SCHEDULE: "0 7 * * *"
+  ACK_REMINDER_HOUR: "10"
+  TZ: "Asia/Jerusalem"
+  JIRA_PROJECT_KEY: "CNV"
+  JIRA_ISSUE_TYPE: "Bug"
+  EMAIL_RECIPIENTS: ""
