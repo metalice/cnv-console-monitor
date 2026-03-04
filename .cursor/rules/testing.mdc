@@ -1,0 +1,247 @@
+---
+description: Testing patterns and guidelines
+globs: "**/*.test.ts"
+alwaysApply: false
+---
+
+# Testing Guidelines
+
+Testing patterns and best practices for this project.
+
+---
+
+## 1. Testing Strategy
+
+### What to Test
+- Core logic: poller, analyzer, report builder
+- Database queries and store functions
+- API route handlers
+- Client request/response handling
+- Notification builders (Slack blocks, email HTML)
+
+### What Not to Test
+- Third-party library internals (axios, better-sqlite3)
+- Express framework behavior
+- Static HTML/CSS/JS in dashboard
+
+---
+
+## 2. Unit Tests
+
+### File Organization
+- Test file next to source: `analyzer.ts` → `analyzer.test.ts`
+- Match source file name with `.test.ts` suffix
+
+### Test Structure
+```typescript
+import { buildDailyReport } from './analyzer';
+
+describe('buildDailyReport', () => {
+  describe('when given valid launches', () => {
+    it('should group by version and tier', () => {
+      const result = buildDailyReport(mockLaunches);
+      expect(result.groups).toHaveLength(3);
+    });
+  });
+
+  describe('when no launches found', () => {
+    it('should return empty report', () => {
+      const result = buildDailyReport([]);
+      expect(result.groups).toHaveLength(0);
+    });
+  });
+});
+```
+
+### Naming Conventions
+- `describe` blocks: function/module name
+- Nested `describe`: scenario or context
+- `it` blocks: "should [expected behavior]"
+
+---
+
+## 3. Mocking
+
+### Mocking External APIs
+```typescript
+import axios from 'axios';
+jest.mock('axios');
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+
+beforeEach(() => {
+  mockedAxios.get.mockReset();
+});
+
+it('should fetch launches from ReportPortal', async () => {
+  mockedAxios.get.mockResolvedValue({ data: { content: mockLaunches } });
+  const result = await fetchLaunches();
+  expect(result).toHaveLength(5);
+});
+```
+
+### Mocking Database
+```typescript
+jest.mock('../db/store', () => ({
+  upsertLaunch: jest.fn(),
+  getLaunches: jest.fn(() => mockLaunches),
+}));
+```
+
+### Mocking Config
+```typescript
+jest.mock('../config', () => ({
+  config: {
+    reportportal: { url: 'http://test', token: 'test-token', project: 'TEST' },
+    slack: { enabled: false },
+    email: { enabled: false },
+    jira: { enabled: false },
+  },
+}));
+```
+
+### Mock Data Factories
+```typescript
+const createMockLaunch = (overrides = {}): LaunchData => ({
+  rpId: 1,
+  name: 'test-kubevirt-console-4.19-tier1',
+  status: 'PASSED',
+  cnvVersion: '4.19',
+  tier: 'tier1',
+  total: 100,
+  passed: 95,
+  failed: 5,
+  skipped: 0,
+  startTime: Date.now(),
+  ...overrides,
+});
+```
+
+---
+
+## 4. Testing Async Code
+
+### Async Operations
+```typescript
+it('should handle API errors', async () => {
+  mockedAxios.get.mockRejectedValue(new Error('Network error'));
+  await expect(fetchLaunches()).rejects.toThrow('Network error');
+});
+
+it('should poll and store launches', async () => {
+  mockedAxios.get.mockResolvedValue({ data: { content: [mockLaunch] } });
+  await pollReportPortal();
+  expect(store.upsertLaunch).toHaveBeenCalledWith(expect.objectContaining({
+    rpId: mockLaunch.id,
+  }));
+});
+```
+
+---
+
+## 5. Testing Express Routes
+
+### Route Handler Tests
+```typescript
+import request from 'supertest';
+import app from '../api';
+
+describe('GET /api/launches', () => {
+  it('should return launches', async () => {
+    const res = await request(app).get('/api/launches');
+    expect(res.status).toBe(200);
+    expect(res.body).toBeInstanceOf(Array);
+  });
+
+  it('should return 500 on database error', async () => {
+    jest.spyOn(store, 'getLaunches').mockImplementation(() => {
+      throw new Error('DB error');
+    });
+    const res = await request(app).get('/api/launches');
+    expect(res.status).toBe(500);
+  });
+});
+```
+
+---
+
+## 6. Testing Database Queries
+
+### In-Memory SQLite for Tests
+```typescript
+import Database from 'better-sqlite3';
+
+let testDb: Database.Database;
+
+beforeEach(() => {
+  testDb = new Database(':memory:');
+  initSchema(testDb);
+});
+
+afterEach(() => {
+  testDb.close();
+});
+```
+
+---
+
+## 7. Best Practices
+
+### Test Behavior, Not Implementation
+```typescript
+// ❌ Testing implementation
+expect(store.upsertLaunch).toHaveBeenCalledTimes(1);
+
+// ✅ Testing behavior
+const launches = store.getLaunches();
+expect(launches).toContainEqual(expect.objectContaining({ name: 'test-launch' }));
+```
+
+### Keep Tests Independent
+Each test sets up its own state and doesn't rely on other tests.
+
+### Clear Test Names
+```typescript
+// ❌ Vague
+it('works', () => {});
+
+// ✅ Descriptive
+it('should return empty array when no launches match the filter', () => {});
+```
+
+### Arrange-Act-Assert
+```typescript
+it('should compute pass rate correctly', () => {
+  // Arrange
+  const launch = createMockLaunch({ passed: 80, total: 100 });
+
+  // Act
+  const rate = computePassRate(launch);
+
+  // Assert
+  expect(rate).toBe(0.8);
+});
+```
+
+---
+
+## 8. Running Tests
+
+```bash
+# When test runner is added:
+npm test                         # Run all tests
+npm test -- --watch              # Watch mode
+npm test path/to/file.test.ts    # Specific file
+```
+
+---
+
+## 9. Checklist
+
+### Unit Test Checklist
+- [ ] Tests behavior, not implementation
+- [ ] Covers happy path
+- [ ] Covers error cases
+- [ ] Covers edge cases (empty data, null, boundaries)
+- [ ] Independent (no test order dependency)
+- [ ] Properly mocks external dependencies
+- [ ] Cleans up after itself

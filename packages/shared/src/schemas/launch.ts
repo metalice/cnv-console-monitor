@@ -1,0 +1,54 @@
+import { z } from 'zod';
+
+export const LaunchStatusEnum = z.enum([
+  'PASSED',
+  'FAILED',
+  'IN_PROGRESS',
+  'STOPPED',
+  'INTERRUPTED',
+]);
+
+export type LaunchStatus = z.infer<typeof LaunchStatusEnum>;
+
+export const LaunchSchema = z.object({
+  rp_id: z.number(),
+  uuid: z.string(),
+  name: z.string(),
+  number: z.number(),
+  status: z.string(),
+  cnv_version: z.string().nullish(),
+  bundle: z.string().nullish(),
+  ocp_version: z.string().nullish(),
+  tier: z.string().nullish(),
+  cluster_name: z.string().nullish(),
+  total: z.number(),
+  passed: z.number(),
+  failed: z.number(),
+  skipped: z.number(),
+  start_time: z.number(),
+  end_time: z.number().nullish(),
+  duration: z.number().nullish(),
+});
+
+export type Launch = z.infer<typeof LaunchSchema>;
+
+export const HealthStatusEnum = z.enum(['green', 'yellow', 'red']);
+export type HealthStatus = z.infer<typeof HealthStatusEnum>;
+
+export const LaunchGroupSchema = z.object({
+  cnvVersion: z.string(),
+  tier: z.string(),
+  launches: z.array(LaunchSchema),
+  latestLaunch: LaunchSchema,
+  health: HealthStatusEnum,
+  totalTests: z.number(),
+  passedTests: z.number(),
+  failedTests: z.number(),
+  skippedTests: z.number(),
+  passRate: z.number(),
+  failedItems: z.array(z.lazy(() => TestItemSchema)),
+});
+
+export type LaunchGroup = z.infer<typeof LaunchGroupSchema>;
+
+import { TestItemSchema } from './testItem';

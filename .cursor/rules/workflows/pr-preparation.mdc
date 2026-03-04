@@ -1,0 +1,171 @@
+---
+description: Checklist and workflow for preparing a PR
+alwaysApply: false
+---
+
+# PR Preparation Workflow
+
+Invoke with: *"prepare PR"*, *"ready for review"*, *"PR checklist"*, *"before I submit"*
+
+Follow this workflow before creating a pull request.
+
+---
+
+## 1. Code Completion Check
+
+### Feature Complete
+- [ ] All requirements met
+- [ ] Edge cases handled
+- [ ] Error scenarios covered
+
+### No Unfinished Work
+- [ ] No TODO comments without context
+- [ ] No commented-out code
+- [ ] No console.log statements
+- [ ] No debug code left
+- [ ] No hardcoded test data
+
+---
+
+## 2. Code Quality Checks
+
+### Build
+```bash
+npm run build
+```
+
+### TypeScript
+- [ ] No type errors
+- [ ] No implicit `any` types
+- [ ] Explicit return types on exported functions
+- [ ] Proper null/undefined handling
+
+---
+
+## 3. Self Code Review
+
+### Developer Perspective
+
+**Code Structure**
+- [ ] Single responsibility followed
+- [ ] Logic extracted to appropriate modules
+- [ ] Files under 200 lines
+- [ ] Proper folder organization
+
+**Code Quality**
+- [ ] No code duplication
+- [ ] Descriptive naming
+- [ ] No magic numbers (use constants)
+- [ ] Consistent patterns with codebase
+
+**Error Handling**
+- [ ] All async operations have error handling
+- [ ] Route handlers use try/catch/next
+- [ ] User-friendly error messages in API responses
+- [ ] External service failures handled gracefully
+
+### QE Perspective
+
+**Edge Cases**
+- [ ] Empty data handled
+- [ ] Null/undefined handled
+- [ ] Invalid input returns proper errors
+
+**External Services**
+- [ ] Service unavailability handled
+- [ ] Timeout handling on HTTP calls
+
+### Security Perspective
+
+**Input/Output**
+- [ ] Route params/query/body validated
+- [ ] SQL uses parameterized queries
+- [ ] No sensitive data in responses
+- [ ] Error messages don't leak internals
+
+**Configuration**
+- [ ] No hardcoded secrets
+- [ ] New config uses environment variables
+
+---
+
+## 4. Commit Hygiene
+
+### Commit Structure
+- [ ] Meaningful commit messages
+- [ ] Logical, atomic commits
+- [ ] No broken commits in history
+
+### Commit Message Format
+```
+<type>: <short summary>
+
+<longer description if needed>
+```
+
+**Types**
+- `feat`: New feature
+- `fix`: Bug fix
+- `refactor`: Code change that neither fixes nor adds
+- `chore`: Maintenance tasks
+- `docs`: Documentation changes
+
+---
+
+## 5. PR Description
+
+### Template
+```markdown
+## Description
+
+> Brief description of changes
+
+## Changes
+
+- Added/Modified/Removed X
+- Added/Modified/Removed Y
+
+## Testing
+
+> How this was tested
+
+## Configuration
+
+> Any new environment variables or config changes
+```
+
+---
+
+## 6. Deployment Considerations
+
+- [ ] K8s manifests updated if needed
+- [ ] ConfigMap/Secret updated if new env vars
+- [ ] Dockerfile changes (if dependencies changed)
+- [ ] README updated if needed
+
+---
+
+## 7. Final Checklist
+
+### Code
+- [ ] Build passes (`npm run build`)
+- [ ] No debug code
+- [ ] Self-reviewed
+
+### PR
+- [ ] Descriptive title
+- [ ] Complete description
+- [ ] Testing documented
+
+### Ready
+- [ ] Branch up-to-date with main
+- [ ] Commits clean
+- [ ] Ready for review
+
+---
+
+## Quick Commands
+
+```bash
+npm run build            # Full compile check
+```

@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared
+        run: npm run build -w packages/shared
+
+      - name: Typecheck server
+        run: npm run typecheck -w packages/server
+
+      - name: Build server
+        run: npm run build -w packages/server
+
+      - name: Test server
+        run: npm run test -w packages/server
+
+      - name: Build client
+        run: npm run build -w packages/client
+
+  docker:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t quay.io/openshift-cnv/cnv-console-monitor:latest .
+
+      - name: Log in to Quay.io
+        if: env.QUAY_TOKEN != ''
+        env:
+          QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
+        run: echo "$QUAY_TOKEN" | docker login quay.io -u "${{ secrets.QUAY_USER }}" --password-stdin
+
+      - name: Push Docker image
+        if: env.QUAY_TOKEN != ''
+        env:
+          QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
+        run: docker push quay.io/openshift-cnv/cnv-console-monitor:latest

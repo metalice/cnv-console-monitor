@@ -1,0 +1,206 @@
+---
+description: End-to-end feature development workflow
+alwaysApply: false
+---
+
+# Feature Development Workflow
+
+Invoke with: *"start a new feature"*, *"add a feature"*, *"full development workflow"*
+
+This is the complete workflow from understanding a feature to implementing it.
+
+---
+
+## 1. Workflow Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  1. UNDERSTAND REQUIREMENTS                                 │
+│  "I want to add X to the dashboard"                         │
+│  → Clarify scope, identify affected components              │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  2. PLAN IMPLEMENTATION                                     │
+│  "Help me plan the implementation"                          │
+│  → Identify files to modify, new modules to create          │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  3. IMPLEMENT                                               │
+│  "Create the endpoint", "Add the feature"                   │
+│  → Write code following project standards                   │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  4. TEST                                                    │
+│  "Test my changes"                                          │
+│  → Build check, manual API testing                          │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  5. REVIEW                                                  │
+│  "Review my code"                                           │
+│  → Multi-perspective review (dev, QE, security, monitoring) │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  6. PREPARE PR                                              │
+│  "Prepare this for PR"                                      │
+│  → Quality checks, PR description                           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 2. Phase 1: Understand Requirements
+
+### Clarify Scope
+- What new functionality is needed?
+- Which part of the system does it affect? (poller, API, dashboard, notifications)
+- What data does it need? (new DB table? new RP API call? new config?)
+- Who uses it? (dashboard users, Slack recipients, automated systems)
+
+### Identify Components
+- **New API endpoint** → route file in `src/api/routes/`
+- **New data source** → client method in `src/clients/`
+- **New DB table/query** → schema in `src/db/schema.ts`, queries in `src/db/store.ts`
+- **New notification** → builder in `src/notifiers/`
+- **New dashboard section** → HTML/CSS/JS in `src/dashboard/public/`
+- **New poll logic** → poller or analyzer changes
+
+---
+
+## 3. Phase 2: Plan Implementation
+
+### Create Implementation Plan
+
+I will:
+1. Find relevant existing code and patterns
+2. Identify files to modify
+3. Suggest new files needed
+4. Recommend approach
+
+Output:
+- [ ] Step 1: Add DB schema changes (if needed)
+- [ ] Step 2: Add store queries
+- [ ] Step 3: Add client methods (if needed)
+- [ ] Step 4: Add API route
+- [ ] Step 5: Update dashboard UI
+- [ ] Step 6: Verify with build
+
+### Architecture Considerations
+- Does this fit existing module structure?
+- Can we reuse existing client/store methods?
+- What's the impact on existing endpoints?
+- Any new environment variables needed?
+
+---
+
+## 4. Phase 3: Implement
+
+### Following Project Patterns
+- Routes follow the Express try/catch/next pattern
+- Store functions use parameterized SQLite queries
+- Clients handle errors gracefully with config-based enablement
+- Config for new settings via environment variables
+
+### Implementation Order
+1. Database changes first (schema, store)
+2. Business logic (analyzer, poller)
+3. API routes
+4. Frontend (dashboard)
+5. Notifications (if applicable)
+
+### Agent Perspectives During Implementation
+
+**As Developer**: Code quality, patterns, error handling
+**As QE**: Edge cases, error scenarios
+**As Security**: Input validation, data handling
+**As Monitoring Expert**: RP API correctness, data model
+
+---
+
+## 5. Phase 4: Test
+
+### Build Check
+```bash
+npm run build
+```
+
+### Manual API Testing
+```bash
+# Test new endpoint
+curl http://localhost:8080/api/<new-endpoint>
+
+# Test with parameters
+curl http://localhost:8080/api/<new-endpoint>?param=value
+
+# Test POST endpoint
+curl -X POST http://localhost:8080/api/<new-endpoint> \
+  -H "Content-Type: application/json" \
+  -d '{"key": "value"}'
+```
+
+### Dashboard Testing
+- Start dev server: `npm run dev`
+- Open http://localhost:8080
+- Verify new UI elements appear
+- Check browser console for errors
+
+---
+
+## 6. Phase 5: Review
+
+### Self-Review
+Using `team-review.mdc`:
+- **Developer perspective**: Code quality, patterns
+- **QE perspective**: Edge cases, error handling
+- **Security perspective**: Input validation, data safety
+- **Monitoring Expert perspective**: Domain correctness
+
+---
+
+## 7. Phase 6: Prepare PR
+
+### Pre-PR Checks
+```bash
+npm run build            # No type errors
+```
+
+### Verify
+- [ ] All checks pass
+- [ ] No debug code (console.log, commented-out code)
+- [ ] Self-reviewed
+- [ ] New config documented in README
+- [ ] K8s manifests updated if needed
+
+---
+
+## 8. Example Session
+
+```
+Developer: "I want to add a trends API that returns 30-day pass rates"
+
+AI: Let me plan the implementation...
+
+Plan:
+1. Add store query: getPassRateTrends(days: number)
+2. Add route: GET /api/launches/trends
+3. Add dashboard chart section
+
+Step 1: Store query
+- Query: SELECT date, avg(passed*1.0/total) FROM launches GROUP BY date(start_time)
+
+Step 2: API route
+- New handler in src/api/routes/launches.ts
+
+Step 3: Dashboard
+- Add chart section in app.js using the trends endpoint
+
+Ready to start implementing?
+
+Developer: "Yes, go ahead"
+
+AI: [Implements following standards...]
+```

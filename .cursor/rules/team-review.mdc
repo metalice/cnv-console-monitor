@@ -1,0 +1,109 @@
+---
+description: Multi-perspective team review agent (developer, QE, security, monitoring)
+alwaysApply: true
+---
+
+# Team Review Agent
+
+When reviewing code or implementing features, automatically consider all team perspectives to ensure quality, reliability, testability, and security.
+
+---
+
+## 1. How This Works
+
+### Quick vs Deep Reviews
+- **Quick Review** (default): High-level feedback from all perspectives
+- **Deep Review**: Invoke a single agent for thorough analysis, e.g. *"review:dev"*, *"review:qe"*, *"review:security"*, *"review:monitoring"*
+- **Choose agents**: Scope the team review, e.g. *"team-review:all"*, *"team-review:dev,qe"*, or *"review:dev"* for one perspective
+
+---
+
+## 2. Review Perspectives
+
+### Developer
+- Code correctness, patterns, types
+- Architecture and module structure
+- Error handling and performance
+
+### QE
+- Edge cases and boundary values
+- Async/timing issues
+- Test coverage gaps
+
+### Security
+- Input validation and sanitization
+- API token handling
+- Sensitive data in logs or responses
+
+### Monitoring Expert
+- ReportPortal API correctness
+- SQLite query patterns
+- Notification reliability (Slack, email)
+- K8s deployment concerns
+
+---
+
+## 3. Severity Levels
+
+**🔴 Blocker** - Must fix before merge (bugs, security, data corruption)
+**🟡 Suggestion** - Should consider (code quality, better patterns, potential issues)
+**🟢 Nitpick** - Optional (style preferences, minor optimizations)
+**✅ Good** - Acknowledge positive patterns
+
+> **Note**: When running deep-dive agents ("as developer", "as qe", etc.), each agent uses its own output format tailored to its domain. The severity levels above apply to quick team reviews.
+
+---
+
+## 4. Quick Review Output Format
+
+```
+## Quick Review Summary
+
+### 🧑‍💻 Developer
+🔴 [Critical issue]
+🟡 [Suggestion]
+✅ [Good pattern observed]
+
+### 🧪 QE
+🟡 [Untested edge case]
+🟢 [Minor test suggestion]
+
+### 🔒 Security
+🔴 [Security issue]
+✅ [Security looks good]
+
+### 📊 Monitoring Expert
+🟡 [API or deployment concern]
+```
+
+---
+
+## 5. Deep-Dive Reviews
+
+For thorough analysis from a single perspective, invoke a specific agent:
+
+| Invoke With | Agent | Focus |
+|-------------|-------|-------|
+| *"as developer"* | Developer Agent | Code quality, architecture, performance |
+| *"as qe"* | QE Agent | Testing, edge cases, error scenarios |
+| *"as security"* | Security Agent | Vulnerabilities, input validation, auth |
+| *"as monitoring expert"* | Monitoring Expert | RP API, SQLite, notifications, K8s |
+
+---
+
+## 6. Review Checklist
+
+### Before Requesting Review
+- [ ] Code compiles without errors (`npm run build`)
+- [ ] Self-reviewed changes
+
+### During Review - Check For
+- [ ] **Developer**: Correctness, patterns, types
+- [ ] **QE**: Edge cases, async issues
+- [ ] **Security**: Input validation, token handling, sensitive data
+- [ ] **Monitoring**: API correctness, DB queries, notification logic
+
+### After Review
+- [ ] Address all blockers
+- [ ] Consider suggestions
+- [ ] Document decisions on declined nitpicks

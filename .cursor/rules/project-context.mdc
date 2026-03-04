@@ -1,0 +1,247 @@
+---
+description: CNV Console Monitor project context and architecture
+alwaysApply: true
+---
+
+# CNV Console Monitor
+
+Daily monitoring dashboard for CNV (Container-Native Virtualization) Console test runs from ReportPortal.
+
+---
+
+## 1. What Is This Project
+
+### Purpose
+- Polls ReportPortal daily for `test-kubevirt-console-*` launches
+- Sends Slack and email digests with pass/fail summaries
+- Provides a web dashboard for triage, Jira integration, and daily acknowledgment
+- Tracks test health trends and flaky tests over time
+
+### Technology Stack
+- **Node.js 20** - Runtime (Alpine-based Docker image)
+- **TypeScript 5.9** - Type-safe JavaScript
+- **Express 5** - HTTP server and REST API
+- **SQLite (better-sqlite3)** - Embedded database
+- **Axios** - HTTP client for ReportPortal and Jira APIs
+- **Nodemailer** - Email digest delivery
+- **node-cron** - Scheduling (used in CronJob entrypoint)
+
+### Architecture
+- Two entrypoints: **poller** (CronJob) and **dashboard** (long-running server)
+- Data flows from ReportPortal → SQLite → Dashboard + Slack/Email
+- Deployed on Kubernetes/OpenShift with CronJob + Deployment
+- Vanilla JS frontend (no framework) served as static files
+
+---
+
+## 2. Key Domain Concepts
+
+### ReportPortal Launch
+- A test execution run in ReportPortal
+- Contains metadata: CNV version, OCP version, tier, bundle, cluster name
+- Has aggregated stats: total, passed, failed, skipped
+
+### Test Item
+- Individual test case within a launch
+- Failed items include: error message, defect classification, Polarion ID
+- Can be linked to Jira issues and classified with defect types
+
+### Defect Classification
+- ReportPortal defect types: Product Bug, Automation Bug, System Issue, To Investigate, No Defect
+- Triage from dashboard updates classification in ReportPortal
+
+### Daily Report
+- Groups launches by CNV version and tier
+- Computes pass rates, identifies new vs recurring failures
+- Delivered via Slack Block Kit messages and HTML email
+
+### Acknowledgment
+- QE signs off that they reviewed the daily report
+- Tracked per date and reviewer in SQLite
+
+---
+
+## 3. Project Structure
+
+```
+cnv-console-monitor/
+├── src/
+│   ├── index.ts                  # CronJob entrypoint (poll + notify)
+│   ├── serve.ts                  # Dashboard server entrypoint
+│   ├── config.ts                 # Environment-based configuration
+│   ├── poller.ts                 # ReportPortal data fetcher
+│   ├── analyzer.ts               # Result grouping and analysis
+│   ├── api/
+│   │   ├── index.ts              # Express app setup
+│   │   ├── routes/
+│   │   │   ├── launches.ts       # Launch data endpoints
+│   │   │   ├── testItems.ts      # Test item endpoints
+│   │   │   ├── triage.ts         # Defect classification
+│   │   │   ├── analysis.ts       # RP analysis triggers
+│   │   │   ├── jira.ts           # Jira operations
+│   │   │   ├── acknowledgment.ts # Daily sign-off
+│   │   │   └── flaky.ts          # Flaky test detection
+│   │   └── middleware/
+│   │       └── errorHandler.ts   # Error handling
+│   ├── clients/
+│   │   ├── reportportal.ts       # ReportPortal API client
+│   │   └── jira.ts               # Jira API client
+│   ├── db/
+│   │   ├── schema.ts             # SQLite schema + init
+│   │   └── store.ts              # Data access layer (CRUD)
+│   ├── notifiers/
+│   │   ├── slack.ts              # Slack Block Kit notifications
+│   │   └── email.ts              # HTML email digest
+│   └── dashboard/
+│       └── public/
+│           ├── index.html        # Dashboard UI
+│           ├── styles.css        # Styling
+│           └── app.js            # Frontend logic
+├── k8s/
+│   ├── deployment.yaml           # Dashboard deployment
+│   ├── cronjob.yaml              # Daily poll CronJob
+│   ├── service.yaml              # ClusterIP service
+│   ├── route.yaml                # OpenShift Route
+│   ├── configmap.yaml            # Non-sensitive config
+│   ├── secret.yaml               # Sensitive credentials
+│   └── pvc.yaml                  # Persistent volume for SQLite
+├── dist/                         # Compiled JS output
+├── Dockerfile
+├── package.json
+├── tsconfig.json
+└── README.md
+```
+
+---
+
+## 4. Key Files & Entry Points
+
+### Entrypoints
+- `src/index.ts` - CronJob: poll → analyze → notify
+- `src/serve.ts` - Dashboard: Express server on port 8080
+
+### Core Logic
+- `src/poller.ts` - Fetches launches and failed test items from ReportPortal
+- `src/analyzer.ts` - Groups by version/tier, computes health, identifies new failures
+- `src/config.ts` - All configuration from environment variables
+
+### Data Layer
+- `src/db/schema.ts` - SQLite schema (launches, test_items, acknowledgments, triage_log)
+- `src/db/store.ts` - Queries and CRUD operations
+
+### External Integrations
+- `src/clients/reportportal.ts` - ReportPortal API (launches, test items, logs, defects, analysis)
+- `src/clients/jira.ts` - Jira API (search, create, link issues)
+- `src/notifiers/slack.ts` - Slack Block Kit message builder
+- `src/notifiers/email.ts` - HTML email digest builder
+
+### API Routes
+- `src/api/routes/` - Express routes for dashboard operations
+
+### Frontend
+- `src/dashboard/public/` - Vanilla JS SPA with status matrix, triage, trends, flaky tests
+
+---
+
+## 5. Dependencies
+
+### Production
+- `express` - HTTP server and routing
+- `better-sqlite3` - SQLite bindings (synchronous)
+- `axios` - HTTP client for external APIs
+- `nodemailer` - SMTP email sending
+- `node-cron` - Cron expression scheduling
+
+### Development
+- `typescript` - Compiler
+- `ts-node` - TypeScript execution
+- `@types/*` - Type definitions
+
+---
+
+## 6. Configuration
+
+All configuration via environment variables (see `src/config.ts`):
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `REPORTPORTAL_URL` | RP API base URL | (internal Red Hat URL) |
+| `REPORTPORTAL_TOKEN` | RP auth token | (required) |
+| `REPORTPORTAL_PROJECT` | RP project name | CNV |
+| `SLACK_WEBHOOK_URL` | Slack incoming webhook | (disabled if empty) |
+| `SMTP_HOST`, `SMTP_PORT`, etc. | Email config | (disabled if empty) |
+| `JIRA_URL`, `JIRA_TOKEN` | Jira config | (disabled if empty) |
+| `CRON_SCHEDULE` | Poll schedule | `0 7 * * *` |
+| `DASHBOARD_PORT` | Server port | 8080 |
+| `DB_PATH` | SQLite file location | `./data/monitor.db` |
+
+---
+
+## 7. API Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/launches` | Launches with status |
+| GET | `/api/launches/report` | Full daily report |
+| GET | `/api/launches/trends` | 30-day pass rate trend |
+| GET | `/api/test-items/launch/:id` | Test items for a launch |
+| GET | `/api/test-items/untriaged` | Untriaged failed items |
+| GET | `/api/test-items/:id/logs` | Logs for a test item |
+| POST | `/api/triage/:itemId` | Classify defect type |
+| POST | `/api/triage/:itemId/comment` | Add comment |
+| POST | `/api/analysis/:launchId/:type` | Trigger RP analysis |
+| POST | `/api/jira/create` | Create Jira bug |
+| POST | `/api/jira/link` | Link Jira issue |
+| GET | `/api/jira/search` | Search Jira |
+| GET | `/api/acknowledgment/today` | Today's ack status |
+| POST | `/api/acknowledgment` | Acknowledge report |
+| GET | `/api/flaky-tests` | Top flaky tests |
+| GET | `/health` | Health check |
+
+---
+
+## 8. Database Schema
+
+Four tables in SQLite:
+- **launches** - RP launch metadata (version, tier, status, pass/fail counts)
+- **test_items** - Failed test items (polarion ID, defect type, Jira link, AI prediction)
+- **acknowledgments** - Daily sign-offs (date, reviewer, notes)
+- **triage_log** - Audit trail for defect classification changes
+
+---
+
+## 9. Deployment
+
+### Docker
+```bash
+podman build -t quay.io/openshift-cnv/cnv-console-monitor:latest .
+```
+Multi-stage build: Node 20 Alpine, TypeScript compile, production image with SQLite.
+
+### Kubernetes
+```bash
+kubectl apply -f k8s/ -n cnv-monitor
+```
+- **Deployment** - Dashboard on port 8080, PVC-backed SQLite
+- **CronJob** - Runs at 7 AM Asia/Jerusalem, executes poller
+- **Service** - ClusterIP for internal access
+- **Route** - OpenShift Route for external access
+
+---
+
+## 10. Conventions
+
+### Code Organization
+- One module per concern (client, notifier, route, db)
+- Config from environment variables, never hardcoded
+- Synchronous SQLite operations (better-sqlite3)
+
+### Error Handling
+- Express error middleware for API errors
+- Graceful degradation when integrations are disabled
+- Meaningful error messages in API responses
+
+### TypeScript
+- Strict mode enabled
+- Explicit return types on functions
+- `type` preferred over `interface`

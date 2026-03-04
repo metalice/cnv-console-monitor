@@ -1,0 +1,172 @@
+---
+description: Common development commands for this project
+alwaysApply: false
+---
+
+# Common Commands
+
+Invoke with: *"how do I build"*, *"run locally"*, *"deploy"*, *"docker"*, *"what commands"*, *"npm scripts"*
+
+Reference for all development, build, and deployment commands.
+
+---
+
+## 1. Development
+
+### Start Development
+```bash
+npm install              # Install dependencies
+npm run dev              # Start dashboard server (port 8080, ts-node)
+npm run dev:poll         # Run poller manually (ts-node)
+```
+
+### Environment Variables (required for dev)
+```bash
+export REPORTPORTAL_URL=https://reportportal-cnv.apps...
+export REPORTPORTAL_TOKEN=your-token-here
+
+# Optional
+export SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+export JIRA_URL=https://issues.redhat.com
+export JIRA_TOKEN=your-jira-token
+export SMTP_HOST=smtp.example.com
+```
+
+### Prerequisites
+- Node.js >= 20
+- npm
+- Docker/Podman (for container builds)
+- `oc` or `kubectl` (for cluster deployment)
+
+---
+
+## 2. Building
+
+```bash
+npm run build            # Compile TypeScript → dist/
+```
+
+### Production Run
+```bash
+npm run build            # Compile first
+npm run start            # Run dashboard (node dist/serve.js)
+npm run poll             # Run poller (node dist/index.js)
+```
+
+---
+
+## 3. Code Quality
+
+```bash
+npm run build            # TypeScript compiler check (strict mode)
+```
+
+### Before Commit
+```bash
+npm run build            # Ensure no type errors
+```
+
+---
+
+## 4. Docker
+
+```bash
+# Build image
+podman build -t quay.io/openshift-cnv/cnv-console-monitor:latest .
+
+# Run locally
+podman run -it --rm \
+  -p 8080:8080 \
+  -e REPORTPORTAL_URL=... \
+  -e REPORTPORTAL_TOKEN=... \
+  -v ./data:/data \
+  quay.io/openshift-cnv/cnv-console-monitor:latest
+
+# Push to registry
+podman push quay.io/openshift-cnv/cnv-console-monitor:latest
+```
+
+---
+
+## 5. Kubernetes Deployment
+
+```bash
+# Deploy all resources
+kubectl apply -f k8s/ -n cnv-monitor
+
+# Individual resources
+kubectl apply -f k8s/configmap.yaml -n cnv-monitor
+kubectl apply -f k8s/secret.yaml -n cnv-monitor
+kubectl apply -f k8s/pvc.yaml -n cnv-monitor
+kubectl apply -f k8s/deployment.yaml -n cnv-monitor
+kubectl apply -f k8s/service.yaml -n cnv-monitor
+kubectl apply -f k8s/route.yaml -n cnv-monitor
+kubectl apply -f k8s/cronjob.yaml -n cnv-monitor
+```
+
+### Verify Deployment
+```bash
+kubectl get pods -n cnv-monitor
+kubectl logs -f deployment/cnv-console-monitor -n cnv-monitor
+kubectl get cronjob -n cnv-monitor
+```
+
+### Trigger Manual Poll
+```bash
+kubectl create job --from=cronjob/cnv-console-monitor-poll manual-poll -n cnv-monitor
+kubectl logs job/manual-poll -n cnv-monitor --follow
+```
+
+---
+
+## 6. Database
+
+### SQLite DB Location
+- Local: `./data/monitor.db` (default)
+- Container: `/data/monitor.db` (PVC-mounted)
+
+### Inspect Database
+```bash
+sqlite3 ./data/monitor.db
+.tables
+.schema launches
+SELECT count(*) FROM launches;
+SELECT count(*) FROM test_items;
+```
+
+---
+
+## 7. Troubleshooting
+
+### Common Issues
+
+| Issue | Fix |
+|-------|-----|
+| `MODULE_NOT_FOUND` | Run `npm install` |
+| SQLite errors | Check `DB_PATH` directory exists |
+| RP API 401 | Check `REPORTPORTAL_TOKEN` |
+| Slack not sending | Check `SLACK_WEBHOOK_URL` is set |
+| Port in use | Change `DASHBOARD_PORT` |
+
+### Clean Reinstall
+```bash
+rm -rf node_modules dist
+npm install
+npm run build
+```
+
+---
+
+## 8. Quick Reference
+
+### Daily Development
+```bash
+npm run dev                              # Dashboard at localhost:8080
+npm run dev:poll                         # Run one poll cycle
+```
+
+### Before Deploying
+```bash
+npm run build                            # Compile
+podman build -t quay.io/openshift-cnv/cnv-console-monitor:latest .
+```

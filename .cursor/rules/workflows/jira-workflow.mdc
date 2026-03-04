@@ -1,0 +1,118 @@
+---
+description: Workflow for working with Jira tickets using MCP
+alwaysApply: false
+---
+
+# Jira Workflow
+
+Invoke with: *"get my tickets"*, *"show sprint issues"*, *"search jira"*, *"create ticket"*
+
+This workflow covers Jira MCP operations for task management.
+
+---
+
+## 1. Finding Tickets
+
+**Get My Assigned Tickets**
+```
+"Show my assigned tickets"
+```
+→ Uses `jira_search` with JQL: `assignee = currentUser() AND status != Done`
+
+**Search for Specific Tickets**
+```
+"Find open bugs in CNV project"
+```
+→ Uses `jira_search` with appropriate JQL
+
+**Get Ticket Details**
+```
+"Get details for CNV-12345"
+```
+→ Uses `jira_get_issue`
+
+---
+
+## 2. Common JQL Queries
+
+### By Status
+```jql
+assignee = currentUser() AND status = "In Progress"
+status = "Ready for Dev" AND project = CNV
+```
+
+### By Type
+```jql
+issuetype = Bug AND project = CNV AND status != Done
+issuetype = Story AND assignee = currentUser()
+```
+
+### By Time
+```jql
+updated >= -7d AND assignee = currentUser()
+created >= startOfWeek() AND project = CNV
+```
+
+### By Label
+```jql
+labels = console-monitor AND project = CNV
+labels = qe-tooling AND status != Done
+```
+
+---
+
+## 3. Creating Tickets
+
+**Create Bug from Test Failure**
+```
+"Create a bug for this test failure"
+```
+
+Include in bug description:
+- Test name and Polarion ID
+- Error message / stack trace
+- Launch details (CNV version, tier, cluster)
+- Link to ReportPortal launch
+- Link to dashboard
+
+---
+
+## 4. Updating Tickets
+
+**Add a Comment**
+```
+"Add comment to CNV-12345: Fixed in latest poll"
+```
+→ Uses `jira_add_comment`
+
+---
+
+## 5. Ticket Analysis
+
+When fetching a ticket, analyze:
+- **Summary**: High-level goal
+- **Description**: Detailed requirements
+- **Acceptance Criteria**: What defines "done"
+- **Related Issues**: Blockers, dependencies
+- **Comments**: Discussion and clarifications
+
+---
+
+## 6. MCP Tool Reference
+
+| Tool | Purpose |
+|------|---------|
+| `jira_search` | Find tickets with JQL |
+| `jira_get_issue` | Get ticket details |
+| `jira_add_comment` | Add comments |
+
+Tools are called automatically when you make requests. Just describe what you want in natural language.
+
+---
+
+## 7. Tips
+
+- Be specific: "Show bugs assigned to me" vs "show issues"
+- Use project codes: "CNV-12345" not just "12345"
+- Check ticket comments before starting work
+- Add comments when starting/finishing work

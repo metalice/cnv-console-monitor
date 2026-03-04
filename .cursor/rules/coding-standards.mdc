@@ -1,0 +1,202 @@
+---
+description: Coding standards and best practices for this project
+globs: ["src/**/*.ts", "src/dashboard/**/*.{js,css,html}"]
+alwaysApply: false
+---
+
+# Coding Standards
+
+Coding standards for the CNV Console Monitor project. Apply to backend TypeScript, frontend JS, and configuration files.
+
+---
+
+## General Goals
+
+- Aim for **maintainable, readable code** while keeping the project simple
+- This is a utility/internal tool — pragmatism over complexity
+- Keep dependencies minimal and purpose-driven
+
+---
+
+## 1. File Conventions
+
+### File Extensions
+- **Backend logic**: `.ts` for all TypeScript files
+- **Frontend**: `.js`, `.css`, `.html` (vanilla, no framework)
+- **Config**: `.json` for package.json, tsconfig.json
+
+### File Naming
+- **All files**: camelCase (`reportportal.ts`, `errorHandler.ts`)
+- **Config/schema**: descriptive camelCase (`schema.ts`, `config.ts`)
+
+### Folder Naming
+- Always lowercase (`api/`, `routes/`, `clients/`, `notifiers/`, `db/`)
+
+### File Size Limits
+- Maximum **200 lines** per file
+- If exceeding, split into smaller modules
+- One concern per file
+
+---
+
+## 2. Module Organization
+
+### Folder Structure
+```
+src/
+├── api/           # Express app, routes, middleware
+│   ├── routes/    # One file per resource
+│   └── middleware/ # Shared middleware
+├── clients/       # External API clients
+├── db/            # Database schema and queries
+├── notifiers/     # Notification senders
+├── dashboard/     # Frontend static files
+└── (root)         # Entrypoints, config, core logic
+```
+
+### Module Rules
+- One external client per file in `clients/`
+- One route file per API resource in `routes/`
+- Database schema and queries separated
+- Notifier per channel in `notifiers/`
+
+---
+
+## 3. TypeScript Standards
+
+### Type Safety
+- **Never use `any`** — use `unknown` and narrow with type guards
+- Always define explicit return types on exported functions
+- Use optional chaining (`?.`) for nullable access
+- Provide fallback values with nullish coalescing (`??`)
+
+### Naming Conventions
+- Types: PascalCase (`LaunchData`, `TriageAction`)
+- Constants: UPPER_SNAKE_CASE (`DEFAULT_PORT`, `POLL_INTERVAL_MS`)
+- Functions/variables: camelCase (`fetchLaunches`, `buildReport`)
+
+### Type Organization
+- Module-specific types: in the same file or a sibling `types.ts`
+- Shared types: in a `types.ts` at `src/` level
+
+### Prefer `type` Over `interface`
+- Use `type` for object shapes and unions
+- Use `interface` only when extending is explicitly needed
+
+---
+
+## 4. Express & API Patterns
+
+### Route Structure
+```typescript
+import { Router } from 'express';
+const router = Router();
+
+router.get('/', async (req, res, next) => {
+  try {
+    // handler logic
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+export default router;
+```
+
+### Error Handling
+- Use try/catch in all async route handlers
+- Forward errors to Express error middleware via `next(err)`
+- Return appropriate HTTP status codes
+- Never expose internal error details to clients
+
+### Response Format
+- Consistent JSON structure for all endpoints
+- Include meaningful error messages
+- Use proper HTTP methods (GET for reads, POST for mutations)
+
+---
+
+## 5. Database Patterns
+
+### SQLite Usage (better-sqlite3)
+- Operations are **synchronous** — no await needed
+- Use prepared statements for repeated queries
+- Use transactions for multi-statement operations
+- Use WAL journal mode (already configured)
+
+### Query Organization
+- All queries in `src/db/store.ts`
+- Use named parameters in SQL (`:param` style)
+- Always handle `undefined` results from `.get()`
+
+---
+
+## 6. External API Clients
+
+### Client Structure
+- One file per external service (`reportportal.ts`, `jira.ts`)
+- Config-driven: check `config.*.enabled` before calling
+- Graceful degradation when service is unavailable
+- Timeout handling on all HTTP requests
+
+### Error Handling
+- Log API errors with context (URL, status, message)
+- Don't let external failures crash the application
+- Retry logic where appropriate (polling)
+
+---
+
+## 7. Configuration
+
+### Environment Variables
+- All config via environment variables (see `config.ts`)
+- Sensible defaults for non-sensitive values
+- No hardcoded credentials, URLs, or secrets
+- Feature flags via presence of config values (e.g., `enabled: !!process.env.SLACK_WEBHOOK_URL`)
+
+---
+
+## 8. Code Quality
+
+### Comments
+- Avoid comments when possible; write self-documenting code
+- Use comments for non-obvious decisions or workarounds
+- Include links to issues for workarounds
+
+### Error Handling
+- Never swallow errors silently
+- Always provide meaningful error messages
+- Handle all async operations with try/catch
+- Clean up resources (DB connections, etc.)
+
+### No Debug Code
+- No `console.log` in production code
+- Use proper logging when needed
+- No commented-out code
+
+---
+
+## 9. Frontend (Vanilla JS)
+
+### Dashboard Code (`src/dashboard/public/`)
+- Plain HTML, CSS, JavaScript — no build step
+- Fetch API for REST calls to the backend
+- DOM manipulation via `document.querySelector`
+- Keep UI logic simple and readable
+
+---
+
+## 10. AI-Specific Guidance
+
+### When Generating Code
+- Check for existing patterns in neighboring files before creating new ones
+- Reuse existing client methods and store functions
+- Match the style of existing route handlers
+- Run `npm run build` after making changes
+
+### When Reviewing Code
+- Check that config values are not hardcoded
+- Ensure error handling exists on all async paths
+- Verify no sensitive data in responses or logs
+- Ensure DB queries use parameterized statements
