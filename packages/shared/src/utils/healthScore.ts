@@ -14,5 +14,7 @@ export function healthLabel(health: HealthStatus): string {
       return 'In Progress';
     case 'red':
       return 'Has Failures';
+    default:
+      return 'Unknown';
   }
 }

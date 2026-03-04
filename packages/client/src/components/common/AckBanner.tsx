@@ -19,7 +19,7 @@ export const AckBanner: React.FC<AckBannerProps> = ({ onAcknowledge }) => {
   if (data.acknowledged) {
     const lastAck = data.acknowledgments[data.acknowledgments.length - 1];
     return (
-      <Banner variant="success" style={{ marginBottom: 16 }}>
+      <Banner color="green" style={{ marginBottom: 16 }}>
         <Flex>
           <FlexItem>
             Reviewed by <strong>{lastAck.reviewer}</strong> at{' '}
@@ -32,7 +32,7 @@ export const AckBanner: React.FC<AckBannerProps> = ({ onAcknowledge }) => {
   }
 
   return (
-    <Banner variant="warning" style={{ marginBottom: 16 }}>
+    <Banner color="yellow" style={{ marginBottom: 16 }}>
       <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }}>
         <FlexItem>Today's report has not been reviewed yet.</FlexItem>
         <FlexItem>

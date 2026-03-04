@@ -7,7 +7,6 @@ import {
   CardBody,
   EmptyState,
   EmptyStateBody,
-  EmptyStateIcon,
 } from '@patternfly/react-core';
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import { CheckCircleIcon } from '@patternfly/react-icons';
@@ -21,7 +20,7 @@ export const FlakyTestsPage: React.FC = () => {
 
   return (
     <>
-      <PageSection variant="light">
+      <PageSection>
         <Content component="h1">Flaky Tests</Content>
         <Content component="small">Tests that flip between pass and fail (last 14 days)</Content>
       </PageSection>
@@ -32,8 +31,7 @@ export const FlakyTestsPage: React.FC = () => {
             {isLoading ? (
               <Content>Loading...</Content>
             ) : !tests?.length ? (
-              <EmptyState>
-                <EmptyStateIcon icon={CheckCircleIcon} />
+              <EmptyState icon={CheckCircleIcon} headingLevel="h4" titleText="No flaky tests!">
                 <EmptyStateBody>No flaky tests detected. Nice!</EmptyStateBody>
               </EmptyState>
             ) : (

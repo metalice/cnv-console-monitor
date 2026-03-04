@@ -19,7 +19,7 @@ export const TrendsPage: React.FC = () => {
 
   return (
     <>
-      <PageSection variant="light">
+      <PageSection>
         <Content component="h1">Trends</Content>
         <Content component="small">Pass rate and test metrics over the last 30 days</Content>
       </PageSection>

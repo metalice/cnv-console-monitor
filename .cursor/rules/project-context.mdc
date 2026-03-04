@@ -14,154 +14,196 @@ Daily monitoring dashboard for CNV (Container-Native Virtualization) Console tes
 ### Purpose
 - Polls ReportPortal daily for `test-kubevirt-console-*` launches
 - Sends Slack and email digests with pass/fail summaries
-- Provides a web dashboard for triage, Jira integration, and daily acknowledgment
+- Provides a React web dashboard for triage, Jira integration, and daily acknowledgment
 - Tracks test health trends and flaky tests over time
 
 ### Technology Stack
+- **Monorepo** - npm workspaces with 3 packages
 - **Node.js 20** - Runtime (Alpine-based Docker image)
-- **TypeScript 5.9** - Type-safe JavaScript
-- **Express 5** - HTTP server and REST API
+- **TypeScript 5.9** - Type-safe JavaScript (strict mode)
+- **Express 5** - HTTP server and REST API (`packages/server`)
+- **React 18** - Frontend UI framework (`packages/client`)
+- **PatternFly 6** - Red Hat design system (core, icons, table, charts)
+- **TanStack React Query 5** - Server state management
+- **React Router 6** - Client-side routing
+- **Vite 6** - Frontend build tool and dev server
+- **Zod 3** - Schema validation (shared types + API validation)
 - **SQLite (better-sqlite3)** - Embedded database
 - **Axios** - HTTP client for ReportPortal and Jira APIs
 - **Nodemailer** - Email digest delivery
-- **node-cron** - Scheduling (used in CronJob entrypoint)
-
-### Architecture
-- Two entrypoints: **poller** (CronJob) and **dashboard** (long-running server)
-- Data flows from ReportPortal → SQLite → Dashboard + Slack/Email
-- Deployed on Kubernetes/OpenShift with CronJob + Deployment
-- Vanilla JS frontend (no framework) served as static files
+- **node-cron** - Scheduling (CronJob entrypoint)
+- **Vitest** - Server unit testing
+- **Supertest** - HTTP route testing
 
 ---
 
-## 2. Key Domain Concepts
-
-### ReportPortal Launch
-- A test execution run in ReportPortal
-- Contains metadata: CNV version, OCP version, tier, bundle, cluster name
-- Has aggregated stats: total, passed, failed, skipped
-
-### Test Item
-- Individual test case within a launch
-- Failed items include: error message, defect classification, Polarion ID
-- Can be linked to Jira issues and classified with defect types
-
-### Defect Classification
-- ReportPortal defect types: Product Bug, Automation Bug, System Issue, To Investigate, No Defect
-- Triage from dashboard updates classification in ReportPortal
-
-### Daily Report
-- Groups launches by CNV version and tier
-- Computes pass rates, identifies new vs recurring failures
-- Delivered via Slack Block Kit messages and HTML email
-
-### Acknowledgment
-- QE signs off that they reviewed the daily report
-- Tracked per date and reviewer in SQLite
-
----
-
-## 3. Project Structure
+## 2. Monorepo Structure
 
 ```
 cnv-console-monitor/
-├── src/
-│   ├── index.ts                  # CronJob entrypoint (poll + notify)
-│   ├── serve.ts                  # Dashboard server entrypoint
-│   ├── config.ts                 # Environment-based configuration
-│   ├── poller.ts                 # ReportPortal data fetcher
-│   ├── analyzer.ts               # Result grouping and analysis
-│   ├── api/
-│   │   ├── index.ts              # Express app setup
-│   │   ├── routes/
-│   │   │   ├── launches.ts       # Launch data endpoints
-│   │   │   ├── testItems.ts      # Test item endpoints
-│   │   │   ├── triage.ts         # Defect classification
-│   │   │   ├── analysis.ts       # RP analysis triggers
-│   │   │   ├── jira.ts           # Jira operations
-│   │   │   ├── acknowledgment.ts # Daily sign-off
-│   │   │   └── flaky.ts          # Flaky test detection
-│   │   └── middleware/
-│   │       └── errorHandler.ts   # Error handling
-│   ├── clients/
-│   │   ├── reportportal.ts       # ReportPortal API client
-│   │   └── jira.ts               # Jira API client
-│   ├── db/
-│   │   ├── schema.ts             # SQLite schema + init
-│   │   └── store.ts              # Data access layer (CRUD)
-│   ├── notifiers/
-│   │   ├── slack.ts              # Slack Block Kit notifications
-│   │   └── email.ts              # HTML email digest
-│   └── dashboard/
-│       └── public/
-│           ├── index.html        # Dashboard UI
-│           ├── styles.css        # Styling
-│           └── app.js            # Frontend logic
-├── k8s/
-│   ├── deployment.yaml           # Dashboard deployment
-│   ├── cronjob.yaml              # Daily poll CronJob
-│   ├── service.yaml              # ClusterIP service
-│   ├── route.yaml                # OpenShift Route
-│   ├── configmap.yaml            # Non-sensitive config
-│   ├── secret.yaml               # Sensitive credentials
-│   └── pvc.yaml                  # Persistent volume for SQLite
-├── dist/                         # Compiled JS output
-├── Dockerfile
-├── package.json
-├── tsconfig.json
-└── README.md
+├── packages/
+│   ├── shared/                   # @cnv-monitor/shared
+│   │   ├── src/
+│   │   │   ├── index.ts          # Barrel exports
+│   │   │   ├── schemas/          # Zod schemas + inferred types
+│   │   │   │   ├── launch.ts     # Launch, LaunchGroup, LaunchStatus
+│   │   │   │   ├── testItem.ts   # TestItem
+│   │   │   │   ├── triage.ts     # TriageRequest, BulkTriageRequest, JiraCreate/Link, Acknowledge
+│   │   │   │   ├── acknowledgment.ts
+│   │   │   │   ├── defectType.ts
+│   │   │   │   ├── trend.ts
+│   │   │   │   ├── flaky.ts
+│   │   │   │   ├── activity.ts
+│   │   │   │   ├── report.ts     # DailyReport
+│   │   │   │   └── config.ts     # PublicConfig
+│   │   │   └── utils/            # Shared utilities
+│   │   │       ├── healthScore.ts
+│   │   │       └── timeAgo.ts
+│   │   └── package.json          # deps: zod
+│   │
+│   ├── server/                   # @cnv-monitor/server
+│   │   ├── src/
+│   │   │   ├── index.ts          # CronJob entrypoint (poll + notify)
+│   │   │   ├── serve.ts          # Dashboard server entrypoint
+│   │   │   ├── config.ts         # Environment-based configuration
+│   │   │   ├── poller.ts         # ReportPortal data fetcher
+│   │   │   ├── analyzer.ts       # Result grouping and analysis
+│   │   │   ├── api/
+│   │   │   │   ├── index.ts      # Express app setup (createApp)
+│   │   │   │   ├── middleware/
+│   │   │   │   │   ├── errorHandler.ts
+│   │   │   │   │   └── validate.ts   # Zod validateBody middleware
+│   │   │   │   └── routes/
+│   │   │   │       ├── launches.ts
+│   │   │   │       ├── testItems.ts
+│   │   │   │       ├── triage.ts
+│   │   │   │       ├── analysis.ts
+│   │   │   │       ├── jira.ts
+│   │   │   │       ├── acknowledgment.ts
+│   │   │   │       ├── flaky.ts
+│   │   │   │       ├── defectTypes.ts
+│   │   │   │       ├── activity.ts
+│   │   │   │       └── configPublic.ts
+│   │   │   ├── clients/
+│   │   │   │   ├── reportportal.ts
+│   │   │   │   └── jira.ts
+│   │   │   ├── db/
+│   │   │   │   ├── schema.ts
+│   │   │   │   └── store.ts
+│   │   │   └── notifiers/
+│   │   │       ├── slack.ts
+│   │   │       └── email.ts
+│   │   └── package.json          # deps: express, better-sqlite3, axios, nodemailer, node-cron
+│   │
+│   └── client/                   # @cnv-monitor/client
+│       ├── index.html            # Vite entry HTML
+│       ├── vite.config.ts        # Vite config with /api proxy
+│       ├── src/
+│       │   ├── main.tsx          # React root (QueryClient, BrowserRouter)
+│       │   ├── App.tsx           # Routes definition
+│       │   ├── api/              # API client functions
+│       │   │   ├── client.ts     # apiFetch, apiPost, ApiError
+│       │   │   ├── launches.ts
+│       │   │   ├── testItems.ts
+│       │   │   ├── triage.ts
+│       │   │   ├── analysis.ts
+│       │   │   ├── jira.ts
+│       │   │   ├── acknowledgment.ts
+│       │   │   ├── flaky.ts
+│       │   │   ├── defectTypes.ts
+│       │   │   └── activity.ts
+│       │   ├── components/
+│       │   │   ├── common/       # StatusBadge, PassRateBar, TimeAgo, AckBanner, HealthBanner, ExportButton
+│       │   │   ├── detail/       # LogViewer, SimilarFailuresPanel
+│       │   │   ├── layout/       # AppLayout (PatternFly Page, Masthead, Sidebar)
+│       │   │   └── modals/       # TriageModal, JiraCreateModal, JiraLinkModal, AcknowledgeModal
+│       │   └── pages/            # DashboardPage, LaunchDetailPage, FailuresPage, TrendsPage, FlakyTestsPage, ActivityPage, SettingsPage
+│       └── package.json          # deps: react, react-router-dom, @tanstack/react-query, @patternfly/*
+│
+├── k8s/                          # Kubernetes manifests
+│   ├── deployment.yaml
+│   ├── cronjob.yaml
+│   ├── service.yaml
+│   ├── route.yaml
+│   ├── configmap.yaml
+│   ├── secret.yaml
+│   └── pvc.yaml
+├── .github/workflows/ci.yml     # CI: build, typecheck, test, Docker
+├── Dockerfile                    # Multi-stage monorepo build
+├── package.json                  # Root workspace config
+├── tsconfig.base.json            # Shared TS config (composite)
+└── .gitignore
 ```
 
 ---
 
-## 4. Key Files & Entry Points
+## 3. Key Domain Concepts
 
-### Entrypoints
-- `src/index.ts` - CronJob: poll → analyze → notify
-- `src/serve.ts` - Dashboard: Express server on port 8080
+### ReportPortal Launch
+- A test execution run; contains metadata: CNV version, OCP version, tier, bundle, cluster name
+- Stats: total, passed, failed, skipped
+- Status values: PASSED, FAILED, INTERRUPTED, STOPPED, IN_PROGRESS
 
-### Core Logic
-- `src/poller.ts` - Fetches launches and failed test items from ReportPortal
-- `src/analyzer.ts` - Groups by version/tier, computes health, identifies new failures
-- `src/config.ts` - All configuration from environment variables
+### Test Item
+- Individual test case within a launch; failed items include error message, defect type, Polarion ID
+- Can be linked to Jira issues and classified with defect types
 
-### Data Layer
-- `src/db/schema.ts` - SQLite schema (launches, test_items, acknowledgments, triage_log)
-- `src/db/store.ts` - Queries and CRUD operations
+### Defect Classification
+- RP defect types: Product Bug, Automation Bug, System Issue, To Investigate, No Defect
+- Triage from dashboard updates classification in ReportPortal
 
-### External Integrations
-- `src/clients/reportportal.ts` - ReportPortal API (launches, test items, logs, defects, analysis)
-- `src/clients/jira.ts` - Jira API (search, create, link issues)
-- `src/notifiers/slack.ts` - Slack Block Kit message builder
-- `src/notifiers/email.ts` - HTML email digest builder
+### Daily Report
+- Groups launches by CNV version and tier; computes pass rates, identifies new vs recurring failures
 
-### API Routes
-- `src/api/routes/` - Express routes for dashboard operations
-
-### Frontend
-- `src/dashboard/public/` - Vanilla JS SPA with status matrix, triage, trends, flaky tests
+### Acknowledgment
+- QE signs off that they reviewed the daily report; tracked per date and reviewer
 
 ---
 
-## 5. Dependencies
+## 4. API Endpoints
 
-### Production
-- `express` - HTTP server and routing
-- `better-sqlite3` - SQLite bindings (synchronous)
-- `axios` - HTTP client for external APIs
-- `nodemailer` - SMTP email sending
-- `node-cron` - Cron expression scheduling
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/launches` | Launches with status |
+| GET | `/api/launches/report` | Full daily report |
+| GET | `/api/launches/trends` | 30-day pass rate trend |
+| GET | `/api/test-items/launch/:id` | Test items for a launch |
+| GET | `/api/test-items/untriaged` | Untriaged failed items |
+| GET | `/api/test-items/:id/logs` | Logs for a test item |
+| POST | `/api/triage/:itemId` | Classify defect type (Zod validated) |
+| POST | `/api/triage/:itemId/comment` | Add comment (Zod validated) |
+| POST | `/api/triage/bulk` | Bulk triage (Zod validated) |
+| POST | `/api/analysis/:launchId/:type` | Trigger RP analysis |
+| POST | `/api/jira/create` | Create Jira bug |
+| POST | `/api/jira/link` | Link Jira issue |
+| GET | `/api/jira/search` | Search Jira |
+| GET | `/api/acknowledgment/today` | Today's ack status |
+| POST | `/api/acknowledgment` | Acknowledge report (Zod validated) |
+| GET | `/api/flaky-tests` | Top flaky tests |
+| GET | `/api/defect-types` | Available defect types |
+| GET | `/api/activity` | Activity feed |
+| GET | `/api/config` | Public configuration |
+| GET | `/health` | Health check |
 
-### Development
-- `typescript` - Compiler
-- `ts-node` - TypeScript execution
-- `@types/*` - Type definitions
+---
+
+## 5. Client Pages
+
+| Route | Page | Purpose |
+|-------|------|---------|
+| `/` | DashboardPage | Status matrix, health overview, acknowledgment |
+| `/launch/:launchId` | LaunchDetailPage | Test items, logs, triage, similar failures |
+| `/failures` | FailuresPage | Untriaged and failed items across launches |
+| `/trends` | TrendsPage | 30-day pass rate charts |
+| `/flaky` | FlakyTestsPage | Tests that flip between pass and fail |
+| `/activity` | ActivityPage | Triage and acknowledgment activity feed |
+| `/settings` | SettingsPage | Configuration and preferences |
 
 ---
 
 ## 6. Configuration
 
-All configuration via environment variables (see `src/config.ts`):
+All configuration via environment variables (see `packages/server/src/config.ts`):
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
@@ -177,71 +219,48 @@ All configuration via environment variables (see `src/config.ts`):
 
 ---
 
-## 7. API Endpoints
+## 7. Data Flow
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/api/launches` | Launches with status |
-| GET | `/api/launches/report` | Full daily report |
-| GET | `/api/launches/trends` | 30-day pass rate trend |
-| GET | `/api/test-items/launch/:id` | Test items for a launch |
-| GET | `/api/test-items/untriaged` | Untriaged failed items |
-| GET | `/api/test-items/:id/logs` | Logs for a test item |
-| POST | `/api/triage/:itemId` | Classify defect type |
-| POST | `/api/triage/:itemId/comment` | Add comment |
-| POST | `/api/analysis/:launchId/:type` | Trigger RP analysis |
-| POST | `/api/jira/create` | Create Jira bug |
-| POST | `/api/jira/link` | Link Jira issue |
-| GET | `/api/jira/search` | Search Jira |
-| GET | `/api/acknowledgment/today` | Today's ack status |
-| POST | `/api/acknowledgment` | Acknowledge report |
-| GET | `/api/flaky-tests` | Top flaky tests |
-| GET | `/health` | Health check |
+```
+K8s CronJob (7 AM) → pollReportPortal() → ReportPortal API
+                         ↓
+                   SQLite (launches, test_items)
+                         ↓
+                   buildDailyReport() → Slack + Email
+
+K8s Deployment → Express → serves React SPA + REST API
+                   ↓
+         React (TanStack Query) → /api/* → SQLite + RP + Jira
+```
 
 ---
 
-## 8. Database Schema
+## 8. Development
 
-Four tables in SQLite:
-- **launches** - RP launch metadata (version, tier, status, pass/fail counts)
-- **test_items** - Failed test items (polarion ID, defect type, Jira link, AI prediction)
-- **acknowledgments** - Daily sign-offs (date, reviewer, notes)
-- **triage_log** - Audit trail for defect classification changes
+```bash
+npm install                   # Install all workspaces
+npm run dev                   # Concurrently: server (8080) + client (5173 with proxy)
+npm run dev:server            # Server only
+npm run dev:client            # Client only (Vite)
+npm run build                 # Build shared → server → client
+npm run typecheck             # TypeScript check (shared + server)
+npm run test                  # Vitest (server)
+npm run poll                  # Run one poll cycle
+```
 
 ---
 
 ## 9. Deployment
 
-### Docker
+### Docker (multi-stage monorepo build)
 ```bash
 podman build -t quay.io/openshift-cnv/cnv-console-monitor:latest .
 ```
-Multi-stage build: Node 20 Alpine, TypeScript compile, production image with SQLite.
 
 ### Kubernetes
 ```bash
 kubectl apply -f k8s/ -n cnv-monitor
 ```
-- **Deployment** - Dashboard on port 8080, PVC-backed SQLite
-- **CronJob** - Runs at 7 AM Asia/Jerusalem, executes poller
-- **Service** - ClusterIP for internal access
-- **Route** - OpenShift Route for external access
 
----
-
-## 10. Conventions
-
-### Code Organization
-- One module per concern (client, notifier, route, db)
-- Config from environment variables, never hardcoded
-- Synchronous SQLite operations (better-sqlite3)
-
-### Error Handling
-- Express error middleware for API errors
-- Graceful degradation when integrations are disabled
-- Meaningful error messages in API responses
-
-### TypeScript
-- Strict mode enabled
-- Explicit return types on functions
-- `type` preferred over `interface`
+### CI
+GitHub Actions: build all packages → typecheck → test → build Docker → push to Quay.io

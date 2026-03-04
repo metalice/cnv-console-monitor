@@ -32,7 +32,7 @@ export const ActivityPage: React.FC = () => {
 
   return (
     <>
-      <PageSection variant="light">
+      <PageSection>
         <Content component="h1">Activity Feed</Content>
         <Content component="small">Recent triage, Jira, and acknowledgment actions</Content>
       </PageSection>

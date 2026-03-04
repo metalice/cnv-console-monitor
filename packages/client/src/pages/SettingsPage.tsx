@@ -23,7 +23,7 @@ export const SettingsPage: React.FC = () => {
 
   return (
     <>
-      <PageSection variant="light">
+      <PageSection>
         <Content component="h1">Settings</Content>
         <Content component="small">Monitor configuration (read-only)</Content>
       </PageSection>

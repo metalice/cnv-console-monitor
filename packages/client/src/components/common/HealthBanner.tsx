@@ -10,14 +10,14 @@ interface HealthBannerProps {
 }
 
 export const HealthBanner: React.FC<HealthBannerProps> = ({ health, passed, failed, inProgress }) => {
-  const variant = health === 'green' ? 'success' : health === 'red' ? 'danger' : 'warning';
+  const color = health === 'green' ? 'green' as const : health === 'red' ? 'red' as const : 'yellow' as const;
   const message =
     health === 'green'
       ? `All ${passed} launches passed`
       : `${failed} failed / ${passed} passed${inProgress > 0 ? ` / ${inProgress} in progress` : ''}`;
 
   return (
-    <Banner variant={variant} style={{ marginBottom: 16 }}>
+    <Banner color={color} style={{ marginBottom: 16 }}>
       {message}
     </Banner>
   );

@@ -14,7 +14,6 @@ import {
   FlexItem,
   EmptyState,
   EmptyStateBody,
-  EmptyStateIcon,
 } from '@patternfly/react-core';
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import { CheckCircleIcon, WrenchIcon, BugIcon } from '@patternfly/react-icons';
@@ -46,7 +45,7 @@ export const FailuresPage: React.FC = () => {
 
   return (
     <>
-      <PageSection variant="light">
+      <PageSection>
         <Content component="h1">Untriaged Failures</Content>
         <Content component="small">Test items that need classification</Content>
       </PageSection>
@@ -72,9 +71,8 @@ export const FailuresPage: React.FC = () => {
             {isLoading ? (
               <Content>Loading...</Content>
             ) : !items?.length ? (
-              <EmptyState>
-                <EmptyStateIcon icon={CheckCircleIcon} />
-                <EmptyStateBody>No untriaged failures. All caught up!</EmptyStateBody>
+              <EmptyState icon={CheckCircleIcon} headingLevel="h4" titleText="All caught up!">
+                <EmptyStateBody>No untriaged failures.</EmptyStateBody>
               </EmptyState>
             ) : (
               <Table aria-label="Untriaged failures">
