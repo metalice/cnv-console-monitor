@@ -7,200 +7,152 @@ alwaysApply: false
 
 Invoke with: *"start a new feature"*, *"add a feature"*, *"full development workflow"*
 
-This is the complete workflow from understanding a feature to implementing it.
+Complete workflow from understanding a feature to implementing it across the monorepo.
 
 ---
 
 ## 1. Workflow Overview
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  1. UNDERSTAND REQUIREMENTS                                 │
-│  "I want to add X to the dashboard"                         │
-│  → Clarify scope, identify affected components              │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│  2. PLAN IMPLEMENTATION                                     │
-│  "Help me plan the implementation"                          │
-│  → Identify files to modify, new modules to create          │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│  3. IMPLEMENT                                               │
-│  "Create the endpoint", "Add the feature"                   │
-│  → Write code following project standards                   │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│  4. TEST                                                    │
-│  "Test my changes"                                          │
-│  → Build check, manual API testing                          │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│  5. REVIEW                                                  │
-│  "Review my code"                                           │
-│  → Multi-perspective review (dev, QE, security, monitoring) │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│  6. PREPARE PR                                              │
-│  "Prepare this for PR"                                      │
-│  → Quality checks, PR description                           │
-└─────────────────────────────────────────────────────────────┘
+1. UNDERSTAND → 2. PLAN → 3. IMPLEMENT → 4. TEST → 5. REVIEW → 6. PR
 ```
 
 ---
 
 ## 2. Phase 1: Understand Requirements
 
-### Clarify Scope
 - What new functionality is needed?
-- Which part of the system does it affect? (poller, API, dashboard, notifications)
-- What data does it need? (new DB table? new RP API call? new config?)
-- Who uses it? (dashboard users, Slack recipients, automated systems)
-
-### Identify Components
-- **New API endpoint** → route file in `src/api/routes/`
-- **New data source** → client method in `src/clients/`
-- **New DB table/query** → schema in `src/db/schema.ts`, queries in `src/db/store.ts`
-- **New notification** → builder in `src/notifiers/`
-- **New dashboard section** → HTML/CSS/JS in `src/dashboard/public/`
-- **New poll logic** → poller or analyzer changes
+- Which packages are affected? (shared, server, client, or all?)
+- What data does it need? (new schema? new RP API call? new DB table?)
+- What UI does it need? (new page? new component? modal?)
 
 ---
 
 ## 3. Phase 2: Plan Implementation
 
-### Create Implementation Plan
+### Identify Changes Per Package
 
-I will:
-1. Find relevant existing code and patterns
-2. Identify files to modify
-3. Suggest new files needed
-4. Recommend approach
+**`packages/shared`** (if new types needed)
+- New Zod schema in `schemas/`
+- Export from `index.ts`
+- Build shared first
 
-Output:
-- [ ] Step 1: Add DB schema changes (if needed)
-- [ ] Step 2: Add store queries
-- [ ] Step 3: Add client methods (if needed)
-- [ ] Step 4: Add API route
-- [ ] Step 5: Update dashboard UI
-- [ ] Step 6: Verify with build
+**`packages/server`** (if new API/data)
+- New route in `api/routes/`
+- New store queries in `db/store.ts`
+- New client methods in `clients/` (if new external API)
+- Register route in `api/index.ts`
+- Add `validateBody` for POST routes
 
-### Architecture Considerations
-- Does this fit existing module structure?
-- Can we reuse existing client/store methods?
-- What's the impact on existing endpoints?
-- Any new environment variables needed?
+**`packages/client`** (if new UI)
+- New API function in `api/`
+- New page in `pages/` (add route to `App.tsx`)
+- New components in `components/`
+- Use `useQuery`/`useMutation` for data
+
+### Implementation Order
+1. Shared schemas and types
+2. Server: DB schema → store → route
+3. Client: API function → components → page
 
 ---
 
 ## 4. Phase 3: Implement
 
-### Following Project Patterns
-- Routes follow the Express try/catch/next pattern
-- Store functions use parameterized SQLite queries
-- Clients handle errors gracefully with config-based enablement
-- Config for new settings via environment variables
+### Adding a Shared Schema
+```typescript
+// packages/shared/src/schemas/newFeature.ts
+import { z } from 'zod';
 
-### Implementation Order
-1. Database changes first (schema, store)
-2. Business logic (analyzer, poller)
-3. API routes
-4. Frontend (dashboard)
-5. Notifications (if applicable)
+export const NewFeatureSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+});
 
-### Agent Perspectives During Implementation
+export type NewFeature = z.infer<typeof NewFeatureSchema>;
+```
+Add export to `packages/shared/src/index.ts`. Run `npm run build:shared`.
 
-**As Developer**: Code quality, patterns, error handling
-**As QE**: Edge cases, error scenarios
-**As Security**: Input validation, data handling
-**As Monitoring Expert**: RP API correctness, data model
+### Adding a Server Route
+```typescript
+// packages/server/src/api/routes/newFeature.ts
+import { Router } from 'express';
+const router = Router();
+
+router.get('/', async (req, res, next) => {
+  try {
+    const data = store.getNewFeatureData();
+    res.json(data);
+  } catch (err) { next(err); }
+});
+
+export default router;
+```
+Register in `api/index.ts`: `app.use('/api/new-feature', newFeatureRouter);`
+
+### Adding a Client Page
+```tsx
+// packages/client/src/pages/NewFeaturePage.tsx
+import { useQuery } from '@tanstack/react-query';
+import { apiFetch } from '../api/client';
+import type { NewFeature } from '@cnv-monitor/shared';
+
+export const NewFeaturePage: React.FC = () => {
+  const { data, isLoading, error } = useQuery<NewFeature[]>({
+    queryKey: ['new-feature'],
+    queryFn: () => apiFetch('/new-feature'),
+  });
+
+  if (isLoading) return <Spinner />;
+  if (error) return <EmptyState>Error loading data</EmptyState>;
+  if (!data?.length) return <EmptyState>No data</EmptyState>;
+
+  return <PageSection>...</PageSection>;
+};
+```
+Add route to `App.tsx`. Add nav item to `AppLayout.tsx`.
 
 ---
 
 ## 5. Phase 4: Test
 
-### Build Check
 ```bash
-npm run build
+npm run build:shared     # Rebuild types
+npm run typecheck        # Type check
+npm run test             # Run vitest
+npm run dev              # Manual testing
 ```
 
 ### Manual API Testing
 ```bash
-# Test new endpoint
-curl http://localhost:8080/api/<new-endpoint>
-
-# Test with parameters
-curl http://localhost:8080/api/<new-endpoint>?param=value
-
-# Test POST endpoint
-curl -X POST http://localhost:8080/api/<new-endpoint> \
-  -H "Content-Type: application/json" \
-  -d '{"key": "value"}'
+curl http://localhost:8080/api/new-feature
 ```
 
-### Dashboard Testing
-- Start dev server: `npm run dev`
-- Open http://localhost:8080
-- Verify new UI elements appear
-- Check browser console for errors
+### Browser Testing
+- Open http://localhost:5173
+- Navigate to new page
+- Check loading, error, empty, data states
 
 ---
 
 ## 6. Phase 5: Review
 
-### Self-Review
-Using `team-review.mdc`:
-- **Developer perspective**: Code quality, patterns
-- **QE perspective**: Edge cases, error handling
-- **Security perspective**: Input validation, data safety
-- **Monitoring Expert perspective**: Domain correctness
+Using `team-review.mdc` perspectives:
+- **Developer**: Code quality, patterns, types
+- **QE**: Edge cases, error handling
+- **Security**: Input validation, data safety
+- **Monitoring Expert**: Domain correctness
 
 ---
 
 ## 7. Phase 6: Prepare PR
 
-### Pre-PR Checks
 ```bash
-npm run build            # No type errors
+npm run typecheck && npm run test && npm run build
 ```
 
-### Verify
-- [ ] All checks pass
-- [ ] No debug code (console.log, commented-out code)
-- [ ] Self-reviewed
-- [ ] New config documented in README
-- [ ] K8s manifests updated if needed
-
----
-
-## 8. Example Session
-
-```
-Developer: "I want to add a trends API that returns 30-day pass rates"
-
-AI: Let me plan the implementation...
-
-Plan:
-1. Add store query: getPassRateTrends(days: number)
-2. Add route: GET /api/launches/trends
-3. Add dashboard chart section
-
-Step 1: Store query
-- Query: SELECT date, avg(passed*1.0/total) FROM launches GROUP BY date(start_time)
-
-Step 2: API route
-- New handler in src/api/routes/launches.ts
-
-Step 3: Dashboard
-- Add chart section in app.js using the trends endpoint
-
-Ready to start implementing?
-
-Developer: "Yes, go ahead"
-
-AI: [Implements following standards...]
-```
+Verify:
+- [ ] Shared types exported and built
+- [ ] Server routes validated with Zod
+- [ ] Client handles loading/error/empty states
+- [ ] No debug code

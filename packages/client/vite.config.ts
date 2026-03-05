@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@cnv-monitor/shared': path.resolve(__dirname, '../shared/dist/index.js'),
+      '@cnv-monitor/shared': path.resolve(__dirname, '../shared/src/index.ts'),
     },
   },
   server: {
@@ -16,14 +16,14 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
+      '/ws': {
+        target: 'ws://localhost:8080',
+        ws: true,
+      },
     },
   },
   build: {
     outDir: 'dist',
     sourcemap: true,
-    commonjsOptions: {
-      include: [/shared/, /node_modules/],
-      transformMixedEsModules: true,
-    },
   },
 });

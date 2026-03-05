@@ -19,11 +19,11 @@ import {
 import { fetchDefectTypes } from '../../api/defectTypes';
 import { classifyDefect, bulkClassifyDefect } from '../../api/triage';
 
-interface TriageModalProps {
+type TriageModalProps = {
   isOpen: boolean;
   onClose: () => void;
   itemIds: number[];
-}
+};
 
 export const TriageModal: React.FC<TriageModalProps> = ({ isOpen, onClose, itemIds }) => {
   const queryClient = useQueryClient();

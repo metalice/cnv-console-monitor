@@ -7,165 +7,121 @@ alwaysApply: false
 
 Invoke with: *"prepare PR"*, *"ready for review"*, *"PR checklist"*, *"before I submit"*
 
-Follow this workflow before creating a pull request.
-
 ---
 
-## 1. Code Completion Check
+## 1. Code Completion
 
-### Feature Complete
 - [ ] All requirements met
 - [ ] Edge cases handled
 - [ ] Error scenarios covered
-
-### No Unfinished Work
 - [ ] No TODO comments without context
 - [ ] No commented-out code
-- [ ] No console.log statements
-- [ ] No debug code left
-- [ ] No hardcoded test data
+- [ ] No console.log / debug code
 
 ---
 
-## 2. Code Quality Checks
+## 2. Quality Checks
 
-### Build
+### Run All Checks
 ```bash
-npm run build
+npm run typecheck && npm run test && npm run build
 ```
 
 ### TypeScript
-- [ ] No type errors
+- [ ] No type errors in shared + server
+- [ ] Client builds without errors (Vite)
 - [ ] No implicit `any` types
-- [ ] Explicit return types on exported functions
-- [ ] Proper null/undefined handling
+- [ ] Shared types used (not duplicated)
+
+### Tests
+- [ ] All existing tests pass
+- [ ] New tests added for new server code
+- [ ] Edge cases tested
 
 ---
 
-## 3. Self Code Review
+## 3. Self Review
 
-### Developer Perspective
-
-**Code Structure**
+### Developer
 - [ ] Single responsibility followed
-- [ ] Logic extracted to appropriate modules
-- [ ] Files under 200 lines
-- [ ] Proper folder organization
-
-**Code Quality**
 - [ ] No code duplication
-- [ ] Descriptive naming
-- [ ] No magic numbers (use constants)
-- [ ] Consistent patterns with codebase
+- [ ] Consistent with existing patterns
+- [ ] Zod schemas in shared (not duplicated)
+- [ ] `validateBody` on all POST routes
 
-**Error Handling**
-- [ ] All async operations have error handling
-- [ ] Route handlers use try/catch/next
-- [ ] User-friendly error messages in API responses
-- [ ] External service failures handled gracefully
+### QE
+- [ ] Loading/error/empty states in React pages
+- [ ] External service failures handled (server)
+- [ ] Null/undefined from API handled in UI
+- [ ] Double-submit prevention on mutations
 
-### QE Perspective
-
-**Edge Cases**
-- [ ] Empty data handled
-- [ ] Null/undefined handled
-- [ ] Invalid input returns proper errors
-
-**External Services**
-- [ ] Service unavailability handled
-- [ ] Timeout handling on HTTP calls
-
-### Security Perspective
-
-**Input/Output**
-- [ ] Route params/query/body validated
+### Security
+- [ ] Route params/body validated
 - [ ] SQL uses parameterized queries
-- [ ] No sensitive data in responses
-- [ ] Error messages don't leak internals
+- [ ] No secrets in code or responses
 
-**Configuration**
-- [ ] No hardcoded secrets
-- [ ] New config uses environment variables
+### Monitoring Expert
+- [ ] RP API calls handle pagination
+- [ ] Zod schemas match actual data shapes
+- [ ] Notifications don't block poll cycle
 
 ---
 
-## 4. Commit Hygiene
+## 4. Monorepo-Specific
 
-### Commit Structure
-- [ ] Meaningful commit messages
-- [ ] Logical, atomic commits
-- [ ] No broken commits in history
+- [ ] Shared package built and exported
+- [ ] No cross-package imports (client ↛ server)
+- [ ] Types imported from `@cnv-monitor/shared`
 
-### Commit Message Format
+---
+
+## 5. Deployment
+
+- [ ] K8s manifests updated if needed
+- [ ] ConfigMap/Secret updated for new env vars
+- [ ] Dockerfile works with changes
+- [ ] CI pipeline will pass
+
+---
+
+## 6. Commit Hygiene
+
+### Format
 ```
 <type>: <short summary>
 
-<longer description if needed>
+<description if needed>
 ```
 
-**Types**
-- `feat`: New feature
-- `fix`: Bug fix
-- `refactor`: Code change that neither fixes nor adds
-- `chore`: Maintenance tasks
-- `docs`: Documentation changes
+Types: `feat`, `fix`, `refactor`, `chore`, `docs`
 
 ---
 
-## 5. PR Description
+## 7. PR Description
 
-### Template
 ```markdown
 ## Description
-
 > Brief description of changes
 
 ## Changes
-
-- Added/Modified/Removed X
-- Added/Modified/Removed Y
+- packages/shared: Added/Modified X
+- packages/server: Added/Modified Y
+- packages/client: Added/Modified Z
 
 ## Testing
-
 > How this was tested
 
 ## Configuration
-
-> Any new environment variables or config changes
+> New environment variables or config changes
 ```
 
 ---
 
-## 6. Deployment Considerations
+## 8. Final Checklist
 
-- [ ] K8s manifests updated if needed
-- [ ] ConfigMap/Secret updated if new env vars
-- [ ] Dockerfile changes (if dependencies changed)
-- [ ] README updated if needed
-
----
-
-## 7. Final Checklist
-
-### Code
-- [ ] Build passes (`npm run build`)
+- [ ] `npm run typecheck` passes
+- [ ] `npm run test` passes
+- [ ] `npm run build` succeeds
 - [ ] No debug code
 - [ ] Self-reviewed
-
-### PR
-- [ ] Descriptive title
-- [ ] Complete description
-- [ ] Testing documented
-
-### Ready
-- [ ] Branch up-to-date with main
 - [ ] Commits clean
-- [ ] Ready for review
-
----
-
-## Quick Commands
-
-```bash
-npm run build            # Full compile check
-```

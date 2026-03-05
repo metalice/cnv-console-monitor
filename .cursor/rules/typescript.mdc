@@ -1,178 +1,132 @@
 ---
 description: TypeScript conventions and type safety rules
-globs: "**/*.ts"
+globs: "packages/**/*.{ts,tsx}"
 alwaysApply: false
 ---
 
 # TypeScript Guidelines
 
-TypeScript conventions and best practices for this project.
+TypeScript conventions for this monorepo project.
 
 ---
 
 ## 1. Type vs Interface
 
 ### Prefer Type
-- For object shapes
-- For union types
-- For function signatures
-- For mapped/conditional types
+- For object shapes, unions, function signatures, mapped/conditional types
 
 ### Use Interface When
 - Extending is explicitly needed
 - Declaration merging required
 
-### Examples
+---
+
+## 2. Zod Schemas (Shared Package)
+
+### Define Schemas in `packages/shared/src/schemas/`
 ```typescript
-type LaunchData = {
-  rpId: number;
-  name: string;
-  status: string;
-  cnvVersion: string;
-  passed: number;
-  failed: number;
-};
+import { z } from 'zod';
 
-type LaunchStatus = 'PASSED' | 'FAILED' | 'INTERRUPTED' | 'STOPPED';
+export const LaunchSchema = z.object({
+  rp_id: z.number(),
+  name: z.string(),
+  status: z.string(),
+  cnv_version: z.string().nullish(),
+  total: z.number(),
+  passed: z.number(),
+  failed: z.number(),
+});
 
-type PollHandler = (launches: LaunchData[]) => Promise<void>;
+export type Launch = z.infer<typeof LaunchSchema>;
+```
+
+### Rules
+- Define the Zod schema first, then infer the type with `z.infer<>`
+- Never duplicate types manually — always derive from schemas
+- Use `.nullish()` for fields that can be null or undefined
+- Use `z.enum()` for known string unions
+- Export both schemas and inferred types from the shared barrel
+
+### Using Schemas for Validation (Server)
+```typescript
+import { validateBody } from '../middleware/validate';
+import { TriageRequestSchema } from '@cnv-monitor/shared';
+
+router.post('/:itemId', validateBody(TriageRequestSchema), async (req, res, next) => { ... });
 ```
 
 ---
 
-## 2. Type Safety
+## 3. Type Safety
 
 ### Never Use `any`
-- Compromises type safety
-- Hides bugs until runtime
-- Makes refactoring dangerous
-
-### Alternatives to `any`
-- `unknown` — for truly unknown data, then narrow
-- Proper type definitions
-- Generic types
-- Type guards
+- Use `unknown` and narrow with type guards
+- Use Zod `.parse()` or `.safeParse()` for runtime validation
 
 ### Type Narrowing
 ```typescript
-const isApiError = (err: unknown): err is { response: { status: number; data: string } } => {
-  return (
-    typeof err === 'object' &&
-    err !== null &&
-    'response' in err &&
-    typeof (err as Record<string, unknown>).response === 'object'
-  );
-};
+import { ZodError } from 'zod';
 
-const handleError = (err: unknown): void => {
-  if (isApiError(err)) {
-    console.error(`API error ${err.response.status}: ${err.response.data}`);
-  }
-};
+const isZodError = (err: unknown): err is ZodError =>
+  err instanceof ZodError;
 ```
 
 ### Non-Null Assertions
-- Avoid `!` operator when possible
-- Use optional chaining `?.` instead
-- Add explicit null checks
+- Avoid `!` — use optional chaining `?.` and explicit checks
 
 ---
 
-## 3. Function Signatures
+## 4. Function Signatures
 
-### Explicit Return Types
-- Always define return type on exported functions
-- Prevents accidental changes
-- Self-documenting
-
-### Parameter Guidelines
-- Use descriptive parameter names
-- Required parameters first, optional last
-- Use object parameter for 3+ params
-
-### Examples
+### Explicit Return Types on Exports
 ```typescript
-const fetchLaunches = async (filter: string, hours: number): Promise<LaunchData[]> => {
-  // implementation
-};
+export const fetchLaunches = async (filter: string): Promise<Launch[]> => { ... };
+```
 
+### Object Parameter for 3+ Args
+```typescript
 type PollOptions = {
   filter: string;
   hoursBack: number;
   includeSkipped?: boolean;
 };
 
-const pollWithOptions = async (options: PollOptions): Promise<LaunchData[]> => {
-  // implementation
-};
+export const pollWithOptions = async (options: PollOptions): Promise<Launch[]> => { ... };
 ```
 
 ---
 
-## 4. Null & Undefined Handling
+## 5. React Types (Client)
 
-### Optional Chaining
+### Component Props
 ```typescript
-const version = launch?.cnvVersion;
-const errorMsg = testItem?.errorMessage ?? 'No error message';
-```
-
-### Nullish Coalescing
-```typescript
-const port = config.dashboard.port ?? 8080;
-const recipients = config.email.recipients ?? [];
-```
-
-### Handling Arrays
-```typescript
-const failedItems = items?.filter(i => i.status === 'FAILED') ?? [];
-const firstFailed = failedItems[0];
-```
-
----
-
-## 5. Constants & Enums
-
-### Constants
-```typescript
-export const DEFAULT_PORT = 8080;
-export const POLL_INTERVAL_HOURS = 24;
-export const MAX_RETRIES = 3;
-export const DB_JOURNAL_MODE = 'WAL';
-```
-
-### Prefer Union Types Over Enums
-```typescript
-type DefectType = 'PRODUCT_BUG' | 'AUTOMATION_BUG' | 'SYSTEM_ISSUE' | 'TO_INVESTIGATE' | 'NO_DEFECT';
-type AnalysisType = 'auto' | 'pattern' | 'uniqueError';
-```
-
----
-
-## 6. Error Handling Types
-
-### Error Types
-```typescript
-type ApiError = {
-  status: number;
-  message: string;
-  endpoint: string;
+type LaunchRowProps = {
+  launch: Launch;
+  onSelect: (id: number) => void;
 };
 
-type Result<T, E = Error> =
-  | { success: true; data: T }
-  | { success: false; error: E };
+export const LaunchRow: React.FC<LaunchRowProps> = ({ launch, onSelect }) => { ... };
 ```
 
-### Async Return Types
+### TanStack Query Types
 ```typescript
-const fetchLaunch = async (id: number): Promise<LaunchData> => { ... };
-const tryFetch = async (id: number): Promise<Result<LaunchData, ApiError>> => { ... };
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+const { data, isLoading, error } = useQuery<Launch[]>({
+  queryKey: ['launches'],
+  queryFn: () => apiFetch('/launches'),
+});
+```
+
+### Event Handlers
+```typescript
+const handleClick = (e: React.MouseEvent<HTMLButtonElement>): void => { ... };
+const handleChange = (value: string): void => { ... };
 ```
 
 ---
 
-## 7. Express Types
+## 6. Express Types (Server)
 
 ### Route Handlers
 ```typescript
@@ -188,7 +142,7 @@ const getLaunches = async (req: Request, res: Response, next: NextFunction): Pro
 };
 ```
 
-### Request Parameters
+### Typed Request Params
 ```typescript
 const getTestItems = async (
   req: Request<{ launchId: string }>,
@@ -202,19 +156,58 @@ const getTestItems = async (
 
 ---
 
-## 8. Best Practices Summary
+## 7. Constants & Enums
+
+### Prefer Union Types or Zod Enums
+```typescript
+// Zod enum (shared)
+export const LaunchStatusEnum = z.enum(['PASSED', 'FAILED', 'IN_PROGRESS', 'STOPPED', 'INTERRUPTED']);
+export type LaunchStatus = z.infer<typeof LaunchStatusEnum>;
+
+// Simple union
+type AnalysisType = 'auto' | 'pattern' | 'uniqueError';
+```
+
+### Named Constants
+```typescript
+export const DEFAULT_PORT = 8080;
+export const POLL_INTERVAL_HOURS = 24;
+export const QUERY_STALE_TIME_MS = 2 * 60 * 1000;
+```
+
+---
+
+## 8. Error Handling Types
+
+```typescript
+// Client
+export class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+// Server
+type ApiErrorResponse = {
+  error: string;
+  details?: Array<{ path: string; message: string }>;
+};
+```
+
+---
+
+## 9. Best Practices Summary
 
 ### Do
-- Define explicit return types on exported functions
-- Use `type` over `interface`
-- Use `unknown` instead of `any`
+- Define types via Zod schemas in shared package
+- Import types from `@cnv-monitor/shared`
+- Use `z.infer<>` instead of manual type definitions
+- Use explicit return types on exports
 - Use optional chaining and nullish coalescing
-- Create type guards for runtime checks
-- Use parameterized SQL queries
 
 ### Don't
-- Never use `any` type
-- Do not use type assertions without validation
-- Do not ignore TypeScript errors with `@ts-ignore`
-- Do not create duplicate type definitions
-- Do not use non-null assertion (`!`) without justification
+- Never use `any`
+- Never duplicate types across packages
+- Never use `@ts-ignore`
+- Never define Zod schemas in client or server when they belong in shared

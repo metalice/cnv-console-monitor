@@ -1,4 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
+import https from 'https';
 import { config } from '../config';
 
 export interface RPLaunch {
@@ -59,6 +60,8 @@ export interface RPLogEntry {
   binaryContent?: { id: string; contentType: string };
 }
 
+const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+
 function createClient(): AxiosInstance {
   return axios.create({
     baseURL: `${config.reportportal.url}/api/v1/${config.reportportal.project}`,
@@ -67,6 +70,7 @@ function createClient(): AxiosInstance {
       'Content-Type': 'application/json',
     },
     timeout: 30000,
+    httpsAgent,
   });
 }
 

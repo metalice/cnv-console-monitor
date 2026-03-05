@@ -1,30 +1,62 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Banner, Button, Flex, FlexItem } from '@patternfly/react-core';
-import { fetchAckStatus } from '../../api/acknowledgment';
+import { TimesIcon } from '@patternfly/react-icons';
+import { fetchAckStatus, deleteAcknowledgment } from '../../api/acknowledgment';
+import { useDate } from '../../context/DateContext';
 
-interface AckBannerProps {
+type AckBannerProps = {
   onAcknowledge: () => void;
+};
+
+function todayStr(): string {
+  return new Date().toISOString().split('T')[0];
 }
 
 export const AckBanner: React.FC<AckBannerProps> = ({ onAcknowledge }) => {
+  const queryClient = useQueryClient();
+  const { dateTo } = useDate();
+  const isToday = dateTo === todayStr();
+
   const { data } = useQuery({
-    queryKey: ['acknowledgment'],
-    queryFn: fetchAckStatus,
-    refetchInterval: 60000,
+    queryKey: ['acknowledgment', dateTo],
+    queryFn: () => fetchAckStatus(dateTo),
+    refetchInterval: isToday ? 60000 : false,
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (reviewer: string) => deleteAcknowledgment(dateTo, reviewer),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['acknowledgment'] });
+    },
   });
 
   if (!data) return null;
 
-  if (data.acknowledged) {
-    const lastAck = data.acknowledgments[data.acknowledgments.length - 1];
+  if (data.acknowledged && data.acknowledgments.length > 0) {
+    const reviewers = data.acknowledgments;
     return (
       <Banner color="green" style={{ marginBottom: 16 }}>
-        <Flex>
+        <Flex alignItems={{ default: 'alignItemsCenter' }}>
           <FlexItem>
-            Reviewed by <strong>{lastAck.reviewer}</strong> at{' '}
-            {new Date(lastAck.acknowledged_at || '').toLocaleTimeString()}
-            {lastAck.notes ? ` — "${lastAck.notes}"` : ''}
+            Reviewed by{' '}
+            {reviewers.map((ack, i) => (
+              <span key={ack.reviewer}>
+                {i > 0 && ', '}
+                <strong>{ack.reviewer}</strong>
+                {ack.acknowledged_at && ` at ${new Date(ack.acknowledged_at).toLocaleTimeString()}`}
+                {ack.notes ? ` ("${ack.notes}")` : ''}
+                <Button
+                  variant="plain"
+                  aria-label={`Remove ${ack.reviewer}'s acknowledgment`}
+                  onClick={() => removeMutation.mutate(ack.reviewer)}
+                  isLoading={removeMutation.isPending}
+                  style={{ padding: '0 4px', marginLeft: 4 }}
+                >
+                  <TimesIcon />
+                </Button>
+              </span>
+            ))}
           </FlexItem>
         </Flex>
       </Banner>
@@ -34,12 +66,18 @@ export const AckBanner: React.FC<AckBannerProps> = ({ onAcknowledge }) => {
   return (
     <Banner color="yellow" style={{ marginBottom: 16 }}>
       <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }}>
-        <FlexItem>Today's report has not been reviewed yet.</FlexItem>
         <FlexItem>
-          <Button variant="link" onClick={onAcknowledge} isInline>
-            I Reviewed It
-          </Button>
+          {isToday
+            ? "Today's report has not been reviewed yet."
+            : `Report for ${dateTo} was not reviewed.`}
         </FlexItem>
+        {isToday && (
+          <FlexItem>
+            <Button variant="link" onClick={onAcknowledge} isInline>
+              I Reviewed It
+            </Button>
+          </FlexItem>
+        )}
       </Flex>
     </Banner>
   );

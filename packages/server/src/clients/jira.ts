@@ -1,4 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
+import https from 'https';
 import { config } from '../config';
 
 export interface JiraIssue {
@@ -21,6 +22,8 @@ export interface JiraSearchResult {
   total: number;
 }
 
+const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+
 function createClient(): AxiosInstance {
   return axios.create({
     baseURL: `${config.jira.url}/rest/api/2`,
@@ -29,6 +32,7 @@ function createClient(): AxiosInstance {
       'Content-Type': 'application/json',
     },
     timeout: 15000,
+    httpsAgent,
   });
 }
 

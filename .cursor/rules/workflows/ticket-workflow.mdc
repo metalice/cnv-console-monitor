@@ -17,7 +17,7 @@ When a ticket URL or ID is received, execute immediately:
 
 1. **Fetch and analyze the ticket** - Understand requirements
 2. **Create todos with agent tracking** - Show both agents and tasks
-3. **Run Developer Agent first** - Implement the fix/feature
+3. **Run Developer Agent first** - Implement the fix/feature across packages
 4. **Run remaining review agents** - QE, Security, Monitoring Expert
 5. **Ask to implement recommendations** - After each review phase
 
@@ -30,16 +30,16 @@ Use the TodoWrite tool to create structured tracking:
 ```
 Todos:
 - id: "dev-agent", content: "🧑‍💻 Developer Agent", status: "in_progress"
-- id: "dev-1", content: "  └─ Analyze issue and find root cause", status: "in_progress"
+- id: "dev-1", content: "  └─ Analyze issue and plan (shared/server/client)", status: "in_progress"
 - id: "dev-2", content: "  └─ Implement fix", status: "pending"
-- id: "dev-3", content: "  └─ Run quality checks", status: "pending"
+- id: "dev-3", content: "  └─ Run quality checks (typecheck + test + build)", status: "pending"
 - id: "qe-agent", content: "🧪 QE Agent", status: "pending"
-- id: "qe-1", content: "  └─ Identify edge cases", status: "pending"
+- id: "qe-1", content: "  └─ Identify edge cases (data + UI + external)", status: "pending"
 - id: "qe-2", content: "  └─ Suggest tests", status: "pending"
 - id: "security-agent", content: "🔒 Security Agent", status: "pending"
-- id: "security-1", content: "  └─ Review security", status: "pending"
+- id: "security-1", content: "  └─ Review input validation and data handling", status: "pending"
 - id: "monitoring-agent", content: "📊 Monitoring Expert", status: "pending"
-- id: "monitoring-1", content: "  └─ Validate domain patterns", status: "pending"
+- id: "monitoring-1", content: "  └─ Validate domain patterns and schemas", status: "pending"
 ```
 
 ---
@@ -47,26 +47,22 @@ Todos:
 ## 3. Agent Execution
 
 ### Developer Agent (first - does implementation)
-- Update todo: `dev-agent` → in_progress
-- Analyze, implement, test
+- Determine which packages need changes (shared → server → client)
+- Implement across monorepo in correct build order
+- Run `npm run typecheck && npm run test`
 - Update todos as subtasks complete
-- Mark `dev-agent` → completed
 
 ### Review Agents (after implementation)
-For each review agent (QE, Security, Monitoring Expert):
-1. Update agent todo → in_progress
-2. Run the agent review
-3. Present findings with severity
-4. Ask: "Implement these recommendations? [Yes/Skip]"
-5. If Yes: implement and update subtask todos
-6. Mark agent todo → completed
-7. Move to next agent
+For each (QE, Security, Monitoring Expert):
+1. Run agent review on changed files
+2. Present findings with severity
+3. Ask: "Implement these recommendations? [Yes/Skip]"
+4. If Yes: implement and update todos
+5. Move to next agent
 
 ---
 
 ## 4. Post-Agent Prompt
-
-After each agent completes its review, ask:
 
 ```
 [Agent Name] found:
@@ -82,44 +78,13 @@ Implement these recommendations?
 
 ## 5. Final Summary
 
-After all agents complete:
-
 ```
 ## Ticket Complete!
 
-✅ Developer: [summary of implementation]
+✅ Developer: [summary — which packages changed]
 ✅ QE: [summary of edge cases addressed]
 ✅ Security: [summary of findings]
 ✅ Monitoring: [summary of domain validation]
 
 Ready for PR? [Yes/Review changes first]
-```
-
----
-
-## 6. Example Flow
-
-```
-User: Start working on CNV-78624
-
-AI: Starting work on CNV-78624...
-
-[Creates todos with all agents]
-[Developer Agent runs, finds root cause, implements fix]
-[Updates todos as subtasks complete]
-
-Developer Agent complete! Moving to QE Agent...
-
-🧪 QE Agent found:
-🔴 0 blockers | 🟡 1 suggestion | 🟢 0 nitpicks
-
-Implement this recommendation?
-1. ✅ Yes
-2. ⏭️ Skip
-
-User: 1
-
-[Implements, continues through remaining agents...]
-
-All agents complete! Ready for PR.
 ```

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Modal,
@@ -10,24 +10,25 @@ import {
   Form,
   FormGroup,
   TextInput,
-  Content,
   Label,
   Alert,
 } from '@patternfly/react-core';
-import { linkJiraIssue } from '../../api/jira';
-import { searchJiraIssues } from '../../api/jira';
+import { linkJiraIssue, searchJiraIssues } from '../../api/jira';
 
-interface JiraLinkModalProps {
+type JiraLinkModalProps = {
   isOpen: boolean;
   onClose: () => void;
   testItemId: number;
-}
+};
+
+const SEARCH_DEBOUNCE_MS = 300;
 
 export const JiraLinkModal: React.FC<JiraLinkModalProps> = ({ isOpen, onClose, testItemId }) => {
   const queryClient = useQueryClient();
   const [jiraKey, setJiraKey] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Array<{ key: string; summary: string; status: string }>>([]);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const mutation = useMutation({
     mutationFn: () => linkJiraIssue({ testItemId, jiraKey }),
@@ -41,22 +42,24 @@ export const JiraLinkModal: React.FC<JiraLinkModalProps> = ({ isOpen, onClose, t
     },
   });
 
-  const handleSearch = useCallback(
-    async (q: string) => {
-      setSearchQuery(q);
-      if (q.length >= 3) {
-        try {
-          const results = await searchJiraIssues(q);
-          setSearchResults(results);
-        } catch {
-          setSearchResults([]);
-        }
-      } else {
+  const handleSearch = useCallback((q: string) => {
+    setSearchQuery(q);
+    clearTimeout(debounceRef.current);
+
+    if (q.length < 3) {
+      setSearchResults([]);
+      return;
+    }
+
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const results = await searchJiraIssues(q);
+        setSearchResults(results);
+      } catch {
         setSearchResults([]);
       }
-    },
-    [],
-  );
+    }, SEARCH_DEBOUNCE_MS);
+  }, []);
 
   return (
     <Modal variant={ModalVariant.medium} isOpen={isOpen} onClose={onClose}>

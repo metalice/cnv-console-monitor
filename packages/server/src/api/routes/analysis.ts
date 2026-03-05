@@ -1,45 +1,46 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import {
   triggerAutoAnalysis,
   triggerPatternAnalysis,
   triggerUniqueErrorAnalysis,
 } from '../../clients/reportportal';
+import { parseIntParam } from '../middleware/validate';
 
 const router = Router();
 
-router.post('/:launchId/auto', async (req: Request, res: Response) => {
-  const launchId = parseInt(req.params.launchId as string);
-
+router.post('/:launchId/auto', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const launchId = parseIntParam(req.params.launchId, 'launchId', res);
+    if (launchId === null) return;
+
     await triggerAutoAnalysis(launchId);
     res.json({ success: true, launchId, analysis: 'auto' });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to trigger auto-analysis';
-    res.status(502).json({ error: message });
+    next(err);
   }
 });
 
-router.post('/:launchId/pattern', async (req: Request, res: Response) => {
-  const launchId = parseInt(req.params.launchId as string);
-
+router.post('/:launchId/pattern', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const launchId = parseIntParam(req.params.launchId, 'launchId', res);
+    if (launchId === null) return;
+
     await triggerPatternAnalysis(launchId);
     res.json({ success: true, launchId, analysis: 'pattern' });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to trigger pattern analysis';
-    res.status(502).json({ error: message });
+    next(err);
   }
 });
 
-router.post('/:launchId/unique', async (req: Request, res: Response) => {
-  const launchId = parseInt(req.params.launchId as string);
-
+router.post('/:launchId/unique', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const launchId = parseIntParam(req.params.launchId, 'launchId', res);
+    if (launchId === null) return;
+
     await triggerUniqueErrorAnalysis(launchId);
     res.json({ success: true, launchId, analysis: 'unique-error' });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to trigger unique error analysis';
-    res.status(502).json({ error: message });
+    next(err);
   }
 });
 

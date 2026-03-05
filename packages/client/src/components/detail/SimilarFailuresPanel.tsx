@@ -14,9 +14,9 @@ import {
 import { fetchTestItemHistory } from '../../api/testItems';
 import { TimeAgo } from '../common/TimeAgo';
 
-interface SimilarFailuresPanelProps {
+type SimilarFailuresPanelProps = {
   uniqueId: string;
-}
+};
 
 export const SimilarFailuresPanel: React.FC<SimilarFailuresPanelProps> = ({ uniqueId }) => {
   const { data, isLoading } = useQuery({

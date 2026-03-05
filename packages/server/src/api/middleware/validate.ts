@@ -1,6 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodSchema, ZodError } from 'zod';
 
+export function parseIntParam(value: string | string[], name: string, res: Response): number | null {
+  const str = Array.isArray(value) ? value[0] : value;
+  const parsed = parseInt(str, 10);
+  if (Number.isNaN(parsed)) {
+    res.status(400).json({ error: `Invalid ${name}: must be an integer` });
+    return null;
+  }
+  return parsed;
+}
+
 export function validateBody(schema: ZodSchema) {
   return (req: Request, res: Response, next: NextFunction): void => {
     try {

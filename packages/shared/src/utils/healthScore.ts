@@ -11,10 +11,8 @@ export function healthLabel(health: HealthStatus): string {
     case 'green':
       return 'All Green';
     case 'yellow':
-      return 'In Progress';
+      return 'Degraded';
     case 'red':
       return 'Has Failures';
-    default:
-      return 'Unknown';
   }
 }

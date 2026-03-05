@@ -16,3 +16,26 @@ export const AcknowledgmentStatusSchema = z.object({
 });
 
 export type AcknowledgmentStatus = z.infer<typeof AcknowledgmentStatusSchema>;
+
+export const ApproverStatSchema = z.object({
+  reviewer: z.string(),
+  totalReviews: z.number(),
+  lastReviewDate: z.string(),
+  reviewedDates: z.array(z.string()),
+});
+
+export type ApproverStat = z.infer<typeof ApproverStatSchema>;
+
+export const AckHistoryEntrySchema = z.object({
+  date: z.string(),
+  acknowledged: z.boolean(),
+  reviewers: z.array(z.string()),
+});
+
+export type AckHistoryEntry = z.infer<typeof AckHistoryEntrySchema>;
+
+export const DeleteAckRequestSchema = z.object({
+  reviewer: z.string().min(1),
+});
+
+export type DeleteAckRequest = z.infer<typeof DeleteAckRequestSchema>;

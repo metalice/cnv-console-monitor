@@ -12,13 +12,13 @@ import {
 } from '@patternfly/react-core';
 import { createJiraBug } from '../../api/jira';
 
-interface JiraCreateModalProps {
+type JiraCreateModalProps = {
   isOpen: boolean;
   onClose: () => void;
   testItemId: number;
   testName: string;
   polarionId?: string | null;
-}
+};
 
 export const JiraCreateModal: React.FC<JiraCreateModalProps> = ({
   isOpen,

@@ -14,7 +14,7 @@ When reviewing code or implementing features, automatically consider all team pe
 ### Quick vs Deep Reviews
 - **Quick Review** (default): High-level feedback from all perspectives
 - **Deep Review**: Invoke a single agent for thorough analysis, e.g. *"review:dev"*, *"review:qe"*, *"review:security"*, *"review:monitoring"*
-- **Choose agents**: Scope the team review, e.g. *"team-review:all"*, *"team-review:dev,qe"*, or *"review:dev"* for one perspective
+- **Choose agents**: Scope the review, e.g. *"team-review:all"*, *"team-review:dev,qe"*
 
 ---
 
@@ -22,23 +22,27 @@ When reviewing code or implementing features, automatically consider all team pe
 
 ### Developer
 - Code correctness, patterns, types
-- Architecture and module structure
-- Error handling and performance
+- Monorepo boundaries (shared/server/client)
+- React patterns, TanStack Query usage
+- Express/SQLite patterns
 
 ### QE
 - Edge cases and boundary values
+- Loading/error/empty states in UI
+- External service failure handling
 - Async/timing issues
-- Test coverage gaps
 
 ### Security
-- Input validation and sanitization
+- Input validation (Zod on routes)
+- SQL injection prevention
 - API token handling
-- Sensitive data in logs or responses
+- Sensitive data in responses/logs
 
 ### Monitoring Expert
 - ReportPortal API correctness
+- Zod schema accuracy
 - SQLite query patterns
-- Notification reliability (Slack, email)
+- Notification reliability
 - K8s deployment concerns
 
 ---
@@ -49,8 +53,6 @@ When reviewing code or implementing features, automatically consider all team pe
 **🟡 Suggestion** - Should consider (code quality, better patterns, potential issues)
 **🟢 Nitpick** - Optional (style preferences, minor optimizations)
 **✅ Good** - Acknowledge positive patterns
-
-> **Note**: When running deep-dive agents ("as developer", "as qe", etc.), each agent uses its own output format tailored to its domain. The severity levels above apply to quick team reviews.
 
 ---
 
@@ -80,28 +82,27 @@ When reviewing code or implementing features, automatically consider all team pe
 
 ## 5. Deep-Dive Reviews
 
-For thorough analysis from a single perspective, invoke a specific agent:
-
 | Invoke With | Agent | Focus |
 |-------------|-------|-------|
-| *"as developer"* | Developer Agent | Code quality, architecture, performance |
-| *"as qe"* | QE Agent | Testing, edge cases, error scenarios |
+| *"as developer"* | Developer Agent | Code quality, architecture, React, monorepo |
+| *"as qe"* | QE Agent | Testing, edge cases, UI states, error scenarios |
 | *"as security"* | Security Agent | Vulnerabilities, input validation, auth |
-| *"as monitoring expert"* | Monitoring Expert | RP API, SQLite, notifications, K8s |
+| *"as monitoring expert"* | Monitoring Expert | RP API, Zod schemas, notifications, K8s |
 
 ---
 
 ## 6. Review Checklist
 
-### Before Requesting Review
-- [ ] Code compiles without errors (`npm run build`)
+### Before Review
+- [ ] Code compiles (`npm run typecheck`)
+- [ ] Tests pass (`npm run test`)
 - [ ] Self-reviewed changes
 
-### During Review - Check For
-- [ ] **Developer**: Correctness, patterns, types
-- [ ] **QE**: Edge cases, async issues
+### During Review
+- [ ] **Developer**: Correctness, patterns, types, monorepo boundaries
+- [ ] **QE**: Edge cases, UI states, async issues
 - [ ] **Security**: Input validation, token handling, sensitive data
-- [ ] **Monitoring**: API correctness, DB queries, notification logic
+- [ ] **Monitoring**: API correctness, schemas, notifications, deployment
 
 ### After Review
 - [ ] Address all blockers

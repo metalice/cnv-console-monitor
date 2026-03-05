@@ -1,7 +1,10 @@
 import axios from 'axios';
 import { config } from '../config';
+import { logger } from '../logger';
 import { DailyReport, LaunchGroup } from '../analyzer';
 import { getReportPortalLaunchUrl } from '../clients/reportportal';
+
+const log = logger.child({ module: 'Slack' });
 
 interface SlackBlock {
   type: string;
@@ -118,7 +121,7 @@ function buildFailedGroupBlocks(group: LaunchGroup): SlackBlock[] {
 
 export async function sendSlackReport(report: DailyReport, dashboardUrl?: string): Promise<void> {
   if (!config.slack.enabled) {
-    console.log('[Slack] Slack not configured, skipping');
+    log.debug('Slack not configured, skipping');
     return;
   }
 
@@ -129,7 +132,7 @@ export async function sendSlackReport(report: DailyReport, dashboardUrl?: string
     blocks,
   });
 
-  console.log('[Slack] Report sent successfully');
+  log.info('Report sent');
 }
 
 export async function sendSlackAcknowledgment(reviewer: string, notes: string, date: string): Promise<void> {

@@ -1,7 +1,10 @@
 import nodemailer from 'nodemailer';
 import { config } from '../config';
+import { logger } from '../logger';
 import { DailyReport, LaunchGroup } from '../analyzer';
 import { getReportPortalLaunchUrl } from '../clients/reportportal';
+
+const log = logger.child({ module: 'Email' });
 
 function healthColor(health: string): string {
   switch (health) {
@@ -116,7 +119,7 @@ function buildFailedSection(group: LaunchGroup): string {
 
 export async function sendEmailReport(report: DailyReport, dashboardUrl?: string): Promise<void> {
   if (!config.email.enabled || config.email.recipients.length === 0) {
-    console.log('[Email] Email not configured, skipping');
+    log.debug('Email not configured, skipping');
     return;
   }
 
@@ -125,16 +128,17 @@ export async function sendEmailReport(report: DailyReport, dashboardUrl?: string
     port: config.email.port,
     secure: config.email.port === 465,
     auth: config.email.user ? { user: config.email.user, pass: config.email.pass } : undefined,
+    tls: { rejectUnauthorized: false },
   });
 
   const statusText = report.overallHealth === 'green' ? 'ALL GREEN' : `${report.failedLaunches} FAILED`;
 
   await transporter.sendMail({
-    from: config.email.user || 'cnv-console-monitor@redhat.com',
+    from: config.email.from,
     to: config.email.recipients.join(', '),
     subject: `[CNV Console] ${report.date} — ${statusText}`,
     html: buildHtml(report, dashboardUrl),
   });
 
-  console.log(`[Email] Report sent to ${config.email.recipients.length} recipients`);
+  log.info({ recipients: config.email.recipients.length }, 'Report sent');
 }
