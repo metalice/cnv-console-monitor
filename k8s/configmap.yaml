@@ -9,6 +9,7 @@ data:
   REPORTPORTAL_PROJECT: "CNV"
   LAUNCH_FILTER: "test-kubevirt-console"
   DASHBOARD_PORT: "8080"
+  DASHBOARD_URL: "https://cnv-ui-monitor-cnv-ui.apps.cnv2.engineering.redhat.com"
   CRON_SCHEDULE: "0 7 * * *"
   ACK_REMINDER_HOUR: "10"
   POLL_INTERVAL_MINUTES: "15"
@@ -17,4 +18,4 @@ data:
   JIRA_PROJECT_KEY: "CNV"
   JIRA_ISSUE_TYPE: "Bug"
   EMAIL_FROM: "cnv-ui-monitor@redhat.com"
-  EMAIL_RECIPIENTS: ""
+  EMAIL_RECIPIENTS: "mschatzm@redhat.com"

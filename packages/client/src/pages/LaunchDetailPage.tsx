@@ -269,7 +269,16 @@ export const LaunchDetailPage: React.FC = () => {
                             )}
                           </Td>
                           <Td dataLabel="Jira">
-                            {item.jira_key && <Label color="blue" isCompact>{item.jira_key} ({item.jira_status})</Label>}
+                            {item.jira_key && (
+                              <Label color="blue" isCompact>
+                                {config?.jiraUrl ? (
+                                  <a href={`${config.jiraUrl}/browse/${item.jira_key}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                                    {item.jira_key}
+                                  </a>
+                                ) : item.jira_key}
+                                {' '}({item.jira_status})
+                              </Label>
+                            )}
                           </Td>
                           <Td dataLabel="Actions">
                             <Flex>

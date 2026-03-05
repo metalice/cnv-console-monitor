@@ -1,5 +1,5 @@
 import React from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Modal,
   ModalVariant,
@@ -10,6 +10,9 @@ import {
   Content,
   Alert,
 } from '@patternfly/react-core';
+import { ExternalLinkAltIcon } from '@patternfly/react-icons';
+import type { PublicConfig } from '@cnv-monitor/shared';
+import { apiFetch } from '../../api/client';
 import { createJiraBug } from '../../api/jira';
 
 type JiraCreateModalProps = {
@@ -28,6 +31,14 @@ export const JiraCreateModal: React.FC<JiraCreateModalProps> = ({
   polarionId,
 }) => {
   const queryClient = useQueryClient();
+
+  const { data: config } = useQuery({
+    queryKey: ['config'],
+    queryFn: () => apiFetch<PublicConfig>('/config'),
+    staleTime: Infinity,
+  });
+
+  const jiraBrowseUrl = config?.jiraUrl ? `${config.jiraUrl}/browse` : null;
 
   const mutation = useMutation({
     mutationFn: () => createJiraBug({ testItemId }),
@@ -63,9 +74,20 @@ export const JiraCreateModal: React.FC<JiraCreateModalProps> = ({
         {mutation.isSuccess && mutation.data && (
           <Alert
             variant={mutation.data.existing ? 'info' : 'success'}
-            title={mutation.data.existing ? `Found existing issue: ${mutation.data.issue.key}` : `Created: ${mutation.data.issue.key}`}
+            title={mutation.data.existing ? 'Found existing issue' : 'Issue created'}
             style={{ marginTop: 16 }}
-          />
+          >
+            <Content component="p">
+              {jiraBrowseUrl ? (
+                <a href={`${jiraBrowseUrl}/${mutation.data.issue.key}`} target="_blank" rel="noreferrer">
+                  {mutation.data.issue.key} <ExternalLinkAltIcon />
+                </a>
+              ) : (
+                <strong>{mutation.data.issue.key}</strong>
+              )}
+              {' — '}{mutation.data.issue.summary}
+            </Content>
+          </Alert>
         )}
         {mutation.isError && (
           <Alert variant="danger" title={(mutation.error as Error).message} style={{ marginTop: 16 }} />

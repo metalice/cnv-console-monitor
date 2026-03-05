@@ -31,7 +31,10 @@ spec:
                     name: cnv-ui-monitor-secrets
               env:
                 - name: DASHBOARD_URL
-                  value: "https://cnv-ui-monitor.apps.your-cluster.example.com"  # Update to your actual Route URL
+                  valueFrom:
+                    configMapKeyRef:
+                      name: cnv-ui-monitor-config
+                      key: DASHBOARD_URL
               resources:
                 requests:
                   cpu: 200m

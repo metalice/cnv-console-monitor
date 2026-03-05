@@ -37,7 +37,7 @@ spec:
     spec:
       containers:
         - name: postgresql
-          image: postgres:16-alpine
+          image: docker.io/library/postgres:16-alpine
           ports:
             - containerPort: 5432
           env:
@@ -50,6 +50,8 @@ spec:
                 secretKeyRef:
                   name: cnv-ui-monitor-secrets
                   key: POSTGRES_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
           volumeMounts:
             - name: pgdata
               mountPath: /var/lib/postgresql/data
