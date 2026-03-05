@@ -5,3 +5,4 @@ dist/
 .env
 .DS_Store
 packages/server/data/
+k8s/secret.yaml
