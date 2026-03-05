@@ -1,18 +1,22 @@
 import {
   fetchLaunches,
   fetchTestItems,
+  fetchTestItemLogs,
   extractAttribute,
   RPLaunch,
   RPTestItem,
 } from './clients/reportportal';
-import { upsertLaunch, upsertTestItem, LaunchRecord, TestItemRecord } from './db/store';
+import { upsertLaunch, upsertTestItem, LaunchRecord, TestItemRecord, getFailedTestItems } from './db/store';
 import { config } from './config';
+import { logger } from './logger';
 
-export interface PollResult {
+const log = logger.child({ module: 'Poller' });
+
+export type PollResult = {
   launches: LaunchRecord[];
   failedItems: Map<number, TestItemRecord[]>;
   timestamp: Date;
-}
+};
 
 function parseLaunchRecord(launch: RPLaunch): LaunchRecord {
   const attrs = launch.attributes;
@@ -55,23 +59,25 @@ function parseTestItemRecord(item: RPTestItem, launchRpId: number): TestItemReco
     launch_rp_id: launchRpId,
     name: item.name,
     status: item.status,
-    polarion_id: polarionAttr?.value,
-    defect_type: item.issue?.issueType,
-    defect_comment: item.issue?.comment,
-    ai_prediction: aiPrediction?.value,
+    polarion_id: polarionAttr?.value ?? undefined,
+    defect_type: item.issue?.issueType ?? undefined,
+    defect_comment: item.issue?.comment ?? undefined,
+    ai_prediction: aiPrediction?.value ?? undefined,
     ai_confidence: aiConfidence ? parseInt(aiConfidence.value, 10) : undefined,
-    jira_key: item.issue?.externalSystemIssues?.[0]?.ticketId,
-    unique_id: item.uniqueId,
+    error_message: undefined,
+    jira_key: item.issue?.externalSystemIssues?.[0]?.ticketId ?? undefined,
+    jira_status: undefined,
+    unique_id: item.uniqueId ?? undefined,
     start_time: item.startTime,
-    end_time: item.endTime,
+    end_time: item.endTime ?? undefined,
   };
 }
 
-export async function pollReportPortal(lookbackHours = 24): Promise<PollResult> {
+export async function pollReportPortal(lookbackHours = 24, fetchDetails = true): Promise<PollResult> {
   const sinceTime = Date.now() - lookbackHours * 60 * 60 * 1000;
   const launchFilter = config.dashboard.launchFilter;
 
-  console.log(`[Poller] Fetching launches matching "${launchFilter}" since ${new Date(sinceTime).toISOString()}`);
+  log.info({ filter: launchFilter, since: new Date(sinceTime).toISOString(), fetchDetails }, 'Fetching launches');
 
   const allLaunches: LaunchRecord[] = [];
   const allFailedItems = new Map<number, TestItemRecord[]>();
@@ -88,27 +94,63 @@ export async function pollReportPortal(lookbackHours = 24): Promise<PollResult> 
 
     totalPages = result.page.totalPages;
 
+    if (page === 1) {
+      log.info({ totalElements: result.page.totalElements, totalPages }, 'RP response');
+    }
+
     for (const rpLaunch of result.content) {
       const launch = parseLaunchRecord(rpLaunch);
-      upsertLaunch(launch);
+      await upsertLaunch(launch);
       allLaunches.push(launch);
 
-      if (launch.failed > 0 || launch.status === 'FAILED') {
+      if (fetchDetails && (launch.failed > 0 || launch.status === 'FAILED')) {
         const failedItems = await fetchFailedItemsForLaunch(rpLaunch.id);
         allFailedItems.set(rpLaunch.id, failedItems);
       }
     }
 
+    if (page % 10 === 0) {
+      log.info({ page, totalPages, launchesSoFar: allLaunches.length }, 'Polling progress');
+    }
+
     page++;
   }
 
-  console.log(`[Poller] Fetched ${allLaunches.length} launches, ${allFailedItems.size} with failures`);
+  log.info({ launches: allLaunches.length, withFailures: allFailedItems.size }, 'Poll complete');
 
   return {
     launches: allLaunches,
     failedItems: allFailedItems,
     timestamp: new Date(),
   };
+}
+
+export async function backfillTestItems(launches: LaunchRecord[], onBatch?: () => void): Promise<void> {
+  const failedLaunches = launches
+    .filter(l => l.failed > 0 || l.status === 'FAILED')
+    .sort((a, b) => b.start_time - a.start_time);
+
+  log.info({ total: failedLaunches.length }, 'Starting test item backfill');
+
+  for (let i = 0; i < failedLaunches.length; i++) {
+    const launch = failedLaunches[i];
+    const existing = await getFailedTestItems(launch.rp_id);
+    if (existing.length > 0) continue;
+
+    try {
+      await fetchFailedItemsForLaunch(launch.rp_id);
+    } catch (err) {
+      log.warn({ launchRpId: launch.rp_id, err }, 'Failed to backfill test items');
+    }
+
+    if ((i + 1) % 20 === 0) {
+      log.info({ progress: `${i + 1}/${failedLaunches.length}` }, 'Backfill progress');
+      onBatch?.();
+    }
+  }
+
+  log.info('Backfill complete');
+  onBatch?.();
 }
 
 async function fetchFailedItemsForLaunch(launchId: number): Promise<TestItemRecord[]> {
@@ -128,7 +170,17 @@ async function fetchFailedItemsForLaunch(launchId: number): Promise<TestItemReco
 
     for (const rpItem of result.content) {
       const item = parseTestItemRecord(rpItem, launchId);
-      upsertTestItem(item);
+
+      try {
+        const logs = await fetchTestItemLogs(rpItem.id, { level: 'ERROR', pageSize: 1 });
+        if (logs.content.length > 0) {
+          item.error_message = logs.content[0].message.substring(0, 2000);
+        }
+      } catch {
+        // non-critical
+      }
+
+      await upsertTestItem(item);
       items.push(item);
     }
 

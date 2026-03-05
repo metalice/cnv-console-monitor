@@ -1,28 +1,25 @@
 ---
 description: Testing patterns and guidelines
-globs: "**/*.test.ts"
+globs: "packages/**/*.test.ts"
 alwaysApply: false
 ---
 
 # Testing Guidelines
 
-Testing patterns and best practices for this project.
+Testing patterns and best practices using Vitest and Supertest.
 
 ---
 
 ## 1. Testing Strategy
 
 ### What to Test
-- Core logic: poller, analyzer, report builder
-- Database queries and store functions
-- API route handlers
-- Client request/response handling
-- Notification builders (Slack blocks, email HTML)
+- **Server**: poller, analyzer, report builder, store queries, route handlers
+- **Shared**: utility functions (healthScore, timeAgo)
+- **Client**: complex logic (API client, data transforms) — not UI-only components
 
-### What Not to Test
-- Third-party library internals (axios, better-sqlite3)
-- Express framework behavior
-- Static HTML/CSS/JS in dashboard
+### Test Runner
+- **Vitest** for all tests (configured in `packages/server`)
+- **Supertest** for HTTP route integration tests
 
 ---
 
@@ -30,10 +27,10 @@ Testing patterns and best practices for this project.
 
 ### File Organization
 - Test file next to source: `analyzer.ts` → `analyzer.test.ts`
-- Match source file name with `.test.ts` suffix
 
 ### Test Structure
 ```typescript
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { buildDailyReport } from './analyzer';
 
 describe('buildDailyReport', () => {
@@ -53,43 +50,24 @@ describe('buildDailyReport', () => {
 });
 ```
 
-### Naming Conventions
-- `describe` blocks: function/module name
-- Nested `describe`: scenario or context
-- `it` blocks: "should [expected behavior]"
-
 ---
 
-## 3. Mocking
+## 3. Mocking with Vitest
 
-### Mocking External APIs
+### Mocking Modules
 ```typescript
-import axios from 'axios';
-jest.mock('axios');
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+import { vi } from 'vitest';
 
-beforeEach(() => {
-  mockedAxios.get.mockReset();
-});
-
-it('should fetch launches from ReportPortal', async () => {
-  mockedAxios.get.mockResolvedValue({ data: { content: mockLaunches } });
-  const result = await fetchLaunches();
-  expect(result).toHaveLength(5);
-});
-```
-
-### Mocking Database
-```typescript
-jest.mock('../db/store', () => ({
-  upsertLaunch: jest.fn(),
-  getLaunches: jest.fn(() => mockLaunches),
+vi.mock('axios');
+vi.mock('../db/store', () => ({
+  upsertLaunch: vi.fn(),
+  getLaunches: vi.fn(() => mockLaunches),
 }));
 ```
 
 ### Mocking Config
 ```typescript
-jest.mock('../config', () => ({
+vi.mock('../config', () => ({
   config: {
     reportportal: { url: 'http://test', token: 'test-token', project: 'TEST' },
     slack: { enabled: false },
@@ -101,49 +79,33 @@ jest.mock('../config', () => ({
 
 ### Mock Data Factories
 ```typescript
-const createMockLaunch = (overrides = {}): LaunchData => ({
-  rpId: 1,
+const createMockLaunch = (overrides = {}): Launch => ({
+  rp_id: 1,
+  uuid: 'uuid-1',
   name: 'test-kubevirt-console-4.19-tier1',
+  number: 1,
   status: 'PASSED',
-  cnvVersion: '4.19',
+  cnv_version: '4.19',
   tier: 'tier1',
   total: 100,
   passed: 95,
   failed: 5,
   skipped: 0,
-  startTime: Date.now(),
+  start_time: Date.now(),
   ...overrides,
 });
 ```
 
 ---
 
-## 4. Testing Async Code
+## 4. Route Testing with Supertest
 
-### Async Operations
 ```typescript
-it('should handle API errors', async () => {
-  mockedAxios.get.mockRejectedValue(new Error('Network error'));
-  await expect(fetchLaunches()).rejects.toThrow('Network error');
-});
-
-it('should poll and store launches', async () => {
-  mockedAxios.get.mockResolvedValue({ data: { content: [mockLaunch] } });
-  await pollReportPortal();
-  expect(store.upsertLaunch).toHaveBeenCalledWith(expect.objectContaining({
-    rpId: mockLaunch.id,
-  }));
-});
-```
-
----
-
-## 5. Testing Express Routes
-
-### Route Handler Tests
-```typescript
+import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-import app from '../api';
+import { createApp } from '../api';
+
+const app = createApp();
 
 describe('GET /api/launches', () => {
   it('should return launches', async () => {
@@ -153,7 +115,7 @@ describe('GET /api/launches', () => {
   });
 
   it('should return 500 on database error', async () => {
-    jest.spyOn(store, 'getLaunches').mockImplementation(() => {
+    vi.spyOn(store, 'getLaunches').mockImplementation(() => {
       throw new Error('DB error');
     });
     const res = await request(app).get('/api/launches');
@@ -162,11 +124,31 @@ describe('GET /api/launches', () => {
 });
 ```
 
+### Testing Zod Validation
+```typescript
+describe('POST /api/triage/:itemId', () => {
+  it('should reject invalid body', async () => {
+    const res = await request(app)
+      .post('/api/triage/123')
+      .send({ defectType: '' });
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty('details');
+  });
+
+  it('should accept valid triage request', async () => {
+    const res = await request(app)
+      .post('/api/triage/123')
+      .send({ defectType: 'PRODUCT_BUG', comment: 'Known issue' });
+    expect(res.status).toBe(200);
+  });
+});
+```
+
 ---
 
-## 6. Testing Database Queries
+## 5. Database Testing
 
-### In-Memory SQLite for Tests
+### In-Memory SQLite
 ```typescript
 import Database from 'better-sqlite3';
 
@@ -184,60 +166,39 @@ afterEach(() => {
 
 ---
 
-## 7. Best Practices
+## 6. Testing Async Code
 
-### Test Behavior, Not Implementation
 ```typescript
-// ❌ Testing implementation
-expect(store.upsertLaunch).toHaveBeenCalledTimes(1);
-
-// ✅ Testing behavior
-const launches = store.getLaunches();
-expect(launches).toContainEqual(expect.objectContaining({ name: 'test-launch' }));
-```
-
-### Keep Tests Independent
-Each test sets up its own state and doesn't rely on other tests.
-
-### Clear Test Names
-```typescript
-// ❌ Vague
-it('works', () => {});
-
-// ✅ Descriptive
-it('should return empty array when no launches match the filter', () => {});
-```
-
-### Arrange-Act-Assert
-```typescript
-it('should compute pass rate correctly', () => {
-  // Arrange
-  const launch = createMockLaunch({ passed: 80, total: 100 });
-
-  // Act
-  const rate = computePassRate(launch);
-
-  // Assert
-  expect(rate).toBe(0.8);
+it('should handle API errors', async () => {
+  mockedAxios.get.mockRejectedValue(new Error('Network error'));
+  await expect(fetchLaunches()).rejects.toThrow('Network error');
 });
 ```
+
+---
+
+## 7. Best Practices
+
+- **Test behavior, not implementation**
+- **Keep tests independent** — each test manages its own setup
+- **Clear test names**: `it('should return empty array when no launches match')`
+- **Arrange-Act-Assert** pattern
+- **Use Vitest's `vi` object** instead of Jest's `jest` for mocks, spies, timers
 
 ---
 
 ## 8. Running Tests
 
 ```bash
-# When test runner is added:
-npm test                         # Run all tests
-npm test -- --watch              # Watch mode
-npm test path/to/file.test.ts    # Specific file
+npm run test                                  # All tests (vitest run)
+npm run test:watch -w packages/server         # Watch mode
+npx vitest run src/analyzer.test.ts -w packages/server  # Specific file
 ```
 
 ---
 
 ## 9. Checklist
 
-### Unit Test Checklist
 - [ ] Tests behavior, not implementation
 - [ ] Covers happy path
 - [ ] Covers error cases

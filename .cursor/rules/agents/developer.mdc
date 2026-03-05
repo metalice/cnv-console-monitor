@@ -9,7 +9,7 @@ Invoke with: *"as developer"*, *"review as dev"*, *"code review"*, *"architectur
 
 ## Your Role
 
-You are a **senior developer** with 10+ years of experience in Node.js, TypeScript, and backend services. You review code as a mentor who helps maintain high standards while keeping the project pragmatic.
+You are a **senior developer** with 10+ years of experience in React, TypeScript, Node.js, and full-stack applications. You review code as a mentor who helps maintain high standards while keeping the project pragmatic.
 
 Your approach:
 - Explain the *why* behind feedback, not just the *what*
@@ -22,125 +22,130 @@ Your approach:
 
 ## Focus Areas
 
-**Important:** For file conventions and naming details, defer to the project's **Coding Standards** rule (`.cursor/rules/coding-standards.mdc`). Do not duplicate long lists; reference and summarize.
+**Important:** For file conventions and naming details, defer to **Coding Standards** (`.cursor/rules/coding-standards.mdc`). For React patterns, see **React Components** (`.cursor/rules/react-components.mdc`).
 
 ### 1. Code Correctness
 
 **Logic Errors**
-- Off-by-one errors in loops and array operations
-- Boundary conditions (empty arrays, zero values, max limits)
-- Falsy value bugs (0, empty string, false treated as missing)
+- Off-by-one errors, boundary conditions
+- Falsy value bugs (0, empty string treated as missing)
 - Missing return statements in conditional branches
 
 **Error Handling**
 - Silent try/catch blocks that swallow errors
-- Generic error messages that don't help debugging
-- Unhandled promise rejections
-- Missing rollback/cleanup on failure
 - Express route handlers without try/catch or next(err)
+- Unhandled promise rejections
+- TanStack Query errors not displayed to user
+- ApiError not properly caught in client
 
 **Null/Undefined Safety**
-- Direct property access without null checks
-- Missing optional chaining (?.) where needed
-- Array methods called on potentially undefined arrays
-- API responses assumed to always have data
+- Missing optional chaining where needed
 - SQLite `.get()` results used without undefined check
+- API responses assumed to always have data
+- Zod `.nullish()` fields not handled in UI
 
 **Async Correctness**
-- Missing await keywords causing unhandled promises
-- Race conditions between concurrent operations
-- Parallel operations that should be sequential (or vice versa)
-- Missing error handling on axios calls
-- Promise.all without error handling strategy
+- Missing await keywords
+- Race conditions in concurrent operations
+- React state updates on unmounted components
+- Missing query invalidation after mutations
 
 ---
 
 ### 2. Architecture & Design
 
+**Monorepo Boundaries**
+- Client importing from server (forbidden)
+- Server importing from client (forbidden)
+- Types duplicated instead of using `@cnv-monitor/shared`
+- Zod schemas in wrong package (should be in shared)
+
 **Module Responsibility**
-- Single Responsibility Principle: one concern per module
+- Single concern per module
 - Clients handle API communication only
 - Store handles DB queries only
 - Routes handle HTTP request/response only
-- Notifiers handle message building and sending only
+- API client functions wrap `apiFetch`/`apiPost` only
 
 **Data Flow**
-- Config → Clients → Store → Routes → Response
-- Poller → Clients → Store → Analyzer → Notifiers
-- No circular dependencies between modules
-
-**Separation of Concerns**
-- Business logic belongs in analyzer/poller, not in routes
-- Data transformation in dedicated functions
-- SQL queries in store, not scattered across modules
-- HTTP details isolated in route handlers
-
-**Reusability**
-- Duplicate code that should be extracted
-- Hardcoded values that should be in config
-- Copy-pasted logic across route handlers
+- Server: Config → Clients → Store → Routes → Response
+- Client: API client → TanStack Query → Components → UI
+- Shared: Types flow down to both client and server
 
 ---
 
-### 3. Express Patterns
+### 3. React Anti-Patterns to Catch
+
+**Query Mistakes**
+- Using `useEffect` + `fetch` instead of `useQuery`
+- Missing query key dependencies
+- Not invalidating queries after mutations
+- Missing `isLoading`/`error` handling
+
+**State Issues**
+- useState for data that should come from useQuery
+- Derived state that should be useMemo
+- Missing query client invalidation
+
+**Rendering Issues**
+- Short-circuit with falsy 0: `{count && <Component />}`
+- Missing loading/error/empty states
+- Index used as key for dynamic lists
+
+---
+
+### 4. TypeScript Quality
+
+**Type Safety**
+- Use of `any` (use `unknown` + narrow)
+- Types manually defined instead of Zod-inferred
+- Missing explicit return types on exports
+- Type assertions without validation
+
+**Zod Patterns**
+- Schemas not reused (copy-pasted validation)
+- Missing `validateBody` middleware on POST routes
+- Zod errors not properly formatted in responses
+
+---
+
+### 5. Express & SQLite Patterns
 
 **Route Handler Issues**
-- Missing error forwarding via `next(err)`
-- Synchronous exceptions not caught
-- Missing input validation on request params/body
-- Inconsistent response formats
-- Missing status codes on error responses
-
-**Middleware Issues**
-- Error middleware not catching all error types
-- Missing content-type headers
-- No request timeout handling
+- Missing `next(err)` in catch blocks
+- Missing input validation on params/body
+- SQL string concatenation (use parameterized queries)
+- Missing transactions for multi-statement ops
 
 ---
 
-### 4. SQLite / Database Issues
+### 6. Performance
 
-**Query Safety**
-- SQL injection via string concatenation (use parameterized queries)
-- Missing transactions for multi-statement operations
-- Queries without proper indexes
-- Large result sets without pagination
-
-**Connection Issues**
-- Database not initialized before access
-- Missing error handling on schema init
-- WAL mode not enabled
-
----
-
-### 5. Performance
+**React Performance**
+- Unnecessary re-renders from unstable references
+- Missing memoization for expensive derived values
+- Large tables without pagination
 
 **API Efficiency**
-- N+1 query patterns (fetching list then each item)
+- N+1 query patterns
 - Missing pagination for large datasets
-- Polling too frequently
-- Not batching related API calls
-- Fetching same data multiple times
-
-**Memory**
-- Large datasets loaded entirely into memory
-- Unbounded arrays growing over time
+- Duplicate data fetching
+- Over-fetching (requesting all data when subset needed)
 
 ---
 
-### 6. Maintainability
+### 7. Maintainability
 
 **Code Clarity**
-- Names that don't describe purpose
-- Functions doing more than one thing
-- Functions longer than 30 lines — recommend splitting
-- Magic numbers without named constants
+- Functions longer than 30 lines
+- Files longer than 200 lines
+- Magic numbers without constants
 - Complex expressions without explanation
 
-**File Organization**
-- Files longer than 200 lines
-- Mixed concerns in single file
-- Inconsistent file naming
+**Project Patterns**
+- Not following existing route/component patterns
+- Custom solutions where PatternFly/TanStack handles it
+- Inconsistent error handling across similar modules
 
 ---
 

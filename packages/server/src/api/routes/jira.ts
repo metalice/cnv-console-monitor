@@ -1,12 +1,15 @@
 import { Router, Request, Response } from 'express';
+import { JiraCreateRequestSchema, JiraLinkRequestSchema } from '@cnv-monitor/shared';
 import { config } from '../../config';
 import { createIssue, findExistingIssue, getIssueStatus, buildBugDescription, searchIssues } from '../../clients/jira';
 import { getTestItemByRpId, updateTestItemJira, addTriageLog, getLaunchByRpId } from '../../db/store';
 import { getReportPortalLaunchUrl, getReportPortalItemUrl } from '../../clients/reportportal';
+import { validateBody } from '../middleware/validate';
+import { broadcast } from '../../ws';
 
 const router = Router();
 
-router.post('/create', async (req: Request, res: Response) => {
+router.post('/create', validateBody(JiraCreateRequestSchema), async (req: Request, res: Response) => {
   if (!config.jira.enabled) {
     res.status(400).json({ error: 'Jira integration is not configured' });
     return;
@@ -14,19 +17,20 @@ router.post('/create', async (req: Request, res: Response) => {
 
   const { testItemId, performedBy } = req.body;
 
-  const item = getTestItemByRpId(testItemId);
+  const item = await getTestItemByRpId(testItemId);
   if (!item) {
     res.status(404).json({ error: 'Test item not found' });
     return;
   }
 
-  const launch = getLaunchByRpId(item.launch_rp_id);
+  const launch = await getLaunchByRpId(item.launch_rp_id);
   const rpLaunchUrl = getReportPortalLaunchUrl(item.launch_rp_id);
   const rpItemUrl = getReportPortalItemUrl(item.launch_rp_id, item.rp_id);
 
   const existing = await findExistingIssue(item.name, item.polarion_id || undefined);
   if (existing) {
-    updateTestItemJira(item.rp_id, existing.key, existing.fields.status.name);
+    await updateTestItemJira(item.rp_id, existing.key, existing.fields.status.name);
+    broadcast('data-updated');
     res.json({
       success: true,
       existing: true,
@@ -62,15 +66,16 @@ router.post('/create', async (req: Request, res: Response) => {
       rpItemUrl,
     });
 
-    updateTestItemJira(item.rp_id, issue.key, 'Open');
+    await updateTestItemJira(item.rp_id, issue.key, 'Open');
 
-    addTriageLog({
+    await addTriageLog({
       test_item_rp_id: item.rp_id,
       action: 'create_jira',
       new_value: issue.key,
       performed_by: performedBy,
     });
 
+    broadcast('data-updated');
     res.json({ success: true, existing: false, issue: { key: issue.key, status: 'Open', summary } });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to create Jira issue';
@@ -78,15 +83,10 @@ router.post('/create', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/link', async (req: Request, res: Response) => {
+router.post('/link', validateBody(JiraLinkRequestSchema), async (req: Request, res: Response) => {
   const { testItemId, jiraKey, performedBy } = req.body;
 
-  if (!testItemId || !jiraKey) {
-    res.status(400).json({ error: 'testItemId and jiraKey are required' });
-    return;
-  }
-
-  const item = getTestItemByRpId(testItemId);
+  const item = await getTestItemByRpId(testItemId);
   if (!item) {
     res.status(404).json({ error: 'Test item not found' });
     return;
@@ -94,15 +94,16 @@ router.post('/link', async (req: Request, res: Response) => {
 
   try {
     const status = await getIssueStatus(jiraKey);
-    updateTestItemJira(item.rp_id, jiraKey, status);
+    await updateTestItemJira(item.rp_id, jiraKey, status);
 
-    addTriageLog({
+    await addTriageLog({
       test_item_rp_id: item.rp_id,
       action: 'link_jira',
       new_value: jiraKey,
       performed_by: performedBy,
     });
 
+    broadcast('data-updated');
     res.json({ success: true, jiraKey, status });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to link Jira issue';
@@ -123,7 +124,8 @@ router.get('/search', async (req: Request, res: Response) => {
   }
 
   try {
-    const jql = `project = ${config.jira.projectKey} AND text ~ "${query}" ORDER BY updated DESC`;
+    const sanitized = query.replace(/"/g, '\\"');
+    const jql = `project = ${config.jira.projectKey} AND text ~ "${sanitized}" ORDER BY updated DESC`;
     const result = await searchIssues(jql, 10);
     res.json(result.issues.map(i => ({
       key: i.key,

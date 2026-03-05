@@ -9,181 +9,158 @@ Invoke with: *"help me debug"*, *"why isn't this working"*, *"troubleshoot"*
 
 ## Approach
 
-Follow this systematic approach to identify and fix issues:
-1. **Reproduce** - Confirm the issue and identify exact steps
-2. **Isolate** - Narrow down where the problem occurs
-3. **Investigate** - Gather evidence and data
-4. **Hypothesize** - Form theories about the cause
-5. **Test** - Verify your hypothesis
-6. **Fix** - Implement the solution
-7. **Verify** - Confirm the fix works and doesn't break anything else
+1. **Reproduce** → 2. **Isolate** → 3. **Investigate** → 4. **Hypothesize** → 5. **Test** → 6. **Fix** → 7. **Verify**
 
 ---
 
 ## 1. Identify the Problem Type
 
-### API/Route Issues
-- Endpoint returning wrong data
-- Endpoint returning errors
-- Missing or malformed response
-- Route not found (404)
-- Server crash on request
+### Client (React) Issues
+- Component not rendering or rendering wrong data
+- Loading spinner stuck
+- Error not displayed to user
+- Navigation not working
+- Modal not opening/closing
+- Table data missing or malformed
 
-### Data/Polling Issues
-- Launches not being fetched
-- Test items missing
-- Wrong data stored in SQLite
-- Data not updating on re-poll
-- Stale data in dashboard
-
-### Notification Issues
-- Slack notification not sent
-- Email not delivered
-- Notification content wrong
-- Notification timing off
-
-### Database Issues
-- SQLite errors
-- Data not persisting
-- Queries returning wrong results
-- Schema migration problems
+### Server (Express/API) Issues
+- Endpoint returning wrong data or errors
+- Poller not fetching from RP
+- Database queries returning wrong results
+- Notifications not sending
 
 ### Build/Type Issues
 - TypeScript compilation errors
-- Import/export errors
-- Missing type definitions
-- Module not found
+- Vite build errors
+- Missing shared types (build shared first)
+- Import path errors
 
 ---
 
-## 2. Common Issue Categories
+## 2. Client-Specific Issues
+
+### Component Not Showing Data
+
+**Check TanStack Query**
+- Is `useQuery` returning `isLoading: true`? Data may still be fetching
+- Is `error` set? Check the error message
+- Is the query key correct and matching what you expect?
+- Open React Query DevTools (if installed) to see cache state
+
+**Check API**
+- Open browser Network tab, find the `/api/*` request
+- Check response status and body
+- If 502, server may not be running
+
+**Check Vite Proxy**
+- Vite proxies `/api` to `http://localhost:8080`
+- If server isn't running, proxy fails with 502
+- Start server: `npm run dev:server`
+
+### Modal Not Working
+- Is the modal's `isOpen` state being set?
+- Is `onClose` handler properly resetting state?
+- PatternFly Modals need explicit `isOpen` prop
+
+### Route Not Found
+- Check `App.tsx` Routes definition
+- Verify path matches (case sensitive)
+- Check SPA catch-all on server (`app.get('*', ...)`)
+
+---
+
+## 3. Server-Specific Issues
 
 ### ReportPortal API Not Returning Data
 
-**Possible Causes**
-- Token expired or invalid
-- Wrong project name
-- Filter not matching any launches
-- Network/DNS issues
-- RP maintenance/downtime
+**Possible Causes & Fixes**
+- Token expired → Check `REPORTPORTAL_TOKEN`
+- Wrong project → Check `REPORTPORTAL_PROJECT`
+- Filter mismatch → Check `LAUNCH_FILTER` config
+- Network issues → Test: `curl -H "Authorization: Bearer $TOKEN" "$RP_URL/api/v1/$PROJECT/launch"`
 
-**Investigation Steps**
-- Check REPORTPORTAL_TOKEN is set and valid
-- Test API directly: `curl -H "Authorization: Bearer $TOKEN" "$RP_URL/api/v1/$PROJECT/launch"`
-- Check launch filter matches expected names
-- Verify network connectivity from pod
+### Database Issues
 
-### Dashboard Not Showing Data
+**SQLite Errors**
+- Directory doesn't exist → Check `DB_PATH` parent directory
+- Disk full → `df -h`
+- Database locked → Check for other processes; CronJob concurrency policy
+- Schema mismatch → Delete DB and restart (data loss!)
 
-**Possible Causes**
-- Poller hasn't run yet (no data in DB)
-- DB path mismatch between poller and server
-- API route error (check server logs)
-- Frontend JS error (check browser console)
-
-**Investigation Steps**
-- Check if DB file exists and has data: `sqlite3 ./data/monitor.db "SELECT count(*) FROM launches;"`
-- Test API directly: `curl http://localhost:8080/api/launches`
-- Check browser console for JS errors
-- Verify DB_PATH is consistent
+**Wrong Query Results**
+- Inspect directly: `sqlite3 ./data/monitor.db "SELECT count(*) FROM launches;"`
+- Check parameterized query bindings
+- Check WHERE clause logic
 
 ### Notifications Not Sending
 
-**Possible Causes**
-- Webhook URL / SMTP config not set
-- Integration disabled (config.*.enabled is false)
-- Message build error
-- Network issue reaching Slack/SMTP
-
-**Investigation Steps**
-- Check environment variables are set
-- Test webhook: `curl -X POST $SLACK_WEBHOOK_URL -d '{"text":"test"}'`
+- Slack: Check `SLACK_WEBHOOK_URL` is set; test: `curl -X POST $URL -d '{"text":"test"}'`
+- Email: Check `SMTP_HOST` is set and reachable
+- Both: Check `config.slack.enabled` / `config.email.enabled`
 - Check server logs for notification errors
-- Verify `config.slack.enabled` / `config.email.enabled` is true
 
-### SQLite Errors
+### Route Handler Errors
 
-**Possible Causes**
-- DB directory doesn't exist
-- Disk full
-- File permissions
-- Database locked (concurrent access)
-- Schema mismatch
-
-**Investigation Steps**
-- Check DB directory exists: `ls -la ./data/`
-- Check disk space: `df -h`
-- Check file permissions
-- Check for other processes using the DB
-- Try deleting DB and re-running (data loss!)
+- Missing `try/catch` → synchronous exception crashes
+- Missing `next(err)` → error not forwarded to middleware
+- Missing `validateBody` → invalid input not caught
+- Check error middleware in `api/middleware/errorHandler.ts`
 
 ---
 
-## 3. Express Server Issues
+## 4. Build Issues
 
-### Route Not Found
-- Check route path matches request URL
-- Check route is registered in `api/index.ts`
-- Check HTTP method matches (GET vs POST)
+### Shared Types Missing
+```bash
+npm run build:shared     # Must build before server/client
+```
 
-### Server Crash on Request
-- Check error middleware catches the error
-- Look for synchronous exceptions in route handler
-- Check for missing `next(err)` in try/catch
+### TypeScript Errors
+```bash
+npm run typecheck        # Check shared + server
+```
 
-### Wrong Response Format
-- Check response builder logic
-- Verify database query returns expected shape
-- Check JSON serialization (dates, BigInt, etc.)
-
----
-
-## 4. TypeScript/Build Issues
-
-### Type Errors
-- Check import statements and paths
-- Add null checks with optional chaining
-- Verify type definitions exist in devDependencies
-- Check tsconfig.json settings
+### Vite Build Errors
+```bash
+npm run build:client     # Check for import errors
+```
 
 ### Module Not Found
-- Verify file exists at the import path
-- Check package.json for missing dependency
-- Run `npm install` if dependency was just added
-- Check case sensitivity in import paths
+- Run `npm install` at root
+- Check package.json workspaces are correct
+- Verify import paths use `@cnv-monitor/shared` not relative paths to other packages
 
 ---
 
 ## 5. Debugging Commands
 
-### Type Checking
+### Server
 ```bash
-npm run build            # Full compile check
+npm run dev:server                    # Start with ts-node
+curl http://localhost:8080/health     # Health check
+curl http://localhost:8080/api/launches  # Test API
 ```
 
-### Database Inspection
+### Client
+```bash
+npm run dev:client                    # Start Vite (port 5173)
+# Browser DevTools → Console for errors
+# Browser DevTools → Network for API calls
+```
+
+### Database
 ```bash
 sqlite3 ./data/monitor.db
 .tables
-.schema launches
 SELECT * FROM launches ORDER BY start_time DESC LIMIT 5;
 SELECT count(*) FROM test_items WHERE status = 'FAILED';
 ```
 
-### API Testing
-```bash
-curl http://localhost:8080/health
-curl http://localhost:8080/api/launches
-curl http://localhost:8080/api/launches/report
-curl http://localhost:8080/api/test-items/untriaged
-```
-
-### Kubernetes Debugging
+### Kubernetes
 ```bash
 kubectl logs -f deployment/cnv-console-monitor -n cnv-monitor
 kubectl logs job/<job-name> -n cnv-monitor
 kubectl describe pod <pod-name> -n cnv-monitor
-kubectl exec -it <pod-name> -n cnv-monitor -- sqlite3 /data/monitor.db ".tables"
 ```
 
 ---
@@ -192,12 +169,12 @@ kubectl exec -it <pod-name> -n cnv-monitor -- sqlite3 /data/monitor.db ".tables"
 
 | Symptom | First Check |
 |---------|-------------|
-| No data in dashboard | Has poller run? Check DB |
-| API returns 500 | Server logs for stack trace |
-| Slack not sending | SLACK_WEBHOOK_URL set? |
-| Email not sending | SMTP_HOST set? |
+| Blank page | Browser console for JS errors |
+| Loading forever | Network tab for API response |
+| API 502 in browser | Is server running? |
+| API 500 | Server logs for stack trace |
+| Slack not sending | `SLACK_WEBHOOK_URL` set? |
 | RP API 401 | Token expired? |
-| RP API no results | Launch filter correct? |
-| Build fails | `npm run build`, check types |
-| DB locked | Other process using DB? |
+| Build fails shared | `npm run build:shared` |
+| Types missing | Build shared before server/client |
 | Pod crashing | `kubectl describe pod` |

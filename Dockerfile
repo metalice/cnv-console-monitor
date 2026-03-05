@@ -22,7 +22,6 @@ RUN npm run build -w packages/client
 
 FROM node:20-alpine
 WORKDIR /app
-RUN apk add --no-cache sqlite
 
 COPY package*.json ./
 COPY packages/shared/package*.json ./packages/shared/
@@ -34,9 +33,6 @@ COPY --from=build-shared /app/packages/shared/dist/ ./packages/shared/dist/
 COPY --from=build-server /app/packages/server/dist/ ./packages/server/dist/
 COPY --from=build-client /app/packages/client/dist/ ./packages/client/dist/
 
-RUN mkdir -p /data
-VOLUME ["/data"]
-ENV DB_PATH=/data/monitor.db
 ENV DASHBOARD_PORT=8080
 EXPOSE 8080
 CMD ["node", "packages/server/dist/serve.js"]

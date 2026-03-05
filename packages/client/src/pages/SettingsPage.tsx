@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   PageSection,
@@ -10,12 +10,17 @@ import {
   DescriptionListTerm,
   DescriptionListDescription,
   Label,
+  Spinner,
+  EmptyState,
+  EmptyStateBody,
 } from '@patternfly/react-core';
 import { apiFetch } from '../api/client';
 import type { PublicConfig } from '@cnv-monitor/shared';
 
 export const SettingsPage: React.FC = () => {
-  const { data: config } = useQuery({
+  useEffect(() => { document.title = 'Settings | CNV Console Monitor'; }, []);
+
+  const { data: config, isLoading, error } = useQuery({
     queryKey: ['config'],
     queryFn: () => apiFetch<PublicConfig>('/config'),
     staleTime: Infinity,
@@ -31,7 +36,13 @@ export const SettingsPage: React.FC = () => {
       <PageSection>
         <Card>
           <CardBody>
-            {config ? (
+            {isLoading ? (
+              <Spinner aria-label="Loading configuration" />
+            ) : error ? (
+              <EmptyState>
+                <EmptyStateBody>Failed to load configuration: {(error as Error).message}</EmptyStateBody>
+              </EmptyState>
+            ) : config ? (
               <DescriptionList isHorizontal>
                 <DescriptionListGroup>
                   <DescriptionListTerm>ReportPortal URL</DescriptionListTerm>
@@ -62,9 +73,7 @@ export const SettingsPage: React.FC = () => {
                   </DescriptionListDescription>
                 </DescriptionListGroup>
               </DescriptionList>
-            ) : (
-              <Content>Loading configuration...</Content>
-            )}
+            ) : null}
           </CardBody>
         </Card>
       </PageSection>

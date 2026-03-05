@@ -1,31 +1,37 @@
+import 'reflect-metadata';
 import { pollReportPortal } from './poller';
 import { buildDailyReport } from './analyzer';
 import { sendSlackReport } from './notifiers/slack';
 import { sendEmailReport } from './notifiers/email';
 import { config } from './config';
+import { logger } from './logger';
+import { AppDataSource } from './db/data-source';
+
+const log = logger.child({ module: 'Main' });
 
 async function main(): Promise<void> {
-  console.log(`[Main] Starting poll at ${new Date().toISOString()}`);
-  console.log(`[Main] ReportPortal: ${config.reportportal.url}`);
-  console.log(`[Main] Project: ${config.reportportal.project}`);
-  console.log(`[Main] Filter: ${config.dashboard.launchFilter}`);
+  log.info('Initializing database...');
+  await AppDataSource.initialize();
+  await AppDataSource.runMigrations();
+
+  log.info({ url: config.reportportal.url, project: config.reportportal.project, filter: config.dashboard.launchFilter }, 'Configuration');
 
   try {
     await pollReportPortal(24);
 
-    const report = buildDailyReport(24);
+    const report = await buildDailyReport(24);
 
-    console.log(`[Main] Report: ${report.totalLaunches} launches, ${report.failedLaunches} failed, ${report.newFailures.length} new failures`);
+    log.info({ totalLaunches: report.totalLaunches, failed: report.failedLaunches, newFailures: report.newFailures.length }, 'Report built');
 
     const dashboardUrl = process.env.DASHBOARD_URL;
 
     await sendSlackReport(report, dashboardUrl);
     await sendEmailReport(report, dashboardUrl);
 
-    console.log(`[Main] Done at ${new Date().toISOString()}`);
+    log.info('Poll cycle complete');
     process.exit(0);
   } catch (err) {
-    console.error('[Main] Fatal error:', err);
+    log.fatal({ err }, 'Fatal error');
     process.exit(1);
   }
 }

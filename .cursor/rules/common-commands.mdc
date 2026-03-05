@@ -7,17 +7,28 @@ alwaysApply: false
 
 Invoke with: *"how do I build"*, *"run locally"*, *"deploy"*, *"docker"*, *"what commands"*, *"npm scripts"*
 
-Reference for all development, build, and deployment commands.
+Reference for all development, build, test, and deployment commands.
 
 ---
 
 ## 1. Development
 
-### Start Development
+### Start Full Dev Environment
 ```bash
-npm install              # Install dependencies
-npm run dev              # Start dashboard server (port 8080, ts-node)
-npm run dev:poll         # Run poller manually (ts-node)
+npm install              # Install all workspaces
+npm run dev              # Concurrently: server (8080) + client Vite (5173)
+```
+
+### Start Individual Packages
+```bash
+npm run dev:server       # Server only (ts-node, port 8080)
+npm run dev:client       # Client only (Vite, port 5173, proxies /api → 8080)
+```
+
+### Run Poller Manually
+```bash
+npm run poll             # Run one poll cycle (built)
+npm run dev:poll -w packages/server  # Run with ts-node
 ```
 
 ### Environment Variables (required for dev)
@@ -29,49 +40,60 @@ export REPORTPORTAL_TOKEN=your-token-here
 export SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 export JIRA_URL=https://issues.redhat.com
 export JIRA_TOKEN=your-jira-token
-export SMTP_HOST=smtp.example.com
 ```
 
 ### Prerequisites
 - Node.js >= 20
-- npm
+- npm (with workspaces support)
 - Docker/Podman (for container builds)
-- `oc` or `kubectl` (for cluster deployment)
 
 ---
 
 ## 2. Building
 
+### Full Build (ordered: shared → server → client)
 ```bash
-npm run build            # Compile TypeScript → dist/
+npm run build
 ```
 
-### Production Run
+### Individual Packages
 ```bash
-npm run build            # Compile first
-npm run start            # Run dashboard (node dist/serve.js)
-npm run poll             # Run poller (node dist/index.js)
+npm run build:shared     # TypeScript → dist/ for shared
+npm run build:server     # TypeScript → dist/ for server
+npm run build:client     # tsc + Vite → dist/ for client
 ```
 
 ---
 
 ## 3. Code Quality
 
+### Type Checking
 ```bash
-npm run build            # TypeScript compiler check (strict mode)
+npm run typecheck        # Typecheck shared + server
 ```
 
 ### Before Commit
 ```bash
-npm run build            # Ensure no type errors
+npm run typecheck && npm run test && npm run build
 ```
 
 ---
 
-## 4. Docker
+## 4. Testing
+
+### Server Tests (Vitest)
+```bash
+npm run test                                  # Run all (vitest run)
+npm run test:watch -w packages/server         # Watch mode
+npx vitest run path/to/file.test.ts -w packages/server  # Specific file
+```
+
+---
+
+## 5. Docker
 
 ```bash
-# Build image
+# Build image (multi-stage monorepo)
 podman build -t quay.io/openshift-cnv/cnv-console-monitor:latest .
 
 # Run locally
@@ -88,23 +110,13 @@ podman push quay.io/openshift-cnv/cnv-console-monitor:latest
 
 ---
 
-## 5. Kubernetes Deployment
+## 6. Kubernetes Deployment
 
 ```bash
-# Deploy all resources
 kubectl apply -f k8s/ -n cnv-monitor
-
-# Individual resources
-kubectl apply -f k8s/configmap.yaml -n cnv-monitor
-kubectl apply -f k8s/secret.yaml -n cnv-monitor
-kubectl apply -f k8s/pvc.yaml -n cnv-monitor
-kubectl apply -f k8s/deployment.yaml -n cnv-monitor
-kubectl apply -f k8s/service.yaml -n cnv-monitor
-kubectl apply -f k8s/route.yaml -n cnv-monitor
-kubectl apply -f k8s/cronjob.yaml -n cnv-monitor
 ```
 
-### Verify Deployment
+### Verify
 ```bash
 kubectl get pods -n cnv-monitor
 kubectl logs -f deployment/cnv-console-monitor -n cnv-monitor
@@ -119,13 +131,9 @@ kubectl logs job/manual-poll -n cnv-monitor --follow
 
 ---
 
-## 6. Database
+## 7. Database
 
-### SQLite DB Location
-- Local: `./data/monitor.db` (default)
-- Container: `/data/monitor.db` (PVC-mounted)
-
-### Inspect Database
+### Inspect SQLite
 ```bash
 sqlite3 ./data/monitor.db
 .tables
@@ -136,37 +144,44 @@ SELECT count(*) FROM test_items;
 
 ---
 
-## 7. Troubleshooting
+## 8. CI (GitHub Actions)
 
-### Common Issues
+CI runs on push/PR to main:
+1. `npm ci`
+2. Build shared
+3. Typecheck server
+4. Build server
+5. Test server (vitest)
+6. Build client
+7. Build + push Docker image (main branch only)
+
+---
+
+## 9. Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
-| `MODULE_NOT_FOUND` | Run `npm install` |
+| `MODULE_NOT_FOUND` | `npm install` at root |
+| shared types missing | `npm run build:shared` first |
+| Vite proxy 502 | Start server first: `npm run dev:server` |
 | SQLite errors | Check `DB_PATH` directory exists |
 | RP API 401 | Check `REPORTPORTAL_TOKEN` |
-| Slack not sending | Check `SLACK_WEBHOOK_URL` is set |
-| Port in use | Change `DASHBOARD_PORT` |
 
 ### Clean Reinstall
 ```bash
-rm -rf node_modules dist
+rm -rf node_modules packages/*/node_modules packages/*/dist
 npm install
 npm run build
 ```
 
 ---
 
-## 8. Quick Reference
+## 10. Quick Reference
 
-### Daily Development
 ```bash
-npm run dev                              # Dashboard at localhost:8080
-npm run dev:poll                         # Run one poll cycle
-```
-
-### Before Deploying
-```bash
-npm run build                            # Compile
-podman build -t quay.io/openshift-cnv/cnv-console-monitor:latest .
+npm run dev                  # Full dev (server + Vite client)
+npm run build                # Full build (shared → server → client)
+npm run typecheck            # Type check
+npm run test                 # Run tests
+npm run poll                 # Run one poll cycle
 ```

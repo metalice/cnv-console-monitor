@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   PageSection,
@@ -7,11 +7,14 @@ import {
   CardBody,
   Grid,
   GridItem,
+  Spinner,
 } from '@patternfly/react-core';
 import { Chart, ChartAxis, ChartLine, ChartThemeColor, ChartVoronoiContainer } from '@patternfly/react-charts/victory';
 import { fetchTrends } from '../api/launches';
 
 export const TrendsPage: React.FC = () => {
+  useEffect(() => { document.title = 'Trends | CNV Console Monitor'; }, []);
+
   const { data: trends, isLoading } = useQuery({
     queryKey: ['trends'],
     queryFn: () => fetchTrends('test-kubevirt-console', 30),
@@ -31,9 +34,9 @@ export const TrendsPage: React.FC = () => {
               <CardBody>
                 <Content component="h3" style={{ marginBottom: 16 }}>Pass Rate Trend</Content>
                 {isLoading ? (
-                  <Content>Loading chart...</Content>
+                  <Spinner aria-label="Loading trends" />
                 ) : trends && trends.length > 0 ? (
-                  <div style={{ height: 350 }}>
+                  <div style={{ height: 350, width: '100%' }}>
                     <Chart
                       containerComponent={
                         <ChartVoronoiContainer
@@ -43,7 +46,6 @@ export const TrendsPage: React.FC = () => {
                       height={300}
                       padding={{ bottom: 60, left: 60, right: 30, top: 20 }}
                       themeColor={ChartThemeColor.blue}
-                      width={900}
                     >
                       <ChartAxis
                         tickValues={trends.filter((_, i) => i % Math.max(1, Math.floor(trends.length / 10)) === 0).map((t) => t.date.slice(5))}
@@ -68,12 +70,11 @@ export const TrendsPage: React.FC = () => {
               <CardBody>
                 <Content component="h3">Test Volume</Content>
                 {trends && trends.length > 0 ? (
-                  <div style={{ height: 250 }}>
+                  <div style={{ height: 250, width: '100%' }}>
                     <Chart
                       height={200}
                       padding={{ bottom: 50, left: 60, right: 30, top: 20 }}
                       themeColor={ChartThemeColor.green}
-                      width={450}
                     >
                       <ChartAxis tickValues={trends.filter((_, i) => i % Math.max(1, Math.floor(trends.length / 5)) === 0).map((t) => t.date.slice(5))} />
                       <ChartAxis dependentAxis />
@@ -92,12 +93,11 @@ export const TrendsPage: React.FC = () => {
               <CardBody>
                 <Content component="h3">Passed Tests</Content>
                 {trends && trends.length > 0 ? (
-                  <div style={{ height: 250 }}>
+                  <div style={{ height: 250, width: '100%' }}>
                     <Chart
                       height={200}
                       padding={{ bottom: 50, left: 60, right: 30, top: 20 }}
                       themeColor={ChartThemeColor.green}
-                      width={450}
                     >
                       <ChartAxis tickValues={trends.filter((_, i) => i % Math.max(1, Math.floor(trends.length / 5)) === 0).map((t) => t.date.slice(5))} />
                       <ChartAxis dependentAxis />

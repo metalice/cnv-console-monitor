@@ -17,7 +17,7 @@ spec:
       containers:
         - name: dashboard
           image: quay.io/openshift-cnv/cnv-console-monitor:latest
-          command: ["node", "dist/serve.js"]
+          command: ["node", "packages/server/dist/serve.js"]
           ports:
             - containerPort: 8080
               name: http
@@ -26,9 +26,6 @@ spec:
                 name: cnv-console-monitor-config
             - secretRef:
                 name: cnv-console-monitor-secrets
-          volumeMounts:
-            - name: data
-              mountPath: /data
           resources:
             requests:
               cpu: 100m
@@ -40,15 +37,11 @@ spec:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 10
+            initialDelaySeconds: 30
             periodSeconds: 30
           readinessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 5
+            initialDelaySeconds: 10
             periodSeconds: 10
-      volumes:
-        - name: data
-          persistentVolumeClaim:
-            claimName: cnv-console-monitor-data

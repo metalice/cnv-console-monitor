@@ -7,6 +7,8 @@ export const PublicConfigSchema = z.object({
   jiraEnabled: z.boolean(),
   jiraUrl: z.string().optional(),
   jiraProjectKey: z.string().optional(),
+  rpLaunchBaseUrl: z.string(),
+  rpItemBaseUrl: z.string(),
 });
 
 export type PublicConfig = z.infer<typeof PublicConfigSchema>;

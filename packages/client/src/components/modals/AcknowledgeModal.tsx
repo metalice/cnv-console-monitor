@@ -16,10 +16,10 @@ import {
 } from '@patternfly/react-core';
 import { submitAcknowledgment } from '../../api/acknowledgment';
 
-interface AcknowledgeModalProps {
+type AcknowledgeModalProps = {
   isOpen: boolean;
   onClose: () => void;
-}
+};
 
 export const AcknowledgeModal: React.FC<AcknowledgeModalProps> = ({ isOpen, onClose }) => {
   const queryClient = useQueryClient();

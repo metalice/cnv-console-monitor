@@ -6,8 +6,22 @@ export function fetchTestItems(launchId: number, status?: string): Promise<TestI
   return apiFetch(`/test-items/launch/${launchId}${params}`);
 }
 
+export function fetchTestItemsForLaunches(launchIds: number[]): Promise<TestItem[]> {
+  return apiFetch(`/test-items/launches?ids=${launchIds.join(',')}`);
+}
+
 export function fetchUntriagedItems(hours = 24): Promise<TestItem[]> {
   return apiFetch(`/test-items/untriaged?hours=${hours}`);
+}
+
+export function fetchUntriagedForDate(dateStr: string): Promise<TestItem[]> {
+  const since = new Date(dateStr + 'T00:00:00').getTime();
+  const until = since + 24 * 60 * 60 * 1000;
+  return apiFetch(`/test-items/untriaged?since=${since}&until=${until}`);
+}
+
+export function fetchUntriagedForRange(since: number, until: number): Promise<TestItem[]> {
+  return apiFetch(`/test-items/untriaged?since=${since}&until=${until}`);
 }
 
 export function fetchTestItemHistory(uniqueId: string, limit = 20): Promise<TestItem[]> {

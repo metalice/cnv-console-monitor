@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import { httpLogger } from '../logger';
 import launchesRouter from './routes/launches';
 import testItemsRouter from './routes/testItems';
 import triageRouter from './routes/triage';
@@ -10,11 +11,14 @@ import flakyRouter from './routes/flaky';
 import defectTypesRouter from './routes/defectTypes';
 import activityRouter from './routes/activity';
 import configPublicRouter from './routes/configPublic';
+import pollRouter from './routes/poll';
+import notificationsRouter from './routes/notifications';
 import { errorHandler } from './middleware/errorHandler';
 
 export function createApp(): express.Application {
   const app = express();
 
+  app.use(httpLogger);
   app.use(express.json());
 
   const clientDistPath = path.join(__dirname, '..', '..', '..', 'client', 'dist');
@@ -30,12 +34,14 @@ export function createApp(): express.Application {
   app.use('/api/defect-types', defectTypesRouter);
   app.use('/api/activity', activityRouter);
   app.use('/api/config', configPublicRouter);
+  app.use('/api/poll', pollRouter);
+  app.use('/api/notifications', notificationsRouter);
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
-  app.get('*', (_req, res) => {
+  app.get('{*path}', (_req, res) => {
     res.sendFile(path.join(clientDistPath, 'index.html'));
   });
 

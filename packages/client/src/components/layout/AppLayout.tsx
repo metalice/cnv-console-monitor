@@ -1,7 +1,6 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  Brand,
   Masthead,
   MastheadBrand,
   MastheadContent,
@@ -14,10 +13,8 @@ import {
   PageSidebar,
   PageSidebarBody,
   PageToggleButton,
-  Content,
   Toolbar,
   ToolbarContent,
-  ToolbarItem,
 } from '@patternfly/react-core';
 import {
   BarsIcon,
@@ -28,6 +25,7 @@ import {
   ListIcon,
   CogIcon,
 } from '@patternfly/react-icons';
+import { DateToolbar } from '../common/DateToolbar';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: <HomeIcon /> },
@@ -38,9 +36,9 @@ const navItems = [
   { path: '/settings', label: 'Settings', icon: <CogIcon /> },
 ];
 
-interface AppLayoutProps {
+type AppLayoutProps = {
   children: React.ReactNode;
-}
+};
 
 export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const location = useLocation();
@@ -61,26 +59,18 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           </PageToggleButton>
         </MastheadToggle>
         <MastheadBrand>
-          <Brand
-            src=""
-            alt="CNV Console Monitor"
+          <span
             onClick={() => navigate('/')}
-            style={{ cursor: 'pointer' }}
+            style={{ cursor: 'pointer', color: 'white', fontSize: 18, fontWeight: 600 }}
           >
-            <Content component="h3" style={{ color: 'white', margin: 0 }}>
-              CNV Console Monitor
-            </Content>
-          </Brand>
+            CNV Console Monitor
+          </span>
         </MastheadBrand>
       </MastheadMain>
       <MastheadContent>
         <Toolbar>
           <ToolbarContent>
-            <ToolbarItem>
-              <Content component="small" style={{ color: 'var(--pf-t--global--color--nonstatus--gray--text--on-gray--default)' }}>
-                ReportPortal Dashboard
-              </Content>
-            </ToolbarItem>
+            <DateToolbar />
           </ToolbarContent>
         </Toolbar>
       </MastheadContent>
@@ -95,7 +85,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             {navItems.map((item) => (
               <NavItem
                 key={item.path}
-                isActive={location.pathname === item.path}
+                isActive={location.pathname === item.path || (item.path === '/' && location.pathname.startsWith('/launch/'))}
                 onClick={() => navigate(item.path)}
                 icon={item.icon}
               >

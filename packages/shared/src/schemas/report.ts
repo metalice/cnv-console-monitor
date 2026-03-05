@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { LaunchGroupSchema, HealthStatusEnum } from './launch';
+import { LaunchSchema, LaunchGroupSchema, HealthStatusEnum } from './launch';
 import { TestItemSchema } from './testItem';
 
 export const DailyReportSchema = z.object({
@@ -10,6 +10,7 @@ export const DailyReportSchema = z.object({
   passedLaunches: z.number(),
   failedLaunches: z.number(),
   inProgressLaunches: z.number(),
+  untriagedCount: z.number(),
   newFailures: z.array(TestItemSchema),
   recurringFailures: z.array(TestItemSchema),
 });
@@ -26,7 +27,7 @@ export const LaunchSummarySchema = z.object({
 export type LaunchSummary = z.infer<typeof LaunchSummarySchema>;
 
 export const LaunchesResponseSchema = z.object({
-  launches: z.array(z.lazy(() => z.any())),
+  launches: z.array(LaunchSchema),
   groups: z.array(LaunchGroupSchema),
   summary: LaunchSummarySchema,
 });

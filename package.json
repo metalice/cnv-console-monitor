@@ -12,14 +12,11 @@
     "build:shared": "npm run build -w packages/shared",
     "build:server": "npm run build -w packages/server",
     "build:client": "npm run build -w packages/client",
-    "dev": "concurrently \"npm run dev -w packages/server\" \"npm run dev -w packages/client\"",
+    "dev": "npm run dev:server & npm run dev:client",
     "dev:server": "npm run dev -w packages/server",
     "dev:client": "npm run dev -w packages/client",
     "test": "npm run test -w packages/server",
     "typecheck": "npm run typecheck -w packages/shared && npm run typecheck -w packages/server",
     "poll": "npm run poll -w packages/server"
-  },
-  "devDependencies": {
-    "concurrently": "^9.0.0"
   }
 }

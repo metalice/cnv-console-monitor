@@ -1,0 +1,232 @@
+---
+description: React component patterns and conventions
+globs: "packages/client/**/*.tsx"
+alwaysApply: false
+---
+
+# React Component Guidelines
+
+Patterns and conventions for React components in this project.
+
+---
+
+## 1. Component Types
+
+### Page Components
+- Top-level route components in `packages/client/src/pages/`
+- Handle data fetching via TanStack Query
+- Compose layout with PatternFly Page components
+- One page per route
+
+### Common Components
+- Reusable UI elements in `components/common/`
+- Receive data via props, minimal internal state
+- Examples: `StatusBadge`, `PassRateBar`, `TimeAgo`, `HealthBanner`
+
+### Modal Components
+- Self-contained dialogs in `components/modals/`
+- PatternFly `Modal` component
+- Handle own form state and submission
+- Examples: `TriageModal`, `JiraCreateModal`, `AcknowledgeModal`
+
+### Detail Components
+- Components for drill-down views in `components/detail/`
+- Examples: `LogViewer`, `SimilarFailuresPanel`
+
+### Layout Components
+- App shell in `components/layout/`
+- `AppLayout` provides PatternFly Page, Masthead, Sidebar
+
+---
+
+## 2. File Structure
+
+```
+packages/client/src/
+├── api/              # API client functions (one per resource)
+├── components/
+│   ├── common/       # Shared reusable components
+│   ├── detail/       # Detail view components
+│   ├── layout/       # App shell
+│   └── modals/       # Modal dialogs
+└── pages/            # Route-level pages
+```
+
+### Naming
+- **Component files**: PascalCase (`DashboardPage.tsx`, `StatusBadge.tsx`)
+- **API files**: camelCase matching resource (`launches.ts`, `triage.ts`)
+
+---
+
+## 3. Component Structure
+
+### Import Order
+1. React and external libraries
+2. PatternFly components and icons
+3. TanStack Query hooks
+4. Internal API functions
+5. Internal components
+6. Types from `@cnv-monitor/shared`
+
+### Inside Component Order
+1. Router hooks (`useParams`, `useNavigate`)
+2. Query hooks (`useQuery`, `useMutation`)
+3. Local state (`useState`)
+4. Derived values (`useMemo`)
+5. Callbacks (`useCallback`)
+6. Effects (`useEffect`)
+7. Early returns (loading, error, empty)
+8. Main JSX return
+
+---
+
+## 4. Data Fetching with TanStack Query
+
+### Reading Data
+```tsx
+import { useQuery } from '@tanstack/react-query';
+import { apiFetch } from '../api/client';
+import type { Launch } from '@cnv-monitor/shared';
+
+const { data: launches, isLoading, error } = useQuery<Launch[]>({
+  queryKey: ['launches'],
+  queryFn: () => apiFetch('/launches'),
+});
+```
+
+### Mutations
+```tsx
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+
+const queryClient = useQueryClient();
+
+const triageMutation = useMutation({
+  mutationFn: (data: TriageRequest) => apiPost(`/triage/${itemId}`, data),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['test-items'] });
+  },
+});
+```
+
+### Query Key Conventions
+- Resource name as first element: `['launches']`, `['test-items', launchId]`
+- Include dependent params: `['test-items', 'launch', launchId]`
+- Invalidate by prefix: `invalidateQueries({ queryKey: ['launches'] })`
+
+### Configuration
+- `staleTime: 2 * 60 * 1000` (2 minutes) — default
+- `refetchInterval: 5 * 60 * 1000` (5 minutes) — auto-refresh
+- `retry: 2` — default retries
+
+---
+
+## 5. Props Guidelines
+
+### Type Definitions
+- Define props type above component
+- Import domain types from `@cnv-monitor/shared`
+
+### Callback Props
+- Prefix with `on`: `onSelect`, `onTriage`, `onAcknowledge`
+- Pass minimal needed data to callbacks
+
+---
+
+## 6. State Handling UI
+
+### Loading State
+- PatternFly `Spinner` or `Skeleton`
+- Show while `isLoading` from useQuery
+
+### Error State
+- PatternFly `EmptyState` with error icon
+- User-friendly message
+- Retry button when appropriate
+
+### Empty State
+- PatternFly `EmptyState` with guidance
+- Explain why no data
+- Suggest next steps
+
+---
+
+## 7. PatternFly Integration
+
+### Common Components Used
+```tsx
+import { Page, PageSection, Card, CardBody } from '@patternfly/react-core';
+import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
+import { Chart, ChartLine, ChartAxis } from '@patternfly/react-charts';
+```
+
+### PatternFly CSS Variables
+```css
+var(--pf-t--global--spacer--md)
+var(--pf-t--global--color--status--danger--default)
+var(--pf-t--global--color--status--success--default)
+```
+
+### Don't
+- Don't target PatternFly class names in CSS selectors
+- Don't override PatternFly styles with `!important`
+- Don't use `px` — use PatternFly spacing variables
+
+---
+
+## 8. API Client Layer
+
+### Client Functions (`packages/client/src/api/`)
+```typescript
+import { apiFetch, apiPost } from './client';
+import type { Launch } from '@cnv-monitor/shared';
+
+export const getLaunches = (): Promise<Launch[]> =>
+  apiFetch('/launches');
+
+export const triageItem = (itemId: number, data: TriageRequest): Promise<void> =>
+  apiPost(`/triage/${itemId}`, data);
+```
+
+### Error Handling
+- `ApiError` class with status code
+- Caught by TanStack Query and available via `error` property
+- Show user-friendly message, not raw error
+
+---
+
+## 9. Routing
+
+### Route Definition (`App.tsx`)
+```tsx
+<Routes>
+  <Route path="/" element={<DashboardPage />} />
+  <Route path="/launch/:launchId" element={<LaunchDetailPage />} />
+  <Route path="/failures" element={<FailuresPage />} />
+  ...
+</Routes>
+```
+
+### Navigation
+```tsx
+import { useNavigate, useParams } from 'react-router-dom';
+
+const navigate = useNavigate();
+navigate(`/launch/${launchId}`);
+
+const { launchId } = useParams<{ launchId: string }>();
+```
+
+---
+
+## 10. Accessibility
+
+### Required
+- Keyboard navigation on all interactive elements
+- ARIA labels on icon-only buttons
+- Focus management in modals (PatternFly handles this)
+- Form labels associated with inputs
+
+### PatternFly handles
+- Focus trap in Modals
+- Screen reader content in many components
+- Keyboard navigation in Table and Nav

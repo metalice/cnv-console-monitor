@@ -7,9 +7,9 @@ import {
   BanIcon,
 } from '@patternfly/react-icons';
 
-interface StatusBadgeProps {
+type StatusBadgeProps = {
   status: string;
-}
+};
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
   switch (status) {

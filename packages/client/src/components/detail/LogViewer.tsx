@@ -10,9 +10,9 @@ import {
 } from '@patternfly/react-core';
 import { fetchTestItemLogs } from '../../api/testItems';
 
-interface LogViewerProps {
+type LogViewerProps = {
   itemId: number;
-}
+};
 
 export const LogViewer: React.FC<LogViewerProps> = ({ itemId }) => {
   const { data, isLoading, error } = useQuery({
