@@ -28,6 +28,7 @@ import { fetchReportForRange } from '../api/launches';
 import { triggerPollNow } from '../api/poll';
 import type { LaunchGroup, PublicConfig } from '@cnv-monitor/shared';
 import { useDate } from '../context/DateContext';
+import { SortByDirection } from '@patternfly/react-table';
 import { useTableSort } from '../hooks/useTableSort';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { PassRateBar } from '../components/common/PassRateBar';
@@ -89,7 +90,7 @@ export const DashboardPage: React.FC = () => {
     return groups;
   }, [report, versionFilter, statusFilter]);
 
-  const { sorted: sortedGroups, getSortParams } = useTableSort(filteredGroups, SORT_ACCESSORS, { index: 6, direction: 'desc' });
+  const { sorted: sortedGroups, getSortParams } = useTableSort(filteredGroups, SORT_ACCESSORS, { index: 6, direction: SortByDirection.desc });
 
   if (isLoading || !report) {
     return (

@@ -21,6 +21,7 @@ import { CheckCircleIcon, TimesCircleIcon } from '@patternfly/react-icons';
 import type { ApproverStat } from '@cnv-monitor/shared';
 import { fetchActivity } from '../api/activity';
 import { fetchAckStats } from '../api/acknowledgment';
+import { SortByDirection } from '@patternfly/react-table';
 import { useTableSort } from '../hooks/useTableSort';
 import { ThWithHelp } from '../components/common/ThWithHelp';
 
@@ -61,7 +62,7 @@ export const ActivityPage: React.FC = () => {
   const { sorted: sortedApprovers, getSortParams: getApproverSortParams } = useTableSort(
     ackStats?.approvers ?? [],
     REVIEWER_ACCESSORS,
-    { index: 1, direction: 'desc' },
+    { index: 1, direction: SortByDirection.desc },
   );
 
   return (

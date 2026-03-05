@@ -12,6 +12,7 @@ import {
 import { Table, Thead, Tr, Tbody, Td } from '@patternfly/react-table';
 import { CheckCircleIcon } from '@patternfly/react-icons';
 import type { FlakyTest } from '@cnv-monitor/shared';
+import { SortByDirection } from '@patternfly/react-table';
 import { fetchFlakyTests } from '../api/flaky';
 import { useTableSort } from '../hooks/useTableSort';
 import { ThWithHelp } from '../components/common/ThWithHelp';
@@ -37,7 +38,7 @@ export const FlakyTestsPage: React.FC = () => {
     (tests ?? []).map(t => ({ ...t, flipRate: Math.round((t.flip_count / t.total_runs) * 100) })),
   [tests]);
 
-  const { sorted, getSortParams } = useTableSort(rows, SORT_ACCESSORS, { index: 3, direction: 'desc' });
+  const { sorted, getSortParams } = useTableSort(rows, SORT_ACCESSORS, { index: 3, direction: SortByDirection.desc });
 
   return (
     <>

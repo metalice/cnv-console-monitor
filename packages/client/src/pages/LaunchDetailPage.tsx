@@ -25,6 +25,7 @@ import type { TestItem, PublicConfig } from '@cnv-monitor/shared';
 import { apiFetch } from '../api/client';
 import { fetchTestItems, fetchTestItemsForLaunches } from '../api/testItems';
 import { triggerAutoAnalysis, triggerPatternAnalysis, triggerUniqueErrorAnalysis } from '../api/analysis';
+import { SortByDirection } from '@patternfly/react-table';
 import { useTableSort } from '../hooks/useTableSort';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { ThWithHelp } from '../components/common/ThWithHelp';
@@ -154,7 +155,7 @@ export const LaunchDetailPage: React.FC = () => {
   }, [isGroupMode, failedItems]);
 
   const accessors = isGroupMode ? GROUP_ACCESSORS : SINGLE_ACCESSORS;
-  const { sorted, getSortParams } = useTableSort(displayItems, accessors, { index: 1, direction: 'asc' });
+  const { sorted, getSortParams } = useTableSort(displayItems, accessors, { index: 1, direction: SortByDirection.asc });
 
   return (
     <>

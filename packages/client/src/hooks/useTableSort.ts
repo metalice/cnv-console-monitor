@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import type { SortByDirection } from '@patternfly/react-table';
+import { SortByDirection } from '@patternfly/react-table';
 
 type SortConfig = {
   index: number;
@@ -13,7 +13,7 @@ export function useTableSort<T>(
   accessors: Record<number, ColumnAccessor<T>>,
   defaultSort?: SortConfig,
 ) {
-  const [sortBy, setSortBy] = useState<SortConfig>(defaultSort ?? { index: 0, direction: 'asc' });
+  const [sortBy, setSortBy] = useState<SortConfig>(defaultSort ?? { index: 0, direction: SortByDirection.asc });
 
   const onSort = useCallback((_event: React.MouseEvent, index: number, direction: SortByDirection) => {
     setSortBy({ index, direction });
@@ -38,12 +38,12 @@ export function useTableSort<T>(
         cmp = String(valA).localeCompare(String(valB), undefined, { numeric: true, sensitivity: 'base' });
       }
 
-      return sortBy.direction === 'desc' ? -cmp : cmp;
+      return sortBy.direction === SortByDirection.desc ? -cmp : cmp;
     });
   }, [items, accessors, sortBy]);
 
   const getSortParams = (columnIndex: number) => ({
-    sortBy: { index: sortBy.index, direction: sortBy.direction, defaultDirection: 'asc' as const },
+    sortBy: { index: sortBy.index, direction: sortBy.direction, defaultDirection: SortByDirection.asc },
     onSort,
     columnIndex,
   });

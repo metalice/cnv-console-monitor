@@ -22,6 +22,7 @@ import { CheckCircleIcon, WrenchIcon, BugIcon } from '@patternfly/react-icons';
 import { fetchUntriagedForRange } from '../api/testItems';
 import { fetchReportForRange } from '../api/launches';
 import { useDate } from '../context/DateContext';
+import { SortByDirection } from '@patternfly/react-table';
 import { useTableSort } from '../hooks/useTableSort';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { ThWithHelp } from '../components/common/ThWithHelp';
@@ -96,7 +97,7 @@ export const FailuresPage: React.FC = () => {
 
   const aggregated = useMemo(() => aggregateFailures(items ?? []), [items]);
 
-  const { sorted, getSortParams } = useTableSort(aggregated, SORT_ACCESSORS, { index: 2, direction: 'desc' });
+  const { sorted, getSortParams } = useTableSort(aggregated, SORT_ACCESSORS, { index: 2, direction: SortByDirection.desc });
 
   const newFailureIds = useMemo(() => {
     if (!report) return new Set<string>();
