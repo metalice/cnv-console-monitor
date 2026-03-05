@@ -12,6 +12,7 @@ router.get('/', (_req: Request, res: Response) => {
     jiraEnabled: config.jira.enabled,
     jiraUrl: config.jira.url || undefined,
     jiraProjectKey: config.jira.projectKey || undefined,
+    polarionUrl: config.polarion.url || undefined,
     rpLaunchBaseUrl: `${rpBase}/launches/all`,
     rpItemBaseUrl: `${rpBase}/launches/all`,
   });

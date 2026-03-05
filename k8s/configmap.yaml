@@ -15,6 +15,7 @@ data:
   POLL_INTERVAL_MINUTES: "15"
   INITIAL_LOOKBACK_DAYS: "180"
   TZ: "Asia/Jerusalem"
+  POLARION_URL: "https://polarion.engineering.redhat.com/polarion/#/project/CNV/workitem?id="
   JIRA_PROJECT_KEY: "CNV"
   JIRA_ISSUE_TYPE: "Bug"
   EMAIL_FROM: "cnv-ui-monitor@redhat.com"

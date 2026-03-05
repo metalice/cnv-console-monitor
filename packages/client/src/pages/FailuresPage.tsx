@@ -21,6 +21,7 @@ import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import { CheckCircleIcon, WrenchIcon, BugIcon } from '@patternfly/react-icons';
 import { fetchUntriagedForRange } from '../api/testItems';
 import { fetchReportForRange } from '../api/launches';
+import { apiFetch } from '../api/client';
 import { useDate } from '../context/DateContext';
 import { SortByDirection } from '@patternfly/react-table';
 import { useTableSort } from '../hooks/useTableSort';
@@ -28,7 +29,7 @@ import { StatusBadge } from '../components/common/StatusBadge';
 import { ThWithHelp } from '../components/common/ThWithHelp';
 import { TriageModal } from '../components/modals/TriageModal';
 import { JiraCreateModal } from '../components/modals/JiraCreateModal';
-import type { TestItem } from '@cnv-monitor/shared';
+import type { TestItem, PublicConfig } from '@cnv-monitor/shared';
 
 type AggregatedFailure = {
   representative: TestItem;
@@ -75,6 +76,7 @@ const SORT_ACCESSORS: Record<number, (a: AggregatedFailure) => string | number |
   4: (a) => a.representative.error_message,
   5: (a) => a.representative.polarion_id,
   6: (a) => a.representative.ai_prediction,
+  7: (a) => a.representative.jira_key,
 };
 
 export const FailuresPage: React.FC = () => {
@@ -84,6 +86,12 @@ export const FailuresPage: React.FC = () => {
   const [jiraCreateItem, setJiraCreateItem] = useState<TestItem | null>(null);
 
   useEffect(() => { document.title = 'Untriaged Failures | CNV Console Monitor'; }, []);
+
+  const { data: config } = useQuery({
+    queryKey: ['config'],
+    queryFn: () => apiFetch<PublicConfig>('/config'),
+    staleTime: Infinity,
+  });
 
   const { data: items, isLoading } = useQuery({
     queryKey: ['untriaged', lookbackMode, since, until],
@@ -168,8 +176,9 @@ export const FailuresPage: React.FC = () => {
                       <ThWithHelp label="Occurrences" help="Number of times this test failed across all launches in the selected window. Only shown when > 1." sort={getSortParams(2)} />
                       <ThWithHelp label="Status" help="Test result: FAILED or SKIPPED (only untriaged items shown here)." sort={getSortParams(3)} />
                       <ThWithHelp label="Error" help="First line of the error log from the most recent failure. Expand row for full details." />
-                      <ThWithHelp label="Polarion" help="Polarion test case ID linking this test to the test management system." sort={getSortParams(5)} />
+                      <ThWithHelp label="Polarion" help="Polarion test case ID. Click to open in Polarion." sort={getSortParams(5)} />
                       <ThWithHelp label="AI Prediction" help="ReportPortal AI prediction of defect type (Product Bug, Automation Bug, System Issue) with confidence %." sort={getSortParams(6)} />
+                      <ThWithHelp label="Jira" help="Linked Jira issue key and status. Click to open in Jira." sort={getSortParams(7)} />
                       <ThWithHelp label="Actions" help="Classify: set defect type for all occurrences. Bug: create Jira issue. Use checkboxes for bulk actions." />
                     </Tr>
                   </Thead>
@@ -203,12 +212,32 @@ export const FailuresPage: React.FC = () => {
                             )}
                           </Td>
                           <Td dataLabel="Polarion">
-                            {item.polarion_id && <Label color="blue" isCompact>{item.polarion_id}</Label>}
+                            {item.polarion_id && (
+                              <Label color="blue" isCompact>
+                                {config?.polarionUrl ? (
+                                  <a href={`${config.polarionUrl}${item.polarion_id}`} target="_blank" rel="noreferrer">
+                                    {item.polarion_id}
+                                  </a>
+                                ) : item.polarion_id}
+                              </Label>
+                            )}
                           </Td>
                           <Td dataLabel="AI">
                             {item.ai_prediction && (
                               <Label isCompact color={item.ai_prediction.includes('Product') ? 'red' : 'orange'}>
                                 {item.ai_prediction.replace('Predicted ', '')} {item.ai_confidence}%
+                              </Label>
+                            )}
+                          </Td>
+                          <Td dataLabel="Jira">
+                            {item.jira_key && (
+                              <Label color="blue" isCompact>
+                                {config?.jiraUrl ? (
+                                  <a href={`${config.jiraUrl}/browse/${item.jira_key}`} target="_blank" rel="noreferrer">
+                                    {item.jira_key}
+                                  </a>
+                                ) : item.jira_key}
+                                {' '}({item.jira_status})
                               </Label>
                             )}
                           </Td>

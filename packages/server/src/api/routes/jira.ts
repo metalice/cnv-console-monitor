@@ -46,6 +46,7 @@ router.post('/create', validateBody(JiraCreateRequestSchema), async (req: Reques
     const description = buildBugDescription({
       testName: item.name,
       polarionId: item.polarion_id || undefined,
+      polarionUrl: config.polarion.url || undefined,
       launchName: launch?.name || 'Unknown',
       cnvVersion: launch?.cnv_version || undefined,
       ocpVersion: launch?.ocp_version || undefined,

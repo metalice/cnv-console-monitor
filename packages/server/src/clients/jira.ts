@@ -140,6 +140,7 @@ export async function getIssueStatus(key: string): Promise<string> {
 export function buildBugDescription(params: {
   testName: string;
   polarionId?: string;
+  polarionUrl?: string;
   launchName: string;
   cnvVersion?: string;
   ocpVersion?: string;
@@ -154,7 +155,12 @@ export function buildBugDescription(params: {
     `*Test:* ${params.testName}`,
   ];
 
-  if (params.polarionId) lines.push(`*Polarion ID:* ${params.polarionId}`);
+  if (params.polarionId) {
+    const polarionLink = params.polarionUrl
+      ? `[${params.polarionId}|${params.polarionUrl}${params.polarionId}]`
+      : params.polarionId;
+    lines.push(`*Polarion ID:* ${polarionLink}`);
+  }
   lines.push(`*Launch:* ${params.launchName}`);
   if (params.cnvVersion) lines.push(`*CNV Version:* ${params.cnvVersion}`);
   if (params.ocpVersion) lines.push(`*OCP Version:* ${params.ocpVersion}`);

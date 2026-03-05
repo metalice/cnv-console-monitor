@@ -41,6 +41,10 @@ export const config = {
     initialLookbackDays: parseInt(process.env.INITIAL_LOOKBACK_DAYS || '180', 10),
   },
 
+  polarion: {
+    url: process.env.POLARION_URL || '',
+  },
+
   dashboard: {
     port: parseInt(process.env.DASHBOARD_PORT || '8080', 10),
     launchFilter: process.env.LAUNCH_FILTER || 'test-kubevirt-console',

@@ -7,6 +7,7 @@ export const PublicConfigSchema = z.object({
   jiraEnabled: z.boolean(),
   jiraUrl: z.string().optional(),
   jiraProjectKey: z.string().optional(),
+  polarionUrl: z.string().optional(),
   rpLaunchBaseUrl: z.string(),
   rpItemBaseUrl: z.string(),
 });

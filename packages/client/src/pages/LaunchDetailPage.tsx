@@ -256,7 +256,15 @@ export const LaunchDetailPage: React.FC = () => {
                             )}
                           </Td>
                           <Td dataLabel="Polarion">
-                            {item.polarion_id && <Label color="blue" isCompact>{item.polarion_id}</Label>}
+                            {item.polarion_id && (
+                              <Label color="blue" isCompact>
+                                {config?.polarionUrl ? (
+                                  <a href={`${config.polarionUrl}${item.polarion_id}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                                    {item.polarion_id}
+                                  </a>
+                                ) : item.polarion_id}
+                              </Label>
+                            )}
                           </Td>
                           <Td dataLabel="AI">
                             {item.ai_prediction && (
