@@ -95,17 +95,17 @@ kubectl get pods -n cnv-monitor
 kubectl get cronjobs -n cnv-monitor
 
 # Get the dashboard URL (OpenShift)
-oc get route cnv-console-monitor -n cnv-monitor
+oc get route cnv-ui-monitor -n cnv-monitor
 ```
 
 ### Building the Container Image
 
 ```bash
 # Build
-podman build -t quay.io/openshift-cnv/cnv-console-monitor:latest .
+podman build -t quay.io/openshift-cnv/cnv-ui-monitor:latest .
 
 # Push
-podman push quay.io/openshift-cnv/cnv-console-monitor:latest
+podman push quay.io/openshift-cnv/cnv-ui-monitor:latest
 ```
 
 ## API Endpoints

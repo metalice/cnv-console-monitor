@@ -158,7 +158,7 @@ SELECT count(*) FROM test_items WHERE status = 'FAILED';
 
 ### Kubernetes
 ```bash
-kubectl logs -f deployment/cnv-console-monitor -n cnv-monitor
+kubectl logs -f deployment/cnv-ui-monitor -n cnv-monitor
 kubectl logs job/<job-name> -n cnv-monitor
 kubectl describe pod <pod-name> -n cnv-monitor
 ```

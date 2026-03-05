@@ -3,11 +3,11 @@ kind: Service
 metadata:
   name: postgresql
   labels:
-    app: cnv-console-monitor
+    app: cnv-ui-monitor
     component: postgresql
 spec:
   selector:
-    app: cnv-console-monitor
+    app: cnv-ui-monitor
     component: postgresql
   ports:
     - port: 5432
@@ -20,19 +20,19 @@ kind: StatefulSet
 metadata:
   name: postgresql
   labels:
-    app: cnv-console-monitor
+    app: cnv-ui-monitor
     component: postgresql
 spec:
   serviceName: postgresql
   replicas: 1
   selector:
     matchLabels:
-      app: cnv-console-monitor
+      app: cnv-ui-monitor
       component: postgresql
   template:
     metadata:
       labels:
-        app: cnv-console-monitor
+        app: cnv-ui-monitor
         component: postgresql
     spec:
       containers:
@@ -48,7 +48,7 @@ spec:
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: cnv-console-monitor-secrets
+                  name: cnv-ui-monitor-secrets
                   key: POSTGRES_PASSWORD
           volumeMounts:
             - name: pgdata

@@ -20,7 +20,7 @@ export const config = {
     port: parseInt(process.env.SMTP_PORT || '587', 10),
     user: process.env.SMTP_USER || '',
     pass: process.env.SMTP_PASS || '',
-    from: process.env.EMAIL_FROM || process.env.SMTP_USER || 'cnv-console-monitor@redhat.com',
+    from: process.env.EMAIL_FROM || process.env.SMTP_USER || 'cnv-ui-monitor@redhat.com',
     recipients: (process.env.EMAIL_RECIPIENTS || '').split(',').filter(Boolean),
     enabled: !!process.env.SMTP_HOST,
   },

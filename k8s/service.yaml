@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: cnv-console-monitor
+  name: cnv-ui-monitor
   labels:
-    app: cnv-console-monitor
+    app: cnv-ui-monitor
 spec:
   selector:
-    app: cnv-console-monitor
+    app: cnv-ui-monitor
   ports:
     - port: 8080
       targetPort: 8080

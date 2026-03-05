@@ -1,13 +1,13 @@
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: cnv-console-monitor
+  name: cnv-ui-monitor
   labels:
-    app: cnv-console-monitor
+    app: cnv-ui-monitor
 spec:
   to:
     kind: Service
-    name: cnv-console-monitor
+    name: cnv-ui-monitor
     weight: 100
   port:
     targetPort: http

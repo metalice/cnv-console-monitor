@@ -1,9 +1,9 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: cnv-console-monitor-poll
+  name: cnv-ui-monitor-poll
   labels:
-    app: cnv-console-monitor
+    app: cnv-ui-monitor
 spec:
   schedule: "0 7 * * *"
   timeZone: "Asia/Jerusalem"
@@ -16,7 +16,7 @@ spec:
       template:
         metadata:
           labels:
-            app: cnv-console-monitor
+            app: cnv-ui-monitor
             component: poller
         spec:
           restartPolicy: OnFailure
@@ -26,12 +26,12 @@ spec:
               command: ["node", "packages/server/dist/index.js"]
               envFrom:
                 - configMapRef:
-                    name: cnv-console-monitor-config
+                    name: cnv-ui-monitor-config
                 - secretRef:
-                    name: cnv-console-monitor-secrets
+                    name: cnv-ui-monitor-secrets
               env:
                 - name: DASHBOARD_URL
-                  value: "https://cnv-console-monitor.apps.your-cluster.example.com"  # Update to your actual Route URL
+                  value: "https://cnv-ui-monitor.apps.your-cluster.example.com"  # Update to your actual Route URL
               resources:
                 requests:
                   cpu: 200m

@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: cnv-console-monitor-config
+  name: cnv-ui-monitor-config
   labels:
-    app: cnv-console-monitor
+    app: cnv-ui-monitor
 data:
   REPORTPORTAL_URL: "https://reportportal-cnv.apps.dno.ocp-hub.prod.psi.redhat.com"
   REPORTPORTAL_PROJECT: "CNV"
@@ -16,5 +16,5 @@ data:
   TZ: "Asia/Jerusalem"
   JIRA_PROJECT_KEY: "CNV"
   JIRA_ISSUE_TYPE: "Bug"
-  EMAIL_FROM: "cnv-console-monitor@redhat.com"
+  EMAIL_FROM: "cnv-ui-monitor@redhat.com"
   EMAIL_RECIPIENTS: ""

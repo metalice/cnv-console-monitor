@@ -40,7 +40,7 @@ Daily monitoring dashboard for CNV (Container-Native Virtualization) Console tes
 ## 2. Monorepo Structure
 
 ```
-cnv-console-monitor/
+cnv-ui-monitor/
 ├── packages/
 │   ├── shared/                   # @cnv-monitor/shared
 │   │   ├── src/
@@ -254,7 +254,7 @@ npm run poll                  # Run one poll cycle
 
 ### Docker (multi-stage monorepo build)
 ```bash
-podman build -t quay.io/openshift-cnv/cnv-console-monitor:latest .
+podman build -t quay.io/openshift-cnv/cnv-ui-monitor:latest .
 ```
 
 ### Kubernetes

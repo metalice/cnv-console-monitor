@@ -94,7 +94,7 @@ npx vitest run path/to/file.test.ts -w packages/server  # Specific file
 
 ```bash
 # Build image (multi-stage monorepo)
-podman build -t quay.io/openshift-cnv/cnv-console-monitor:latest .
+podman build -t quay.io/openshift-cnv/cnv-ui-monitor:latest .
 
 # Run locally
 podman run -it --rm \
@@ -102,10 +102,10 @@ podman run -it --rm \
   -e REPORTPORTAL_URL=... \
   -e REPORTPORTAL_TOKEN=... \
   -v ./data:/data \
-  quay.io/openshift-cnv/cnv-console-monitor:latest
+  quay.io/openshift-cnv/cnv-ui-monitor:latest
 
 # Push to registry
-podman push quay.io/openshift-cnv/cnv-console-monitor:latest
+podman push quay.io/openshift-cnv/cnv-ui-monitor:latest
 ```
 
 ---
@@ -119,13 +119,13 @@ kubectl apply -f k8s/ -n cnv-monitor
 ### Verify
 ```bash
 kubectl get pods -n cnv-monitor
-kubectl logs -f deployment/cnv-console-monitor -n cnv-monitor
+kubectl logs -f deployment/cnv-ui-monitor -n cnv-monitor
 kubectl get cronjob -n cnv-monitor
 ```
 
 ### Trigger Manual Poll
 ```bash
-kubectl create job --from=cronjob/cnv-console-monitor-poll manual-poll -n cnv-monitor
+kubectl create job --from=cronjob/cnv-ui-monitor-poll manual-poll -n cnv-monitor
 kubectl logs job/manual-poll -n cnv-monitor --follow
 ```
 

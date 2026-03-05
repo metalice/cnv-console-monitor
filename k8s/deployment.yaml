@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cnv-console-monitor
+  name: cnv-ui-monitor
   labels:
-    app: cnv-console-monitor
+    app: cnv-ui-monitor
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: cnv-console-monitor
+      app: cnv-ui-monitor
   template:
     metadata:
       labels:
-        app: cnv-console-monitor
+        app: cnv-ui-monitor
     spec:
       containers:
         - name: dashboard
@@ -23,9 +23,9 @@ spec:
               name: http
           envFrom:
             - configMapRef:
-                name: cnv-console-monitor-config
+                name: cnv-ui-monitor-config
             - secretRef:
-                name: cnv-console-monitor-secrets
+                name: cnv-ui-monitor-secrets
           resources:
             requests:
               cpu: 100m
