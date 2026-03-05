@@ -22,7 +22,7 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: poller
-              image: quay.io/openshift-cnv/cnv-console-monitor:latest
+              image: quay.io/mschatzm/cnv-ui-monitor:latest
               command: ["node", "packages/server/dist/index.js"]
               envFrom:
                 - configMapRef:

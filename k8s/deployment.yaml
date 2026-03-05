@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: dashboard
-          image: quay.io/openshift-cnv/cnv-console-monitor:latest
+          image: quay.io/mschatzm/cnv-ui-monitor:latest
           command: ["node", "packages/server/dist/serve.js"]
           ports:
             - containerPort: 8080
