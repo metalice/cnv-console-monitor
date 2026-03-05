@@ -1,6 +1,6 @@
 FROM node:20-alpine AS base
 WORKDIR /app
-COPY package*.json ./
+COPY package*.json tsconfig.base.json ./
 COPY packages/shared/package*.json ./packages/shared/
 COPY packages/server/package*.json ./packages/server/
 COPY packages/client/package*.json ./packages/client/
