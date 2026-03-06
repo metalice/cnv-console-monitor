@@ -20,3 +20,4 @@ data:
   JIRA_ISSUE_TYPE: "Bug"
   EMAIL_FROM: "cnv-ui-monitor@redhat.com"
   EMAIL_RECIPIENTS: "mschatzm@redhat.com"
+  AUTH_ENABLED: "true"

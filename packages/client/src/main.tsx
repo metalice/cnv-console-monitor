@@ -6,6 +6,7 @@ import '@patternfly/react-core/dist/styles/base.css';
 import App from './App';
 import { useWebSocket } from './hooks/useWebSocket';
 import { DateProvider } from './context/DateContext';
+import { AuthProvider } from './context/AuthContext';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,7 +32,9 @@ const AppWithProviders: React.FC = () => {
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <AppWithProviders />
+      <AuthProvider>
+        <AppWithProviders />
+      </AuthProvider>
     </QueryClientProvider>
   </React.StrictMode>,
 );

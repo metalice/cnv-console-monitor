@@ -68,7 +68,8 @@ router.get('/:date', async (req: Request, res: Response, next: NextFunction) => 
 
 router.post('/', validateBody(AcknowledgeRequestSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { reviewer, notes } = req.body;
+    const reviewer = req.user?.name || req.user?.email || req.body.reviewer;
+    const { notes } = req.body;
     const date = todayDate();
 
     await addAcknowledgment({ date, reviewer, notes });
