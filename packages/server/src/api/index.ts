@@ -3,6 +3,7 @@ import path from 'path';
 import { httpLogger } from '../logger';
 import { extractUser } from './middleware/auth';
 import authRouter from './routes/auth';
+import artifactsRouter from './routes/artifacts';
 import launchesRouter from './routes/launches';
 import testItemsRouter from './routes/testItems';
 import triageRouter from './routes/triage';
@@ -31,6 +32,7 @@ export function createApp(): express.Application {
   app.use(express.static(clientDistPath));
 
   app.use('/api/auth', extractUser, authRouter);
+  app.use('/api/artifacts', extractUser, artifactsRouter);
   app.use('/api/launches', extractUser, launchesRouter);
   app.use('/api/test-items', extractUser, testItemsRouter);
   app.use('/api/triage', extractUser, triageRouter);

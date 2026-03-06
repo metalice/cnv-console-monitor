@@ -31,6 +31,7 @@ import { StatusBadge } from '../components/common/StatusBadge';
 import { ThWithHelp } from '../components/common/ThWithHelp';
 import { LogViewer } from '../components/detail/LogViewer';
 import { SimilarFailuresPanel } from '../components/detail/SimilarFailuresPanel';
+import { ArtifactsPanel } from '../components/detail/ArtifactsPanel';
 import { TriageModal } from '../components/modals/TriageModal';
 import { JiraCreateModal } from '../components/modals/JiraCreateModal';
 import { JiraLinkModal } from '../components/modals/JiraLinkModal';
@@ -327,6 +328,12 @@ export const LaunchDetailPage: React.FC = () => {
           </Card>
         )}
       </PageSection>
+
+      {!isGroupMode && (
+        <PageSection>
+          <ArtifactsPanel launchId={id} />
+        </PageSection>
+      )}
 
       {triageItem && (
         <TriageModal isOpen onClose={() => setTriageItem(null)} itemIds={triageItem} />
