@@ -1,16 +1,12 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  Avatar,
-  Dropdown,
-  DropdownItem,
-  DropdownList,
+  Button,
   Masthead,
   MastheadBrand,
   MastheadContent,
   MastheadMain,
   MastheadToggle,
-  MenuToggle,
   Nav,
   NavItem,
   NavList,
@@ -31,6 +27,8 @@ import {
   ExclamationTriangleIcon,
   ListIcon,
   CogIcon,
+  UserIcon,
+  SignOutAltIcon,
 } from '@patternfly/react-icons';
 import { DateToolbar } from '../common/DateToolbar';
 import { useAuth } from '../../context/AuthContext';
@@ -53,39 +51,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
-  const [isUserMenuOpen, setIsUserMenuOpen] = React.useState(false);
-
-  const userDropdown = (
-    <Dropdown
-      isOpen={isUserMenuOpen}
-      onSelect={() => setIsUserMenuOpen(false)}
-      onOpenChange={setIsUserMenuOpen}
-      toggle={(toggleRef) => (
-        <MenuToggle
-          ref={toggleRef}
-          onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-          isExpanded={isUserMenuOpen}
-          icon={<Avatar alt={user.name} />}
-        >
-          {user.name}
-        </MenuToggle>
-      )}
-    >
-      <DropdownList>
-        <DropdownItem key="email" isDisabled>
-          {user.email}
-        </DropdownItem>
-        <DropdownItem
-          key="logout"
-          onClick={() => {
-            window.location.href = '/oauth/sign_out';
-          }}
-        >
-          Log out
-        </DropdownItem>
-      </DropdownList>
-    </Dropdown>
-  );
 
   const masthead = (
     <Masthead>
@@ -114,7 +79,20 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           <ToolbarContent>
             <DateToolbar />
             <ToolbarGroup align={{ default: 'alignEnd' }}>
-              <ToolbarItem>{userDropdown}</ToolbarItem>
+              <ToolbarItem>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--pf-t--global--color--nonstatus--gray--text--on-filled--default)' }}>
+                  <UserIcon />
+                  <span>{user.name}</span>
+                </span>
+              </ToolbarItem>
+              <ToolbarItem>
+                <Button
+                  variant="plain"
+                  aria-label="Log out"
+                  onClick={() => { window.location.href = '/oauth/sign_out'; }}
+                  icon={<SignOutAltIcon />}
+                />
+              </ToolbarItem>
             </ToolbarGroup>
           </ToolbarContent>
         </Toolbar>

@@ -12,7 +12,6 @@ import {
   FormSelect,
   FormSelectOption,
   TextArea,
-  TextInput,
   HelperText,
   HelperTextItem,
 } from '@patternfly/react-core';
@@ -29,7 +28,6 @@ export const TriageModal: React.FC<TriageModalProps> = ({ isOpen, onClose, itemI
   const queryClient = useQueryClient();
   const [defectType, setDefectType] = useState('');
   const [comment, setComment] = useState('');
-  const [performedBy, setPerformedBy] = useState('');
 
   const { data: defectTypes } = useQuery({
     queryKey: ['defectTypes'],
@@ -40,9 +38,9 @@ export const TriageModal: React.FC<TriageModalProps> = ({ isOpen, onClose, itemI
   const mutation = useMutation({
     mutationFn: () => {
       if (itemIds.length === 1) {
-        return classifyDefect(itemIds[0], { defectType, comment, performedBy });
+        return classifyDefect(itemIds[0], { defectType, comment });
       }
-      return bulkClassifyDefect({ itemIds, defectType, comment, performedBy });
+      return bulkClassifyDefect({ itemIds, defectType, comment });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['report'] });
@@ -86,9 +84,6 @@ export const TriageModal: React.FC<TriageModalProps> = ({ isOpen, onClose, itemI
           </FormGroup>
           <FormGroup label="Comment">
             <TextArea value={comment} onChange={(_e, val) => setComment(val)} placeholder="Reason for classification..." />
-          </FormGroup>
-          <FormGroup label="Your Name">
-            <TextInput value={performedBy} onChange={(_e, val) => setPerformedBy(val)} placeholder="e.g. Matan" />
           </FormGroup>
           {mutation.isError && (
             <HelperText>
