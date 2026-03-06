@@ -197,21 +197,20 @@ export async function addTestItemComment(testItemId: number, comment: string): P
 export async function triggerAutoAnalysis(launchId: number): Promise<void> {
   const client = createClient();
   await client.post('/launch/analyze', {
-    analyzerMode: 'CURRENT_LAUNCH',
-    analyzerItemsMode: ['TO_INVESTIGATE'],
     launchId,
-    analyzeItemsMode: ['TO_INVESTIGATE'],
+    analyzerMode: 'current_launch',
+    analyzerTypeName: 'autoAnalyzer',
+    analyzeItemsMode: ['to_investigate'],
   });
 }
 
 export async function triggerPatternAnalysis(launchId: number): Promise<void> {
   const client = createClient();
   await client.post('/launch/analyze', {
-    analyzerMode: 'CURRENT_LAUNCH',
-    analyzerItemsMode: ['TO_INVESTIGATE'],
     launchId,
-    analyzeItemsMode: ['TO_INVESTIGATE'],
+    analyzerMode: 'current_launch',
     analyzerTypeName: 'patternAnalyzer',
+    analyzeItemsMode: ['to_investigate'],
   });
 }
 
