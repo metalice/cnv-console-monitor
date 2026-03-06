@@ -153,6 +153,10 @@ export async function backfillTestItems(launches: LaunchRecord[], onBatch?: () =
   onBatch?.();
 }
 
+export async function refreshLaunchTestItems(launchId: number): Promise<TestItemRecord[]> {
+  return fetchFailedItemsForLaunch(launchId);
+}
+
 async function fetchFailedItemsForLaunch(launchId: number): Promise<TestItemRecord[]> {
   const items: TestItemRecord[] = [];
   let page = 1;
