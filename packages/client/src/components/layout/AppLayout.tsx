@@ -55,13 +55,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
   const [isUserMenuOpen, setIsUserMenuOpen] = React.useState(false);
 
-  const userInitials = user.name
-    .split(' ')
-    .map((part: string) => part[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-
   const userDropdown = (
     <Dropdown
       isOpen={isUserMenuOpen}
@@ -72,7 +65,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           ref={toggleRef}
           onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
           isExpanded={isUserMenuOpen}
-          icon={<Avatar alt={user.name}>{userInitials}</Avatar>}
+          icon={<Avatar alt={user.name} />}
         >
           {user.name}
         </MenuToggle>
