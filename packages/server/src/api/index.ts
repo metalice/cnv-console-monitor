@@ -1,6 +1,8 @@
 import express from 'express';
 import path from 'path';
 import { httpLogger } from '../logger';
+import { extractUser } from './middleware/auth';
+import authRouter from './routes/auth';
 import launchesRouter from './routes/launches';
 import testItemsRouter from './routes/testItems';
 import triageRouter from './routes/triage';
@@ -21,25 +23,26 @@ export function createApp(): express.Application {
   app.use(httpLogger);
   app.use(express.json());
 
-  const clientDistPath = path.join(__dirname, '..', '..', '..', 'client', 'dist');
-  app.use(express.static(clientDistPath));
-
-  app.use('/api/launches', launchesRouter);
-  app.use('/api/test-items', testItemsRouter);
-  app.use('/api/triage', triageRouter);
-  app.use('/api/analysis', analysisRouter);
-  app.use('/api/jira', jiraRouter);
-  app.use('/api/acknowledgment', acknowledgmentRouter);
-  app.use('/api/flaky-tests', flakyRouter);
-  app.use('/api/defect-types', defectTypesRouter);
-  app.use('/api/activity', activityRouter);
-  app.use('/api/config', configPublicRouter);
-  app.use('/api/poll', pollRouter);
-  app.use('/api/notifications', notificationsRouter);
-
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
+
+  const clientDistPath = path.join(__dirname, '..', '..', '..', 'client', 'dist');
+  app.use(express.static(clientDistPath));
+
+  app.use('/api/auth', extractUser, authRouter);
+  app.use('/api/launches', extractUser, launchesRouter);
+  app.use('/api/test-items', extractUser, testItemsRouter);
+  app.use('/api/triage', extractUser, triageRouter);
+  app.use('/api/analysis', extractUser, analysisRouter);
+  app.use('/api/jira', extractUser, jiraRouter);
+  app.use('/api/acknowledgment', extractUser, acknowledgmentRouter);
+  app.use('/api/flaky-tests', extractUser, flakyRouter);
+  app.use('/api/defect-types', extractUser, defectTypesRouter);
+  app.use('/api/activity', extractUser, activityRouter);
+  app.use('/api/config', extractUser, configPublicRouter);
+  app.use('/api/poll', extractUser, pollRouter);
+  app.use('/api/notifications', extractUser, notificationsRouter);
 
   app.get('{*path}', (_req, res) => {
     res.sendFile(path.join(clientDistPath, 'index.html'));

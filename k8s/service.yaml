@@ -4,12 +4,14 @@ metadata:
   name: cnv-ui-monitor
   labels:
     app: cnv-ui-monitor
+  annotations:
+    service.alpha.openshift.io/serving-cert-secret-name: cnv-ui-monitor-tls
 spec:
   selector:
     app: cnv-ui-monitor
   ports:
-    - port: 8080
-      targetPort: 8080
+    - port: 443
+      targetPort: 8443
       protocol: TCP
-      name: http
+      name: proxy
   type: ClusterIP

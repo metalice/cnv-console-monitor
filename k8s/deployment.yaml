@@ -14,7 +14,40 @@ spec:
       labels:
         app: cnv-ui-monitor
     spec:
+      serviceAccountName: cnv-ui-monitor
       containers:
+        - name: oauth-proxy
+          image: registry.redhat.io/openshift4/ose-oauth-proxy:latest
+          ports:
+            - containerPort: 8443
+              name: proxy
+          args:
+            - --https-address=:8443
+            - --provider=openshift
+            - --openshift-service-account=cnv-ui-monitor
+            - --upstream=http://localhost:8080
+            - --tls-cert=/etc/tls/private/tls.crt
+            - --tls-key=/etc/tls/private/tls.key
+            - --cookie-secret=$(OAUTH_COOKIE_SECRET)
+            - --pass-user-headers
+          env:
+            - name: OAUTH_COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: cnv-ui-monitor-secrets
+                  key: OAUTH_COOKIE_SECRET
+          volumeMounts:
+            - mountPath: /etc/tls/private
+              name: proxy-tls
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+
         - name: dashboard
           image: quay.io/mschatzm/cnv-ui-monitor:latest
           command: ["node", "packages/server/dist/serve.js"]
@@ -45,3 +78,8 @@ spec:
               port: 8080
             initialDelaySeconds: 10
             periodSeconds: 10
+
+      volumes:
+        - name: proxy-tls
+          secret:
+            secretName: cnv-ui-monitor-tls

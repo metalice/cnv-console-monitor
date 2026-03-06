@@ -11,7 +11,8 @@ router.post('/:itemId', validateBody(TriageRequestSchema), async (req: Request, 
   const itemId = parseIntParam(req.params.itemId, 'itemId', res);
   if (itemId === null) return;
 
-  const { defectType, comment, performedBy } = req.body;
+  const { defectType, comment } = req.body;
+  const performedBy = req.user?.email || req.body.performedBy || 'unknown';
 
   const existing = await getTestItemByRpId(itemId);
   if (!existing) {
@@ -40,7 +41,8 @@ router.post('/:itemId', validateBody(TriageRequestSchema), async (req: Request, 
 });
 
 router.post('/bulk', validateBody(BulkTriageRequestSchema), async (req: Request, res: Response) => {
-  const { itemIds, defectType, comment, performedBy } = req.body;
+  const { itemIds, defectType, comment } = req.body;
+  const performedBy = req.user?.email || req.body.performedBy || 'unknown';
 
   try {
     await updateDefectType(itemIds, defectType, comment);
@@ -69,7 +71,8 @@ router.post('/:itemId/comment', validateBody(CommentRequestSchema), async (req: 
   const itemId = parseIntParam(req.params.itemId, 'itemId', res);
   if (itemId === null) return;
 
-  const { comment, performedBy } = req.body;
+  const { comment } = req.body;
+  const performedBy = req.user?.email || req.body.performedBy || 'unknown';
 
   try {
     await addTestItemComment(itemId, comment);

@@ -53,4 +53,8 @@ export const config = {
   db: {
     url: process.env.DATABASE_URL || 'postgresql://cnv_monitor:changeme@localhost:5432/cnv_monitor',
   },
+
+  auth: {
+    enabled: process.env.AUTH_ENABLED !== 'false',
+  },
 };

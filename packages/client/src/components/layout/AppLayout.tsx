@@ -1,11 +1,16 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
+  Avatar,
+  Dropdown,
+  DropdownItem,
+  DropdownList,
   Masthead,
   MastheadBrand,
   MastheadContent,
   MastheadMain,
   MastheadToggle,
+  MenuToggle,
   Nav,
   NavItem,
   NavList,
@@ -15,6 +20,8 @@ import {
   PageToggleButton,
   Toolbar,
   ToolbarContent,
+  ToolbarGroup,
+  ToolbarItem,
 } from '@patternfly/react-core';
 import {
   BarsIcon,
@@ -26,6 +33,7 @@ import {
   CogIcon,
 } from '@patternfly/react-icons';
 import { DateToolbar } from '../common/DateToolbar';
+import { useAuth } from '../../context/AuthContext';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: <HomeIcon /> },
@@ -43,7 +51,48 @@ type AppLayoutProps = {
 export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
+  const [isUserMenuOpen, setIsUserMenuOpen] = React.useState(false);
+
+  const userInitials = user.name
+    .split(' ')
+    .map((part: string) => part[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+
+  const userDropdown = (
+    <Dropdown
+      isOpen={isUserMenuOpen}
+      onSelect={() => setIsUserMenuOpen(false)}
+      onOpenChange={setIsUserMenuOpen}
+      toggle={(toggleRef) => (
+        <MenuToggle
+          ref={toggleRef}
+          onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+          isExpanded={isUserMenuOpen}
+          icon={<Avatar alt={user.name}>{userInitials}</Avatar>}
+        >
+          {user.name}
+        </MenuToggle>
+      )}
+    >
+      <DropdownList>
+        <DropdownItem key="email" isDisabled>
+          {user.email}
+        </DropdownItem>
+        <DropdownItem
+          key="logout"
+          onClick={() => {
+            window.location.href = '/oauth/sign_out';
+          }}
+        >
+          Log out
+        </DropdownItem>
+      </DropdownList>
+    </Dropdown>
+  );
 
   const masthead = (
     <Masthead>
@@ -71,6 +120,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         <Toolbar>
           <ToolbarContent>
             <DateToolbar />
+            <ToolbarGroup align={{ default: 'alignEnd' }}>
+              <ToolbarItem>{userDropdown}</ToolbarItem>
+            </ToolbarGroup>
           </ToolbarContent>
         </Toolbar>
       </MastheadContent>
