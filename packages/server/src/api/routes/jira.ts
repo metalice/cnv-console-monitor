@@ -15,7 +15,8 @@ router.post('/create', validateBody(JiraCreateRequestSchema), async (req: Reques
     return;
   }
 
-  const { testItemId, performedBy } = req.body;
+  const { testItemId } = req.body;
+  const performedBy = req.user?.email || req.body.performedBy || 'unknown';
 
   const item = await getTestItemByRpId(testItemId);
   if (!item) {
@@ -63,6 +64,7 @@ router.post('/create', validateBody(JiraCreateRequestSchema), async (req: Reques
       summary,
       description,
       labels,
+      component: 'CNV User Interface',
       rpLaunchUrl,
       rpItemUrl,
     });
@@ -85,7 +87,8 @@ router.post('/create', validateBody(JiraCreateRequestSchema), async (req: Reques
 });
 
 router.post('/link', validateBody(JiraLinkRequestSchema), async (req: Request, res: Response) => {
-  const { testItemId, jiraKey, performedBy } = req.body;
+  const { testItemId, jiraKey } = req.body;
+  const performedBy = req.user?.email || req.body.performedBy || 'unknown';
 
   const item = await getTestItemByRpId(testItemId);
   if (!item) {
