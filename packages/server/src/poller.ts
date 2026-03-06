@@ -18,6 +18,12 @@ export type PollResult = {
   timestamp: Date;
 };
 
+function parseArtifactsUrl(description?: string): string | undefined {
+  if (!description) return undefined;
+  const match = description.match(/\[Artifacts Link\]\((https?:\/\/[^\s)]+)\)/);
+  return match?.[1];
+}
+
 function parseLaunchRecord(launch: RPLaunch): LaunchRecord {
   const attrs = launch.attributes;
   const execs = launch.statistics.executions;
@@ -40,6 +46,7 @@ function parseLaunchRecord(launch: RPLaunch): LaunchRecord {
     start_time: launch.startTime,
     end_time: launch.endTime,
     duration: launch.approximateDuration,
+    artifacts_url: parseArtifactsUrl(launch.description),
   };
 }
 

@@ -60,6 +60,9 @@ export class Launch {
   @Column({ type: 'float', nullable: true })
   duration!: number | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  artifacts_url!: string | null;
+
   @CreateDateColumn()
   fetched_at!: Date;
 }

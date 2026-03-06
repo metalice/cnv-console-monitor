@@ -23,6 +23,7 @@ export type LaunchRecord = {
   start_time: number;
   end_time?: number;
   duration?: number;
+  artifacts_url?: string;
 };
 
 export type TestItemRecord = {
@@ -83,6 +84,7 @@ export async function upsertLaunch(launch: LaunchRecord): Promise<void> {
       start_time: launch.start_time,
       end_time: launch.end_time ?? null,
       duration: launch.duration ?? null,
+      artifacts_url: launch.artifacts_url ?? null,
     },
     { conflictPaths: ['rp_id'], skipUpdateIfNoValuesChanged: true },
   );
@@ -350,6 +352,7 @@ function toLaunchRecord(row: Launch): LaunchRecord {
     start_time: Number(row.start_time),
     end_time: row.end_time ? Number(row.end_time) : undefined,
     duration: row.duration ?? undefined,
+    artifacts_url: row.artifacts_url ?? undefined,
   };
 }
 
