@@ -3,7 +3,7 @@ import { Card, CardBody, Content, Tooltip } from '@patternfly/react-core';
 import { OutlinedQuestionCircleIcon } from '@patternfly/react-icons';
 
 type StatCardProps = {
-  value: number;
+  value: number | string;
   label: string;
   help?: string;
   color?: string;

@@ -1,4 +1,4 @@
-import { LaunchRecord, TestItemRecord, getLaunchesSince, getLaunchesInRange, getFailedTestItems, getUntriagedItems, getTestFailureStreak, FailureStreakInfo } from './db/store';
+import { LaunchRecord, TestItemRecord, getLaunchesSince, getLaunchesInRange, getFailedTestItems, getUntriagedItems, getTestFailureStreak, getLastPassedLaunchTime, FailureStreakInfo, RunStatus } from './db/store';
 
 export type HealthStatus = 'green' | 'yellow' | 'red';
 
@@ -8,6 +8,7 @@ export type EnrichedFailedItem = TestItemRecord & {
   lastPassDate: string | null;
   lastPassTime: number | null;
   recentStatuses: string[];
+  recentRuns: RunStatus[];
 };
 
 export type LaunchGroup = {
@@ -23,6 +24,7 @@ export type LaunchGroup = {
   passRate: number;
   failedItems: TestItemRecord[];
   enrichedFailedItems: EnrichedFailedItem[];
+  lastPassedTime: number | null;
 };
 
 export type DailyReport = {
@@ -76,6 +78,7 @@ async function enrichFailedItems(items: TestItemRecord[]): Promise<EnrichedFaile
       lastPassDate: null,
       lastPassTime: null,
       recentStatuses: ['FAILED'],
+      recentRuns: [{ status: 'FAILED', date: '' }],
     };
 
     if (item.unique_id) {
@@ -89,6 +92,7 @@ async function enrichFailedItems(items: TestItemRecord[]): Promise<EnrichedFaile
       lastPassDate: streak.lastPassDate,
       lastPassTime: streak.lastPassTime,
       recentStatuses: streak.recentStatuses,
+      recentRuns: streak.recentRuns,
     });
   }
   return enriched;
@@ -114,6 +118,7 @@ export async function groupLaunches(launches: LaunchRecord[]): Promise<LaunchGro
     const latest = sorted[0];
     const failedItems = await getFailedTestItems(latest.rp_id);
     const enrichedFailedItems = await enrichFailedItems(failedItems);
+    const lastPassedTime = await getLastPassedLaunchTime(latest.name);
 
     const totalTests = sorted.reduce((sum, l) => sum + l.total, 0);
     const passedTests = sorted.reduce((sum, l) => sum + l.passed, 0);
@@ -133,6 +138,7 @@ export async function groupLaunches(launches: LaunchRecord[]): Promise<LaunchGro
       passRate: totalTests > 0 ? Math.round((passedTests / totalTests) * 1000) / 10 : 0,
       failedItems,
       enrichedFailedItems,
+      lastPassedTime,
     });
   }
 

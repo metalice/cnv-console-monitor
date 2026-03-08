@@ -1,4 +1,4 @@
-import type { DailyReport, TrendPoint } from '@cnv-monitor/shared';
+import type { DailyReport, TrendPoint, VersionTrendPoint, HeatmapCell, TopFailingTest } from '@cnv-monitor/shared';
 import { apiFetch } from './client';
 
 export function fetchReport(hours = 24): Promise<DailyReport> {
@@ -18,4 +18,16 @@ export function fetchReportForRange(since: number, until: number): Promise<Daily
 
 export function fetchTrends(name = 'test-kubevirt-console', days = 30): Promise<TrendPoint[]> {
   return apiFetch(`/launches/trends?name=${encodeURIComponent(name)}&days=${days}`);
+}
+
+export function fetchTrendsByVersion(days = 30): Promise<VersionTrendPoint[]> {
+  return apiFetch(`/launches/trends/by-version?days=${days}`);
+}
+
+export function fetchHeatmap(days = 14, limit = 20): Promise<HeatmapCell[]> {
+  return apiFetch(`/launches/trends/heatmap?days=${days}&limit=${limit}`);
+}
+
+export function fetchTopFailures(days = 30, limit = 15): Promise<TopFailingTest[]> {
+  return apiFetch(`/launches/trends/top-failures?days=${days}&limit=${limit}`);
 }

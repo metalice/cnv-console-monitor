@@ -131,6 +131,14 @@ export async function getLaunchesInRange(sinceMs: number, untilMs: number): Prom
   return rows.map(toLaunchRecord);
 }
 
+export async function getLastPassedLaunchTime(launchName: string): Promise<number | null> {
+  const row = await launches().findOne({
+    where: { name: launchName, status: 'PASSED' },
+    order: { start_time: 'DESC' },
+  });
+  return row ? Number(row.start_time) : null;
+}
+
 export async function getLaunchByRpId(rpId: number): Promise<LaunchRecord | undefined> {
   const row = await launches().findOneBy({ rp_id: rpId });
   return row ? toLaunchRecord(row) : undefined;
@@ -244,6 +252,114 @@ export async function getPassRateTrend(launchName: string, days: number): Promis
   return rows.map((r) => ({ date: r.date, total: Number(r.total), passed: Number(r.passed), rate: Number(r.rate) }));
 }
 
+export async function getPassRateTrendByVersion(days: number): Promise<Array<{ date: string; version: string; total: number; passed: number; rate: number }>> {
+  const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+  const rows = await AppDataSource.query(`
+    SELECT
+      TO_CHAR(TO_TIMESTAMP(l.start_time / 1000), 'YYYY-MM-DD') as date,
+      SUBSTRING(l.name FROM 'cnv-(\d+\.\d+)') as version,
+      SUM(l.total)::int as total,
+      SUM(l.passed)::int as passed,
+      ROUND(CAST(SUM(l.passed) AS NUMERIC) / NULLIF(SUM(l.total), 0) * 100, 1) as rate
+    FROM launches l
+    WHERE l.start_time >= $1 AND l.name LIKE 'test-kubevirt-console%'
+    GROUP BY date, version
+    HAVING SUBSTRING(l.name FROM 'cnv-(\d+\.\d+)') IS NOT NULL
+    ORDER BY date, version
+  `, [sinceMs]);
+  return rows.map((r: Record<string, unknown>) => ({
+    date: r.date as string,
+    version: r.version as string,
+    total: Number(r.total),
+    passed: Number(r.passed),
+    rate: Number(r.rate),
+  }));
+}
+
+export async function getFailureHeatmap(days: number, limit: number): Promise<Array<{ unique_id: string; name: string; fail_count: number; date: string; status: string }>> {
+  const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+  const rows = await AppDataSource.query(`
+    WITH top_failures AS (
+      SELECT ti.unique_id, ti.name, COUNT(*)::int as fail_count
+      FROM test_items ti
+      JOIN launches l ON ti.launch_rp_id = l.rp_id
+      WHERE ti.status = 'FAILED' AND l.start_time >= $1 AND ti.unique_id IS NOT NULL
+      GROUP BY ti.unique_id, ti.name
+      ORDER BY fail_count DESC
+      LIMIT $2
+    ),
+    date_range AS (
+      SELECT DISTINCT TO_CHAR(TO_TIMESTAMP(l.start_time / 1000), 'YYYY-MM-DD') as date
+      FROM launches l
+      WHERE l.start_time >= $1
+    )
+    SELECT
+      tf.unique_id, tf.name, tf.fail_count, dr.date,
+      CASE WHEN EXISTS (
+        SELECT 1 FROM test_items ti2
+        WHERE ti2.unique_id = tf.unique_id
+          AND ti2.status = 'FAILED'
+          AND TO_CHAR(TO_TIMESTAMP(ti2.start_time / 1000), 'YYYY-MM-DD') = dr.date
+      ) THEN 'FAILED' ELSE 'OK' END as status
+    FROM top_failures tf
+    CROSS JOIN date_range dr
+    ORDER BY tf.fail_count DESC, tf.name, dr.date
+  `, [sinceMs, limit]);
+  return rows;
+}
+
+export async function getTopFailingTests(days: number, limit: number): Promise<Array<{
+  name: string;
+  unique_id: string;
+  fail_count: number;
+  total_runs: number;
+  failure_rate: number;
+  recent_trend: 'worsening' | 'improving' | 'stable';
+}>> {
+  const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+  const midMs = Date.now() - (days / 2) * 24 * 60 * 60 * 1000;
+  const rows = await AppDataSource.query(`
+    WITH test_failures AS (
+      SELECT
+        ti.unique_id, ti.name,
+        COUNT(*) FILTER (WHERE ti.status = 'FAILED')::int as fail_count,
+        COUNT(*)::int as total_runs,
+        COUNT(*) FILTER (WHERE ti.status = 'FAILED' AND l.start_time < $3)::int as first_half_fails,
+        COUNT(*) FILTER (WHERE l.start_time < $3)::int as first_half_runs,
+        COUNT(*) FILTER (WHERE ti.status = 'FAILED' AND l.start_time >= $3)::int as second_half_fails,
+        COUNT(*) FILTER (WHERE l.start_time >= $3)::int as second_half_runs
+      FROM test_items ti
+      JOIN launches l ON ti.launch_rp_id = l.rp_id
+      WHERE l.start_time >= $1 AND ti.unique_id IS NOT NULL
+      GROUP BY ti.unique_id, ti.name
+      HAVING COUNT(*) FILTER (WHERE ti.status = 'FAILED') > 0
+      ORDER BY fail_count DESC
+      LIMIT $2
+    )
+    SELECT
+      name, unique_id, fail_count, total_runs,
+      ROUND(CAST(fail_count AS NUMERIC) / NULLIF(total_runs, 0) * 100, 1) as failure_rate,
+      first_half_fails, first_half_runs, second_half_fails, second_half_runs
+    FROM test_failures
+  `, [sinceMs, limit, midMs]);
+
+  return rows.map((r: Record<string, unknown>) => {
+    const firstRate = Number(r.first_half_runs) > 0 ? Number(r.first_half_fails) / Number(r.first_half_runs) : 0;
+    const secondRate = Number(r.second_half_runs) > 0 ? Number(r.second_half_fails) / Number(r.second_half_runs) : 0;
+    const diff = secondRate - firstRate;
+    const trend = diff > 0.1 ? 'worsening' as const : diff < -0.1 ? 'improving' as const : 'stable' as const;
+
+    return {
+      name: r.name as string,
+      unique_id: r.unique_id as string,
+      fail_count: Number(r.fail_count),
+      total_runs: Number(r.total_runs),
+      failure_rate: Number(r.failure_rate),
+      recent_trend: trend,
+    };
+  });
+}
+
 export async function getFlakyTests(days: number, limit: number): Promise<Array<{ name: string; unique_id: string; flip_count: number; total_runs: number }>> {
   const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
   const rows = await AppDataSource.query(`
@@ -301,22 +417,49 @@ export async function getTestItemHistory(uniqueId: string, limit = 20): Promise<
   return rows.map(toTestItemRecord);
 }
 
+export type RunStatus = {
+  status: string;
+  date: string;
+};
+
 export type FailureStreakInfo = {
   consecutiveFailures: number;
   totalRuns: number;
   lastPassDate: string | null;
   lastPassTime: number | null;
   recentStatuses: string[];
+  recentRuns: RunStatus[];
 };
 
 export async function getTestFailureStreak(uniqueId: string, maxRuns = 8): Promise<FailureStreakInfo> {
-  const rows = await testItems().find({
-    where: { unique_id: uniqueId },
-    order: { start_time: 'DESC' },
-    take: maxRuns,
-  });
+  const rows: Array<{ launch_start_time: string; status: string }> = await AppDataSource.query(`
+    WITH failed_item AS (
+      SELECT launch_rp_id FROM test_items WHERE unique_id = $1 LIMIT 1
+    ),
+    launch_name AS (
+      SELECT l.name FROM launches l JOIN failed_item fi ON l.rp_id = fi.launch_rp_id LIMIT 1
+    ),
+    recent_launches AS (
+      SELECT l.rp_id, l.start_time as launch_start_time
+      FROM launches l, launch_name ln
+      WHERE l.name = ln.name
+      ORDER BY l.start_time DESC
+      LIMIT $2
+    )
+    SELECT
+      rl.launch_start_time,
+      CASE WHEN ti.rp_id IS NOT NULL THEN 'FAILED' ELSE 'PASSED' END as status
+    FROM recent_launches rl
+    LEFT JOIN test_items ti ON ti.launch_rp_id = rl.rp_id AND ti.unique_id = $1 AND ti.status = 'FAILED'
+    ORDER BY rl.launch_start_time DESC
+  `, [uniqueId, maxRuns]);
 
+  const recentRuns: RunStatus[] = rows.map(r => ({
+    status: r.status,
+    date: new Date(Number(r.launch_start_time)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+  }));
   const recentStatuses = rows.map(r => r.status);
+
   let consecutiveFailures = 0;
   for (const s of recentStatuses) {
     if (s === 'FAILED') consecutiveFailures++;
@@ -326,18 +469,9 @@ export async function getTestFailureStreak(uniqueId: string, maxRuns = 8): Promi
   let lastPassDate: string | null = null;
   let lastPassTime: number | null = null;
   const passedRow = rows.find(r => r.status === 'PASSED');
-  if (passedRow && passedRow.start_time) {
-    lastPassTime = Number(passedRow.start_time);
+  if (passedRow) {
+    lastPassTime = Number(passedRow.launch_start_time);
     lastPassDate = new Date(lastPassTime).toISOString().split('T')[0];
-  } else {
-    const olderPass = await testItems().findOne({
-      where: { unique_id: uniqueId, status: 'PASSED' },
-      order: { start_time: 'DESC' },
-    });
-    if (olderPass && olderPass.start_time) {
-      lastPassTime = Number(olderPass.start_time);
-      lastPassDate = new Date(lastPassTime).toISOString().split('T')[0];
-    }
   }
 
   return {
@@ -346,6 +480,7 @@ export async function getTestFailureStreak(uniqueId: string, maxRuns = 8): Promi
     lastPassDate,
     lastPassTime,
     recentStatuses,
+    recentRuns,
   };
 }
 

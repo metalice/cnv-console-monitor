@@ -2,7 +2,6 @@ import axios from 'axios';
 import { config } from '../config';
 import { logger } from '../logger';
 import { DailyReport, LaunchGroup, EnrichedFailedItem } from '../analyzer';
-import { getReportPortalLaunchUrl } from '../clients/reportportal';
 
 const log = logger.child({ module: 'Slack' });
 
@@ -105,7 +104,7 @@ function buildBlocks(report: DailyReport): SlackBlock[] {
 
 function buildFailedGroupBlocks(group: LaunchGroup): SlackBlock[] {
   const blocks: SlackBlock[] = [];
-  const rpUrl = getReportPortalLaunchUrl(group.latestLaunch.rp_id);
+  const dashboardUrl = config.dashboard.url;
   const items = group.enrichedFailedItems.length > 0 ? group.enrichedFailedItems : group.failedItems;
 
   let text = `*${group.tier}-${group.cnvVersion}* (${group.passedTests}/${group.totalTests} passed, ${group.failedTests} failed)\n`;
@@ -130,7 +129,9 @@ function buildFailedGroupBlocks(group: LaunchGroup): SlackBlock[] {
     text += `  _...and ${items.length - 10} more_\n`;
   }
 
-  text += `<${rpUrl}|View in ReportPortal>`;
+  if (dashboardUrl) {
+    text += `<${dashboardUrl}/launch/${group.latestLaunch.rp_id}|View in Dashboard>`;
+  }
 
   blocks.push({
     type: 'section',

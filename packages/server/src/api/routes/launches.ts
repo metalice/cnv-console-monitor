@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { getLaunchesSince, getPassRateTrend } from '../../db/store';
+import { getLaunchesSince, getPassRateTrend, getPassRateTrendByVersion, getFailureHeatmap, getTopFailingTests } from '../../db/store';
 import { groupLaunches, buildDailyReport } from '../../analyzer';
 
 const router = Router();
@@ -47,6 +47,38 @@ router.get('/trends', async (req: Request, res: Response, next: NextFunction) =>
     const days = parseInt(req.query.days as string) || 30;
     const trend = await getPassRateTrend(launchName, days);
     res.json(trend);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/trends/by-version', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const days = parseInt(req.query.days as string) || 30;
+    const data = await getPassRateTrendByVersion(days);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/trends/heatmap', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const days = parseInt(req.query.days as string) || 14;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const data = await getFailureHeatmap(days, limit);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/trends/top-failures', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const days = parseInt(req.query.days as string) || 30;
+    const limit = parseInt(req.query.limit as string) || 15;
+    const data = await getTopFailingTests(days, limit);
+    res.json(data);
   } catch (err) {
     next(err);
   }

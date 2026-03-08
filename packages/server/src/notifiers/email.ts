@@ -2,7 +2,6 @@ import nodemailer from 'nodemailer';
 import { config } from '../config';
 import { logger } from '../logger';
 import { DailyReport, LaunchGroup, EnrichedFailedItem } from '../analyzer';
-import { getReportPortalLaunchUrl } from '../clients/reportportal';
 
 const log = logger.child({ module: 'Email' });
 
@@ -15,10 +14,11 @@ function healthColor(health: string): string {
   }
 }
 
-function streakBarHtml(statuses: string[]): string {
-  const segments = statuses.map(s => {
-    const color = s === 'FAILED' ? '#e74c3c' : s === 'PASSED' ? '#2ecc71' : '#95a5a6';
-    return `<span style="display:inline-block;width:12px;height:12px;background:${color};border-radius:2px;margin-right:2px;" title="${s}"></span>`;
+function streakBarHtml(runs: Array<{ status: string; date: string }>): string {
+  const segments = runs.map(r => {
+    const color = r.status === 'FAILED' ? '#e74c3c' : r.status === 'PASSED' ? '#2ecc71' : '#95a5a6';
+    const label = r.status === 'FAILED' ? `${r.date} — Failed` : `${r.date} — Passed`;
+    return `<span style="display:inline-block;width:12px;height:12px;background:${color};border-radius:2px;margin-right:2px;cursor:default;" title="${label}"></span>`;
   }).join('');
   return `<span style="display:inline-flex;align-items:center;">${segments}</span>`;
 }
@@ -77,10 +77,11 @@ function buildHtml(report: DailyReport): string {
         <th>Pass Rate</th>
         <th>Tests</th>
         <th>Last Run</th>
+        <th>Last Passed</th>
       </tr>
     </thead>
     <tbody>
-      ${report.groups.map(g => buildGroupRow(g)).join('')}
+      ${report.groups.filter(g => g.latestLaunch.status !== 'PASSED').map(g => buildGroupRow(g)).join('')}
     </tbody>
   </table>
 
@@ -109,6 +110,9 @@ function buildHtml(report: DailyReport): string {
 function buildGroupRow(group: LaunchGroup): string {
   const statusClass = `status-${group.latestLaunch.status.toLowerCase()}`;
   const lastRun = new Date(group.latestLaunch.start_time).toLocaleString();
+  const lastPassed = group.lastPassedTime
+    ? new Date(group.lastPassedTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : '<span style="color:#e74c3c;">Never</span>';
   return `
     <tr>
       <td>${group.cnvVersion}</td>
@@ -117,11 +121,12 @@ function buildGroupRow(group: LaunchGroup): string {
       <td>${group.passRate}%</td>
       <td>${group.passedTests}/${group.totalTests}</td>
       <td>${lastRun}</td>
+      <td>${lastPassed}</td>
     </tr>`;
 }
 
 function buildFailedSection(group: LaunchGroup): string {
-  const rpUrl = getReportPortalLaunchUrl(group.latestLaunch.rp_id);
+  const dashboardUrl = config.dashboard.url;
   const items = group.enrichedFailedItems.length > 0 ? group.enrichedFailedItems : group.failedItems;
   const jiraBaseUrl = config.jira.url;
 
@@ -134,8 +139,8 @@ function buildFailedSection(group: LaunchGroup): string {
 
     let streakHtml = '';
     let metaHtml = '';
-    if (enriched.recentStatuses) {
-      streakHtml = streakBarHtml(enriched.recentStatuses);
+    if (enriched.recentRuns) {
+      streakHtml = streakBarHtml(enriched.recentRuns);
       metaHtml = `<span>Failing ${enriched.consecutiveFailures}/${enriched.totalRuns} runs</span>` +
         `<span>${formatLastPass(enriched.lastPassDate, enriched.lastPassTime)}</span>`;
     }
@@ -153,7 +158,9 @@ function buildFailedSection(group: LaunchGroup): string {
       </div>`;
   }
 
-  html += `<a href="${rpUrl}" style="font-size: 13px;">View in ReportPortal →</a>`;
+  if (dashboardUrl) {
+    html += `<a href="${dashboardUrl}/launch/${group.latestLaunch.rp_id}" style="font-size: 13px;">View in Dashboard →</a>`;
+  }
   return html;
 }
 

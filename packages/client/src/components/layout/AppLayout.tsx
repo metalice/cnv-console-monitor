@@ -54,7 +54,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
   const masthead = (
     <Masthead>
-      <MastheadMain>
+      <MastheadMain style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
         <MastheadToggle>
           <PageToggleButton
             variant="plain"
@@ -65,14 +65,12 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             <BarsIcon />
           </PageToggleButton>
         </MastheadToggle>
-        <MastheadBrand>
-          <span
-            onClick={() => navigate('/')}
-            style={{ cursor: 'pointer', color: 'white', fontSize: 18, fontWeight: 600 }}
-          >
-            CNV Console Monitor
-          </span>
-        </MastheadBrand>
+        <span
+          onClick={() => navigate('/')}
+          style={{ cursor: 'pointer', fontSize: 16, fontWeight: 600 }}
+        >
+          CNV Console Monitor
+        </span>
       </MastheadMain>
       <MastheadContent>
         <Toolbar>
