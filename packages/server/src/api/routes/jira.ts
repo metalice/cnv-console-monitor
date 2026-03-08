@@ -6,6 +6,7 @@ import { getTestItemByRpId, updateTestItemJira, addTriageLog, getLaunchByRpId } 
 import { getReportPortalLaunchUrl, getReportPortalItemUrl } from '../../clients/reportportal';
 import { validateBody } from '../middleware/validate';
 import { broadcast } from '../../ws';
+import { sendSlackJiraNotification } from '../../notifiers/slack';
 
 const router = Router();
 
@@ -79,6 +80,17 @@ router.post('/create', validateBody(JiraCreateRequestSchema), async (req: Reques
     });
 
     broadcast('data-updated');
+
+    sendSlackJiraNotification({
+      jiraKey: issue.key,
+      summary,
+      testName: item.name,
+      polarionId: item.polarion_id || undefined,
+      cnvVersion: launch?.cnv_version || undefined,
+      rpItemUrl,
+      createdBy: performedBy,
+    }).catch(() => {});
+
     res.json({ success: true, existing: false, issue: { key: issue.key, status: 'Open', summary } });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to create Jira issue';

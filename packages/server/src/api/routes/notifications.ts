@@ -18,7 +18,7 @@ router.post('/test-email', async (_req: Request, res: Response, next: NextFuncti
     }
 
     const report = await buildDailyReport(24);
-    await sendEmailReport(report, process.env.DASHBOARD_URL);
+    await sendEmailReport(report);
 
     res.json({
       success: true,
@@ -40,7 +40,7 @@ router.post('/test-slack', async (_req: Request, res: Response, next: NextFuncti
     }
 
     const report = await buildDailyReport(24);
-    await sendSlackReport(report, process.env.DASHBOARD_URL);
+    await sendSlackReport(report);
 
     res.json({ success: true, message: 'Test Slack notification sent' });
   } catch (err) {

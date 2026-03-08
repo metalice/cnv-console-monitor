@@ -69,10 +69,23 @@ router.get('/:date', async (req: Request, res: Response, next: NextFunction) => 
 router.post('/', validateBody(AcknowledgeRequestSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const reviewer = req.user?.name || req.user?.email || req.body.reviewer;
-    const { notes } = req.body;
+    const { notes, testNotes } = req.body;
     const date = todayDate();
 
-    await addAcknowledgment({ date, reviewer, notes });
+    let combinedNotes = notes || '';
+    if (testNotes && testNotes.length > 0) {
+      const testNotesText = testNotes
+        .map((tn: { testName: string; jiraKey?: string; note: string }) => {
+          const jira = tn.jiraKey ? ` [${tn.jiraKey}]` : '';
+          return `• ${tn.testName}${jira}: ${tn.note}`;
+        })
+        .join('\n');
+      combinedNotes = combinedNotes
+        ? `${combinedNotes}\n\n${testNotesText}`
+        : testNotesText;
+    }
+
+    await addAcknowledgment({ date, reviewer, notes: combinedNotes || undefined });
 
     try {
       await sendSlackAcknowledgment(reviewer, notes || '', date);

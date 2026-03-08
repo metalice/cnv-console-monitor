@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
@@ -6,39 +6,29 @@ import {
   Flex,
   FlexItem,
   Label,
-  TextInput,
   Tooltip,
 } from '@patternfly/react-core';
-import { CheckCircleIcon, TimesIcon } from '@patternfly/react-icons';
-import { fetchAckStatus, submitAcknowledgment, deleteAcknowledgment } from '../../api/acknowledgment';
+import { CheckCircleIcon } from '@patternfly/react-icons';
+import { fetchAckStatus, deleteAcknowledgment } from '../../api/acknowledgment';
 import { useDate } from '../../context/DateContext';
-import { useAuth } from '../../context/AuthContext';
+
+type AckBannerProps = {
+  onAcknowledge: () => void;
+};
 
 function todayStr(): string {
   return new Date().toISOString().split('T')[0];
 }
 
-export const AckBanner: React.FC = () => {
+export const AckBanner: React.FC<AckBannerProps> = ({ onAcknowledge }) => {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
   const { dateTo } = useDate();
   const isToday = dateTo === todayStr();
-  const [showNotes, setShowNotes] = useState(false);
-  const [notes, setNotes] = useState('');
 
   const { data } = useQuery({
     queryKey: ['acknowledgment', dateTo],
     queryFn: () => fetchAckStatus(dateTo),
     refetchInterval: isToday ? 60000 : false,
-  });
-
-  const ackMutation = useMutation({
-    mutationFn: (ackNotes?: string) => submitAcknowledgment({ reviewer: user.name, notes: ackNotes }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['acknowledgment'] });
-      setShowNotes(false);
-      setNotes('');
-    },
   });
 
   const removeMutation = useMutation({
@@ -67,7 +57,7 @@ export const AckBanner: React.FC = () => {
                   content={
                     <>
                       {ack.acknowledged_at && <div>{new Date(ack.acknowledged_at).toLocaleString()}</div>}
-                      {ack.notes && <div>{ack.notes}</div>}
+                      {ack.notes && <div style={{ whiteSpace: 'pre-wrap' }}>{ack.notes}</div>}
                     </>
                   }
                 >
@@ -98,42 +88,11 @@ export const AckBanner: React.FC = () => {
             {isToday ? "Today's report has not been reviewed." : `Report for ${dateTo} was not reviewed.`}
           </FlexItem>
           {isToday && (
-            <>
-              <FlexItem>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => ackMutation.mutate(notes || undefined)}
-                  isLoading={ackMutation.isPending}
-                >
-                  Acknowledge
-                </Button>
-              </FlexItem>
-              <FlexItem>
-                {showNotes ? (
-                  <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
-                    <FlexItem>
-                      <TextInput
-                        value={notes}
-                        onChange={(_e, val) => setNotes(val)}
-                        placeholder="Optional notes..."
-                        aria-label="Acknowledgment notes"
-                        style={{ width: 250 }}
-                      />
-                    </FlexItem>
-                    <FlexItem>
-                      <Button variant="plain" size="sm" onClick={() => { setShowNotes(false); setNotes(''); }} aria-label="Cancel notes">
-                        <TimesIcon />
-                      </Button>
-                    </FlexItem>
-                  </Flex>
-                ) : (
-                  <Button variant="link" size="sm" isInline onClick={() => setShowNotes(true)}>
-                    + Add notes
-                  </Button>
-                )}
-              </FlexItem>
-            </>
+            <FlexItem>
+              <Button variant="primary" size="sm" onClick={onAcknowledge}>
+                Acknowledge
+              </Button>
+            </FlexItem>
           )}
         </Flex>
       }

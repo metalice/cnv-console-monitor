@@ -1,6 +1,14 @@
-import { LaunchRecord, TestItemRecord, getLaunchesSince, getLaunchesInRange, getFailedTestItems, getUntriagedItems } from './db/store';
+import { LaunchRecord, TestItemRecord, getLaunchesSince, getLaunchesInRange, getFailedTestItems, getUntriagedItems, getTestFailureStreak, FailureStreakInfo } from './db/store';
 
 export type HealthStatus = 'green' | 'yellow' | 'red';
+
+export type EnrichedFailedItem = TestItemRecord & {
+  consecutiveFailures: number;
+  totalRuns: number;
+  lastPassDate: string | null;
+  lastPassTime: number | null;
+  recentStatuses: string[];
+};
 
 export type LaunchGroup = {
   cnvVersion: string;
@@ -14,6 +22,7 @@ export type LaunchGroup = {
   skippedTests: number;
   passRate: number;
   failedItems: TestItemRecord[];
+  enrichedFailedItems: EnrichedFailedItem[];
 };
 
 export type DailyReport = {
@@ -58,6 +67,33 @@ function computeHealth(launches: LaunchRecord[]): HealthStatus {
   return 'green';
 }
 
+async function enrichFailedItems(items: TestItemRecord[]): Promise<EnrichedFailedItem[]> {
+  const enriched: EnrichedFailedItem[] = [];
+  for (const item of items) {
+    let streak: FailureStreakInfo = {
+      consecutiveFailures: 1,
+      totalRuns: 1,
+      lastPassDate: null,
+      lastPassTime: null,
+      recentStatuses: ['FAILED'],
+    };
+
+    if (item.unique_id) {
+      streak = await getTestFailureStreak(item.unique_id);
+    }
+
+    enriched.push({
+      ...item,
+      consecutiveFailures: streak.consecutiveFailures,
+      totalRuns: streak.totalRuns,
+      lastPassDate: streak.lastPassDate,
+      lastPassTime: streak.lastPassTime,
+      recentStatuses: streak.recentStatuses,
+    });
+  }
+  return enriched;
+}
+
 export async function groupLaunches(launches: LaunchRecord[]): Promise<LaunchGroup[]> {
   const groups = new Map<string, LaunchRecord[]>();
 
@@ -77,6 +113,7 @@ export async function groupLaunches(launches: LaunchRecord[]): Promise<LaunchGro
     const sorted = groupLaunches.sort((a, b) => b.start_time - a.start_time);
     const latest = sorted[0];
     const failedItems = await getFailedTestItems(latest.rp_id);
+    const enrichedFailedItems = await enrichFailedItems(failedItems);
 
     const totalTests = sorted.reduce((sum, l) => sum + l.total, 0);
     const passedTests = sorted.reduce((sum, l) => sum + l.passed, 0);
@@ -95,6 +132,7 @@ export async function groupLaunches(launches: LaunchRecord[]): Promise<LaunchGro
       skippedTests,
       passRate: totalTests > 0 ? Math.round((passedTests / totalTests) * 1000) / 10 : 0,
       failedItems,
+      enrichedFailedItems,
     });
   }
 

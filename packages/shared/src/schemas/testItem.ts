@@ -20,6 +20,16 @@ export const TestItemSchema = z.object({
 
 export type TestItem = z.infer<typeof TestItemSchema>;
 
+export const EnrichedTestItemSchema = TestItemSchema.extend({
+  consecutiveFailures: z.number(),
+  totalRuns: z.number(),
+  lastPassDate: z.string().nullable(),
+  lastPassTime: z.number().nullable(),
+  recentStatuses: z.array(z.string()),
+});
+
+export type EnrichedTestItem = z.infer<typeof EnrichedTestItemSchema>;
+
 export const LogEntrySchema = z.object({
   id: z.number(),
   message: z.string(),

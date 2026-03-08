@@ -301,6 +301,64 @@ export async function getTestItemHistory(uniqueId: string, limit = 20): Promise<
   return rows.map(toTestItemRecord);
 }
 
+export type FailureStreakInfo = {
+  consecutiveFailures: number;
+  totalRuns: number;
+  lastPassDate: string | null;
+  lastPassTime: number | null;
+  recentStatuses: string[];
+};
+
+export async function getTestFailureStreak(uniqueId: string, maxRuns = 8): Promise<FailureStreakInfo> {
+  const rows = await testItems().find({
+    where: { unique_id: uniqueId },
+    order: { start_time: 'DESC' },
+    take: maxRuns,
+  });
+
+  const recentStatuses = rows.map(r => r.status);
+  let consecutiveFailures = 0;
+  for (const s of recentStatuses) {
+    if (s === 'FAILED') consecutiveFailures++;
+    else break;
+  }
+
+  let lastPassDate: string | null = null;
+  let lastPassTime: number | null = null;
+  const passedRow = rows.find(r => r.status === 'PASSED');
+  if (passedRow && passedRow.start_time) {
+    lastPassTime = Number(passedRow.start_time);
+    lastPassDate = new Date(lastPassTime).toISOString().split('T')[0];
+  } else {
+    const olderPass = await testItems().findOne({
+      where: { unique_id: uniqueId, status: 'PASSED' },
+      order: { start_time: 'DESC' },
+    });
+    if (olderPass && olderPass.start_time) {
+      lastPassTime = Number(olderPass.start_time);
+      lastPassDate = new Date(lastPassTime).toISOString().split('T')[0];
+    }
+  }
+
+  return {
+    consecutiveFailures,
+    totalRuns: rows.length,
+    lastPassDate,
+    lastPassTime,
+    recentStatuses,
+  };
+}
+
+export async function getCurrentlyFailingTests(): Promise<TestItemRecord[]> {
+  const rows = await AppDataSource.query(`
+    SELECT DISTINCT ON (ti.unique_id) ti.*
+    FROM test_items ti
+    WHERE ti.unique_id IS NOT NULL
+    ORDER BY ti.unique_id, ti.start_time DESC
+  `);
+  return rows.filter((r: Record<string, unknown>) => r.status === 'FAILED').map(toTestItemRecord);
+}
+
 export async function getActivityLog(limit = 50, offset = 0): Promise<Array<{
   id: number;
   test_item_rp_id: number;

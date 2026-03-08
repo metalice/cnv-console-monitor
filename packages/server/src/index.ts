@@ -23,10 +23,8 @@ async function main(): Promise<void> {
 
     log.info({ totalLaunches: report.totalLaunches, failed: report.failedLaunches, newFailures: report.newFailures.length }, 'Report built');
 
-    const dashboardUrl = process.env.DASHBOARD_URL;
-
-    await sendSlackReport(report, dashboardUrl);
-    await sendEmailReport(report, dashboardUrl);
+    await sendSlackReport(report);
+    await sendEmailReport(report);
 
     log.info('Poll cycle complete');
     process.exit(0);

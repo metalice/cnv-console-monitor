@@ -39,9 +39,18 @@ export const JiraLinkRequestSchema = z.object({
 
 export type JiraLinkRequest = z.infer<typeof JiraLinkRequestSchema>;
 
+export const TestNoteSchema = z.object({
+  testName: z.string(),
+  jiraKey: z.string().optional(),
+  note: z.string().min(1),
+});
+
+export type TestNote = z.infer<typeof TestNoteSchema>;
+
 export const AcknowledgeRequestSchema = z.object({
   reviewer: z.string().min(1),
   notes: z.string().optional(),
+  testNotes: z.array(TestNoteSchema).optional(),
 });
 
 export type AcknowledgeRequest = z.infer<typeof AcknowledgeRequestSchema>;

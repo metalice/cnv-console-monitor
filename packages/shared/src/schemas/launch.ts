@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { TestItemSchema } from './testItem';
+import { TestItemSchema, EnrichedTestItemSchema } from './testItem';
 
 export const LaunchStatusEnum = z.enum([
   'PASSED',
@@ -48,6 +48,7 @@ export const LaunchGroupSchema = z.object({
   skippedTests: z.number(),
   passRate: z.number(),
   failedItems: z.array(TestItemSchema),
+  enrichedFailedItems: z.array(EnrichedTestItemSchema).optional(),
 });
 
 export type LaunchGroup = z.infer<typeof LaunchGroupSchema>;

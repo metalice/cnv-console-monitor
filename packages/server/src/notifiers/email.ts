@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 import { config } from '../config';
 import { logger } from '../logger';
-import { DailyReport, LaunchGroup } from '../analyzer';
+import { DailyReport, LaunchGroup, EnrichedFailedItem } from '../analyzer';
 import { getReportPortalLaunchUrl } from '../clients/reportportal';
 
 const log = logger.child({ module: 'Email' });
@@ -15,9 +15,27 @@ function healthColor(health: string): string {
   }
 }
 
-function buildHtml(report: DailyReport, dashboardUrl?: string): string {
+function streakBarHtml(statuses: string[]): string {
+  const segments = statuses.map(s => {
+    const color = s === 'FAILED' ? '#e74c3c' : s === 'PASSED' ? '#2ecc71' : '#95a5a6';
+    return `<span style="display:inline-block;width:12px;height:12px;background:${color};border-radius:2px;margin-right:2px;" title="${s}"></span>`;
+  }).join('');
+  return `<span style="display:inline-flex;align-items:center;">${segments}</span>`;
+}
+
+function formatLastPass(lastPassDate: string | null, lastPassTime: number | null): string {
+  if (!lastPassDate || !lastPassTime) return '<span style="color:#e74c3c;">Never passed</span>';
+  const d = new Date(lastPassTime);
+  const month = d.toLocaleString('en-US', { month: 'short' });
+  const day = d.getDate();
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return `Last passed: ${month} ${day} ${time}`;
+}
+
+function buildHtml(report: DailyReport): string {
   const failedGroups = report.groups.filter(g => g.health === 'red');
   const greenGroups = report.groups.filter(g => g.health === 'green');
+  const dashboardUrl = config.dashboard.url;
 
   return `
 <!DOCTYPE html>
@@ -34,9 +52,10 @@ function buildHtml(report: DailyReport, dashboardUrl?: string): string {
     .status-passed { color: #2ecc71; font-weight: 600; }
     .status-failed { color: #e74c3c; font-weight: 600; }
     .status-in_progress { color: #f39c12; font-weight: 600; }
-    .failed-items { margin: 8px 0 0 16px; font-size: 13px; color: #555; }
-    .failed-items li { margin-bottom: 4px; }
-    .prediction { color: #888; font-size: 12px; }
+    .test-item { margin-bottom: 12px; padding: 10px 12px; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #e74c3c; }
+    .test-name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+    .test-meta { font-size: 12px; color: #666; }
+    .test-meta span { margin-right: 12px; }
     .jira-badge { background: #0052CC; color: white; font-size: 11px; padding: 2px 6px; border-radius: 3px; text-decoration: none; }
     .btn { display: inline-block; background: #0066FF; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; margin-top: 16px; }
     .section-title { font-size: 16px; font-weight: 600; margin: 24px 0 12px 0; }
@@ -72,8 +91,8 @@ function buildHtml(report: DailyReport, dashboardUrl?: string): string {
 
   ${report.newFailures.length > 0 ? `
     <div class="section-title">New Failures (${report.newFailures.length})</div>
-    <p>These tests were not failing yesterday:</p>
-    <ul class="failed-items">
+    <p style="font-size:13px;color:#666;">Tests not failing in the previous window:</p>
+    <ul style="margin:8px 0 0 16px;font-size:13px;color:#555;">
       ${report.newFailures.map(i => `<li>${i.polarion_id ? `${i.polarion_id}: ` : ''}${i.name.split('.').pop()}</li>`).join('')}
     </ul>
   ` : ''}
@@ -103,21 +122,42 @@ function buildGroupRow(group: LaunchGroup): string {
 
 function buildFailedSection(group: LaunchGroup): string {
   const rpUrl = getReportPortalLaunchUrl(group.latestLaunch.rp_id);
-  return `
-    <h4>${group.tier}-${group.cnvVersion} (${group.failedTests} failures)</h4>
-    <ul class="failed-items">
-      ${group.failedItems.map(item => {
-        const prediction = item.ai_prediction && item.ai_confidence
-          ? `<span class="prediction">[${item.ai_prediction.replace('Predicted ', '')} ${item.ai_confidence}%]</span>`
-          : '';
-        const jira = item.jira_key ? `<a href="#" class="jira-badge">${item.jira_key}</a>` : '';
-        return `<li>${item.polarion_id ? `${item.polarion_id}: ` : ''}${item.name.split('.').pop()} ${prediction} ${jira}</li>`;
-      }).join('')}
-    </ul>
-    <a href="${rpUrl}" style="font-size: 13px;">View in ReportPortal →</a>`;
+  const items = group.enrichedFailedItems.length > 0 ? group.enrichedFailedItems : group.failedItems;
+  const jiraBaseUrl = config.jira.url;
+
+  let html = `<h4>${group.tier}-${group.cnvVersion} (${group.failedTests} failures)</h4>`;
+
+  for (const item of items) {
+    const enriched = item as EnrichedFailedItem;
+    const shortName = item.name.split('.').pop() || item.name;
+    const polarion = item.polarion_id ? `<span style="color:#888;">${item.polarion_id}</span> · ` : '';
+
+    let streakHtml = '';
+    let metaHtml = '';
+    if (enriched.recentStatuses) {
+      streakHtml = streakBarHtml(enriched.recentStatuses);
+      metaHtml = `<span>Failing ${enriched.consecutiveFailures}/${enriched.totalRuns} runs</span>` +
+        `<span>${formatLastPass(enriched.lastPassDate, enriched.lastPassTime)}</span>`;
+    }
+
+    const jira = item.jira_key
+      ? (jiraBaseUrl
+        ? `<a href="${jiraBaseUrl}/browse/${item.jira_key}" class="jira-badge">${item.jira_key}</a>`
+        : `<span class="jira-badge">${item.jira_key}</span>`)
+      : '';
+
+    html += `
+      <div class="test-item">
+        <div class="test-name">${polarion}${shortName} ${jira}</div>
+        <div class="test-meta">${streakHtml} ${metaHtml}</div>
+      </div>`;
+  }
+
+  html += `<a href="${rpUrl}" style="font-size: 13px;">View in ReportPortal →</a>`;
+  return html;
 }
 
-export async function sendEmailReport(report: DailyReport, dashboardUrl?: string): Promise<void> {
+export async function sendEmailReport(report: DailyReport): Promise<void> {
   if (!config.email.enabled || config.email.recipients.length === 0) {
     log.debug('Email not configured, skipping');
     return;
@@ -137,7 +177,7 @@ export async function sendEmailReport(report: DailyReport, dashboardUrl?: string
     from: config.email.from,
     to: config.email.recipients.join(', '),
     subject: `[CNV Console] ${report.date} — ${statusText}`,
-    html: buildHtml(report, dashboardUrl),
+    html: buildHtml(report),
   });
 
   log.info({ recipients: config.email.recipients.length }, 'Report sent');

@@ -12,6 +12,7 @@ export const config = {
 
   slack: {
     webhookUrl: process.env.SLACK_WEBHOOK_URL || '',
+    jiraWebhookUrl: process.env.SLACK_JIRA_WEBHOOK_URL || '',
     enabled: !!process.env.SLACK_WEBHOOK_URL,
   },
 
@@ -48,6 +49,7 @@ export const config = {
   dashboard: {
     port: parseInt(process.env.DASHBOARD_PORT || '8080', 10),
     launchFilter: process.env.LAUNCH_FILTER || 'test-kubevirt-console',
+    url: process.env.DASHBOARD_URL || '',
   },
 
   db: {

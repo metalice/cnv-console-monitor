@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { config } from '../config';
 import { logger } from '../logger';
-import { DailyReport, LaunchGroup } from '../analyzer';
+import { DailyReport, LaunchGroup, EnrichedFailedItem } from '../analyzer';
 import { getReportPortalLaunchUrl } from '../clients/reportportal';
 
 const log = logger.child({ module: 'Slack' });
@@ -22,8 +22,22 @@ function healthEmoji(health: string): string {
   }
 }
 
-function buildBlocks(report: DailyReport, dashboardUrl?: string): SlackBlock[] {
+function streakBar(statuses: string[]): string {
+  return '[' + statuses.map(s => s === 'FAILED' ? 'X' : s === 'PASSED' ? '-' : '?').join('') + ']';
+}
+
+function formatLastPass(lastPassDate: string | null, lastPassTime: number | null): string {
+  if (!lastPassDate || !lastPassTime) return 'Never passed';
+  const d = new Date(lastPassTime);
+  const month = d.toLocaleString('en-US', { month: 'short' });
+  const day = d.getDate();
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return `Last passed: ${month} ${day} ${time}`;
+}
+
+function buildBlocks(report: DailyReport): SlackBlock[] {
   const blocks: SlackBlock[] = [];
+  const dashboardUrl = config.dashboard.url;
 
   blocks.push({
     type: 'header',
@@ -67,7 +81,7 @@ function buildBlocks(report: DailyReport, dashboardUrl?: string): SlackBlock[] {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `:new: *${report.newFailures.length} New Failure(s)* (not seen yesterday)`,
+        text: `:new: *${report.newFailures.length} New Failure(s)* (not seen in previous window)`,
       },
     });
   }
@@ -92,21 +106,28 @@ function buildBlocks(report: DailyReport, dashboardUrl?: string): SlackBlock[] {
 function buildFailedGroupBlocks(group: LaunchGroup): SlackBlock[] {
   const blocks: SlackBlock[] = [];
   const rpUrl = getReportPortalLaunchUrl(group.latestLaunch.rp_id);
+  const items = group.enrichedFailedItems.length > 0 ? group.enrichedFailedItems : group.failedItems;
 
   let text = `*${group.tier}-${group.cnvVersion}* (${group.passedTests}/${group.totalTests} passed, ${group.failedTests} failed)\n`;
 
-  for (const item of group.failedItems.slice(0, 5)) {
+  for (const item of items.slice(0, 10)) {
+    const enriched = item as EnrichedFailedItem;
     const polarion = item.polarion_id ? `${item.polarion_id}: ` : '';
     const shortName = item.name.split('.').pop() || item.name;
-    const prediction = item.ai_prediction && item.ai_confidence
-      ? ` [${item.ai_prediction.replace('Predicted ', '')} ${item.ai_confidence}%]`
-      : '';
-    const jira = item.jira_key ? ` — ${item.jira_key}` : '';
-    text += `  • ${polarion}${shortName}${prediction}${jira}\n`;
+    const jira = item.jira_key ? ` | ${item.jira_key}` : '';
+
+    if (enriched.recentStatuses) {
+      const bar = streakBar(enriched.recentStatuses);
+      const failInfo = `Failing ${enriched.consecutiveFailures}/${enriched.totalRuns}`;
+      const lastPass = formatLastPass(enriched.lastPassDate, enriched.lastPassTime);
+      text += `  • ${polarion}${shortName}\n    \`${bar}\` ${failInfo} | ${lastPass}${jira}\n`;
+    } else {
+      text += `  • ${polarion}${shortName}${jira}\n`;
+    }
   }
 
-  if (group.failedItems.length > 5) {
-    text += `  _...and ${group.failedItems.length - 5} more_\n`;
+  if (items.length > 10) {
+    text += `  _...and ${items.length - 10} more_\n`;
   }
 
   text += `<${rpUrl}|View in ReportPortal>`;
@@ -119,13 +140,13 @@ function buildFailedGroupBlocks(group: LaunchGroup): SlackBlock[] {
   return blocks;
 }
 
-export async function sendSlackReport(report: DailyReport, dashboardUrl?: string): Promise<void> {
+export async function sendSlackReport(report: DailyReport): Promise<void> {
   if (!config.slack.enabled) {
     log.debug('Slack not configured, skipping');
     return;
   }
 
-  const blocks = buildBlocks(report, dashboardUrl);
+  const blocks = buildBlocks(report);
 
   await axios.post(config.slack.webhookUrl, {
     text: `Console Dashboard Report — ${report.date}: ${report.failedLaunches} Failed / ${report.passedLaunches} Passed`,
@@ -138,15 +159,50 @@ export async function sendSlackReport(report: DailyReport, dashboardUrl?: string
 export async function sendSlackAcknowledgment(reviewer: string, notes: string, date: string): Promise<void> {
   if (!config.slack.enabled) return;
 
+  const dashboardUrl = config.dashboard.url;
+  const dashboardLink = dashboardUrl ? ` | <${dashboardUrl}|Dashboard>` : '';
+
   await axios.post(config.slack.webhookUrl, {
-    text: `:white_check_mark: *${date} report reviewed* by ${reviewer}${notes ? `\nNotes: "${notes}"` : ''}`,
+    text: `:white_check_mark: *${date} report reviewed* by ${reviewer}${notes ? `\nNotes: "${notes}"` : ''}${dashboardLink}`,
   });
 }
 
 export async function sendSlackReminder(): Promise<void> {
   if (!config.slack.enabled) return;
 
+  const dashboardUrl = config.dashboard.url;
+  const dashboardLink = dashboardUrl ? `\n<${dashboardUrl}|Open Dashboard to review>` : '';
+
   await axios.post(config.slack.webhookUrl, {
-    text: `:warning: *Reminder:* Today's console dashboard report has not been acknowledged yet. Please review and acknowledge.`,
+    text: `:warning: *Reminder:* Today's console dashboard report has not been acknowledged yet. Please review and acknowledge.${dashboardLink}`,
   });
+}
+
+export async function sendSlackJiraNotification(params: {
+  jiraKey: string;
+  summary: string;
+  testName: string;
+  polarionId?: string;
+  cnvVersion?: string;
+  rpItemUrl: string;
+  createdBy: string;
+}): Promise<void> {
+  if (!config.slack.jiraWebhookUrl) return;
+
+  const jiraUrl = config.jira.url ? `${config.jira.url}/browse/${params.jiraKey}` : params.jiraKey;
+  const polarion = params.polarionId ? `\n*Polarion:* ${params.polarionId}` : '';
+  const version = params.cnvVersion ? `\n*CNV Version:* ${params.cnvVersion}` : '';
+
+  const text = `:bug: *New Jira Bug Created*\n` +
+    `*<${jiraUrl}|${params.jiraKey}>* — ${params.summary}\n` +
+    `*Test:* ${params.testName.split('.').pop() || params.testName}${polarion}${version}\n` +
+    `*Created by:* ${params.createdBy}\n` +
+    `<${params.rpItemUrl}|View in ReportPortal>`;
+
+  try {
+    await axios.post(config.slack.jiraWebhookUrl, { text });
+    log.info({ jiraKey: params.jiraKey }, 'Jira notification sent to Slack');
+  } catch (err) {
+    log.warn({ err, jiraKey: params.jiraKey }, 'Failed to send Jira Slack notification');
+  }
 }

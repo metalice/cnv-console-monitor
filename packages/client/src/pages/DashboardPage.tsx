@@ -37,6 +37,7 @@ import { AckBanner } from '../components/common/AckBanner';
 import { ExportButton } from '../components/common/ExportButton';
 import { StatCard } from '../components/common/StatCard';
 import { ThWithHelp } from '../components/common/ThWithHelp';
+import { AcknowledgeModal } from '../components/modals/AcknowledgeModal';
 
 const SORT_ACCESSORS: Record<number, (g: LaunchGroup) => string | number | null> = {
   0: (g) => g.cnvVersion,
@@ -52,6 +53,7 @@ export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { lookbackMode, since, until, displayLabel } = useDate();
+  const [ackModalOpen, setAckModalOpen] = useState(false);
   const [versionFilter, setVersionFilter] = useState<string>('all');
   const [versionOpen, setVersionOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -145,7 +147,7 @@ export const DashboardPage: React.FC = () => {
       </PageSection>
 
       <PageSection>
-        <AckBanner />
+        <AckBanner onAcknowledge={() => setAckModalOpen(true)} />
         <HealthBanner
           health={report.overallHealth}
           passed={report.passedLaunches}
@@ -281,6 +283,11 @@ export const DashboardPage: React.FC = () => {
         </Card>
       </PageSection>
 
+      <AcknowledgeModal
+        isOpen={ackModalOpen}
+        onClose={() => setAckModalOpen(false)}
+        groups={report.groups}
+      />
     </>
   );
 };
