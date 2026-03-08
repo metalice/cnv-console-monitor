@@ -39,3 +39,9 @@ export const TopFailingTestSchema = z.object({
 });
 
 export type TopFailingTest = z.infer<typeof TopFailingTestSchema>;
+
+export type AIPredictionAccuracy = { prediction: string; actual: string; count: number };
+export type ClusterReliability = { cluster: string; total: number; passed: number; failed: number; passRate: number };
+export type ErrorPattern = { pattern: string; count: number; uniqueTests: number; firstSeen: string; lastSeen: string };
+export type DefectTypeTrend = { week: string; productBug: number; automationBug: number; systemIssue: number; noDefect: number; toInvestigate: number };
+export type HourlyFailure = { hour: number; total: number; failed: number; failRate: number };

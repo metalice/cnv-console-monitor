@@ -18,14 +18,17 @@ import { TrendUpIcon, TrendDownIcon, EqualsIcon } from '@patternfly/react-icons'
 import {
   Chart,
   ChartAxis,
+  ChartBar,
   ChartLine,
   ChartGroup,
+  ChartStack,
+  ChartArea,
   ChartLegend,
   ChartVoronoiContainer,
 } from '@patternfly/react-charts/victory';
-import { fetchTrends, fetchTrendsByVersion, fetchHeatmap, fetchTopFailures } from '../api/launches';
+import { fetchTrends, fetchTrendsByVersion, fetchHeatmap, fetchTopFailures, fetchAIAccuracy, fetchClusterReliability, fetchErrorPatterns, fetchDefectTypesTrend, fetchFailuresByHour } from '../api/launches';
 import { StatCard } from '../components/common/StatCard';
-import type { VersionTrendPoint, HeatmapCell, TopFailingTest } from '@cnv-monitor/shared';
+import type { VersionTrendPoint, HeatmapCell, TopFailingTest, AIPredictionAccuracy, ClusterReliability, DefectTypeTrend, HourlyFailure } from '@cnv-monitor/shared';
 
 const VERSION_COLORS = ['#0066CC', '#C9190B', '#F0AB00', '#3E8635', '#6753AC', '#009596', '#EC7A08', '#B8BBBE'];
 
@@ -50,6 +53,31 @@ export const TrendsPage: React.FC = () => {
   const { data: topFailures, isLoading: topLoading } = useQuery({
     queryKey: ['topFailures'],
     queryFn: () => fetchTopFailures(30, 15),
+  });
+
+  const { data: aiAccuracy } = useQuery({
+    queryKey: ['aiAccuracy'],
+    queryFn: () => fetchAIAccuracy(90),
+  });
+
+  const { data: clusterData } = useQuery({
+    queryKey: ['clusterReliability'],
+    queryFn: () => fetchClusterReliability(30),
+  });
+
+  const { data: errorPatterns } = useQuery({
+    queryKey: ['errorPatterns'],
+    queryFn: () => fetchErrorPatterns(30, 10),
+  });
+
+  const { data: defectTrend } = useQuery({
+    queryKey: ['defectTypesTrend'],
+    queryFn: () => fetchDefectTypesTrend(90),
+  });
+
+  const { data: hourlyData } = useQuery({
+    queryKey: ['failuresByHour'],
+    queryFn: () => fetchFailuresByHour(30),
   });
 
   const summaryStats = useMemo(() => {
@@ -89,6 +117,26 @@ export const TrendsPage: React.FC = () => {
 
     return { tests, dates, cellMap };
   }, [heatmapData]);
+
+  const aiMatrix = useMemo(() => {
+    if (!aiAccuracy || aiAccuracy.length === 0) return null;
+    const predictions = [...new Set(aiAccuracy.map((a: AIPredictionAccuracy) => a.prediction))];
+    const actuals = [...new Set(aiAccuracy.map((a: AIPredictionAccuracy) => a.actual))];
+    const matrix = new Map<string, Map<string, number>>();
+    const totals = new Map<string, number>();
+    for (const p of predictions) { matrix.set(p, new Map()); totals.set(p, 0); }
+    for (const entry of aiAccuracy) {
+      matrix.get(entry.prediction)?.set(entry.actual, entry.count);
+      totals.set(entry.prediction, (totals.get(entry.prediction) || 0) + entry.count);
+    }
+    const accuracies = predictions.map(p => {
+      const shortP = p.replace('Predicted ', '');
+      const correct = matrix.get(p)?.get(shortP) || 0;
+      const total = totals.get(p) || 1;
+      return { prediction: p, accuracy: Math.round((correct / total) * 100) };
+    });
+    return { predictions, actuals, matrix, totals, accuracies };
+  }, [aiAccuracy]);
 
   const versionHealth = useMemo(() => {
     if (!versionTrends || versionTrends.length === 0) return { best: null, worst: null };
@@ -325,6 +373,192 @@ export const TrendsPage: React.FC = () => {
               </CardBody>
             </Card>
           </GridItem>
+          {/* AI Prediction Accuracy */}
+          {aiMatrix && (
+            <GridItem span={6}>
+              <Card>
+                <CardBody>
+                  <Content component="h3" style={{ marginBottom: 16 }}>AI Prediction Accuracy</Content>
+                  <Content component="small" style={{ marginBottom: 12 }}>How often RP's AI prediction matches the actual triage classification (last 90 days)</Content>
+                  <Table aria-label="AI accuracy" variant="compact">
+                    <Thead>
+                      <Tr>
+                        <Th>AI Predicted</Th>
+                        <Th>Accuracy</Th>
+                        {aiMatrix.actuals.map(a => <Th key={a}>{a}</Th>)}
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {aiMatrix.predictions.map(p => {
+                        const acc = aiMatrix.accuracies.find(a => a.prediction === p);
+                        const accColor = (acc?.accuracy || 0) > 60 ? 'green' : (acc?.accuracy || 0) > 30 ? 'orange' : 'red';
+                        return (
+                          <Tr key={p}>
+                            <Td><strong>{p.replace('Predicted ', '')}</strong></Td>
+                            <Td><Label color={accColor} isCompact>{acc?.accuracy || 0}%</Label></Td>
+                            {aiMatrix.actuals.map(a => {
+                              const val = aiMatrix.matrix.get(p)?.get(a) || 0;
+                              return <Td key={a}>{val || '-'}</Td>;
+                            })}
+                          </Tr>
+                        );
+                      })}
+                    </Tbody>
+                  </Table>
+                </CardBody>
+              </Card>
+            </GridItem>
+          )}
+
+          {/* Failure Rate by Hour */}
+          {hourlyData && hourlyData.length > 0 && (
+            <GridItem span={6}>
+              <Card>
+                <CardBody>
+                  <Content component="h3" style={{ marginBottom: 16 }}>Failure Rate by Hour</Content>
+                  <Content component="small" style={{ marginBottom: 12 }}>When do failures happen most? (last 30 days)</Content>
+                  <div style={{ height: 300, width: '100%' }}>
+                    <Chart
+                      height={250}
+                      padding={{ bottom: 50, left: 60, right: 30, top: 20 }}
+                      containerComponent={
+                        <ChartVoronoiContainer
+                          labels={({ datum }: { datum: { x: string; y: number } }) => `${datum.x}: ${datum.y}% failure rate`}
+                        />
+                      }
+                    >
+                      <ChartAxis tickValues={hourlyData.filter((_: HourlyFailure, i: number) => i % 3 === 0).map((h: HourlyFailure) => `${String(h.hour).padStart(2, '0')}:00`)} />
+                      <ChartAxis dependentAxis tickFormat={(t: number) => `${t}%`} />
+                      <ChartBar
+                        data={hourlyData.map((h: HourlyFailure) => ({ x: `${String(h.hour).padStart(2, '0')}:00`, y: h.failRate }))}
+                        style={{ data: { fill: '#0066CC' } }}
+                      />
+                    </Chart>
+                  </div>
+                </CardBody>
+              </Card>
+            </GridItem>
+          )}
+
+          {/* Cluster Reliability */}
+          {clusterData && clusterData.length > 0 && (
+            <GridItem span={12}>
+              <Card>
+                <CardBody>
+                  <Content component="h3" style={{ marginBottom: 16 }}>Cluster Reliability (last 30 days)</Content>
+                  <Table aria-label="Cluster reliability" variant="compact">
+                    <Thead>
+                      <Tr>
+                        <Th>Cluster</Th>
+                        <Th>Launches</Th>
+                        <Th>Passed</Th>
+                        <Th>Failed</Th>
+                        <Th>Pass Rate</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {clusterData.map((c: ClusterReliability) => {
+                        const rateColor = c.passRate > 80 ? 'green' : c.passRate > 50 ? 'orange' : 'red';
+                        return (
+                          <Tr key={c.cluster}>
+                            <Td><strong>{c.cluster}</strong></Td>
+                            <Td>{c.total}</Td>
+                            <Td>{c.passed}</Td>
+                            <Td>{c.failed}</Td>
+                            <Td>
+                              <Label color={rateColor} isCompact>{c.passRate}%</Label>
+                              <div style={{ width: '100%', maxWidth: 150, height: 6, background: '#eee', borderRadius: 3, marginTop: 4 }}>
+                                <div style={{ width: `${c.passRate}%`, height: '100%', background: rateColor === 'green' ? '#3E8635' : rateColor === 'orange' ? '#F0AB00' : '#C9190B', borderRadius: 3 }} />
+                              </div>
+                            </Td>
+                          </Tr>
+                        );
+                      })}
+                    </Tbody>
+                  </Table>
+                </CardBody>
+              </Card>
+            </GridItem>
+          )}
+
+          {/* Defect Type Breakdown Over Time */}
+          {defectTrend && defectTrend.length > 0 && (
+            <GridItem span={12}>
+              <Card>
+                <CardBody>
+                  <Content component="h3" style={{ marginBottom: 16 }}>Defect Classification Trend (last 90 days)</Content>
+                  <Content component="small" style={{ marginBottom: 12 }}>Weekly breakdown of how failures are classified</Content>
+                  <div style={{ height: 350, width: '100%' }}>
+                    <Chart
+                      height={300}
+                      padding={{ bottom: 80, left: 60, right: 30, top: 20 }}
+                      legendData={[
+                        { name: 'Product Bug', symbol: { fill: '#C9190B' } },
+                        { name: 'Automation Bug', symbol: { fill: '#F0AB00' } },
+                        { name: 'System Issue', symbol: { fill: '#0066CC' } },
+                        { name: 'No Defect', symbol: { fill: '#3E8635' } },
+                        { name: 'To Investigate', symbol: { fill: '#B8BBBE' } },
+                      ]}
+                      legendPosition="bottom"
+                    >
+                      <ChartAxis
+                        tickValues={defectTrend.filter((_: DefectTypeTrend, i: number) => i % Math.max(1, Math.floor(defectTrend.length / 8)) === 0).map((d: DefectTypeTrend) => d.week.slice(5))}
+                        style={{ tickLabels: { angle: -45, textAnchor: 'end', fontSize: 10 } }}
+                      />
+                      <ChartAxis dependentAxis />
+                      <ChartStack>
+                        <ChartArea data={defectTrend.map((d: DefectTypeTrend) => ({ x: d.week.slice(5), y: d.productBug }))} style={{ data: { fill: '#C9190B', fillOpacity: 0.7 } }} />
+                        <ChartArea data={defectTrend.map((d: DefectTypeTrend) => ({ x: d.week.slice(5), y: d.automationBug }))} style={{ data: { fill: '#F0AB00', fillOpacity: 0.7 } }} />
+                        <ChartArea data={defectTrend.map((d: DefectTypeTrend) => ({ x: d.week.slice(5), y: d.systemIssue }))} style={{ data: { fill: '#0066CC', fillOpacity: 0.7 } }} />
+                        <ChartArea data={defectTrend.map((d: DefectTypeTrend) => ({ x: d.week.slice(5), y: d.noDefect }))} style={{ data: { fill: '#3E8635', fillOpacity: 0.7 } }} />
+                        <ChartArea data={defectTrend.map((d: DefectTypeTrend) => ({ x: d.week.slice(5), y: d.toInvestigate }))} style={{ data: { fill: '#B8BBBE', fillOpacity: 0.7 } }} />
+                      </ChartStack>
+                    </Chart>
+                  </div>
+                </CardBody>
+              </Card>
+            </GridItem>
+          )}
+
+          {/* Error Pattern Analysis */}
+          {errorPatterns && errorPatterns.length > 0 && (
+            <GridItem span={12}>
+              <Card>
+                <CardBody>
+                  <Content component="h3" style={{ marginBottom: 16 }}>Top Error Patterns (last 30 days)</Content>
+                  <Content component="small" style={{ marginBottom: 12 }}>Most common error messages across all failures. High counts indicate systemic issues.</Content>
+                  <Table aria-label="Error patterns" variant="compact">
+                    <Thead>
+                      <Tr>
+                        <Th width={50}>Error Pattern</Th>
+                        <Th width={10}>Occurrences</Th>
+                        <Th width={10}>Unique Tests</Th>
+                        <Th width={15}>First Seen</Th>
+                        <Th width={15}>Last Seen</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {errorPatterns.map((e, i) => (
+                        <Tr key={i}>
+                          <Td dataLabel="Error">
+                            <Tooltip content={e.pattern}>
+                              <span style={{ fontSize: 12, fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', maxWidth: 500 }}>
+                                {e.pattern}
+                              </span>
+                            </Tooltip>
+                          </Td>
+                          <Td dataLabel="Occurrences"><strong>{e.count}</strong></Td>
+                          <Td dataLabel="Tests">{e.uniqueTests}</Td>
+                          <Td dataLabel="First">{e.firstSeen}</Td>
+                          <Td dataLabel="Last">{e.lastSeen}</Td>
+                        </Tr>
+                      ))}
+                    </Tbody>
+                  </Table>
+                </CardBody>
+              </Card>
+            </GridItem>
+          )}
         </Grid>
       </PageSection>
     </>

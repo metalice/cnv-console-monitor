@@ -360,6 +360,127 @@ export async function getTopFailingTests(days: number, limit: number): Promise<A
   });
 }
 
+export async function getAIPredictionAccuracy(days: number): Promise<Array<{ prediction: string; actual: string; count: number }>> {
+  const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+  const rows = await AppDataSource.query(`
+    SELECT
+      ti.ai_prediction as prediction,
+      CASE
+        WHEN ti.defect_type LIKE 'pb%' THEN 'Product Bug'
+        WHEN ti.defect_type LIKE 'ab%' THEN 'Automation Bug'
+        WHEN ti.defect_type LIKE 'si%' THEN 'System Issue'
+        WHEN ti.defect_type LIKE 'nd%' THEN 'No Defect'
+        ELSE 'Other'
+      END as actual,
+      COUNT(*)::int as count
+    FROM test_items ti
+    JOIN launches l ON ti.launch_rp_id = l.rp_id
+    WHERE ti.ai_prediction IS NOT NULL
+      AND ti.defect_type IS NOT NULL
+      AND ti.defect_type NOT LIKE 'ti_%' AND ti.defect_type != 'ti001'
+      AND l.start_time >= $1
+    GROUP BY prediction, actual
+    ORDER BY count DESC
+  `, [sinceMs]);
+  return rows;
+}
+
+export async function getClusterReliability(days: number): Promise<Array<{ cluster: string; total: number; passed: number; failed: number; passRate: number }>> {
+  const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+  const rows = await AppDataSource.query(`
+    SELECT
+      cluster_name as cluster,
+      COUNT(*)::int as total,
+      COUNT(*) FILTER (WHERE status = 'PASSED')::int as passed,
+      COUNT(*) FILTER (WHERE status = 'FAILED')::int as failed,
+      ROUND(COUNT(*) FILTER (WHERE status = 'PASSED')::numeric / NULLIF(COUNT(*), 0) * 100, 1) as pass_rate
+    FROM launches
+    WHERE cluster_name IS NOT NULL AND cluster_name != '' AND start_time >= $1
+    GROUP BY cluster_name
+    HAVING COUNT(*) >= 3
+    ORDER BY pass_rate ASC
+  `, [sinceMs]);
+  return rows.map((r: Record<string, unknown>) => ({
+    cluster: r.cluster as string,
+    total: Number(r.total),
+    passed: Number(r.passed),
+    failed: Number(r.failed),
+    passRate: Number(r.pass_rate),
+  }));
+}
+
+export async function getErrorPatterns(days: number, limit: number): Promise<Array<{ pattern: string; count: number; uniqueTests: number; firstSeen: string; lastSeen: string }>> {
+  const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+  const rows = await AppDataSource.query(`
+    SELECT
+      LEFT(ti.error_message, 100) as pattern,
+      COUNT(*)::int as count,
+      COUNT(DISTINCT ti.unique_id)::int as unique_tests,
+      TO_CHAR(TO_TIMESTAMP(MIN(ti.start_time) / 1000), 'YYYY-MM-DD') as first_seen,
+      TO_CHAR(TO_TIMESTAMP(MAX(ti.start_time) / 1000), 'YYYY-MM-DD') as last_seen
+    FROM test_items ti
+    JOIN launches l ON ti.launch_rp_id = l.rp_id
+    WHERE ti.error_message IS NOT NULL AND l.start_time >= $1
+    GROUP BY LEFT(ti.error_message, 100)
+    ORDER BY count DESC
+    LIMIT $2
+  `, [sinceMs, limit]);
+  return rows.map((r: Record<string, unknown>) => ({
+    pattern: r.pattern as string,
+    count: Number(r.count),
+    uniqueTests: Number(r.unique_tests),
+    firstSeen: r.first_seen as string,
+    lastSeen: r.last_seen as string,
+  }));
+}
+
+export async function getDefectTypesTrend(days: number): Promise<Array<{ week: string; productBug: number; automationBug: number; systemIssue: number; noDefect: number; toInvestigate: number }>> {
+  const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+  const rows = await AppDataSource.query(`
+    SELECT
+      TO_CHAR(DATE_TRUNC('week', TO_TIMESTAMP(ti.start_time / 1000)), 'YYYY-MM-DD') as week,
+      COUNT(*) FILTER (WHERE ti.defect_type LIKE 'pb%')::int as product_bug,
+      COUNT(*) FILTER (WHERE ti.defect_type LIKE 'ab%')::int as automation_bug,
+      COUNT(*) FILTER (WHERE ti.defect_type LIKE 'si%')::int as system_issue,
+      COUNT(*) FILTER (WHERE ti.defect_type LIKE 'nd%')::int as no_defect,
+      COUNT(*) FILTER (WHERE ti.defect_type LIKE 'ti%' OR ti.defect_type IS NULL)::int as to_investigate
+    FROM test_items ti
+    JOIN launches l ON ti.launch_rp_id = l.rp_id
+    WHERE ti.status = 'FAILED' AND l.start_time >= $1
+    GROUP BY week
+    ORDER BY week
+  `, [sinceMs]);
+  return rows.map((r: Record<string, unknown>) => ({
+    week: r.week as string,
+    productBug: Number(r.product_bug),
+    automationBug: Number(r.automation_bug),
+    systemIssue: Number(r.system_issue),
+    noDefect: Number(r.no_defect),
+    toInvestigate: Number(r.to_investigate),
+  }));
+}
+
+export async function getFailuresByHour(days: number): Promise<Array<{ hour: number; total: number; failed: number; failRate: number }>> {
+  const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+  const rows = await AppDataSource.query(`
+    SELECT
+      EXTRACT(HOUR FROM TO_TIMESTAMP(start_time / 1000))::int as hour,
+      COUNT(*)::int as total,
+      COUNT(*) FILTER (WHERE status = 'FAILED')::int as failed,
+      ROUND(COUNT(*) FILTER (WHERE status = 'FAILED')::numeric / NULLIF(COUNT(*), 0) * 100, 1) as fail_rate
+    FROM launches
+    WHERE start_time >= $1
+    GROUP BY hour
+    ORDER BY hour
+  `, [sinceMs]);
+  return rows.map((r: Record<string, unknown>) => ({
+    hour: Number(r.hour),
+    total: Number(r.total),
+    failed: Number(r.failed),
+    failRate: Number(r.fail_rate),
+  }));
+}
+
 export async function getFlakyTests(days: number, limit: number): Promise<Array<{ name: string; unique_id: string; flip_count: number; total_runs: number }>> {
   const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
   const rows = await AppDataSource.query(`

@@ -1,4 +1,4 @@
-import type { DailyReport, TrendPoint, VersionTrendPoint, HeatmapCell, TopFailingTest } from '@cnv-monitor/shared';
+import type { DailyReport, TrendPoint, VersionTrendPoint, HeatmapCell, TopFailingTest, AIPredictionAccuracy, ClusterReliability, ErrorPattern, DefectTypeTrend, HourlyFailure } from '@cnv-monitor/shared';
 import { apiFetch } from './client';
 
 export function fetchReport(hours = 24): Promise<DailyReport> {
@@ -30,4 +30,24 @@ export function fetchHeatmap(days = 14, limit = 20): Promise<HeatmapCell[]> {
 
 export function fetchTopFailures(days = 30, limit = 15): Promise<TopFailingTest[]> {
   return apiFetch(`/launches/trends/top-failures?days=${days}&limit=${limit}`);
+}
+
+export function fetchAIAccuracy(days = 30): Promise<AIPredictionAccuracy[]> {
+  return apiFetch(`/launches/trends/ai-accuracy?days=${days}`);
+}
+
+export function fetchClusterReliability(days = 30): Promise<ClusterReliability[]> {
+  return apiFetch(`/launches/trends/clusters?days=${days}`);
+}
+
+export function fetchErrorPatterns(days = 30, limit = 10): Promise<ErrorPattern[]> {
+  return apiFetch(`/launches/trends/error-patterns?days=${days}&limit=${limit}`);
+}
+
+export function fetchDefectTypesTrend(days = 90): Promise<DefectTypeTrend[]> {
+  return apiFetch(`/launches/trends/defect-types?days=${days}`);
+}
+
+export function fetchFailuresByHour(days = 30): Promise<HourlyFailure[]> {
+  return apiFetch(`/launches/trends/by-hour?days=${days}`);
 }

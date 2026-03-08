@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { getLaunchesSince, getPassRateTrend, getPassRateTrendByVersion, getFailureHeatmap, getTopFailingTests } from '../../db/store';
+import { getLaunchesSince, getPassRateTrend, getPassRateTrendByVersion, getFailureHeatmap, getTopFailingTests, getAIPredictionAccuracy, getClusterReliability, getErrorPatterns, getDefectTypesTrend, getFailuresByHour } from '../../db/store';
 import { groupLaunches, buildDailyReport } from '../../analyzer';
 
 const router = Router();
@@ -82,6 +82,42 @@ router.get('/trends/top-failures', async (req: Request, res: Response, next: Nex
   } catch (err) {
     next(err);
   }
+});
+
+router.get('/trends/ai-accuracy', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const days = parseInt(req.query.days as string) || 30;
+    res.json(await getAIPredictionAccuracy(days));
+  } catch (err) { next(err); }
+});
+
+router.get('/trends/clusters', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const days = parseInt(req.query.days as string) || 30;
+    res.json(await getClusterReliability(days));
+  } catch (err) { next(err); }
+});
+
+router.get('/trends/error-patterns', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const days = parseInt(req.query.days as string) || 30;
+    const limit = parseInt(req.query.limit as string) || 10;
+    res.json(await getErrorPatterns(days, limit));
+  } catch (err) { next(err); }
+});
+
+router.get('/trends/defect-types', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const days = parseInt(req.query.days as string) || 30;
+    res.json(await getDefectTypesTrend(days));
+  } catch (err) { next(err); }
+});
+
+router.get('/trends/by-hour', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const days = parseInt(req.query.days as string) || 30;
+    res.json(await getFailuresByHour(days));
+  } catch (err) { next(err); }
 });
 
 export default router;
