@@ -1,9 +1,15 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import axios from 'axios';
+import https from 'https';
 import { config, applySettingsOverrides, EDITABLE_KEYS, startedAt, lastPollAt } from '../../config';
 import { getAllSettings, setSetting } from '../../db/store';
 import { buildDailyReport } from '../../analyzer';
 import { sendEmailReport } from '../../notifiers/email';
 import { sendSlackReport } from '../../notifiers/slack';
+import { logger } from '../../logger';
+
+const log = logger.child({ module: 'Settings' });
+const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 const router = Router();
 
@@ -12,6 +18,8 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
     const dbSettings = await getAllSettings();
 
     const editableSettings: Record<string, { value: string; source: 'db' | 'env' }> = {};
+    const maskToken = (t: string) => t ? `${t.substring(0, 8)}...${t.substring(t.length - 4)}` : '';
+
     const configValues: Record<string, string> = {
       'email.recipients': config.email.recipients.join(','),
       'email.from': config.email.from,
@@ -23,6 +31,8 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
       'jira.projectKey': config.jira.projectKey,
       'jira.issueType': config.jira.issueType,
       'jira.component': dbSettings['jira.component'] || 'CNV User Interface',
+      'reportportal.token': maskToken(config.reportportal.token),
+      'jira.token': maskToken(config.jira.token),
     };
 
     for (const key of EDITABLE_KEYS) {
@@ -105,6 +115,62 @@ router.post('/test-slack', async (_req: Request, res: Response, next: NextFuncti
     res.json({ success: true, message: 'Test Slack notification sent' });
   } catch (err) {
     next(err);
+  }
+});
+
+router.get('/launch-names', async (_req: Request, res: Response) => {
+  try {
+    const client = axios.create({
+      baseURL: `${config.reportportal.url}/api/v1/${config.reportportal.project}`,
+      headers: { Authorization: `Bearer ${config.reportportal.token}` },
+      timeout: 15000,
+      httpsAgent,
+    });
+    const response = await client.get('/launch/names');
+    const names: string[] = response.data?.content || response.data || [];
+    res.json(names.sort());
+  } catch (err) {
+    log.warn({ err }, 'Failed to fetch launch names');
+    res.json([]);
+  }
+});
+
+router.get('/jira-meta', async (_req: Request, res: Response) => {
+  if (!config.jira.enabled) {
+    res.json({ projects: [], issueTypes: [], components: [] });
+    return;
+  }
+
+  try {
+    const client = axios.create({
+      baseURL: `${config.jira.url}/rest/api/2`,
+      headers: { Authorization: `Bearer ${config.jira.token}` },
+      timeout: 15000,
+      httpsAgent,
+    });
+
+    const [projectRes, issueTypeRes, componentRes] = await Promise.allSettled([
+      client.get(`/project/${config.jira.projectKey}`),
+      client.get('/issuetype'),
+      client.get(`/project/${config.jira.projectKey}/components`),
+    ]);
+
+    const projects = projectRes.status === 'fulfilled' ? [projectRes.value.data.key] : [config.jira.projectKey];
+
+    const issueTypes = issueTypeRes.status === 'fulfilled'
+      ? (issueTypeRes.value.data as Array<{ name: string }>)
+          .map(t => t.name)
+          .filter(n => !n.toLowerCase().includes('sub-task'))
+      : ['Bug', 'Task', 'Story'];
+
+    const components = componentRes.status === 'fulfilled'
+      ? (componentRes.value.data as Array<{ name: string }>).map(c => c.name).sort()
+      : [];
+
+    res.json({ projects, issueTypes, components });
+  } catch (err) {
+    log.warn({ err }, 'Failed to fetch Jira metadata');
+    res.json({ projects: [config.jira.projectKey], issueTypes: ['Bug'], components: [] });
   }
 });
 

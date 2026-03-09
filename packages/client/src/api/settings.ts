@@ -19,3 +19,17 @@ export function testEmail(): Promise<{ success: boolean; message: string }> {
 export function testSlack(): Promise<{ success: boolean; message: string }> {
   return apiFetch('/settings/test-slack', { method: 'POST' });
 }
+
+export function fetchLaunchNames(): Promise<string[]> {
+  return apiFetch('/settings/launch-names');
+}
+
+export type JiraMeta = {
+  projects: string[];
+  issueTypes: string[];
+  components: string[];
+};
+
+export function fetchJiraMeta(): Promise<JiraMeta> {
+  return apiFetch('/settings/jira-meta');
+}

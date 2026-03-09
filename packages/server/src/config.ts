@@ -76,6 +76,8 @@ const SETTINGS_MAP: Record<string, (val: string) => void> = {
   'jira.projectKey': (v) => { config.jira.projectKey = v; },
   'jira.issueType': (v) => { config.jira.issueType = v; },
   'jira.component': () => {},
+  'reportportal.token': (v) => { config.reportportal.token = v; },
+  'jira.token': (v) => { config.jira.token = v; },
 };
 
 export function applySettingsOverrides(dbSettings: Record<string, string>): void {

@@ -11,7 +11,6 @@ import {
   TextInput,
   FormSelect,
   FormSelectOption,
-  Switch,
   Button,
   Alert,
   Grid,
@@ -26,7 +25,7 @@ import {
   FlexItem,
 } from '@patternfly/react-core';
 import { CheckCircleIcon, ExclamationCircleIcon } from '@patternfly/react-icons';
-import { fetchSettings, updateSettings, testEmail, testSlack } from '../api/settings';
+import { fetchSettings, updateSettings, testEmail, testSlack, fetchLaunchNames, fetchJiraMeta } from '../api/settings';
 import type { SettingsResponse } from '@cnv-monitor/shared';
 
 function formatUptime(seconds: number): string {
@@ -42,10 +41,9 @@ export const SettingsPage: React.FC = () => {
   useEffect(() => { document.title = 'Settings | CNV Console Monitor'; }, []);
   const queryClient = useQueryClient();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['settings'],
-    queryFn: fetchSettings,
-  });
+  const { data, isLoading } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
+  const { data: launchNames } = useQuery({ queryKey: ['launchNames'], queryFn: fetchLaunchNames, staleTime: 5 * 60 * 1000 });
+  const { data: jiraMeta } = useQuery({ queryKey: ['jiraMeta'], queryFn: fetchJiraMeta, staleTime: 5 * 60 * 1000 });
 
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
@@ -54,9 +52,7 @@ export const SettingsPage: React.FC = () => {
   useEffect(() => {
     if (data?.settings) {
       const initial: Record<string, string> = {};
-      for (const [key, val] of Object.entries(data.settings)) {
-        initial[key] = val.value;
-      }
+      for (const [key, v] of Object.entries(data.settings)) initial[key] = v.value;
       setDraft(initial);
     }
   }, [data]);
@@ -69,9 +65,7 @@ export const SettingsPage: React.FC = () => {
       setSaveMessage({ type: 'success', text: `Saved: ${result.updated.join(', ')}` });
       setTimeout(() => setSaveMessage(null), 4000);
     },
-    onError: (err) => {
-      setSaveMessage({ type: 'danger', text: (err as Error).message });
-    },
+    onError: (err) => setSaveMessage({ type: 'danger', text: (err as Error).message }),
   });
 
   const emailTest = useMutation({
@@ -86,47 +80,30 @@ export const SettingsPage: React.FC = () => {
     onError: (e) => setTestMessage({ type: 'danger', text: (e as Error).message }),
   });
 
-  function val(key: string): string {
-    return draft[key] ?? data?.settings[key]?.value ?? '';
-  }
-
-  function set(key: string, value: string): void {
-    setDraft(prev => ({ ...prev, [key]: value }));
-  }
-
-  function isDirty(key: string): boolean {
-    return data?.settings[key] !== undefined && draft[key] !== data.settings[key].value;
-  }
-
-  function hasChanges(): boolean {
-    if (!data) return false;
-    return Object.keys(draft).some(k => isDirty(k));
-  }
+  function val(key: string): string { return draft[key] ?? data?.settings[key]?.value ?? ''; }
+  function set(key: string, value: string): void { setDraft(prev => ({ ...prev, [key]: value })); }
+  function isDirty(key: string): boolean { return data?.settings[key] !== undefined && draft[key] !== data.settings[key].value; }
+  function hasChanges(): boolean { return data ? Object.keys(draft).some(k => isDirty(k)) : false; }
 
   function saveAll(): void {
     if (!data) return;
     const changed: Record<string, string> = {};
-    for (const key of Object.keys(draft)) {
-      if (isDirty(key)) changed[key] = draft[key];
-    }
+    for (const key of Object.keys(draft)) { if (isDirty(key)) changed[key] = draft[key]; }
     if (Object.keys(changed).length > 0) saveMutation.mutate(changed);
   }
 
   function sourceLabel(key: string): React.ReactNode {
     const source = data?.settings[key]?.source;
     if (!source) return null;
-    return (
-      <Label color={source === 'db' ? 'blue' : 'grey'} isCompact style={{ marginLeft: 8 }}>
-        {source === 'db' ? 'Custom' : 'Default'}
-      </Label>
-    );
+    return <Label color={source === 'db' ? 'blue' : 'grey'} isCompact style={{ marginLeft: 8 }}>{source === 'db' ? 'Custom' : 'Default'}</Label>;
   }
 
-  if (isLoading || !data) {
-    return <PageSection isFilled><Spinner aria-label="Loading settings" /></PageSection>;
-  }
+  if (isLoading || !data) return <PageSection isFilled><Spinner aria-label="Loading settings" /></PageSection>;
 
   const sys = data.system;
+  const launchFilterOptions = launchNames?.length ? [...new Set([val('dashboard.launchFilter'), ...launchNames])] : [val('dashboard.launchFilter')];
+  const issueTypeOptions = jiraMeta?.issueTypes?.length ? jiraMeta.issueTypes : ['Bug', 'Task', 'Story'];
+  const componentOptions = jiraMeta?.components?.length ? jiraMeta.components : [];
 
   return (
     <>
@@ -145,39 +122,60 @@ export const SettingsPage: React.FC = () => {
       </PageSection>
 
       {saveMessage && (
-        <PageSection>
-          <Alert variant={saveMessage.type} isInline title={saveMessage.text} />
-        </PageSection>
+        <PageSection><Alert variant={saveMessage.type} isInline title={saveMessage.text} /></PageSection>
       )}
 
       <PageSection>
         <Grid hasGutter>
+          {/* Tokens */}
+          <GridItem span={12}>
+            <Card>
+              <CardTitle>API Tokens</CardTitle>
+              <CardBody>
+                <Form>
+                  <Grid hasGutter>
+                    <GridItem span={6}>
+                      <FormGroup label={<>ReportPortal Token {sourceLabel('reportportal.token')}</>} fieldId="rp-token">
+                        <TextInput
+                          id="rp-token"
+                          type="password"
+                          value={val('reportportal.token')}
+                          onChange={(_e, v) => set('reportportal.token', v)}
+                          placeholder="Bearer token for ReportPortal API"
+                        />
+                      </FormGroup>
+                    </GridItem>
+                    <GridItem span={6}>
+                      <FormGroup label={<>Jira Token {sourceLabel('jira.token')}</>} fieldId="jira-token">
+                        <TextInput
+                          id="jira-token"
+                          type="password"
+                          value={val('jira.token')}
+                          onChange={(_e, v) => set('jira.token', v)}
+                          placeholder="Bearer token for Jira API"
+                        />
+                      </FormGroup>
+                    </GridItem>
+                  </Grid>
+                </Form>
+              </CardBody>
+            </Card>
+          </GridItem>
+
+          {/* Notifications */}
           <GridItem span={6}>
             <Card>
               <CardTitle>Notifications</CardTitle>
               <CardBody>
                 <Form>
                   <FormGroup label={<>Email Recipients {sourceLabel('email.recipients')}</>} fieldId="email-recipients">
-                    <TextInput
-                      id="email-recipients"
-                      value={val('email.recipients')}
-                      onChange={(_e, v) => set('email.recipients', v)}
-                      placeholder="user1@redhat.com,user2@redhat.com"
-                    />
+                    <TextInput id="email-recipients" value={val('email.recipients')} onChange={(_e, v) => set('email.recipients', v)} placeholder="user1@redhat.com,user2@redhat.com" />
                   </FormGroup>
                   <FormGroup label={<>Email From {sourceLabel('email.from')}</>} fieldId="email-from">
-                    <TextInput
-                      id="email-from"
-                      value={val('email.from')}
-                      onChange={(_e, v) => set('email.from', v)}
-                    />
+                    <TextInput id="email-from" value={val('email.from')} onChange={(_e, v) => set('email.from', v)} />
                   </FormGroup>
                   <FormGroup label={<>Ack Reminder Hour {sourceLabel('schedule.ackReminderHour')}</>} fieldId="ack-hour">
-                    <FormSelect
-                      id="ack-hour"
-                      value={val('schedule.ackReminderHour')}
-                      onChange={(_e, v) => set('schedule.ackReminderHour', v)}
-                    >
+                    <FormSelect id="ack-hour" value={val('schedule.ackReminderHour')} onChange={(_e, v) => set('schedule.ackReminderHour', v)}>
                       {Array.from({ length: 24 }, (_, i) => (
                         <FormSelectOption key={i} value={String(i)} label={`${String(i).padStart(2, '0')}:00`} />
                       ))}
@@ -196,26 +194,21 @@ export const SettingsPage: React.FC = () => {
                         </Button>
                       </FlexItem>
                     </Flex>
-                    {testMessage && (
-                      <Alert variant={testMessage.type} isInline isPlain title={testMessage.text} style={{ marginTop: 8 }} />
-                    )}
+                    {testMessage && <Alert variant={testMessage.type} isInline isPlain title={testMessage.text} style={{ marginTop: 8 }} />}
                   </FormGroup>
                 </Form>
               </CardBody>
             </Card>
           </GridItem>
 
+          {/* Polling */}
           <GridItem span={6}>
             <Card>
               <CardTitle>Polling & Schedule</CardTitle>
               <CardBody>
                 <Form>
                   <FormGroup label={<>Poll Interval {sourceLabel('schedule.pollIntervalMinutes')}</>} fieldId="poll-interval">
-                    <FormSelect
-                      id="poll-interval"
-                      value={val('schedule.pollIntervalMinutes')}
-                      onChange={(_e, v) => set('schedule.pollIntervalMinutes', v)}
-                    >
+                    <FormSelect id="poll-interval" value={val('schedule.pollIntervalMinutes')} onChange={(_e, v) => set('schedule.pollIntervalMinutes', v)}>
                       <FormSelectOption value="5" label="Every 5 minutes" />
                       <FormSelectOption value="10" label="Every 10 minutes" />
                       <FormSelectOption value="15" label="Every 15 minutes" />
@@ -224,18 +217,18 @@ export const SettingsPage: React.FC = () => {
                     </FormSelect>
                   </FormGroup>
                   <FormGroup label={<>Launch Filter {sourceLabel('dashboard.launchFilter')}</>} fieldId="launch-filter">
-                    <TextInput
-                      id="launch-filter"
-                      value={val('dashboard.launchFilter')}
-                      onChange={(_e, v) => set('dashboard.launchFilter', v)}
-                      placeholder="test-kubevirt-console"
-                    />
+                    <FormSelect id="launch-filter" value={val('dashboard.launchFilter')} onChange={(_e, v) => set('dashboard.launchFilter', v)}>
+                      {launchFilterOptions.map(name => (
+                        <FormSelectOption key={name} value={name} label={name} />
+                      ))}
+                    </FormSelect>
                   </FormGroup>
                 </Form>
               </CardBody>
             </Card>
           </GridItem>
 
+          {/* Jira */}
           <GridItem span={6}>
             <Card>
               <CardTitle>Jira</CardTitle>
@@ -245,16 +238,29 @@ export const SettingsPage: React.FC = () => {
                     <TextInput id="jira-project" value={val('jira.projectKey')} onChange={(_e, v) => set('jira.projectKey', v)} />
                   </FormGroup>
                   <FormGroup label={<>Issue Type {sourceLabel('jira.issueType')}</>} fieldId="jira-type">
-                    <TextInput id="jira-type" value={val('jira.issueType')} onChange={(_e, v) => set('jira.issueType', v)} />
+                    <FormSelect id="jira-type" value={val('jira.issueType')} onChange={(_e, v) => set('jira.issueType', v)}>
+                      {issueTypeOptions.map(t => (
+                        <FormSelectOption key={t} value={t} label={t} />
+                      ))}
+                    </FormSelect>
                   </FormGroup>
                   <FormGroup label={<>Component {sourceLabel('jira.component')}</>} fieldId="jira-component">
-                    <TextInput id="jira-component" value={val('jira.component')} onChange={(_e, v) => set('jira.component', v)} placeholder="CNV User Interface" />
+                    {componentOptions.length > 0 ? (
+                      <FormSelect id="jira-component" value={val('jira.component')} onChange={(_e, v) => set('jira.component', v)}>
+                        {componentOptions.map(c => (
+                          <FormSelectOption key={c} value={c} label={c} />
+                        ))}
+                      </FormSelect>
+                    ) : (
+                      <TextInput id="jira-component" value={val('jira.component')} onChange={(_e, v) => set('jira.component', v)} placeholder="CNV User Interface" />
+                    )}
                   </FormGroup>
                 </Form>
               </CardBody>
             </Card>
           </GridItem>
 
+          {/* Links */}
           <GridItem span={6}>
             <Card>
               <CardTitle>Links</CardTitle>
@@ -271,6 +277,7 @@ export const SettingsPage: React.FC = () => {
             </Card>
           </GridItem>
 
+          {/* System Info */}
           <GridItem span={12}>
             <Card>
               <CardTitle>System Information</CardTitle>
@@ -287,26 +294,16 @@ export const SettingsPage: React.FC = () => {
                     <DescriptionListTerm>Integrations</DescriptionListTerm>
                     <DescriptionListDescription>
                       <Flex spaceItems={{ default: 'spaceItemsSm' }}>
-                        <FlexItem>
-                          <Label color={sys.emailEnabled ? 'green' : 'grey'} isCompact icon={sys.emailEnabled ? <CheckCircleIcon /> : <ExclamationCircleIcon />}>
-                            Email
-                          </Label>
-                        </FlexItem>
-                        <FlexItem>
-                          <Label color={sys.slackEnabled ? 'green' : 'grey'} isCompact icon={sys.slackEnabled ? <CheckCircleIcon /> : <ExclamationCircleIcon />}>
-                            Slack
-                          </Label>
-                        </FlexItem>
-                        <FlexItem>
-                          <Label color={sys.jiraEnabled ? 'green' : 'grey'} isCompact icon={sys.jiraEnabled ? <CheckCircleIcon /> : <ExclamationCircleIcon />}>
-                            Jira
-                          </Label>
-                        </FlexItem>
-                        <FlexItem>
-                          <Label color={sys.authEnabled ? 'green' : 'grey'} isCompact icon={sys.authEnabled ? <CheckCircleIcon /> : <ExclamationCircleIcon />}>
-                            Auth
-                          </Label>
-                        </FlexItem>
+                        {(['Email', 'Slack', 'Jira', 'Auth'] as const).map(name => {
+                          const enabled = sys[`${name.toLowerCase()}Enabled` as keyof typeof sys] as boolean;
+                          return (
+                            <FlexItem key={name}>
+                              <Label color={enabled ? 'green' : 'grey'} isCompact icon={enabled ? <CheckCircleIcon /> : <ExclamationCircleIcon />}>
+                                {name}
+                              </Label>
+                            </FlexItem>
+                          );
+                        })}
                       </Flex>
                     </DescriptionListDescription>
                   </DescriptionListGroup>
