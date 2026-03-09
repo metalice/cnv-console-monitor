@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   PageSection,
@@ -24,9 +24,37 @@ import {
   Flex,
   FlexItem,
 } from '@patternfly/react-core';
-import { CheckCircleIcon, ExclamationCircleIcon } from '@patternfly/react-icons';
-import { fetchSettings, updateSettings, testEmail, testSlack, fetchLaunchNames, fetchJiraMeta } from '../api/settings';
+import { CheckCircleIcon, ExclamationCircleIcon, PlusCircleIcon, TrashIcon } from '@patternfly/react-icons';
+import { fetchSettings, updateSettings, testEmail, testSlack, fetchLaunchNames, fetchJiraMeta, fetchRpProjects } from '../api/settings';
 import type { SettingsResponse } from '@cnv-monitor/shared';
+
+const TIMEZONES = [
+  'Asia/Jerusalem', 'UTC', 'America/New_York', 'America/Chicago', 'America/Denver',
+  'America/Los_Angeles', 'Europe/London', 'Europe/Berlin', 'Europe/Prague',
+  'Asia/Kolkata', 'Asia/Shanghai', 'Asia/Tokyo', 'Australia/Sydney',
+];
+
+const REPORT_SCHEDULES = [
+  { value: '0 7 * * *', label: 'Daily at 07:00' },
+  { value: '0 8 * * *', label: 'Daily at 08:00' },
+  { value: '0 9 * * *', label: 'Daily at 09:00' },
+  { value: '0 6 * * 1-5', label: 'Weekdays at 06:00' },
+  { value: '0 7 * * 1-5', label: 'Weekdays at 07:00' },
+  { value: '0 8 * * 1-5', label: 'Weekdays at 08:00' },
+  { value: '0 9 * * 1-5', label: 'Weekdays at 09:00' },
+  { value: '0 */6 * * *', label: 'Every 6 hours' },
+  { value: '0 */12 * * *', label: 'Every 12 hours' },
+];
+
+const LOOKBACK_OPTIONS = [
+  { value: '7', label: '1 week' },
+  { value: '14', label: '2 weeks' },
+  { value: '30', label: '1 month' },
+  { value: '60', label: '2 months' },
+  { value: '90', label: '3 months' },
+  { value: '180', label: '6 months' },
+  { value: '365', label: '1 year' },
+];
 
 function formatUptime(seconds: number): string {
   const d = Math.floor(seconds / 86400);
@@ -43,11 +71,19 @@ export const SettingsPage: React.FC = () => {
 
   const { data, isLoading } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
   const { data: launchNames } = useQuery({ queryKey: ['launchNames'], queryFn: fetchLaunchNames, staleTime: 5 * 60 * 1000 });
-  const { data: jiraMeta } = useQuery({ queryKey: ['jiraMeta'], queryFn: fetchJiraMeta, staleTime: 5 * 60 * 1000 });
+  const { data: rpProjects } = useQuery({ queryKey: ['rpProjects'], queryFn: fetchRpProjects, staleTime: 5 * 60 * 1000 });
 
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
   const [testMessage, setTestMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
+
+  const jiraProject = draft['jira.projectKey'] ?? data?.settings['jira.projectKey']?.value ?? '';
+  const { data: jiraMeta } = useQuery({
+    queryKey: ['jiraMeta', jiraProject],
+    queryFn: () => fetchJiraMeta(jiraProject),
+    staleTime: 5 * 60 * 1000,
+    enabled: !!jiraProject,
+  });
 
   useEffect(() => {
     if (data?.settings) {
@@ -98,12 +134,31 @@ export const SettingsPage: React.FC = () => {
     return <Label color={source === 'db' ? 'blue' : 'grey'} isCompact style={{ marginLeft: 8 }}>{source === 'db' ? 'Custom' : 'Default'}</Label>;
   }
 
+  const recipients = useMemo(() => val('email.recipients').split(',').filter(Boolean), [draft, data]);
+  const [newRecipient, setNewRecipient] = useState('');
+
+  function addRecipient(): void {
+    const email = newRecipient.trim();
+    if (email && !recipients.includes(email)) {
+      set('email.recipients', [...recipients, email].join(','));
+      setNewRecipient('');
+    }
+  }
+
+  function removeRecipient(email: string): void {
+    set('email.recipients', recipients.filter(r => r !== email).join(','));
+  }
+
   if (isLoading || !data) return <PageSection isFilled><Spinner aria-label="Loading settings" /></PageSection>;
 
   const sys = data.system;
   const launchFilterOptions = launchNames?.length ? [...new Set([val('dashboard.launchFilter'), ...launchNames])] : [val('dashboard.launchFilter')];
+  const rpProjectOptions = rpProjects?.length ? [...new Set([val('reportportal.project'), ...rpProjects])] : [val('reportportal.project')];
+  const jiraProjectOptions = jiraMeta?.projects?.length ? [...new Set([val('jira.projectKey'), ...jiraMeta.projects])] : [val('jira.projectKey')];
   const issueTypeOptions = jiraMeta?.issueTypes?.length ? jiraMeta.issueTypes : ['Bug', 'Task', 'Story'];
   const componentOptions = jiraMeta?.components?.length ? jiraMeta.components : [];
+  const cronValue = val('schedule.cron');
+  const cronMatch = REPORT_SCHEDULES.find(s => s.value === cronValue);
 
   return (
     <>
@@ -137,10 +192,17 @@ export const SettingsPage: React.FC = () => {
                     <TextInput id="rp-url" value={val('reportportal.url')} onChange={(_e, v) => set('reportportal.url', v)} placeholder="https://reportportal.example.com" />
                   </FormGroup>
                   <FormGroup label={<>Project {sourceLabel('reportportal.project')}</>} fieldId="rp-project">
-                    <TextInput id="rp-project" value={val('reportportal.project')} onChange={(_e, v) => set('reportportal.project', v)} placeholder="CNV" />
+                    <FormSelect id="rp-project" value={val('reportportal.project')} onChange={(_e, v) => set('reportportal.project', v)}>
+                      {rpProjectOptions.map(p => <FormSelectOption key={p} value={p} label={p} />)}
+                    </FormSelect>
                   </FormGroup>
                   <FormGroup label={<>Token {sourceLabel('reportportal.token')}</>} fieldId="rp-token">
                     <TextInput id="rp-token" type="password" value={val('reportportal.token')} onChange={(_e, v) => set('reportportal.token', v)} placeholder="Bearer token" />
+                  </FormGroup>
+                  <FormGroup label={<>Launch Filter {sourceLabel('dashboard.launchFilter')}</>} fieldId="launch-filter">
+                    <FormSelect id="launch-filter" value={val('dashboard.launchFilter')} onChange={(_e, v) => set('dashboard.launchFilter', v)}>
+                      {launchFilterOptions.map(name => <FormSelectOption key={name} value={name} label={name} />)}
+                    </FormSelect>
                   </FormGroup>
                 </Form>
               </CardBody>
@@ -159,8 +221,10 @@ export const SettingsPage: React.FC = () => {
                   <FormGroup label={<>Token {sourceLabel('jira.token')}</>} fieldId="jira-token">
                     <TextInput id="jira-token" type="password" value={val('jira.token')} onChange={(_e, v) => set('jira.token', v)} placeholder="Bearer token" />
                   </FormGroup>
-                  <FormGroup label={<>Project Key {sourceLabel('jira.projectKey')}</>} fieldId="jira-project">
-                    <TextInput id="jira-project" value={val('jira.projectKey')} onChange={(_e, v) => set('jira.projectKey', v)} />
+                  <FormGroup label={<>Project {sourceLabel('jira.projectKey')}</>} fieldId="jira-project">
+                    <FormSelect id="jira-project" value={val('jira.projectKey')} onChange={(_e, v) => set('jira.projectKey', v)}>
+                      {jiraProjectOptions.map(p => <FormSelectOption key={p} value={p} label={p} />)}
+                    </FormSelect>
                   </FormGroup>
                   <FormGroup label={<>Issue Type {sourceLabel('jira.issueType')}</>} fieldId="jira-type">
                     <FormSelect id="jira-type" value={val('jira.issueType')} onChange={(_e, v) => set('jira.issueType', v)}>
@@ -173,7 +237,7 @@ export const SettingsPage: React.FC = () => {
                         {componentOptions.map(c => <FormSelectOption key={c} value={c} label={c} />)}
                       </FormSelect>
                     ) : (
-                      <TextInput id="jira-component" value={val('jira.component')} onChange={(_e, v) => set('jira.component', v)} placeholder="CNV User Interface" />
+                      <TextInput id="jira-component" value={val('jira.component')} onChange={(_e, v) => set('jira.component', v)} placeholder="Select a project first" />
                     )}
                   </FormGroup>
                 </Form>
@@ -212,11 +276,44 @@ export const SettingsPage: React.FC = () => {
                   <FormGroup label={<>SMTP Host {sourceLabel('email.host')}</>} fieldId="email-host">
                     <TextInput id="email-host" value={val('email.host')} onChange={(_e, v) => set('email.host', v)} placeholder="smtp.corp.redhat.com" />
                   </FormGroup>
+                  <FormGroup label={<>SMTP User {sourceLabel('email.user')}</>} fieldId="email-user">
+                    <TextInput id="email-user" value={val('email.user')} onChange={(_e, v) => set('email.user', v)} placeholder="Optional SMTP username" />
+                  </FormGroup>
+                  <FormGroup label={<>SMTP Password {sourceLabel('email.pass')}</>} fieldId="email-pass">
+                    <TextInput id="email-pass" type="password" value={val('email.pass')} onChange={(_e, v) => set('email.pass', v)} placeholder="Optional SMTP password" />
+                  </FormGroup>
                   <FormGroup label={<>From {sourceLabel('email.from')}</>} fieldId="email-from">
                     <TextInput id="email-from" value={val('email.from')} onChange={(_e, v) => set('email.from', v)} />
                   </FormGroup>
                   <FormGroup label={<>Recipients {sourceLabel('email.recipients')}</>} fieldId="email-recipients">
-                    <TextInput id="email-recipients" value={val('email.recipients')} onChange={(_e, v) => set('email.recipients', v)} placeholder="user1@redhat.com,user2@redhat.com" />
+                    <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsSm' }}>
+                      {recipients.map(email => (
+                        <FlexItem key={email}>
+                          <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
+                            <FlexItem><Label>{email}</Label></FlexItem>
+                            <FlexItem>
+                              <Button variant="plain" size="sm" aria-label={`Remove ${email}`} onClick={() => removeRecipient(email)} icon={<TrashIcon />} />
+                            </FlexItem>
+                          </Flex>
+                        </FlexItem>
+                      ))}
+                      <FlexItem>
+                        <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
+                          <FlexItem style={{ flex: 1 }}>
+                            <TextInput
+                              value={newRecipient}
+                              onChange={(_e, v) => setNewRecipient(v)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addRecipient(); } }}
+                              placeholder="Add email address..."
+                              aria-label="New recipient email"
+                            />
+                          </FlexItem>
+                          <FlexItem>
+                            <Button variant="plain" size="sm" onClick={addRecipient} isDisabled={!newRecipient.trim()} icon={<PlusCircleIcon />} aria-label="Add recipient" />
+                          </FlexItem>
+                        </Flex>
+                      </FlexItem>
+                    </Flex>
                   </FormGroup>
                   <FormGroup label="Test">
                     <Button variant="secondary" size="sm" onClick={() => emailTest.mutate()} isLoading={emailTest.isPending} isDisabled={!sys.emailEnabled}>
@@ -244,11 +341,10 @@ export const SettingsPage: React.FC = () => {
                       <FormSelectOption value="60" label="Every hour" />
                     </FormSelect>
                   </FormGroup>
-                  <FormGroup label={<>Launch Filter {sourceLabel('dashboard.launchFilter')}</>} fieldId="launch-filter">
-                    <FormSelect id="launch-filter" value={val('dashboard.launchFilter')} onChange={(_e, v) => set('dashboard.launchFilter', v)}>
-                      {launchFilterOptions.map(name => (
-                        <FormSelectOption key={name} value={name} label={name} />
-                      ))}
+                  <FormGroup label={<>Report Schedule {sourceLabel('schedule.cron')}</>} fieldId="cron">
+                    <FormSelect id="cron" value={cronValue} onChange={(_e, v) => set('schedule.cron', v)}>
+                      {REPORT_SCHEDULES.map(s => <FormSelectOption key={s.value} value={s.value} label={s.label} />)}
+                      {!cronMatch && <FormSelectOption value={cronValue} label={`Custom: ${cronValue}`} />}
                     </FormSelect>
                   </FormGroup>
                   <FormGroup label={<>Ack Reminder Hour {sourceLabel('schedule.ackReminderHour')}</>} fieldId="ack-hour">
@@ -259,13 +355,17 @@ export const SettingsPage: React.FC = () => {
                     </FormSelect>
                   </FormGroup>
                   <FormGroup label={<>Timezone {sourceLabel('schedule.timezone')}</>} fieldId="tz">
-                    <TextInput id="tz" value={val('schedule.timezone')} onChange={(_e, v) => set('schedule.timezone', v)} placeholder="Asia/Jerusalem" />
+                    <FormSelect id="tz" value={val('schedule.timezone')} onChange={(_e, v) => set('schedule.timezone', v)}>
+                      {TIMEZONES.map(tz => <FormSelectOption key={tz} value={tz} label={tz} />)}
+                      {!TIMEZONES.includes(val('schedule.timezone')) && (
+                        <FormSelectOption value={val('schedule.timezone')} label={val('schedule.timezone')} />
+                      )}
+                    </FormSelect>
                   </FormGroup>
-                  <FormGroup label={<>Initial Lookback Days {sourceLabel('schedule.initialLookbackDays')}</>} fieldId="lookback">
-                    <TextInput id="lookback" type="number" value={val('schedule.initialLookbackDays')} onChange={(_e, v) => set('schedule.initialLookbackDays', v)} />
-                  </FormGroup>
-                  <FormGroup label={<>Cron Schedule {sourceLabel('schedule.cron')}</>} fieldId="cron">
-                    <TextInput id="cron" value={val('schedule.cron')} onChange={(_e, v) => set('schedule.cron', v)} placeholder="0 7 * * *" />
+                  <FormGroup label={<>Initial History {sourceLabel('schedule.initialLookbackDays')}</>} fieldId="lookback">
+                    <FormSelect id="lookback" value={val('schedule.initialLookbackDays')} onChange={(_e, v) => set('schedule.initialLookbackDays', v)}>
+                      {LOOKBACK_OPTIONS.map(o => <FormSelectOption key={o.value} value={o.value} label={o.label} />)}
+                    </FormSelect>
                   </FormGroup>
                 </Form>
               </CardBody>

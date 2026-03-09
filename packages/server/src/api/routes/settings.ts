@@ -27,6 +27,8 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
       'email.recipients': config.email.recipients.join(','),
       'email.from': config.email.from,
       'email.host': config.email.host,
+      'email.user': config.email.user,
+      'email.pass': config.email.pass ? '••••••' : '',
       'schedule.ackReminderHour': String(config.schedule.ackReminderHour),
       'schedule.pollIntervalMinutes': String(config.schedule.pollIntervalMinutes),
       'schedule.cron': config.schedule.cron,
@@ -144,11 +146,13 @@ router.get('/launch-names', async (_req: Request, res: Response) => {
   }
 });
 
-router.get('/jira-meta', async (_req: Request, res: Response) => {
+router.get('/jira-meta', async (req: Request, res: Response) => {
   if (!config.jira.enabled) {
     res.json({ projects: [], issueTypes: [], components: [] });
     return;
   }
+
+  const projectKey = (req.query.project as string) || config.jira.projectKey;
 
   try {
     const client = axios.create({
@@ -158,13 +162,15 @@ router.get('/jira-meta', async (_req: Request, res: Response) => {
       httpsAgent,
     });
 
-    const [projectRes, issueTypeRes, componentRes] = await Promise.allSettled([
-      client.get(`/project/${config.jira.projectKey}`),
+    const [projectsRes, issueTypeRes, componentRes] = await Promise.allSettled([
+      client.get('/project'),
       client.get('/issuetype'),
-      client.get(`/project/${config.jira.projectKey}/components`),
+      client.get(`/project/${projectKey}/components`),
     ]);
 
-    const projects = projectRes.status === 'fulfilled' ? [projectRes.value.data.key] : [config.jira.projectKey];
+    const projects = projectsRes.status === 'fulfilled'
+      ? (projectsRes.value.data as Array<{ key: string; name: string }>).map(p => p.key).sort()
+      : [config.jira.projectKey];
 
     const issueTypes = issueTypeRes.status === 'fulfilled'
       ? (issueTypeRes.value.data as Array<{ name: string }>)
@@ -180,6 +186,23 @@ router.get('/jira-meta', async (_req: Request, res: Response) => {
   } catch (err) {
     log.warn({ err }, 'Failed to fetch Jira metadata');
     res.json({ projects: [config.jira.projectKey], issueTypes: ['Bug'], components: [] });
+  }
+});
+
+router.get('/rp-projects', async (_req: Request, res: Response) => {
+  try {
+    const client = axios.create({
+      baseURL: config.reportportal.url,
+      headers: { Authorization: `Bearer ${config.reportportal.token}` },
+      timeout: 15000,
+      httpsAgent,
+    });
+    const response = await client.get('/api/v1/project/list', { params: { 'page.size': 100 } });
+    const projects: string[] = (response.data?.content || []).map((p: { projectName: string }) => p.projectName);
+    res.json(projects.sort());
+  } catch (err) {
+    log.warn({ err }, 'Failed to fetch RP projects');
+    res.json([config.reportportal.project]);
   }
 });
 

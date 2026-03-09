@@ -72,6 +72,8 @@ const SETTINGS_MAP: Record<string, (val: string) => void> = {
   'email.recipients': (v) => { config.email.recipients = v.split(',').filter(Boolean); },
   'email.from': (v) => { config.email.from = v; },
   'email.host': (v) => { config.email.host = v; config.email.enabled = !!v; },
+  'email.user': (v) => { config.email.user = v; },
+  'email.pass': (v) => { config.email.pass = v; },
   'schedule.ackReminderHour': (v) => { config.schedule.ackReminderHour = parseInt(v, 10); },
   'schedule.pollIntervalMinutes': (v) => { config.schedule.pollIntervalMinutes = parseInt(v, 10); },
   'schedule.cron': (v) => { config.schedule.cron = v; },

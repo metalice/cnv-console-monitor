@@ -30,6 +30,11 @@ export type JiraMeta = {
   components: string[];
 };
 
-export function fetchJiraMeta(): Promise<JiraMeta> {
-  return apiFetch('/settings/jira-meta');
+export function fetchJiraMeta(project?: string): Promise<JiraMeta> {
+  const params = project ? `?project=${encodeURIComponent(project)}` : '';
+  return apiFetch(`/settings/jira-meta${params}`);
+}
+
+export function fetchRpProjects(): Promise<string[]> {
+  return apiFetch('/settings/rp-projects');
 }
