@@ -252,10 +252,10 @@ export const SettingsPage: React.FC = () => {
               <CardBody>
                 <Form>
                   <FormGroup label={<>Webhook URL {sourceLabel('slack.webhookUrl')}</>} fieldId="slack-webhook">
-                    <TextInput id="slack-webhook" type="password" value={val('slack.webhookUrl')} onChange={(_e, v) => set('slack.webhookUrl', v)} placeholder="https://hooks.slack.com/services/..." />
+                    <TextInput id="slack-webhook" value={val('slack.webhookUrl')} onChange={(_e, v) => set('slack.webhookUrl', v)} placeholder="https://hooks.slack.com/services/..." />
                   </FormGroup>
                   <FormGroup label={<>Jira Channel Webhook {sourceLabel('slack.jiraWebhookUrl')}</>} fieldId="slack-jira-webhook">
-                    <TextInput id="slack-jira-webhook" type="password" value={val('slack.jiraWebhookUrl')} onChange={(_e, v) => set('slack.jiraWebhookUrl', v)} placeholder="Webhook for bug notifications" />
+                    <TextInput id="slack-jira-webhook" value={val('slack.jiraWebhookUrl')} onChange={(_e, v) => set('slack.jiraWebhookUrl', v)} placeholder="Webhook for bug notifications" />
                   </FormGroup>
                   <FormGroup label="Test">
                     <Button variant="secondary" size="sm" onClick={() => slackTest.mutate()} isLoading={slackTest.isPending} isDisabled={!sys.slackEnabled}>

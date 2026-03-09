@@ -42,8 +42,8 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
       'jira.issueType': config.jira.issueType,
       'jira.component': dbSettings['jira.component'] || 'CNV User Interface',
       'jira.token': maskToken(config.jira.token),
-      'slack.webhookUrl': maskToken(config.slack.webhookUrl),
-      'slack.jiraWebhookUrl': maskToken(config.slack.jiraWebhookUrl),
+      'slack.webhookUrl': config.slack.webhookUrl,
+      'slack.jiraWebhookUrl': config.slack.jiraWebhookUrl,
     };
 
     for (const key of EDITABLE_KEYS) {
