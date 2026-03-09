@@ -127,95 +127,101 @@ export const SettingsPage: React.FC = () => {
 
       <PageSection>
         <Grid hasGutter>
-          {/* Tokens */}
-          <GridItem span={12}>
+          {/* ReportPortal */}
+          <GridItem span={6}>
             <Card>
-              <CardTitle>API Tokens</CardTitle>
+              <CardTitle>ReportPortal</CardTitle>
               <CardBody>
                 <Form>
-                  <Grid hasGutter>
-                    <GridItem span={6}>
-                      <FormGroup label={<>ReportPortal Token {sourceLabel('reportportal.token')}</>} fieldId="rp-token">
-                        <TextInput
-                          id="rp-token"
-                          type="password"
-                          value={val('reportportal.token')}
-                          onChange={(_e, v) => set('reportportal.token', v)}
-                          placeholder="Bearer token for ReportPortal API"
-                        />
-                      </FormGroup>
-                    </GridItem>
-                    <GridItem span={6}>
-                      <FormGroup label={<>Jira Token {sourceLabel('jira.token')}</>} fieldId="jira-token">
-                        <TextInput
-                          id="jira-token"
-                          type="password"
-                          value={val('jira.token')}
-                          onChange={(_e, v) => set('jira.token', v)}
-                          placeholder="Bearer token for Jira API"
-                        />
-                      </FormGroup>
-                    </GridItem>
-                    <GridItem span={6}>
-                      <FormGroup label={<>Slack Webhook URL {sourceLabel('slack.webhookUrl')}</>} fieldId="slack-webhook">
-                        <TextInput
-                          id="slack-webhook"
-                          type="password"
-                          value={val('slack.webhookUrl')}
-                          onChange={(_e, v) => set('slack.webhookUrl', v)}
-                          placeholder="https://hooks.slack.com/services/..."
-                        />
-                      </FormGroup>
-                    </GridItem>
-                    <GridItem span={6}>
-                      <FormGroup label={<>Slack Jira Channel Webhook {sourceLabel('slack.jiraWebhookUrl')}</>} fieldId="slack-jira-webhook">
-                        <TextInput
-                          id="slack-jira-webhook"
-                          type="password"
-                          value={val('slack.jiraWebhookUrl')}
-                          onChange={(_e, v) => set('slack.jiraWebhookUrl', v)}
-                          placeholder="Webhook for Jira bug notifications channel"
-                        />
-                      </FormGroup>
-                    </GridItem>
-                  </Grid>
+                  <FormGroup label={<>URL {sourceLabel('reportportal.url')}</>} fieldId="rp-url">
+                    <TextInput id="rp-url" value={val('reportportal.url')} onChange={(_e, v) => set('reportportal.url', v)} placeholder="https://reportportal.example.com" />
+                  </FormGroup>
+                  <FormGroup label={<>Project {sourceLabel('reportportal.project')}</>} fieldId="rp-project">
+                    <TextInput id="rp-project" value={val('reportportal.project')} onChange={(_e, v) => set('reportportal.project', v)} placeholder="CNV" />
+                  </FormGroup>
+                  <FormGroup label={<>Token {sourceLabel('reportportal.token')}</>} fieldId="rp-token">
+                    <TextInput id="rp-token" type="password" value={val('reportportal.token')} onChange={(_e, v) => set('reportportal.token', v)} placeholder="Bearer token" />
+                  </FormGroup>
                 </Form>
               </CardBody>
             </Card>
           </GridItem>
 
-          {/* Notifications */}
+          {/* Jira */}
           <GridItem span={6}>
             <Card>
-              <CardTitle>Notifications</CardTitle>
+              <CardTitle>Jira</CardTitle>
               <CardBody>
                 <Form>
-                  <FormGroup label={<>Email Recipients {sourceLabel('email.recipients')}</>} fieldId="email-recipients">
-                    <TextInput id="email-recipients" value={val('email.recipients')} onChange={(_e, v) => set('email.recipients', v)} placeholder="user1@redhat.com,user2@redhat.com" />
+                  <FormGroup label={<>URL {sourceLabel('jira.url')}</>} fieldId="jira-url">
+                    <TextInput id="jira-url" value={val('jira.url')} onChange={(_e, v) => set('jira.url', v)} placeholder="https://issues.redhat.com" />
                   </FormGroup>
-                  <FormGroup label={<>Email From {sourceLabel('email.from')}</>} fieldId="email-from">
-                    <TextInput id="email-from" value={val('email.from')} onChange={(_e, v) => set('email.from', v)} />
+                  <FormGroup label={<>Token {sourceLabel('jira.token')}</>} fieldId="jira-token">
+                    <TextInput id="jira-token" type="password" value={val('jira.token')} onChange={(_e, v) => set('jira.token', v)} placeholder="Bearer token" />
                   </FormGroup>
-                  <FormGroup label={<>Ack Reminder Hour {sourceLabel('schedule.ackReminderHour')}</>} fieldId="ack-hour">
-                    <FormSelect id="ack-hour" value={val('schedule.ackReminderHour')} onChange={(_e, v) => set('schedule.ackReminderHour', v)}>
-                      {Array.from({ length: 24 }, (_, i) => (
-                        <FormSelectOption key={i} value={String(i)} label={`${String(i).padStart(2, '0')}:00`} />
-                      ))}
+                  <FormGroup label={<>Project Key {sourceLabel('jira.projectKey')}</>} fieldId="jira-project">
+                    <TextInput id="jira-project" value={val('jira.projectKey')} onChange={(_e, v) => set('jira.projectKey', v)} />
+                  </FormGroup>
+                  <FormGroup label={<>Issue Type {sourceLabel('jira.issueType')}</>} fieldId="jira-type">
+                    <FormSelect id="jira-type" value={val('jira.issueType')} onChange={(_e, v) => set('jira.issueType', v)}>
+                      {issueTypeOptions.map(t => <FormSelectOption key={t} value={t} label={t} />)}
                     </FormSelect>
                   </FormGroup>
-                  <FormGroup label="Test Notifications">
-                    <Flex spaceItems={{ default: 'spaceItemsSm' }}>
-                      <FlexItem>
-                        <Button variant="secondary" size="sm" onClick={() => emailTest.mutate()} isLoading={emailTest.isPending} isDisabled={!sys.emailEnabled}>
-                          Send Test Email
-                        </Button>
-                      </FlexItem>
-                      <FlexItem>
-                        <Button variant="secondary" size="sm" onClick={() => slackTest.mutate()} isLoading={slackTest.isPending} isDisabled={!sys.slackEnabled}>
-                          Send Test Slack
-                        </Button>
-                      </FlexItem>
-                    </Flex>
+                  <FormGroup label={<>Component {sourceLabel('jira.component')}</>} fieldId="jira-component">
+                    {componentOptions.length > 0 ? (
+                      <FormSelect id="jira-component" value={val('jira.component')} onChange={(_e, v) => set('jira.component', v)}>
+                        {componentOptions.map(c => <FormSelectOption key={c} value={c} label={c} />)}
+                      </FormSelect>
+                    ) : (
+                      <TextInput id="jira-component" value={val('jira.component')} onChange={(_e, v) => set('jira.component', v)} placeholder="CNV User Interface" />
+                    )}
+                  </FormGroup>
+                </Form>
+              </CardBody>
+            </Card>
+          </GridItem>
+
+          {/* Slack */}
+          <GridItem span={6}>
+            <Card>
+              <CardTitle>Slack</CardTitle>
+              <CardBody>
+                <Form>
+                  <FormGroup label={<>Webhook URL {sourceLabel('slack.webhookUrl')}</>} fieldId="slack-webhook">
+                    <TextInput id="slack-webhook" type="password" value={val('slack.webhookUrl')} onChange={(_e, v) => set('slack.webhookUrl', v)} placeholder="https://hooks.slack.com/services/..." />
+                  </FormGroup>
+                  <FormGroup label={<>Jira Channel Webhook {sourceLabel('slack.jiraWebhookUrl')}</>} fieldId="slack-jira-webhook">
+                    <TextInput id="slack-jira-webhook" type="password" value={val('slack.jiraWebhookUrl')} onChange={(_e, v) => set('slack.jiraWebhookUrl', v)} placeholder="Webhook for bug notifications" />
+                  </FormGroup>
+                  <FormGroup label="Test">
+                    <Button variant="secondary" size="sm" onClick={() => slackTest.mutate()} isLoading={slackTest.isPending} isDisabled={!sys.slackEnabled}>
+                      Send Test Slack
+                    </Button>
+                  </FormGroup>
+                </Form>
+              </CardBody>
+            </Card>
+          </GridItem>
+
+          {/* Email */}
+          <GridItem span={6}>
+            <Card>
+              <CardTitle>Email</CardTitle>
+              <CardBody>
+                <Form>
+                  <FormGroup label={<>SMTP Host {sourceLabel('email.host')}</>} fieldId="email-host">
+                    <TextInput id="email-host" value={val('email.host')} onChange={(_e, v) => set('email.host', v)} placeholder="smtp.corp.redhat.com" />
+                  </FormGroup>
+                  <FormGroup label={<>From {sourceLabel('email.from')}</>} fieldId="email-from">
+                    <TextInput id="email-from" value={val('email.from')} onChange={(_e, v) => set('email.from', v)} />
+                  </FormGroup>
+                  <FormGroup label={<>Recipients {sourceLabel('email.recipients')}</>} fieldId="email-recipients">
+                    <TextInput id="email-recipients" value={val('email.recipients')} onChange={(_e, v) => set('email.recipients', v)} placeholder="user1@redhat.com,user2@redhat.com" />
+                  </FormGroup>
+                  <FormGroup label="Test">
+                    <Button variant="secondary" size="sm" onClick={() => emailTest.mutate()} isLoading={emailTest.isPending} isDisabled={!sys.emailEnabled}>
+                      Send Test Email
+                    </Button>
                     {testMessage && <Alert variant={testMessage.type} isInline isPlain title={testMessage.text} style={{ marginTop: 8 }} />}
                   </FormGroup>
                 </Form>
@@ -223,10 +229,10 @@ export const SettingsPage: React.FC = () => {
             </Card>
           </GridItem>
 
-          {/* Polling */}
+          {/* Schedule */}
           <GridItem span={6}>
             <Card>
-              <CardTitle>Polling & Schedule</CardTitle>
+              <CardTitle>Schedule</CardTitle>
               <CardBody>
                 <Form>
                   <FormGroup label={<>Poll Interval {sourceLabel('schedule.pollIntervalMinutes')}</>} fieldId="poll-interval">
@@ -245,37 +251,21 @@ export const SettingsPage: React.FC = () => {
                       ))}
                     </FormSelect>
                   </FormGroup>
-                </Form>
-              </CardBody>
-            </Card>
-          </GridItem>
-
-          {/* Jira */}
-          <GridItem span={6}>
-            <Card>
-              <CardTitle>Jira</CardTitle>
-              <CardBody>
-                <Form>
-                  <FormGroup label={<>Project Key {sourceLabel('jira.projectKey')}</>} fieldId="jira-project">
-                    <TextInput id="jira-project" value={val('jira.projectKey')} onChange={(_e, v) => set('jira.projectKey', v)} />
-                  </FormGroup>
-                  <FormGroup label={<>Issue Type {sourceLabel('jira.issueType')}</>} fieldId="jira-type">
-                    <FormSelect id="jira-type" value={val('jira.issueType')} onChange={(_e, v) => set('jira.issueType', v)}>
-                      {issueTypeOptions.map(t => (
-                        <FormSelectOption key={t} value={t} label={t} />
+                  <FormGroup label={<>Ack Reminder Hour {sourceLabel('schedule.ackReminderHour')}</>} fieldId="ack-hour">
+                    <FormSelect id="ack-hour" value={val('schedule.ackReminderHour')} onChange={(_e, v) => set('schedule.ackReminderHour', v)}>
+                      {Array.from({ length: 24 }, (_, i) => (
+                        <FormSelectOption key={i} value={String(i)} label={`${String(i).padStart(2, '0')}:00`} />
                       ))}
                     </FormSelect>
                   </FormGroup>
-                  <FormGroup label={<>Component {sourceLabel('jira.component')}</>} fieldId="jira-component">
-                    {componentOptions.length > 0 ? (
-                      <FormSelect id="jira-component" value={val('jira.component')} onChange={(_e, v) => set('jira.component', v)}>
-                        {componentOptions.map(c => (
-                          <FormSelectOption key={c} value={c} label={c} />
-                        ))}
-                      </FormSelect>
-                    ) : (
-                      <TextInput id="jira-component" value={val('jira.component')} onChange={(_e, v) => set('jira.component', v)} placeholder="CNV User Interface" />
-                    )}
+                  <FormGroup label={<>Timezone {sourceLabel('schedule.timezone')}</>} fieldId="tz">
+                    <TextInput id="tz" value={val('schedule.timezone')} onChange={(_e, v) => set('schedule.timezone', v)} placeholder="Asia/Jerusalem" />
+                  </FormGroup>
+                  <FormGroup label={<>Initial Lookback Days {sourceLabel('schedule.initialLookbackDays')}</>} fieldId="lookback">
+                    <TextInput id="lookback" type="number" value={val('schedule.initialLookbackDays')} onChange={(_e, v) => set('schedule.initialLookbackDays', v)} />
+                  </FormGroup>
+                  <FormGroup label={<>Cron Schedule {sourceLabel('schedule.cron')}</>} fieldId="cron">
+                    <TextInput id="cron" value={val('schedule.cron')} onChange={(_e, v) => set('schedule.cron', v)} placeholder="0 7 * * *" />
                   </FormGroup>
                 </Form>
               </CardBody>
