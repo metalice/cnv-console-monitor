@@ -78,6 +78,8 @@ const SETTINGS_MAP: Record<string, (val: string) => void> = {
   'jira.component': () => {},
   'reportportal.token': (v) => { config.reportportal.token = v; },
   'jira.token': (v) => { config.jira.token = v; },
+  'slack.webhookUrl': (v) => { config.slack.webhookUrl = v; config.slack.enabled = !!v; },
+  'slack.jiraWebhookUrl': (v) => { config.slack.jiraWebhookUrl = v; },
 };
 
 export function applySettingsOverrides(dbSettings: Record<string, string>): void {

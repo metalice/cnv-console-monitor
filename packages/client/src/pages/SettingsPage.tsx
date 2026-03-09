@@ -156,6 +156,28 @@ export const SettingsPage: React.FC = () => {
                         />
                       </FormGroup>
                     </GridItem>
+                    <GridItem span={6}>
+                      <FormGroup label={<>Slack Webhook URL {sourceLabel('slack.webhookUrl')}</>} fieldId="slack-webhook">
+                        <TextInput
+                          id="slack-webhook"
+                          type="password"
+                          value={val('slack.webhookUrl')}
+                          onChange={(_e, v) => set('slack.webhookUrl', v)}
+                          placeholder="https://hooks.slack.com/services/..."
+                        />
+                      </FormGroup>
+                    </GridItem>
+                    <GridItem span={6}>
+                      <FormGroup label={<>Slack Jira Channel Webhook {sourceLabel('slack.jiraWebhookUrl')}</>} fieldId="slack-jira-webhook">
+                        <TextInput
+                          id="slack-jira-webhook"
+                          type="password"
+                          value={val('slack.jiraWebhookUrl')}
+                          onChange={(_e, v) => set('slack.jiraWebhookUrl', v)}
+                          placeholder="Webhook for Jira bug notifications channel"
+                        />
+                      </FormGroup>
+                    </GridItem>
                   </Grid>
                 </Form>
               </CardBody>

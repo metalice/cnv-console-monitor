@@ -33,6 +33,8 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
       'jira.component': dbSettings['jira.component'] || 'CNV User Interface',
       'reportportal.token': maskToken(config.reportportal.token),
       'jira.token': maskToken(config.jira.token),
+      'slack.webhookUrl': maskToken(config.slack.webhookUrl),
+      'slack.jiraWebhookUrl': maskToken(config.slack.jiraWebhookUrl),
     };
 
     for (const key of EDITABLE_KEYS) {
