@@ -2,13 +2,13 @@ import 'reflect-metadata';
 import http from 'http';
 import cron from 'node-cron';
 import { createApp } from './api';
-import { config } from './config';
+import { config, applySettingsOverrides, setLastPollAt } from './config';
 import { logger } from './logger';
+import { getAllSettings } from './db/store';
 import { AppDataSource } from './db/data-source';
 import { initWebSocket, broadcast } from './ws';
 import { pollReportPortal, backfillTestItems } from './poller';
-import { getLaunchCount } from './db/store';
-import { getAcknowledgmentsForDate } from './db/store';
+import { getLaunchCount, getAcknowledgmentsForDate } from './db/store';
 import { sendSlackReminder } from './notifiers/slack';
 
 const log = logger.child({ module: 'Dashboard' });
@@ -18,6 +18,10 @@ async function main(): Promise<void> {
   await AppDataSource.initialize();
   await AppDataSource.runMigrations();
   log.info('Database ready, migrations applied');
+
+  const dbSettings = await getAllSettings();
+  applySettingsOverrides(dbSettings);
+  log.info({ overrides: Object.keys(dbSettings).length }, 'Settings loaded from DB');
 
   const app = createApp();
   const server = http.createServer(app);
@@ -34,6 +38,7 @@ async function main(): Promise<void> {
 
       log.info({ lookbackHours, isInitial }, 'Starting poll cycle');
       const result = await pollReportPortal(lookbackHours, !isInitial);
+      setLastPollAt(Date.now());
       broadcast('data-updated');
 
       if (isInitial && result.launches.length > 0) {

@@ -3,6 +3,10 @@ import path from 'path';
 
 dotenv.config({ path: path.resolve(__dirname, '..', '..', '..', '.env') });
 
+export let startedAt = Date.now();
+export let lastPollAt: number | null = null;
+export function setLastPollAt(ts: number): void { lastPollAt = ts; }
+
 export const config = {
   reportportal: {
     url: process.env.REPORTPORTAL_URL || 'https://reportportal-cnv.apps.dno.ocp-hub.prod.psi.redhat.com',
@@ -60,3 +64,25 @@ export const config = {
     enabled: process.env.AUTH_ENABLED !== 'false',
   },
 };
+
+const SETTINGS_MAP: Record<string, (val: string) => void> = {
+  'email.recipients': (v) => { config.email.recipients = v.split(',').filter(Boolean); },
+  'email.from': (v) => { config.email.from = v; },
+  'schedule.ackReminderHour': (v) => { config.schedule.ackReminderHour = parseInt(v, 10); },
+  'schedule.pollIntervalMinutes': (v) => { config.schedule.pollIntervalMinutes = parseInt(v, 10); },
+  'dashboard.launchFilter': (v) => { config.dashboard.launchFilter = v; },
+  'dashboard.url': (v) => { config.dashboard.url = v; },
+  'polarion.url': (v) => { config.polarion.url = v; },
+  'jira.projectKey': (v) => { config.jira.projectKey = v; },
+  'jira.issueType': (v) => { config.jira.issueType = v; },
+  'jira.component': () => {},
+};
+
+export function applySettingsOverrides(dbSettings: Record<string, string>): void {
+  for (const [key, value] of Object.entries(dbSettings)) {
+    const setter = SETTINGS_MAP[key];
+    if (setter) setter(value);
+  }
+}
+
+export const EDITABLE_KEYS = Object.keys(SETTINGS_MAP);

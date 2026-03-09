@@ -420,14 +420,16 @@ export const TrendsPage: React.FC = () => {
                   <div style={{ height: 300, width: '100%' }}>
                     <Chart
                       height={250}
-                      padding={{ bottom: 50, left: 60, right: 30, top: 20 }}
+                      padding={{ bottom: 60, left: 60, right: 20, top: 20 }}
                       containerComponent={
                         <ChartVoronoiContainer
-                          labels={({ datum }: { datum: { x: string; y: number } }) => `${datum.x}: ${datum.y}% failure rate`}
+                          labels={({ datum }: { datum: { x: string; y: number } }) => `${datum.x}: ${datum.y}%`}
                         />
                       }
                     >
-                      <ChartAxis tickValues={hourlyData.filter((_: HourlyFailure, i: number) => i % 3 === 0).map((h: HourlyFailure) => `${String(h.hour).padStart(2, '0')}:00`)} />
+                      <ChartAxis
+                        style={{ tickLabels: { fontSize: 9, angle: -45, textAnchor: 'end' } }}
+                      />
                       <ChartAxis dependentAxis tickFormat={(t: number) => `${t}%`} />
                       <ChartBar
                         data={hourlyData.map((h: HourlyFailure) => ({ x: `${String(h.hour).padStart(2, '0')}:00`, y: h.failRate }))}

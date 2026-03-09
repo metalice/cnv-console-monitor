@@ -4,6 +4,7 @@ import { Launch } from './entities/Launch';
 import { TestItem } from './entities/TestItem';
 import { Acknowledgment } from './entities/Acknowledgment';
 import { TriageLog } from './entities/TriageLog';
+import { Setting } from './entities/Setting';
 
 export type LaunchRecord = {
   rp_id: number;
@@ -63,6 +64,7 @@ const launches = () => AppDataSource.getRepository(Launch);
 const testItems = () => AppDataSource.getRepository(TestItem);
 const acknowledgments = () => AppDataSource.getRepository(Acknowledgment);
 const triageLogs = () => AppDataSource.getRepository(TriageLog);
+const settings = () => AppDataSource.getRepository(Setting);
 
 export async function upsertLaunch(launch: LaunchRecord): Promise<void> {
   await launches().upsert(
@@ -708,4 +710,27 @@ function toAckRecord(row: Acknowledgment): AcknowledgmentRecord {
     notes: row.notes ?? undefined,
     acknowledged_at: row.acknowledged_at?.toISOString() ?? undefined,
   };
+}
+
+export async function getAllSettings(): Promise<Record<string, string>> {
+  const rows = await settings().find();
+  const result: Record<string, string> = {};
+  for (const row of rows) result[row.key] = row.value;
+  return result;
+}
+
+export async function getSetting(key: string): Promise<string | null> {
+  const row = await settings().findOneBy({ key });
+  return row?.value ?? null;
+}
+
+export async function setSetting(key: string, value: string, updatedBy?: string): Promise<void> {
+  await settings().upsert(
+    { key, value, updated_by: updatedBy ?? null },
+    { conflictPaths: ['key'] },
+  );
+}
+
+export async function deleteSetting(key: string): Promise<void> {
+  await settings().delete({ key });
 }

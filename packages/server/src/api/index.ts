@@ -16,6 +16,7 @@ import activityRouter from './routes/activity';
 import configPublicRouter from './routes/configPublic';
 import pollRouter from './routes/poll';
 import notificationsRouter from './routes/notifications';
+import settingsRouter from './routes/settings';
 import { errorHandler } from './middleware/errorHandler';
 
 export function createApp(): express.Application {
@@ -45,6 +46,7 @@ export function createApp(): express.Application {
   app.use('/api/config', extractUser, configPublicRouter);
   app.use('/api/poll', extractUser, pollRouter);
   app.use('/api/notifications', extractUser, notificationsRouter);
+  app.use('/api/settings', extractUser, settingsRouter);
 
   app.get('{*path}', (_req, res) => {
     res.sendFile(path.join(clientDistPath, 'index.html'));
