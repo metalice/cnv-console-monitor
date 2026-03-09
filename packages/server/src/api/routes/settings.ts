@@ -129,6 +129,43 @@ router.post('/test-slack', async (_req: Request, res: Response, next: NextFuncti
   }
 });
 
+router.post('/test-rp', async (_req: Request, res: Response) => {
+  try {
+    const client = axios.create({
+      baseURL: `${config.reportportal.url}/api/v1/${config.reportportal.project}`,
+      headers: { Authorization: `Bearer ${config.reportportal.token}` },
+      timeout: 10000,
+      httpsAgent,
+    });
+    const response = await client.get('/launch', { params: { 'page.size': 1 } });
+    const total = response.data?.page?.totalElements ?? 0;
+    res.json({ success: true, message: `Connected. ${total} launches found in project ${config.reportportal.project}.` });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Connection failed';
+    res.status(502).json({ success: false, message: `ReportPortal connection failed: ${msg}` });
+  }
+});
+
+router.post('/test-jira', async (_req: Request, res: Response) => {
+  if (!config.jira.url || !config.jira.token) {
+    res.status(400).json({ success: false, message: 'Jira URL and token are required.' });
+    return;
+  }
+  try {
+    const client = axios.create({
+      baseURL: `${config.jira.url}/rest/api/2`,
+      headers: { Authorization: `Bearer ${config.jira.token}` },
+      timeout: 10000,
+      httpsAgent,
+    });
+    const response = await client.get(`/project/${config.jira.projectKey}`);
+    res.json({ success: true, message: `Connected to project ${response.data.name} (${response.data.key}).` });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Connection failed';
+    res.status(502).json({ success: false, message: `Jira connection failed: ${msg}` });
+  }
+});
+
 router.get('/launch-names', async (_req: Request, res: Response) => {
   try {
     const client = axios.create({

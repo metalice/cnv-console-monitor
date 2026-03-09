@@ -38,3 +38,11 @@ export function fetchJiraMeta(project?: string): Promise<JiraMeta> {
 export function fetchRpProjects(): Promise<string[]> {
   return apiFetch('/settings/rp-projects');
 }
+
+export function testRpConnection(): Promise<{ success: boolean; message: string }> {
+  return apiFetch('/settings/test-rp', { method: 'POST' });
+}
+
+export function testJiraConnection(): Promise<{ success: boolean; message: string }> {
+  return apiFetch('/settings/test-jira', { method: 'POST' });
+}

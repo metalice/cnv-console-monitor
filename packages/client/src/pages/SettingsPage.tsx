@@ -25,7 +25,7 @@ import {
   FlexItem,
 } from '@patternfly/react-core';
 import { CheckCircleIcon, ExclamationCircleIcon, PlusCircleIcon, TrashIcon } from '@patternfly/react-icons';
-import { fetchSettings, updateSettings, testEmail, testSlack, fetchLaunchNames, fetchJiraMeta, fetchRpProjects } from '../api/settings';
+import { fetchSettings, updateSettings, testEmail, testSlack, fetchLaunchNames, fetchJiraMeta, fetchRpProjects, testRpConnection, testJiraConnection } from '../api/settings';
 import type { SettingsResponse } from '@cnv-monitor/shared';
 
 const TIMEZONES = [
@@ -76,6 +76,8 @@ export const SettingsPage: React.FC = () => {
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
   const [testMessage, setTestMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
+  const [rpTestMsg, setRpTestMsg] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
+  const [jiraTestMsg, setJiraTestMsg] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
 
   const jiraProject = draft['jira.projectKey'] ?? data?.settings['jira.projectKey']?.value ?? '';
   const { data: jiraMeta } = useQuery({
@@ -114,6 +116,31 @@ export const SettingsPage: React.FC = () => {
     mutationFn: testSlack,
     onSuccess: (r) => setTestMessage({ type: 'success', text: r.message }),
     onError: (e) => setTestMessage({ type: 'danger', text: (e as Error).message }),
+  });
+
+  const rpTest = useMutation({
+    mutationFn: async () => {
+      if (hasChanges()) await saveMutation.mutateAsync(Object.fromEntries(Object.entries(draft).filter(([k]) => isDirty(k))));
+      return testRpConnection();
+    },
+    onSuccess: (r) => {
+      setRpTestMsg({ type: 'success', text: r.message });
+      queryClient.invalidateQueries({ queryKey: ['rpProjects'] });
+      queryClient.invalidateQueries({ queryKey: ['launchNames'] });
+    },
+    onError: (e) => setRpTestMsg({ type: 'danger', text: (e as Error).message }),
+  });
+
+  const jiraTest = useMutation({
+    mutationFn: async () => {
+      if (hasChanges()) await saveMutation.mutateAsync(Object.fromEntries(Object.entries(draft).filter(([k]) => isDirty(k))));
+      return testJiraConnection();
+    },
+    onSuccess: (r) => {
+      setJiraTestMsg({ type: 'success', text: r.message });
+      queryClient.invalidateQueries({ queryKey: ['jiraMeta'] });
+    },
+    onError: (e) => setJiraTestMsg({ type: 'danger', text: (e as Error).message }),
   });
 
   function val(key: string): string { return draft[key] ?? data?.settings[key]?.value ?? ''; }
@@ -197,7 +224,17 @@ export const SettingsPage: React.FC = () => {
                     </FormSelect>
                   </FormGroup>
                   <FormGroup label={<>Token {sourceLabel('reportportal.token')}</>} fieldId="rp-token">
-                    <TextInput id="rp-token" type="password" value={val('reportportal.token')} onChange={(_e, v) => set('reportportal.token', v)} placeholder="Bearer token" />
+                    <Flex alignItems={{ default: 'alignItemsFlexEnd' }} spaceItems={{ default: 'spaceItemsSm' }}>
+                      <FlexItem style={{ flex: 1 }}>
+                        <TextInput id="rp-token" type="password" value={val('reportportal.token')} onChange={(_e, v) => set('reportportal.token', v)} placeholder="Bearer token" />
+                      </FlexItem>
+                      <FlexItem>
+                        <Button variant="secondary" size="sm" onClick={() => rpTest.mutate()} isLoading={rpTest.isPending}>
+                          Test Connection
+                        </Button>
+                      </FlexItem>
+                    </Flex>
+                    {rpTestMsg && <Alert variant={rpTestMsg.type} isInline isPlain title={rpTestMsg.text} style={{ marginTop: 8 }} />}
                   </FormGroup>
                   <FormGroup label={<>Launch Filter {sourceLabel('dashboard.launchFilter')}</>} fieldId="launch-filter">
                     <FormSelect id="launch-filter" value={val('dashboard.launchFilter')} onChange={(_e, v) => set('dashboard.launchFilter', v)}>
@@ -219,7 +256,17 @@ export const SettingsPage: React.FC = () => {
                     <TextInput id="jira-url" value={val('jira.url')} onChange={(_e, v) => set('jira.url', v)} placeholder="https://issues.redhat.com" />
                   </FormGroup>
                   <FormGroup label={<>Token {sourceLabel('jira.token')}</>} fieldId="jira-token">
-                    <TextInput id="jira-token" type="password" value={val('jira.token')} onChange={(_e, v) => set('jira.token', v)} placeholder="Bearer token" />
+                    <Flex alignItems={{ default: 'alignItemsFlexEnd' }} spaceItems={{ default: 'spaceItemsSm' }}>
+                      <FlexItem style={{ flex: 1 }}>
+                        <TextInput id="jira-token" type="password" value={val('jira.token')} onChange={(_e, v) => set('jira.token', v)} placeholder="Bearer token" />
+                      </FlexItem>
+                      <FlexItem>
+                        <Button variant="secondary" size="sm" onClick={() => jiraTest.mutate()} isLoading={jiraTest.isPending}>
+                          Test Connection
+                        </Button>
+                      </FlexItem>
+                    </Flex>
+                    {jiraTestMsg && <Alert variant={jiraTestMsg.type} isInline isPlain title={jiraTestMsg.text} style={{ marginTop: 8 }} />}
                   </FormGroup>
                   <FormGroup label={<>Project {sourceLabel('jira.projectKey')}</>} fieldId="jira-project">
                     <FormSelect id="jira-project" value={val('jira.projectKey')} onChange={(_e, v) => set('jira.projectKey', v)}>
