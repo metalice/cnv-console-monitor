@@ -1,3 +1,5 @@
+import axios from 'axios';
+import https from 'https';
 import {
   fetchLaunches,
   fetchTestItems,
@@ -6,11 +8,14 @@ import {
   RPLaunch,
   RPTestItem,
 } from './clients/reportportal';
-import { upsertLaunch, upsertTestItem, LaunchRecord, TestItemRecord, getFailedTestItems } from './db/store';
+import { upsertLaunch, upsertTestItem, LaunchRecord, TestItemRecord, getFailedTestItems, getLaunchesWithoutComponent, updateLaunchComponent } from './db/store';
 import { config } from './config';
 import { logger } from './logger';
+import { resolveComponent, parseJenkinsParams } from './componentMap';
+import { withRetry } from './utils/retry';
 
 const log = logger.child({ module: 'Poller' });
+const jenkinsHttpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 export type PollResult = {
   launches: LaunchRecord[];
@@ -27,6 +32,7 @@ function parseArtifactsUrl(description?: string): string | undefined {
 function parseLaunchRecord(launch: RPLaunch): LaunchRecord {
   const attrs = launch.attributes;
   const execs = launch.statistics.executions;
+  const artifactsUrl = parseArtifactsUrl(launch.description);
 
   return {
     rp_id: launch.id,
@@ -46,8 +52,40 @@ function parseLaunchRecord(launch: RPLaunch): LaunchRecord {
     start_time: launch.startTime,
     end_time: launch.endTime,
     duration: launch.approximateDuration,
-    artifacts_url: parseArtifactsUrl(launch.description),
+    artifacts_url: artifactsUrl,
   };
+}
+
+async function fetchJenkinsTeam(artifactsUrl: string): Promise<string | null> {
+  try {
+    const buildApiUrl = artifactsUrl.replace(/\/artifact\/?$/, '/api/json?tree=actions[parameters[name,value]]');
+    const response = await withRetry(
+      () => axios.get(buildApiUrl, { httpsAgent: jenkinsHttpsAgent, timeout: 10000 }),
+      'fetchJenkinsTeam',
+      { maxRetries: 2 },
+    );
+    const actions: Array<{ parameters?: Array<{ name: string; value: string }> }> = response.data?.actions || [];
+    const params: Record<string, string> = {};
+    for (const action of actions) {
+      if (Array.isArray(action.parameters)) {
+        for (const p of action.parameters) {
+          if (p.name) params[p.name] = String(p.value ?? '');
+        }
+      }
+    }
+    const info = parseJenkinsParams(params);
+    return info.team;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveComponentForLaunch(launch: LaunchRecord): Promise<string | null> {
+  let team: string | null = null;
+  if (launch.artifacts_url) {
+    team = await fetchJenkinsTeam(launch.artifacts_url);
+  }
+  return resolveComponent(team, launch.name);
 }
 
 function parseClusterFromHosts(hosts?: string): string | undefined {
@@ -70,7 +108,7 @@ function parseTestItemRecord(item: RPTestItem, launchRpId: number): TestItemReco
     defect_type: item.issue?.issueType ?? undefined,
     defect_comment: item.issue?.comment ?? undefined,
     ai_prediction: aiPrediction?.value ?? undefined,
-    ai_confidence: aiConfidence ? parseInt(aiConfidence.value, 10) : undefined,
+    ai_confidence: aiConfidence ? (Number.isFinite(parseInt(aiConfidence.value, 10)) ? parseInt(aiConfidence.value, 10) : undefined) : undefined,
     error_message: undefined,
     jira_key: item.issue?.externalSystemIssues?.[0]?.ticketId ?? undefined,
     jira_status: undefined,
@@ -82,9 +120,7 @@ function parseTestItemRecord(item: RPTestItem, launchRpId: number): TestItemReco
 
 export async function pollReportPortal(lookbackHours = 24, fetchDetails = true): Promise<PollResult> {
   const sinceTime = Date.now() - lookbackHours * 60 * 60 * 1000;
-  const launchFilter = config.dashboard.launchFilter;
-
-  log.info({ filter: launchFilter, since: new Date(sinceTime).toISOString(), fetchDetails }, 'Fetching launches');
+  log.info({ since: new Date(sinceTime).toISOString(), fetchDetails }, 'Fetching all launches');
 
   const allLaunches: LaunchRecord[] = [];
   const allFailedItems = new Map<number, TestItemRecord[]>();
@@ -93,7 +129,6 @@ export async function pollReportPortal(lookbackHours = 24, fetchDetails = true):
 
   while (page <= totalPages) {
     const result = await fetchLaunches({
-      filterName: launchFilter,
       sinceTime,
       pageSize: 50,
       page,
@@ -107,6 +142,7 @@ export async function pollReportPortal(lookbackHours = 24, fetchDetails = true):
 
     for (const rpLaunch of result.content) {
       const launch = parseLaunchRecord(rpLaunch);
+      launch.component = (await resolveComponentForLaunch(launch)) ?? undefined;
       await upsertLaunch(launch);
       allLaunches.push(launch);
 
@@ -162,6 +198,32 @@ export async function backfillTestItems(launches: LaunchRecord[], onBatch?: () =
 
 export async function refreshLaunchTestItems(launchId: number): Promise<TestItemRecord[]> {
   return fetchFailedItemsForLaunch(launchId);
+}
+
+export async function backfillComponents(onBatch?: () => void): Promise<void> {
+  const missing = await getLaunchesWithoutComponent(1000);
+  if (missing.length === 0) {
+    log.info('No launches missing component');
+    return;
+  }
+
+  log.info({ count: missing.length }, 'Backfilling components');
+
+  for (let i = 0; i < missing.length; i++) {
+    const launch = missing[i];
+    const component = await resolveComponentForLaunch(launch);
+    if (component) {
+      await updateLaunchComponent(launch.rp_id, component);
+    }
+
+    if ((i + 1) % 50 === 0) {
+      log.info({ progress: `${i + 1}/${missing.length}` }, 'Component backfill progress');
+      onBatch?.();
+    }
+  }
+
+  log.info('Component backfill complete');
+  onBatch?.();
 }
 
 async function fetchFailedItemsForLaunch(launchId: number): Promise<TestItemRecord[]> {

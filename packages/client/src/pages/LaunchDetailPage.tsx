@@ -18,6 +18,7 @@ import {
   ToolbarContent,
   ToolbarItem,
   Tooltip,
+  Truncate,
 } from '@patternfly/react-core';
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import { SearchIcon, WrenchIcon, BugIcon, LinkIcon, ExternalLinkAltIcon } from '@patternfly/react-icons';
@@ -27,7 +28,9 @@ import { fetchTestItems, fetchTestItemsForLaunches } from '../api/testItems';
 import { triggerAutoAnalysis, triggerPatternAnalysis, triggerUniqueErrorAnalysis } from '../api/analysis';
 import { SortByDirection } from '@patternfly/react-table';
 import { useTableSort } from '../hooks/useTableSort';
+import { useColumnManagement, type ColumnDef } from '../hooks/useColumnManagement';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { TableToolbar } from '../components/common/TableToolbar';
 import { ThWithHelp } from '../components/common/ThWithHelp';
 import { LogViewer } from '../components/detail/LogViewer';
 import { SimilarFailuresPanel } from '../components/detail/SimilarFailuresPanel';
@@ -36,43 +39,17 @@ import { TriageModal } from '../components/modals/TriageModal';
 import { JiraCreateModal } from '../components/modals/JiraCreateModal';
 import { JiraLinkModal } from '../components/modals/JiraLinkModal';
 
-type AggregatedItem = {
-  representative: TestItem;
-  allRpIds: number[];
-  occurrences: number;
-};
+import { aggregateTestItems, type AggregatedItem } from '../utils/aggregation';
 
-function aggregateItems(items: TestItem[]): AggregatedItem[] {
-  const groups = new Map<string, TestItem[]>();
-  const noUniqueId: TestItem[] = [];
-
-  for (const item of items) {
-    if (item.unique_id) {
-      const existing = groups.get(item.unique_id);
-      if (existing) existing.push(item);
-      else groups.set(item.unique_id, [item]);
-    } else {
-      noUniqueId.push(item);
-    }
-  }
-
-  const result: AggregatedItem[] = [];
-
-  for (const groupItems of groups.values()) {
-    const sorted = [...groupItems].sort((a, b) => (b.start_time ?? 0) - (a.start_time ?? 0));
-    result.push({
-      representative: sorted[0],
-      allRpIds: sorted.map((i) => i.rp_id),
-      occurrences: sorted.length,
-    });
-  }
-
-  for (const item of noUniqueId) {
-    result.push({ representative: item, allRpIds: [item.rp_id], occurrences: 1 });
-  }
-
-  return result;
-}
+const LAUNCH_COLUMNS: ColumnDef[] = [
+  { id: 'testName', title: 'Test Name' },
+  { id: 'status', title: 'Status' },
+  { id: 'error', title: 'Error' },
+  { id: 'polarion', title: 'Polarion' },
+  { id: 'defect', title: 'AI Prediction' },
+  { id: 'jira', title: 'Jira' },
+  { id: 'actions', title: 'Actions' },
+];
 
 const SINGLE_ACCESSORS: Record<number, (a: AggregatedItem) => string | number | null | undefined> = {
   1: (a) => a.representative.name.split('.').pop() || a.representative.name,
@@ -151,12 +128,27 @@ export const LaunchDetailPage: React.FC = () => {
   const skippedItems = useMemo(() => items?.filter((i) => i.status === 'SKIPPED') ?? [], [items]);
 
   const displayItems = useMemo(() => {
-    if (isGroupMode) return aggregateItems(failedItems);
+    if (isGroupMode) return aggregateTestItems(failedItems);
     return failedItems.map(item => ({ representative: item, allRpIds: [item.rp_id], occurrences: 1 }));
   }, [isGroupMode, failedItems]);
 
   const accessors = isGroupMode ? GROUP_ACCESSORS : SINGLE_ACCESSORS;
   const { sorted, getSortParams } = useTableSort(displayItems, accessors, { index: 1, direction: SortByDirection.asc });
+
+  const [tableSearch, setTableSearch] = useState('');
+  const colMgmt = useColumnManagement('launchDetail', LAUNCH_COLUMNS);
+
+  const searchFiltered = useMemo(() => {
+    if (!tableSearch.trim()) return sorted;
+    const s = tableSearch.toLowerCase();
+    return sorted.filter(a => {
+      const item = a.representative;
+      return item.name.toLowerCase().includes(s)
+        || (item.error_message?.toLowerCase().includes(s) ?? false)
+        || (item.jira_key?.toLowerCase().includes(s) ?? false)
+        || (item.polarion_id?.toLowerCase().includes(s) ?? false);
+    });
+  }, [sorted, tableSearch]);
 
   return (
     <>
@@ -170,7 +162,7 @@ export const LaunchDetailPage: React.FC = () => {
             <Content component="h1">
               {title}
               {!isGroupMode && config && (
-                <a href={`${config.rpLaunchBaseUrl}/${id}`} target="_blank" rel="noreferrer" style={{ marginLeft: 12, fontSize: 14 }}>
+                <a href={`${config.rpLaunchBaseUrl}/${id}`} target="_blank" rel="noreferrer" aria-label="Open in ReportPortal" style={{ marginLeft: 12, fontSize: 14 }}>
                   <ExternalLinkAltIcon /> ReportPortal
                 </a>
               )}
@@ -209,38 +201,60 @@ export const LaunchDetailPage: React.FC = () => {
         ) : (
           <Card>
             <CardBody>
-              <Table aria-label="Test items table">
+              <TableToolbar
+                searchValue={tableSearch}
+                onSearchChange={setTableSearch}
+                searchPlaceholder="Search test items..."
+                resultCount={searchFiltered.length}
+                totalCount={displayItems.length}
+                columns={LAUNCH_COLUMNS}
+                visibleIds={colMgmt.visibleIds}
+                onSaveColumns={colMgmt.setColumns}
+                onResetColumns={colMgmt.resetColumns}
+              />
+              <div className="app-table-scroll">
+              <Table aria-label="Test items table" variant="compact" isStickyHeader>
+                <colgroup>
+                  <col style={{ width: '3%' }} />
+                </colgroup>
                 <Thead>
                   <Tr>
                     <Th />
-                    <ThWithHelp label="Test Name" help="Short name of the test case (last segment of the full qualified name)." sort={getSortParams(1)} />
+                    {colMgmt.isColumnVisible('testName') && <ThWithHelp label="Test Name" help="Short name of the test case (last segment of the full qualified name)." sort={getSortParams(1)} />}
                     {isGroupMode && (
                       <ThWithHelp label="Occurrences" help="Number of times this test failed across the launches in this group." sort={getSortParams(2)} />
                     )}
-                    <ThWithHelp label="Status" help="Test result: FAILED, PASSED, or SKIPPED." sort={getSortParams(isGroupMode ? 3 : 2)} />
-                    <ThWithHelp label="Error" help="First line of the error log from ReportPortal (truncated). Expand row for full logs." />
-                    <ThWithHelp label="Polarion" help="Polarion test case ID linking this test to the test management system." sort={getSortParams(isGroupMode ? 5 : 4)} />
-                    <ThWithHelp label="AI Prediction" help="ReportPortal AI prediction of defect type (Product Bug, Automation Bug, System Issue) with confidence %." sort={getSortParams(isGroupMode ? 6 : 5)} />
-                    <ThWithHelp label="Jira" help="Linked Jira issue key and its current status. Click 'Bug' to create or 'Link' to associate." sort={getSortParams(isGroupMode ? 7 : 6)} />
-                    <ThWithHelp label="Actions" help="Classify: set defect type. Bug: create Jira issue. Link: associate existing Jira." />
+                    {colMgmt.isColumnVisible('status') && <ThWithHelp label="Status" help="Test result: FAILED, PASSED, or SKIPPED." sort={getSortParams(isGroupMode ? 3 : 2)} />}
+                    {colMgmt.isColumnVisible('error') && <ThWithHelp label="Error" help="First line of the error log from ReportPortal (truncated). Expand row for full logs." />}
+                    {colMgmt.isColumnVisible('polarion') && <ThWithHelp label="Polarion" help="Polarion test case ID linking this test to the test management system." sort={getSortParams(isGroupMode ? 5 : 4)} />}
+                    {colMgmt.isColumnVisible('defect') && <ThWithHelp label="AI Prediction" help="ReportPortal AI prediction of defect type (Product Bug, Automation Bug, System Issue) with confidence %." sort={getSortParams(isGroupMode ? 6 : 5)} />}
+                    {colMgmt.isColumnVisible('jira') && <ThWithHelp label="Jira" help="Linked Jira issue key and its current status. Click 'Bug' to create or 'Link' to associate." sort={getSortParams(isGroupMode ? 7 : 6)} />}
+                    {colMgmt.isColumnVisible('actions') && <ThWithHelp label="Actions" help="Classify: set defect type. Bug: create Jira issue. Link: associate existing Jira." />}
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {sorted.map(({ representative: item, allRpIds, occurrences }) => {
+                  {searchFiltered.map(({ representative: item, allRpIds, occurrences }) => {
                     const isExpanded = expandedItems.has(item.rp_id);
                     const shortName = item.name.split('.').pop() || item.name;
-                    const shortError = item.error_message
-                      ? item.error_message.substring(0, 80) + (item.error_message.length > 80 ? '...' : '')
-                      : null;
                     return (
                       <React.Fragment key={item.unique_id ?? item.rp_id}>
                         <Tr>
                           <Td
                             expand={{ isExpanded, onToggle: () => toggleExpand(item.rp_id), rowIndex: item.rp_id }}
                           />
-                          <Td dataLabel="Test Name">{shortName}</Td>
+                          {colMgmt.isColumnVisible('testName') && (
+                            <Td dataLabel="Test Name" className="app-cell-truncate">
+                              <Tooltip content={item.name}>
+                                {item.unique_id ? (
+                                  <Button variant="link" isInline size="sm" onClick={(e) => { e.stopPropagation(); navigate(`/test/${encodeURIComponent(item.unique_id!)}`); }}>
+                                    {shortName}
+                                  </Button>
+                                ) : <span>{shortName}</span>}
+                              </Tooltip>
+                            </Td>
+                          )}
                           {isGroupMode && (
-                            <Td dataLabel="Occurrences">
+                            <Td dataLabel="Occurrences" className="app-cell-nowrap">
                               {occurrences > 1 ? (
                                 <Tooltip content={`Failed in ${occurrences} of ${launchIds.length} launches`}>
                                   <Label color="orange" isCompact>{occurrences}x</Label>
@@ -248,66 +262,76 @@ export const LaunchDetailPage: React.FC = () => {
                               ) : null}
                             </Td>
                           )}
-                          <Td dataLabel="Status"><StatusBadge status={item.status} /></Td>
-                          <Td dataLabel="Error">
-                            {shortError && (
-                              <span style={{ fontSize: 12, color: 'var(--pf-t--global--color--nonstatus--gray--text--on-gray--default)' }}>
-                                {shortError}
-                              </span>
-                            )}
-                          </Td>
-                          <Td dataLabel="Polarion">
-                            {item.polarion_id && (
-                              <Label color="blue" isCompact>
-                                {config?.polarionUrl ? (
-                                  <a href={`${config.polarionUrl}${item.polarion_id}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-                                    {item.polarion_id}
-                                  </a>
-                                ) : item.polarion_id}
-                              </Label>
-                            )}
-                          </Td>
-                          <Td dataLabel="AI">
-                            {item.ai_prediction && (
-                              <Label
-                                isCompact
-                                color={item.ai_prediction.includes('Product') ? 'red' : item.ai_prediction.includes('System') ? 'orange' : 'grey'}
-                              >
-                                {item.ai_prediction.replace('Predicted ', '')} {item.ai_confidence}%
-                              </Label>
-                            )}
-                          </Td>
-                          <Td dataLabel="Jira">
-                            {item.jira_key && (
-                              <Label color="blue" isCompact>
-                                {config?.jiraUrl ? (
-                                  <a href={`${config.jiraUrl}/browse/${item.jira_key}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-                                    {item.jira_key}
-                                  </a>
-                                ) : item.jira_key}
-                                {' '}({item.jira_status})
-                              </Label>
-                            )}
-                          </Td>
-                          <Td dataLabel="Actions">
-                            <Flex>
-                              <FlexItem>
-                                <Button variant="link" isInline icon={<WrenchIcon />} onClick={() => setTriageItem(allRpIds)}>
-                                  Classify{occurrences > 1 ? ` (${occurrences})` : ''}
-                                </Button>
-                              </FlexItem>
-                              <FlexItem>
-                                <Button variant="link" isInline icon={<BugIcon />} onClick={() => setJiraCreateItem(item)}>Bug</Button>
-                              </FlexItem>
-                              <FlexItem>
-                                <Button variant="link" isInline icon={<LinkIcon />} onClick={() => setJiraLinkItem(item.rp_id)}>Link</Button>
-                              </FlexItem>
-                            </Flex>
-                          </Td>
+                          {colMgmt.isColumnVisible('status') && <Td dataLabel="Status" className="app-cell-nowrap"><StatusBadge status={item.status} /></Td>}
+                          {colMgmt.isColumnVisible('error') && (
+                            <Td dataLabel="Error" className="app-cell-truncate">
+                              {item.error_message && (
+                                <Tooltip content={item.error_message}>
+                                  <span className="app-text-xs app-text-muted">{item.error_message.split('\n')[0]}</span>
+                                </Tooltip>
+                              )}
+                            </Td>
+                          )}
+                          {colMgmt.isColumnVisible('polarion') && (
+                            <Td dataLabel="Polarion" className="app-cell-nowrap">
+                              {item.polarion_id && (
+                                <Label color="blue" isCompact>
+                                  {config?.polarionUrl ? (
+                                    <a href={`${config.polarionUrl}${item.polarion_id}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                                      {item.polarion_id}
+                                    </a>
+                                  ) : item.polarion_id}
+                                </Label>
+                              )}
+                            </Td>
+                          )}
+                          {colMgmt.isColumnVisible('defect') && (
+                            <Td dataLabel="AI" className="app-cell-nowrap">
+                              {item.ai_prediction && (
+                                <Label
+                                  isCompact
+                                  color={item.ai_prediction.includes('Product') ? 'red' : item.ai_prediction.includes('System') ? 'orange' : 'grey'}
+                                >
+                                  {item.ai_prediction.replace('Predicted ', '')} {item.ai_confidence}%
+                                </Label>
+                              )}
+                            </Td>
+                          )}
+                          {colMgmt.isColumnVisible('jira') && (
+                            <Td dataLabel="Jira" className="app-cell-nowrap">
+                              {item.jira_key && (
+                                <Label color="blue" isCompact>
+                                  {config?.jiraUrl ? (
+                                    <a href={`${config.jiraUrl}/browse/${item.jira_key}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                                      {item.jira_key}
+                                    </a>
+                                  ) : item.jira_key}
+                                  {' '}({item.jira_status})
+                                </Label>
+                              )}
+                            </Td>
+                          )}
+                          {colMgmt.isColumnVisible('actions') && (
+                            <Td dataLabel="Actions" className="app-cell-nowrap">
+                              <Flex flexWrap={{ default: 'nowrap' }}>
+                                <FlexItem>
+                                  <Button variant="link" isInline icon={<WrenchIcon />} onClick={() => setTriageItem(allRpIds)}>
+                                    Classify{occurrences > 1 ? ` (${occurrences})` : ''}
+                                  </Button>
+                                </FlexItem>
+                                <FlexItem>
+                                  <Button variant="link" isInline icon={<BugIcon />} onClick={() => setJiraCreateItem(item)}>Bug</Button>
+                                </FlexItem>
+                                <FlexItem>
+                                  <Button variant="link" isInline icon={<LinkIcon />} onClick={() => setJiraLinkItem(item.rp_id)}>Link</Button>
+                                </FlexItem>
+                              </Flex>
+                            </Td>
+                          )}
                         </Tr>
                         {isExpanded && (
                           <Tr isExpanded>
-                            <Td colSpan={isGroupMode ? 10 : 9} noPadding={false}>
+                            <Td colSpan={colMgmt.visibleColumns.length + (isGroupMode ? 2 : 1)} noPadding={false}>
                               <ExpandableSection toggleText="Error Logs" isIndented>
                                 <LogViewer itemId={item.rp_id} />
                               </ExpandableSection>
@@ -324,6 +348,7 @@ export const LaunchDetailPage: React.FC = () => {
                   })}
                 </Tbody>
               </Table>
+              </div>
             </CardBody>
           </Card>
         )}

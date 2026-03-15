@@ -45,6 +45,9 @@ export const JiraCreateModal: React.FC<JiraCreateModalProps> = ({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['report'] });
       queryClient.invalidateQueries({ queryKey: ['activity'] });
+      queryClient.invalidateQueries({ queryKey: ['testItems'] });
+      queryClient.invalidateQueries({ queryKey: ['untriaged'] });
+      queryClient.invalidateQueries({ queryKey: ['testProfile'] });
     },
   });
 

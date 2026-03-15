@@ -23,8 +23,7 @@
       "isBackground": true,
       "presentation": {
         "reveal": "always",
-        "panel": "dedicated",
-        "group": "dev"
+        "panel": "dedicated"
       },
       "problemMatcher": [],
       "dependsOn": ["Install All"],
@@ -40,8 +39,7 @@
       "isBackground": true,
       "presentation": {
         "reveal": "always",
-        "panel": "dedicated",
-        "group": "dev"
+        "panel": "dedicated"
       },
       "problemMatcher": [],
       "dependsOn": ["Install All"],

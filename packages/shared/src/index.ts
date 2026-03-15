@@ -8,6 +8,8 @@ export * from './schemas/flaky';
 export * from './schemas/activity';
 export * from './schemas/report';
 export * from './schemas/config';
+export * from './schemas/subscription';
+export * from './schemas/release';
 export * from './schemas/user';
 export * from './utils/timeAgo';
 export * from './utils/healthScore';

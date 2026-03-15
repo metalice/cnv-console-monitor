@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { JiraCreateRequestSchema, JiraLinkRequestSchema } from '@cnv-monitor/shared';
 import { config } from '../../config';
 import { createIssue, findExistingIssue, getIssueStatus, buildBugDescription, searchIssues } from '../../clients/jira';
@@ -10,38 +10,38 @@ import { sendSlackJiraNotification } from '../../notifiers/slack';
 
 const router = Router();
 
-router.post('/create', validateBody(JiraCreateRequestSchema), async (req: Request, res: Response) => {
-  if (!config.jira.enabled) {
-    res.status(400).json({ error: 'Jira integration is not configured' });
-    return;
-  }
-
-  const { testItemId } = req.body;
-  const performedBy = req.user?.email || req.body.performedBy || 'unknown';
-
-  const item = await getTestItemByRpId(testItemId);
-  if (!item) {
-    res.status(404).json({ error: 'Test item not found' });
-    return;
-  }
-
-  const launch = await getLaunchByRpId(item.launch_rp_id);
-  const rpLaunchUrl = getReportPortalLaunchUrl(item.launch_rp_id);
-  const rpItemUrl = getReportPortalItemUrl(item.launch_rp_id, item.rp_id);
-
-  const existing = await findExistingIssue(item.name, item.polarion_id || undefined);
-  if (existing) {
-    await updateTestItemJira(item.rp_id, existing.key, existing.fields.status.name);
-    broadcast('data-updated');
-    res.json({
-      success: true,
-      existing: true,
-      issue: { key: existing.key, status: existing.fields.status.name, summary: existing.fields.summary },
-    });
-    return;
-  }
-
+router.post('/create', validateBody(JiraCreateRequestSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (!config.jira.enabled) {
+      res.status(400).json({ error: 'Jira integration is not configured' });
+      return;
+    }
+
+    const { testItemId } = req.body;
+    const performedBy = req.user?.email || req.body.performedBy || 'unknown';
+
+    const item = await getTestItemByRpId(testItemId);
+    if (!item) {
+      res.status(404).json({ error: 'Test item not found' });
+      return;
+    }
+
+    const launch = await getLaunchByRpId(item.launch_rp_id);
+    const rpLaunchUrl = getReportPortalLaunchUrl(item.launch_rp_id);
+    const rpItemUrl = getReportPortalItemUrl(item.launch_rp_id, item.rp_id);
+
+    const existing = await findExistingIssue(item.name, item.polarion_id || undefined);
+    if (existing) {
+      await updateTestItemJira(item.rp_id, existing.key, existing.fields.status.name);
+      broadcast('data-updated');
+      res.json({
+        success: true,
+        existing: true,
+        issue: { key: existing.key, status: existing.fields.status.name, summary: existing.fields.summary },
+      });
+      return;
+    }
+
     const shortName = item.name.split('.').pop() || item.name;
     const summary = `[Console Test] ${item.polarion_id ? `${item.polarion_id} - ` : ''}${shortName}`;
 
@@ -61,11 +61,16 @@ router.post('/create', validateBody(JiraCreateRequestSchema), async (req: Reques
     const labels = ['cnv-console', 'automated-bug'];
     if (launch?.cnv_version) labels.push(`cnv-${launch.cnv_version}`);
 
+    const getSetting = (await import('../../db/store')).getSetting;
+    const jiraComponent = launch?.component
+      || await getSetting('jira.component')
+      || 'CNV User Interface';
+
     const issue = await createIssue({
       summary,
       description,
       labels,
-      component: 'CNV User Interface',
+      component: jiraComponent,
       rpLaunchUrl,
       rpItemUrl,
     });
@@ -81,6 +86,14 @@ router.post('/create', validateBody(JiraCreateRequestSchema), async (req: Reques
 
     broadcast('data-updated');
 
+    const { getAllSubscriptions } = await import('../../db/store');
+    const subs = await getAllSubscriptions();
+    const jiraWebhooks = subs
+      .filter(s => s.enabled && s.jiraWebhook)
+      .filter(s => s.components.length === 0 || (launch?.component && s.components.includes(launch.component)))
+      .map(s => s.jiraWebhook!)
+      .filter(Boolean);
+
     sendSlackJiraNotification({
       jiraKey: issue.key,
       summary,
@@ -89,26 +102,26 @@ router.post('/create', validateBody(JiraCreateRequestSchema), async (req: Reques
       cnvVersion: launch?.cnv_version || undefined,
       rpItemUrl,
       createdBy: performedBy,
+      webhookUrls: jiraWebhooks,
     }).catch(() => {});
 
     res.json({ success: true, existing: false, issue: { key: issue.key, status: 'Open', summary } });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to create Jira issue';
-    res.status(502).json({ error: message });
+    next(err);
   }
 });
 
-router.post('/link', validateBody(JiraLinkRequestSchema), async (req: Request, res: Response) => {
-  const { testItemId, jiraKey } = req.body;
-  const performedBy = req.user?.email || req.body.performedBy || 'unknown';
-
-  const item = await getTestItemByRpId(testItemId);
-  if (!item) {
-    res.status(404).json({ error: 'Test item not found' });
-    return;
-  }
-
+router.post('/link', validateBody(JiraLinkRequestSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const { testItemId, jiraKey } = req.body;
+    const performedBy = req.user?.email || req.body.performedBy || 'unknown';
+
+    const item = await getTestItemByRpId(testItemId);
+    if (!item) {
+      res.status(404).json({ error: 'Test item not found' });
+      return;
+    }
+
     const status = await getIssueStatus(jiraKey);
     await updateTestItemJira(item.rp_id, jiraKey, status);
 
@@ -122,25 +135,24 @@ router.post('/link', validateBody(JiraLinkRequestSchema), async (req: Request, r
     broadcast('data-updated');
     res.json({ success: true, jiraKey, status });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to link Jira issue';
-    res.status(502).json({ error: message });
+    next(err);
   }
 });
 
-router.get('/search', async (req: Request, res: Response) => {
-  if (!config.jira.enabled) {
-    res.status(400).json({ error: 'Jira integration is not configured' });
-    return;
-  }
-
-  const query = req.query.q as string;
-  if (!query) {
-    res.status(400).json({ error: 'q parameter is required' });
-    return;
-  }
-
+router.get('/search', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const sanitized = query.replace(/"/g, '\\"');
+    if (!config.jira.enabled) {
+      res.status(400).json({ error: 'Jira integration is not configured' });
+      return;
+    }
+
+    const query = req.query.q as string;
+    if (!query) {
+      res.status(400).json({ error: 'q parameter is required' });
+      return;
+    }
+
+    const sanitized = query.replace(/["\\\n\r]/g, ' ').replace(/[{}()\[\]]/g, '').substring(0, 200);
     const jql = `project = ${config.jira.projectKey} AND text ~ "${sanitized}" ORDER BY updated DESC`;
     const result = await searchIssues(jql, 10);
     res.json(result.issues.map(i => ({
@@ -149,8 +161,7 @@ router.get('/search', async (req: Request, res: Response) => {
       status: i.fields.status.name,
     })));
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to search Jira';
-    res.status(502).json({ error: message });
+    next(err);
   }
 });
 

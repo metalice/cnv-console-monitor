@@ -5,6 +5,7 @@ import {
   triggerUniqueErrorAnalysis,
 } from '../../clients/reportportal';
 import { parseIntParam } from '../middleware/validate';
+import { requireAdmin } from '../middleware/auth';
 import { refreshLaunchTestItems } from '../../poller';
 import { broadcast } from '../../ws';
 import { logger } from '../../logger';
@@ -28,7 +29,7 @@ function scheduleRefresh(launchId: number, type: string): void {
 
 const router = Router();
 
-router.post('/:launchId/auto', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/:launchId/auto', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const launchId = parseIntParam(req.params.launchId, 'launchId', res);
     if (launchId === null) return;
@@ -41,7 +42,7 @@ router.post('/:launchId/auto', async (req: Request, res: Response, next: NextFun
   }
 });
 
-router.post('/:launchId/pattern', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/:launchId/pattern', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const launchId = parseIntParam(req.params.launchId, 'launchId', res);
     if (launchId === null) return;
@@ -54,7 +55,7 @@ router.post('/:launchId/pattern', async (req: Request, res: Response, next: Next
   }
 });
 
-router.post('/:launchId/unique', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/:launchId/unique', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const launchId = parseIntParam(req.params.launchId, 'launchId', res);
     if (launchId === null) return;

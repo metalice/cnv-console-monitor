@@ -1,10 +1,12 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   PageSection,
   Content,
   Card,
   CardBody,
+  Button,
   Gallery,
   GalleryItem,
   Grid,
@@ -12,9 +14,14 @@ import {
   Label,
   Spinner,
   Tooltip,
+  Toolbar,
+  ToolbarContent,
+  ToolbarItem,
+  Flex,
+  FlexItem,
 } from '@patternfly/react-core';
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
-import { TrendUpIcon, TrendDownIcon, EqualsIcon } from '@patternfly/react-icons';
+import { TrendUpIcon, TrendDownIcon, EqualsIcon, DownloadIcon } from '@patternfly/react-icons';
 import {
   Chart,
   ChartAxis,
@@ -27,57 +34,80 @@ import {
   ChartVoronoiContainer,
 } from '@patternfly/react-charts/victory';
 import { fetchTrends, fetchTrendsByVersion, fetchHeatmap, fetchTopFailures, fetchAIAccuracy, fetchClusterReliability, fetchErrorPatterns, fetchDefectTypesTrend, fetchFailuresByHour } from '../api/launches';
+import { apiFetch } from '../api/client';
+import { ComponentMultiSelect } from '../components/common/ComponentMultiSelect';
+import { usePreferences } from '../context/PreferencesContext';
 import { StatCard } from '../components/common/StatCard';
+import { exportCsv } from '../utils/csvExport';
 import type { VersionTrendPoint, HeatmapCell, TopFailingTest, AIPredictionAccuracy, ClusterReliability, DefectTypeTrend, HourlyFailure } from '@cnv-monitor/shared';
 
 const VERSION_COLORS = ['#0066CC', '#C9190B', '#F0AB00', '#3E8635', '#6753AC', '#009596', '#EC7A08', '#B8BBBE'];
 
 export const TrendsPage: React.FC = () => {
+  const navigate = useNavigate();
   useEffect(() => { document.title = 'Trends | CNV Console Monitor'; }, []);
 
+  const { preferences, loaded: prefsLoaded, setPreference } = usePreferences();
+  const [selectedComponents, setSelectedComponentsState] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (prefsLoaded && preferences.dashboardComponents?.length) {
+      setSelectedComponentsState(new Set(preferences.dashboardComponents));
+    }
+  }, [prefsLoaded, preferences.dashboardComponents]);
+
+  const setSelectedComponents = (val: Set<string>) => { setSelectedComponentsState(val); setPreference('dashboardComponents', [...val]); };
+  const comp = selectedComponents.size === 1 ? [...selectedComponents][0] : undefined;
+
+  const { data: availableComponents } = useQuery({
+    queryKey: ['availableComponents'],
+    queryFn: () => apiFetch<string[]>('/launches/components'),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const { data: trends, isLoading: trendsLoading } = useQuery({
-    queryKey: ['trends'],
-    queryFn: () => fetchTrends('test-kubevirt-console', 30),
+    queryKey: ['trends', comp],
+    queryFn: () => fetchTrends('', 30, comp),
   });
 
   const { data: versionTrends, isLoading: versionLoading } = useQuery({
-    queryKey: ['trendsByVersion'],
-    queryFn: () => fetchTrendsByVersion(30),
+    queryKey: ['trendsByVersion', comp],
+    queryFn: () => fetchTrendsByVersion(30, comp),
   });
 
   const { data: heatmapData, isLoading: heatmapLoading } = useQuery({
-    queryKey: ['heatmap'],
-    queryFn: () => fetchHeatmap(14, 20),
+    queryKey: ['heatmap', comp],
+    queryFn: () => fetchHeatmap(14, 20, comp),
   });
 
   const { data: topFailures, isLoading: topLoading } = useQuery({
-    queryKey: ['topFailures'],
-    queryFn: () => fetchTopFailures(30, 15),
+    queryKey: ['topFailures', comp],
+    queryFn: () => fetchTopFailures(30, 15, comp),
   });
 
   const { data: aiAccuracy } = useQuery({
-    queryKey: ['aiAccuracy'],
-    queryFn: () => fetchAIAccuracy(90),
+    queryKey: ['aiAccuracy', comp],
+    queryFn: () => fetchAIAccuracy(90, comp),
   });
 
   const { data: clusterData } = useQuery({
-    queryKey: ['clusterReliability'],
-    queryFn: () => fetchClusterReliability(30),
+    queryKey: ['clusterReliability', comp],
+    queryFn: () => fetchClusterReliability(30, comp),
   });
 
   const { data: errorPatterns } = useQuery({
-    queryKey: ['errorPatterns'],
-    queryFn: () => fetchErrorPatterns(30, 10),
+    queryKey: ['errorPatterns', comp],
+    queryFn: () => fetchErrorPatterns(30, 10, comp),
   });
 
   const { data: defectTrend } = useQuery({
-    queryKey: ['defectTypesTrend'],
-    queryFn: () => fetchDefectTypesTrend(90),
+    queryKey: ['defectTypesTrend', comp],
+    queryFn: () => fetchDefectTypesTrend(90, comp),
   });
 
   const { data: hourlyData } = useQuery({
-    queryKey: ['failuresByHour'],
-    queryFn: () => fetchFailuresByHour(30),
+    queryKey: ['failuresByHour', comp],
+    queryFn: () => fetchFailuresByHour(30, comp),
   });
 
   const summaryStats = useMemo(() => {
@@ -158,8 +188,35 @@ export const TrendsPage: React.FC = () => {
   return (
     <>
       <PageSection>
-        <Content component="h1">Trends</Content>
-        <Content component="small">Test health analytics over the last 30 days</Content>
+        <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }}>
+          <FlexItem>
+            <Content component="h1">Trends</Content>
+            <Content component="small">Test health analytics over the last 30 days</Content>
+          </FlexItem>
+          <FlexItem>
+            <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
+              {(availableComponents?.length ?? 0) > 0 && (
+                <FlexItem>
+                  <ComponentMultiSelect
+                    id="trends-component"
+                    selected={selectedComponents}
+                    options={availableComponents ?? []}
+                    onChange={setSelectedComponents}
+                  />
+                </FlexItem>
+              )}
+              <FlexItem>
+                <Button variant="secondary" icon={<DownloadIcon />} isDisabled={!topFailures?.length} onClick={() => {
+                  if (!topFailures) return;
+                  exportCsv('top-failures.csv',
+                    ['Test Name', 'Failures', 'Total Runs', 'Failure Rate', 'Trend'],
+                    topFailures.map(t => [t.name, t.fail_count, t.total_runs, `${t.failure_rate}%`, t.recent_trend]),
+                  );
+                }}>Export</Button>
+              </FlexItem>
+            </Flex>
+          </FlexItem>
+        </Flex>
       </PageSection>
 
       {summaryStats && (
@@ -212,7 +269,7 @@ export const TrendsPage: React.FC = () => {
 
       <PageSection>
         <Grid hasGutter>
-          <GridItem span={12}>
+          <GridItem span={12} md={6}>
             <Card>
               <CardBody>
                 <Content component="h3" style={{ marginBottom: 16 }}>Pass Rate by Version</Content>
@@ -261,7 +318,7 @@ export const TrendsPage: React.FC = () => {
             </Card>
           </GridItem>
 
-          <GridItem span={12}>
+          <GridItem span={12} md={6}>
             <Card>
               <CardBody>
                 <Content component="h3" style={{ marginBottom: 16 }}>Failure Heatmap (last 14 days)</Content>
@@ -292,10 +349,11 @@ export const TrendsPage: React.FC = () => {
                             </td>
                             {heatmap.dates.map(date => {
                               const status = heatmap.cellMap.get(`${test.unique_id}|${date}`);
-                              const color = status === 'FAILED' ? '#e74c3c' : '#2ecc71';
+                              const color = status === 'FAILED' ? '#e74c3c' : status === 'PASSED' ? '#2ecc71' : '#d2d2d2';
+                              const label = status === 'FAILED' ? 'Failed' : status === 'PASSED' ? 'Passed' : 'No run';
                               return (
                                 <td key={date} style={{ padding: '3px 2px', textAlign: 'center' }}>
-                                  <Tooltip content={`${date}: ${status === 'FAILED' ? 'Failed' : 'Passed'}`}>
+                                  <Tooltip content={`${date}: ${label}`}>
                                     <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: 2, background: color, cursor: 'default' }} />
                                   </Tooltip>
                                 </td>
@@ -321,6 +379,7 @@ export const TrendsPage: React.FC = () => {
                 {topLoading ? (
                   <Spinner size="md" />
                 ) : topFailures && topFailures.length > 0 ? (
+                  <div className="app-table-scroll">
                   <Table aria-label="Top failing tests" variant="compact">
                     <Thead>
                       <Tr>
@@ -338,16 +397,20 @@ export const TrendsPage: React.FC = () => {
                         const rateColor = test.failure_rate > 70 ? 'red' : test.failure_rate > 30 ? 'orange' : 'grey';
                         return (
                           <Tr key={test.unique_id}>
-                            <Td dataLabel="#">{i + 1}</Td>
-                            <Td dataLabel="Test">
-                              <Tooltip content={test.name}><span>{shortName}</span></Tooltip>
+                            <Td dataLabel="#" className="app-cell-nowrap">{i + 1}</Td>
+                            <Td dataLabel="Test" className="app-cell-truncate">
+                              <Tooltip content={test.name}>
+                                <Button variant="link" isInline size="sm" onClick={() => navigate(`/test/${encodeURIComponent(test.unique_id)}`)}>
+                                  {shortName}
+                                </Button>
+                              </Tooltip>
                             </Td>
-                            <Td dataLabel="Failures"><strong>{test.fail_count}</strong></Td>
-                            <Td dataLabel="Runs">{test.total_runs}</Td>
-                            <Td dataLabel="Failure Rate">
+                            <Td dataLabel="Failures" className="app-cell-nowrap"><strong>{test.fail_count}</strong></Td>
+                            <Td dataLabel="Runs" className="app-cell-nowrap">{test.total_runs}</Td>
+                            <Td dataLabel="Failure Rate" className="app-cell-nowrap">
                               <Label color={rateColor} isCompact>{test.failure_rate}%</Label>
                             </Td>
-                            <Td dataLabel="Trend">
+                            <Td dataLabel="Trend" className="app-cell-nowrap">
                               {test.recent_trend === 'worsening' && (
                                 <Tooltip content="Failing more in the second half of the period">
                                   <Label color="red" isCompact icon={<TrendUpIcon />}>Worse</Label>
@@ -367,6 +430,7 @@ export const TrendsPage: React.FC = () => {
                       })}
                     </Tbody>
                   </Table>
+                  </div>
                 ) : (
                   <Content>No failure data available.</Content>
                 )}
@@ -380,12 +444,13 @@ export const TrendsPage: React.FC = () => {
                 <CardBody>
                   <Content component="h3" style={{ marginBottom: 16 }}>AI Prediction Accuracy</Content>
                   <Content component="small" style={{ marginBottom: 12 }}>How often RP's AI prediction matches the actual triage classification (last 90 days)</Content>
+                  <div className="app-table-scroll">
                   <Table aria-label="AI accuracy" variant="compact">
                     <Thead>
                       <Tr>
-                        <Th>AI Predicted</Th>
+                        <Th className="app-cell-nowrap">AI Predicted</Th>
                         <Th>Accuracy</Th>
-                        {aiMatrix.actuals.map(a => <Th key={a}>{a}</Th>)}
+                        {aiMatrix.actuals.map(a => <Th key={a} className="app-cell-nowrap">{a}</Th>)}
                       </Tr>
                     </Thead>
                     <Tbody>
@@ -394,7 +459,7 @@ export const TrendsPage: React.FC = () => {
                         const accColor = (acc?.accuracy || 0) > 60 ? 'green' : (acc?.accuracy || 0) > 30 ? 'orange' : 'red';
                         return (
                           <Tr key={p}>
-                            <Td><strong>{p.replace('Predicted ', '')}</strong></Td>
+                            <Td className="app-cell-nowrap"><strong>{p.replace('Predicted ', '')}</strong></Td>
                             <Td><Label color={accColor} isCompact>{acc?.accuracy || 0}%</Label></Td>
                             {aiMatrix.actuals.map(a => {
                               const val = aiMatrix.matrix.get(p)?.get(a) || 0;
@@ -405,6 +470,7 @@ export const TrendsPage: React.FC = () => {
                       })}
                     </Tbody>
                   </Table>
+                  </div>
                 </CardBody>
               </Card>
             </GridItem>
@@ -448,6 +514,7 @@ export const TrendsPage: React.FC = () => {
               <Card>
                 <CardBody>
                   <Content component="h3" style={{ marginBottom: 16 }}>Cluster Reliability (last 30 days)</Content>
+                  <div className="app-table-scroll">
                   <Table aria-label="Cluster reliability" variant="compact">
                     <Thead>
                       <Tr>
@@ -463,13 +530,13 @@ export const TrendsPage: React.FC = () => {
                         const rateColor = c.passRate > 80 ? 'green' : c.passRate > 50 ? 'orange' : 'red';
                         return (
                           <Tr key={c.cluster}>
-                            <Td><strong>{c.cluster}</strong></Td>
+                            <Td className="app-cell-nowrap"><strong>{c.cluster}</strong></Td>
                             <Td>{c.total}</Td>
                             <Td>{c.passed}</Td>
                             <Td>{c.failed}</Td>
                             <Td>
                               <Label color={rateColor} isCompact>{c.passRate}%</Label>
-                              <div style={{ width: '100%', maxWidth: 150, height: 6, background: '#eee', borderRadius: 3, marginTop: 4 }}>
+                              <div style={{ width: '100%', maxWidth: 150, height: 6, background: 'var(--pf-t--global--border--color--default)', borderRadius: 3, marginTop: 4 }}>
                                 <div style={{ width: `${c.passRate}%`, height: '100%', background: rateColor === 'green' ? '#3E8635' : rateColor === 'orange' ? '#F0AB00' : '#C9190B', borderRadius: 3 }} />
                               </div>
                             </Td>
@@ -478,6 +545,7 @@ export const TrendsPage: React.FC = () => {
                       })}
                     </Tbody>
                   </Table>
+                  </div>
                 </CardBody>
               </Card>
             </GridItem>
@@ -529,6 +597,7 @@ export const TrendsPage: React.FC = () => {
                 <CardBody>
                   <Content component="h3" style={{ marginBottom: 16 }}>Top Error Patterns (last 30 days)</Content>
                   <Content component="small" style={{ marginBottom: 12 }}>Most common error messages across all failures. High counts indicate systemic issues.</Content>
+                  <div className="app-table-scroll">
                   <Table aria-label="Error patterns" variant="compact">
                     <Thead>
                       <Tr>
@@ -542,21 +611,22 @@ export const TrendsPage: React.FC = () => {
                     <Tbody>
                       {errorPatterns.map((e, i) => (
                         <Tr key={i}>
-                          <Td dataLabel="Error">
+                          <Td dataLabel="Error" className="app-cell-truncate">
                             <Tooltip content={e.pattern}>
-                              <span style={{ fontSize: 12, fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', maxWidth: 500 }}>
+                              <span style={{ fontFamily: 'var(--pf-t--global--font--family--mono)', fontSize: 'var(--pf-t--global--font--size--xs)' }}>
                                 {e.pattern}
                               </span>
                             </Tooltip>
                           </Td>
                           <Td dataLabel="Occurrences"><strong>{e.count}</strong></Td>
                           <Td dataLabel="Tests">{e.uniqueTests}</Td>
-                          <Td dataLabel="First">{e.firstSeen}</Td>
-                          <Td dataLabel="Last">{e.lastSeen}</Td>
+                          <Td dataLabel="First" className="app-cell-nowrap">{e.firstSeen}</Td>
+                          <Td dataLabel="Last" className="app-cell-nowrap">{e.lastSeen}</Td>
                         </Tr>
                       ))}
                     </Tbody>
                   </Table>
+                  </div>
                 </CardBody>
               </Card>
             </GridItem>

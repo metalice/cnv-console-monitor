@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Button, Divider, Flex, FlexItem, ToolbarGroup, ToolbarItem } from '@patternfly/react-core';
 import { AngleLeftIcon, AngleRightIcon } from '@patternfly/react-icons';
 import { useDate, type LookbackMode } from '../../context/DateContext';
+import { usePreferences } from '../../context/PreferencesContext';
 
 function todayStr(): string {
   return new Date().toISOString().split('T')[0];
@@ -33,8 +34,25 @@ const inputStyle: React.CSSProperties = {
 
 export const DateToolbar: React.FC = () => {
   const { dateFrom, dateTo, lookbackMode, setCustomRange, setLookbackMode } = useDate();
+  const { preferences, loaded: prefsLoaded, setPreference } = usePreferences();
   const fromRef = useRef<HTMLInputElement>(null);
   const toRef = useRef<HTMLInputElement>(null);
+  const initializedRef = useRef(false);
+
+  useEffect(() => {
+    if (prefsLoaded && !initializedRef.current && preferences.dateRange) {
+      initializedRef.current = true;
+      const validModes: LookbackMode[] = ['24h', '48h', '7d', '1m', '3m', '6m'];
+      if (validModes.includes(preferences.dateRange as LookbackMode)) {
+        setLookbackMode(preferences.dateRange as LookbackMode);
+      }
+    }
+  }, [prefsLoaded, preferences.dateRange, setLookbackMode]);
+
+  const handleSetLookbackMode = (mode: LookbackMode) => {
+    setLookbackMode(mode);
+    setPreference('dateRange', mode);
+  };
 
   useEffect(() => {
     if (fromRef.current && fromRef.current.value !== dateFrom) {
@@ -62,7 +80,7 @@ export const DateToolbar: React.FC = () => {
     <ToolbarGroup>
       {RANGE_BUTTONS.map(({ mode, label }) => (
         <ToolbarItem key={mode}>
-          <Button variant={lookbackMode === mode ? 'primary' : 'secondary'} size="sm" onClick={() => setLookbackMode(mode)}>{label}</Button>
+          <Button variant={lookbackMode === mode ? 'primary' : 'secondary'} size="sm" onClick={() => handleSetLookbackMode(mode)}>{label}</Button>
         </ToolbarItem>
       ))}
       <ToolbarItem>

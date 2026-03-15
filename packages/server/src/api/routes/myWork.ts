@@ -1,0 +1,107 @@
+import { Router, Request, Response, NextFunction } from 'express';
+import { AppDataSource } from '../../db/data-source';
+
+const router = Router();
+
+router.get('/', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const email = req.user?.email;
+    if (!email) {
+      res.status(401).json({ error: 'User email required' });
+      return;
+    }
+
+    const subscriptionRows = await AppDataSource.query(
+      `SELECT components FROM notification_subscriptions WHERE created_by = $1 AND enabled = true`,
+      [email],
+    );
+
+    const componentSet = new Set<string>();
+    for (const row of subscriptionRows) {
+      try {
+        const parsed: string[] = JSON.parse(row.components || '[]');
+        for (const c of parsed) componentSet.add(c);
+      } catch {
+        // malformed components JSON – skip
+      }
+    }
+    const myComponents = [...componentSet].sort();
+    const sinceMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
+
+    let untriagedInMyComponents = 0;
+    if (myComponents.length > 0) {
+      const placeholders = myComponents.map((_, i) => `$${i + 1}`).join(', ');
+      const timeParam = `$${myComponents.length + 1}`;
+      const countRows = await AppDataSource.query(
+        `SELECT COUNT(*)::int as count
+         FROM test_items ti
+         JOIN launches l ON ti.launch_rp_id = l.rp_id
+         WHERE ti.status = 'FAILED'
+           AND (ti.defect_type IS NULL OR ti.defect_type = 'ti001' OR ti.defect_type LIKE 'ti_%')
+           AND l.component IN (${placeholders})
+           AND l.start_time > ${timeParam}`,
+        [...myComponents, sinceMs],
+      );
+      untriagedInMyComponents = Number(countRows[0]?.count ?? 0);
+    }
+
+    const myRecentActivity = await AppDataSource.query(
+      `SELECT tl.action, ti.name as test_name, tl.new_value, tl.performed_at
+       FROM triage_log tl
+       LEFT JOIN test_items ti ON tl.test_item_rp_id = ti.rp_id
+       WHERE tl.performed_by = $1
+       ORDER BY tl.performed_at DESC
+       LIMIT 10`,
+      [email],
+    );
+
+    const myJiraBugs = await AppDataSource.query(
+      `SELECT DISTINCT ti.jira_key, ti.name as test_name, tl.performed_at as created_at
+       FROM triage_log tl
+       JOIN test_items ti ON tl.test_item_rp_id = ti.rp_id
+       WHERE tl.performed_by = $1 AND tl.action = 'create_jira' AND ti.jira_key IS NOT NULL
+       ORDER BY tl.performed_at DESC
+       LIMIT 10`,
+      [email],
+    );
+
+    let suggestedWork: Array<{ name: string; unique_id: string; occurrences: number; consecutiveFailures: number }> = [];
+    if (myComponents.length > 0) {
+      const placeholders = myComponents.map((_, i) => `$${i + 1}`).join(', ');
+      const timeParam = `$${myComponents.length + 1}`;
+      suggestedWork = await AppDataSource.query(
+        `SELECT ti.name, ti.unique_id,
+                COUNT(*)::int as occurrences,
+                0 as "consecutiveFailures"
+         FROM test_items ti
+         JOIN launches l ON ti.launch_rp_id = l.rp_id
+         WHERE ti.status = 'FAILED'
+           AND (ti.defect_type IS NULL OR ti.defect_type = 'ti001' OR ti.defect_type LIKE 'ti_%')
+           AND l.component IN (${placeholders})
+           AND ti.unique_id IS NOT NULL
+           AND l.start_time > ${timeParam}
+         GROUP BY ti.unique_id, ti.name
+         ORDER BY occurrences DESC
+         LIMIT 10`,
+        [...myComponents, sinceMs],
+      );
+      suggestedWork = suggestedWork.map(r => ({
+        ...r,
+        occurrences: Number(r.occurrences),
+        consecutiveFailures: Number(r.consecutiveFailures),
+      }));
+    }
+
+    res.json({
+      myComponents,
+      untriagedInMyComponents,
+      myRecentActivity,
+      myJiraBugs,
+      suggestedWork,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+export default router;

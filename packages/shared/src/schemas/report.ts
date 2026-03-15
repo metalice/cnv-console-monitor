@@ -13,6 +13,7 @@ export const DailyReportSchema = z.object({
   untriagedCount: z.number(),
   newFailures: z.array(TestItemSchema),
   recurringFailures: z.array(TestItemSchema),
+  components: z.array(z.string()).optional(),
 });
 
 export type DailyReport = z.infer<typeof DailyReportSchema>;

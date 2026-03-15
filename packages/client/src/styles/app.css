@@ -1,0 +1,205 @@
+/* App utility classes using PatternFly CSS tokens */
+
+.app-mb-sm { margin-bottom: var(--pf-t--global--spacer--sm); }
+.app-mb-md { margin-bottom: var(--pf-t--global--spacer--md); }
+.app-mb-lg { margin-bottom: var(--pf-t--global--spacer--lg); }
+.app-mb-xl { margin-bottom: var(--pf-t--global--spacer--xl); }
+.app-mt-sm { margin-top: var(--pf-t--global--spacer--sm); }
+.app-mt-md { margin-top: var(--pf-t--global--spacer--md); }
+.app-ml-sm { margin-left: var(--pf-t--global--spacer--sm); }
+.app-mr-sm { margin-right: var(--pf-t--global--spacer--sm); }
+.app-p-lg { padding: var(--pf-t--global--spacer--lg); }
+
+.app-text-muted { color: var(--pf-t--global--text--color--subtle); }
+.app-text-xs { font-size: var(--pf-t--global--font--size--xs); }
+.app-text-sm { font-size: var(--pf-t--global--font--size--sm); }
+.app-text-center { text-align: center; }
+.app-text-mono { font-family: var(--pf-t--global--font--family--mono); }
+
+.app-cursor-pointer { cursor: pointer; }
+.app-cursor-help { cursor: help; }
+
+/* Table container */
+.app-table-scroll { overflow: hidden; }
+
+/* Fixed-layout table: columns respect Th width props strictly */
+.app-table-scroll .pf-v6-c-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+/* Checkbox/expand columns: minimal width */
+.pf-v6-c-table .pf-v6-c-table__check,
+.pf-v6-c-table .pf-v6-c-table__toggle {
+  width: 0 !important;
+  padding: 4px !important;
+}
+
+/* Let header text overflow the fixed column so labels are always readable */
+.app-table-scroll .pf-v6-c-table thead th {
+  overflow: visible;
+  white-space: nowrap;
+}
+
+.app-table-scroll .pf-v6-c-table thead th .pf-v6-c-table__sort,
+.app-table-scroll .pf-v6-c-table thead th .pf-v6-c-table__button,
+.app-table-scroll .pf-v6-c-table thead th .pf-v6-c-table__button-content,
+.app-table-scroll .pf-v6-c-table thead th .pf-v6-c-table__text {
+  overflow: visible !important;
+  white-space: nowrap !important;
+  max-width: none !important;
+  text-overflow: clip !important;
+}
+
+.app-table-toolbar {
+  padding: var(--pf-t--global--spacer--xs) 0;
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+  margin-bottom: var(--pf-t--global--spacer--sm);
+}
+
+.app-table-toolbar .pf-v6-c-toolbar__content {
+  padding: 0;
+}
+
+/* OCP-style bordered rows */
+.app-table-scroll .pf-v6-c-table tbody tr {
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+}
+
+/* Hover effect for all table rows */
+.app-table-scroll .pf-v6-c-table tbody tr:hover {
+  background-color: var(--pf-t--global--background--color--primary--hover);
+}
+
+/* Clickable row cursor */
+.app-table-scroll .pf-v6-c-table tbody tr.pf-m-clickable {
+  cursor: pointer;
+}
+
+/* Compact cell padding override */
+.app-table-scroll .pf-v6-c-table.pf-m-compact td,
+.app-table-scroll .pf-v6-c-table.pf-m-compact th {
+  padding-top: var(--pf-t--global--spacer--xs);
+  padding-bottom: var(--pf-t--global--spacer--xs);
+}
+
+/* OCP-style page section spacing */
+.pf-v6-c-page__main-section + .pf-v6-c-page__main-section {
+  padding-top: 0;
+}
+
+.app-progress-track {
+  height: 6px;
+  background: var(--pf-t--global--border--color--default);
+  border-radius: var(--pf-t--global--border--radius--small);
+  overflow: hidden;
+}
+
+.app-progress-fill--success {
+  height: 100%;
+  background: var(--pf-t--global--color--status--success--default);
+  border-radius: var(--pf-t--global--border--radius--small);
+  transition: width 0.3s;
+}
+
+.app-progress-fill--brand {
+  height: 100%;
+  background: var(--pf-t--global--color--brand--default);
+  border-radius: var(--pf-t--global--border--radius--small);
+  transition: width 0.3s;
+}
+
+.app-progress-fill--warning {
+  height: 100%;
+  background: var(--pf-t--global--color--status--warning--default);
+  border-radius: var(--pf-t--global--border--radius--small);
+  transition: width 0.3s;
+}
+
+.app-heatmap-cell {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+}
+
+.app-heatmap-cell--failed {
+  background: var(--pf-t--global--color--status--danger--default);
+}
+
+.app-heatmap-cell--ok {
+  background: var(--pf-t--global--color--status--success--default);
+}
+
+.app-heatmap-cell--none {
+  background: var(--pf-t--global--border--color--default);
+}
+
+/* Cells that should never wrap (labels, badges, dates, numbers) */
+.app-cell-nowrap {
+  white-space: nowrap;
+}
+
+/* Td class: truncate cell content with ellipsis.
+   Apply to Td. Works with table-layout:fixed (column width from Th).
+   Use Tooltip wrapper for full content on hover. */
+.app-cell-truncate {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Prevent toolbar wrapping in masthead */
+.app-masthead-toolbar {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.app-masthead-toolbar .pf-v6-c-toolbar__content {
+  flex-wrap: nowrap;
+}
+
+.app-masthead-toolbar .pf-v6-c-toolbar__group,
+.app-masthead-toolbar .pf-v6-c-toolbar__item {
+  flex-shrink: 0;
+}
+
+/* Keep masthead brand from wrapping */
+.pf-v6-c-masthead__main {
+  flex-shrink: 0;
+}
+
+/* Wide tables (subscriptions, releases): allow horizontal scroll */
+.app-table-wide {
+  overflow-x: auto;
+}
+
+.app-table-wide .pf-v6-c-table {
+  min-width: 1600px;
+}
+
+/* Subscription edit row: prevent input fields from collapsing */
+.app-table-wide .pf-v6-c-table td .pf-v6-c-text-input-group,
+.app-table-wide .pf-v6-c-table td input[type="text"],
+.app-table-wide .pf-v6-c-table td input[type="time"] {
+  min-width: 100px;
+}
+
+/* Dropdown checkbox items: add spacing between checkbox and label */
+.pf-v6-c-menu__item-check {
+  margin-right: var(--pf-t--global--spacer--sm);
+}
+
+/* Schedule editor: time + days on one row */
+.app-schedule-editor {
+  display: flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--xs);
+  flex-wrap: nowrap;
+}
+
+.app-schedule-days {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0;
+}

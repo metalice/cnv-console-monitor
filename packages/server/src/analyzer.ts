@@ -25,6 +25,7 @@ export type LaunchGroup = {
   failedItems: TestItemRecord[];
   enrichedFailedItems: EnrichedFailedItem[];
   lastPassedTime: number | null;
+  component?: string;
 };
 
 export type DailyReport = {
@@ -38,6 +39,7 @@ export type DailyReport = {
   untriagedCount: number;
   newFailures: TestItemRecord[];
   recurringFailures: TestItemRecord[];
+  components: string[];
 };
 
 function parseTier(launch: LaunchRecord): string {
@@ -139,6 +141,7 @@ export async function groupLaunches(launches: LaunchRecord[]): Promise<LaunchGro
       failedItems,
       enrichedFailedItems,
       lastPassedTime,
+      component: latest.component,
     });
   }
 
@@ -178,8 +181,14 @@ export async function buildDailyReport(lookbackHours = 24, sinceOverride?: numbe
   const untriagedCount = (await getUntriagedItems(sinceMs, untilMs)).length;
   const overallHealth: HealthStatus = failedLaunches > 0 ? 'red' : inProgressLaunches > 0 ? 'yellow' : 'green';
 
+  const components = [...new Set(groups.map(g => g.component).filter(Boolean) as string[])].sort();
+
+  const reportDate = untilOverride
+    ? new Date(untilOverride).toISOString().split('T')[0]
+    : new Date().toISOString().split('T')[0];
+
   return {
-    date: new Date().toISOString().split('T')[0],
+    date: reportDate,
     groups,
     overallHealth,
     totalLaunches: launches.length,
@@ -189,5 +198,6 @@ export async function buildDailyReport(lookbackHours = 24, sinceOverride?: numbe
     untriagedCount,
     newFailures,
     recurringFailures,
+    components,
   };
 }

@@ -12,33 +12,38 @@ When reviewing code or implementing features, automatically consider all team pe
 ## 1. How This Works
 
 ### Quick vs Deep Reviews
+
 - **Quick Review** (default): High-level feedback from all perspectives
-- **Deep Review**: Invoke a single agent for thorough analysis, e.g. *"review:dev"*, *"review:qe"*, *"review:security"*, *"review:monitoring"*
-- **Choose agents**: Scope the review, e.g. *"team-review:all"*, *"team-review:dev,qe"*
+- **Deep Review**: Invoke a single agent for thorough analysis, e.g. *"review:dev"*, *"review:qe"*, *"reviiew, e.g. *"teamew:security"*, *"review:monitoring"*
+- **Choose agents**: Scope the rev-review:all"*, *"team-review:dev,qe"*
 
 ---
 
 ## 2. Review Perspectives
 
 ### Developer
+
 - Code correctness, patterns, types
 - Monorepo boundaries (shared/server/client)
 - React patterns, TanStack Query usage
 - Express/SQLite patterns
 
 ### QE
+
 - Edge cases and boundary values
 - Loading/error/empty states in UI
 - External service failure handling
 - Async/timing issues
 
 ### Security
+
 - Input validation (Zod on routes)
 - SQL injection prevention
 - API token handling
 - Sensitive data in responses/logs
 
 ### Monitoring Expert
+
 - ReportPortal API correctness
 - Zod schema accuracy
 - SQLite query patterns
@@ -94,17 +99,20 @@ When reviewing code or implementing features, automatically consider all team pe
 ## 6. Review Checklist
 
 ### Before Review
+
 - [ ] Code compiles (`npm run typecheck`)
 - [ ] Tests pass (`npm run test`)
 - [ ] Self-reviewed changes
 
 ### During Review
+
 - [ ] **Developer**: Correctness, patterns, types, monorepo boundaries
 - [ ] **QE**: Edge cases, UI states, async issues
 - [ ] **Security**: Input validation, token handling, sensitive data
 - [ ] **Monitoring**: API correctness, schemas, notifications, deployment
 
 ### After Review
+
 - [ ] Address all blockers
 - [ ] Consider suggestions
 - [ ] Document decisions on declined nitpicks

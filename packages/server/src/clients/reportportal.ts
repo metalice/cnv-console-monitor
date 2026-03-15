@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import https from 'https';
 import { config } from '../config';
+import { withRetry } from '../utils/retry';
 
 export interface RPLaunch {
   id: number;
@@ -94,13 +95,19 @@ export async function fetchLaunches(params: {
     queryParams['filter.gte.startTime'] = params.sinceTime;
   }
 
-  const response = await client.get('/launch', { params: queryParams });
+  const response = await withRetry(
+    () => client.get('/launch', { params: queryParams }),
+    'fetchLaunches',
+  );
   return response.data;
 }
 
 export async function fetchLaunchById(launchId: number): Promise<RPLaunch> {
   const client = createClient();
-  const response = await client.get(`/launch/${launchId}`);
+  const response = await withRetry(
+    () => client.get(`/launch/${launchId}`),
+    `fetchLaunchById(${launchId})`,
+  );
   return response.data;
 }
 
@@ -123,7 +130,10 @@ export async function fetchTestItems(params: {
     queryParams['filter.in.status'] = params.status;
   }
 
-  const response = await client.get('/item', { params: queryParams });
+  const response = await withRetry(
+    () => client.get('/item', { params: queryParams }),
+    `fetchTestItems(launch=${params.launchId})`,
+  );
   return response.data;
 }
 
@@ -144,13 +154,19 @@ export async function fetchTestItemLogs(itemId: number, params?: {
     queryParams['filter.gte.level'] = params.level;
   }
 
-  const response = await client.get('/log', { params: queryParams });
+  const response = await withRetry(
+    () => client.get('/log', { params: queryParams }),
+    `fetchTestItemLogs(${itemId})`,
+  );
   return response.data;
 }
 
 export async function fetchDefectTypes(): Promise<Record<string, RPDefectType[]>> {
   const client = createClient();
-  const response = await client.get('/settings');
+  const response = await withRetry(
+    () => client.get('/settings'),
+    'fetchDefectTypes',
+  );
   return response.data?.subTypes || {};
 }
 

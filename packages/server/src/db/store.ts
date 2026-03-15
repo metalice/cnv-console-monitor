@@ -5,6 +5,9 @@ import { TestItem } from './entities/TestItem';
 import { Acknowledgment } from './entities/Acknowledgment';
 import { TriageLog } from './entities/TriageLog';
 import { Setting } from './entities/Setting';
+import { NotificationSubscription } from './entities/NotificationSubscription';
+import { UserEntity } from './entities/UserEntity';
+import { UserPreference } from './entities/UserPreference';
 
 export type LaunchRecord = {
   rp_id: number;
@@ -25,6 +28,7 @@ export type LaunchRecord = {
   end_time?: number;
   duration?: number;
   artifacts_url?: string;
+  component?: string;
 };
 
 export type TestItemRecord = {
@@ -87,6 +91,7 @@ export async function upsertLaunch(launch: LaunchRecord): Promise<void> {
       end_time: launch.end_time ?? null,
       duration: launch.duration ?? null,
       artifacts_url: launch.artifacts_url ?? null,
+      component: launch.component ?? null,
     },
     { conflictPaths: ['rp_id'], skipUpdateIfNoValuesChanged: true },
   );
@@ -238,24 +243,35 @@ export async function addTriageLog(log: TriageLogRecord): Promise<void> {
   });
 }
 
-export async function getPassRateTrend(launchName: string, days: number): Promise<Array<{ date: string; total: number; passed: number; rate: number }>> {
+export async function getPassRateTrend(launchName: string, days: number, component?: string): Promise<Array<{ date: string; total: number; passed: number; rate: number }>> {
   const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
-  const rows = await launches()
+  const qb = launches()
     .createQueryBuilder('l')
     .select("TO_CHAR(TO_TIMESTAMP(l.start_time / 1000), 'YYYY-MM-DD')", 'date')
     .addSelect('SUM(l.total)', 'total')
     .addSelect('SUM(l.passed)', 'passed')
     .addSelect('ROUND(CAST(SUM(l.passed) AS NUMERIC) / NULLIF(SUM(l.total), 0) * 100, 1)', 'rate')
-    .where('l.name LIKE :name', { name: `${launchName}%` })
-    .andWhere('l.start_time >= :sinceMs', { sinceMs })
+    .where('l.start_time >= :sinceMs', { sinceMs });
+
+  if (launchName) {
+    qb.andWhere('l.name LIKE :name', { name: `${launchName}%` });
+  }
+  if (component) {
+    qb.andWhere('l.component = :component', { component });
+  }
+
+  const rows = await qb
     .groupBy("TO_CHAR(TO_TIMESTAMP(l.start_time / 1000), 'YYYY-MM-DD')")
     .orderBy('date', 'ASC')
     .getRawMany();
   return rows.map((r) => ({ date: r.date, total: Number(r.total), passed: Number(r.passed), rate: Number(r.rate) }));
 }
 
-export async function getPassRateTrendByVersion(days: number): Promise<Array<{ date: string; version: string; total: number; passed: number; rate: number }>> {
+export async function getPassRateTrendByVersion(days: number, component?: string): Promise<Array<{ date: string; version: string; total: number; passed: number; rate: number }>> {
   const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+  const compFilter = component ? ' AND l.component = $2' : '';
+  const params: unknown[] = [sinceMs];
+  if (component) params.push(component);
   const rows = await AppDataSource.query(`
     SELECT
       TO_CHAR(TO_TIMESTAMP(l.start_time / 1000), 'YYYY-MM-DD') as date,
@@ -264,11 +280,11 @@ export async function getPassRateTrendByVersion(days: number): Promise<Array<{ d
       SUM(l.passed)::int as passed,
       ROUND(CAST(SUM(l.passed) AS NUMERIC) / NULLIF(SUM(l.total), 0) * 100, 1) as rate
     FROM launches l
-    WHERE l.start_time >= $1 AND l.name LIKE 'test-kubevirt-console%'
+    WHERE l.start_time >= $1${compFilter}
     GROUP BY date, version
     HAVING SUBSTRING(l.name FROM 'cnv-(\d+\.\d+)') IS NOT NULL
     ORDER BY date, version
-  `, [sinceMs]);
+  `, params);
   return rows.map((r: Record<string, unknown>) => ({
     date: r.date as string,
     version: r.version as string,
@@ -278,14 +294,17 @@ export async function getPassRateTrendByVersion(days: number): Promise<Array<{ d
   }));
 }
 
-export async function getFailureHeatmap(days: number, limit: number): Promise<Array<{ unique_id: string; name: string; fail_count: number; date: string; status: string }>> {
+export async function getFailureHeatmap(days: number, limit: number, component?: string): Promise<Array<{ unique_id: string; name: string; fail_count: number; date: string; status: string }>> {
   const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+  const compFilter = component ? ` AND l.component = $3` : '';
+  const params: unknown[] = [sinceMs, limit];
+  if (component) params.push(component);
   const rows = await AppDataSource.query(`
     WITH top_failures AS (
       SELECT ti.unique_id, ti.name, COUNT(*)::int as fail_count
       FROM test_items ti
       JOIN launches l ON ti.launch_rp_id = l.rp_id
-      WHERE ti.status = 'FAILED' AND l.start_time >= $1 AND ti.unique_id IS NOT NULL
+      WHERE ti.status = 'FAILED' AND l.start_time >= $1 AND ti.unique_id IS NOT NULL${compFilter}
       GROUP BY ti.unique_id, ti.name
       ORDER BY fail_count DESC
       LIMIT $2
@@ -293,7 +312,7 @@ export async function getFailureHeatmap(days: number, limit: number): Promise<Ar
     date_range AS (
       SELECT DISTINCT TO_CHAR(TO_TIMESTAMP(l.start_time / 1000), 'YYYY-MM-DD') as date
       FROM launches l
-      WHERE l.start_time >= $1
+      WHERE l.start_time >= $1${compFilter}
     )
     SELECT
       tf.unique_id, tf.name, tf.fail_count, dr.date,
@@ -306,11 +325,11 @@ export async function getFailureHeatmap(days: number, limit: number): Promise<Ar
     FROM top_failures tf
     CROSS JOIN date_range dr
     ORDER BY tf.fail_count DESC, tf.name, dr.date
-  `, [sinceMs, limit]);
+  `, params);
   return rows;
 }
 
-export async function getTopFailingTests(days: number, limit: number): Promise<Array<{
+export async function getTopFailingTests(days: number, limit: number, component?: string): Promise<Array<{
   name: string;
   unique_id: string;
   fail_count: number;
@@ -320,6 +339,9 @@ export async function getTopFailingTests(days: number, limit: number): Promise<A
 }>> {
   const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
   const midMs = Date.now() - (days / 2) * 24 * 60 * 60 * 1000;
+  const compFilter = component ? ' AND l.component = $4' : '';
+  const params: unknown[] = [sinceMs, limit, midMs];
+  if (component) params.push(component);
   const rows = await AppDataSource.query(`
     WITH test_failures AS (
       SELECT
@@ -332,7 +354,7 @@ export async function getTopFailingTests(days: number, limit: number): Promise<A
         COUNT(*) FILTER (WHERE l.start_time >= $3)::int as second_half_runs
       FROM test_items ti
       JOIN launches l ON ti.launch_rp_id = l.rp_id
-      WHERE l.start_time >= $1 AND ti.unique_id IS NOT NULL
+      WHERE l.start_time >= $1 AND ti.unique_id IS NOT NULL${compFilter}
       GROUP BY ti.unique_id, ti.name
       HAVING COUNT(*) FILTER (WHERE ti.status = 'FAILED') > 0
       ORDER BY fail_count DESC
@@ -343,7 +365,7 @@ export async function getTopFailingTests(days: number, limit: number): Promise<A
       ROUND(CAST(fail_count AS NUMERIC) / NULLIF(total_runs, 0) * 100, 1) as failure_rate,
       first_half_fails, first_half_runs, second_half_fails, second_half_runs
     FROM test_failures
-  `, [sinceMs, limit, midMs]);
+  `, params);
 
   return rows.map((r: Record<string, unknown>) => {
     const firstRate = Number(r.first_half_runs) > 0 ? Number(r.first_half_fails) / Number(r.first_half_runs) : 0;
@@ -362,8 +384,11 @@ export async function getTopFailingTests(days: number, limit: number): Promise<A
   });
 }
 
-export async function getAIPredictionAccuracy(days: number): Promise<Array<{ prediction: string; actual: string; count: number }>> {
+export async function getAIPredictionAccuracy(days: number, component?: string): Promise<Array<{ prediction: string; actual: string; count: number }>> {
   const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+  const compFilter = component ? ' AND l.component = $2' : '';
+  const params: unknown[] = [sinceMs];
+  if (component) params.push(component);
   const rows = await AppDataSource.query(`
     SELECT
       ti.ai_prediction as prediction,
@@ -380,15 +405,18 @@ export async function getAIPredictionAccuracy(days: number): Promise<Array<{ pre
     WHERE ti.ai_prediction IS NOT NULL
       AND ti.defect_type IS NOT NULL
       AND ti.defect_type NOT LIKE 'ti_%' AND ti.defect_type != 'ti001'
-      AND l.start_time >= $1
+      AND l.start_time >= $1${compFilter}
     GROUP BY prediction, actual
     ORDER BY count DESC
-  `, [sinceMs]);
+  `, params);
   return rows;
 }
 
-export async function getClusterReliability(days: number): Promise<Array<{ cluster: string; total: number; passed: number; failed: number; passRate: number }>> {
+export async function getClusterReliability(days: number, component?: string): Promise<Array<{ cluster: string; total: number; passed: number; failed: number; passRate: number }>> {
   const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+  const compFilter = component ? ' AND component = $2' : '';
+  const params: unknown[] = [sinceMs];
+  if (component) params.push(component);
   const rows = await AppDataSource.query(`
     SELECT
       cluster_name as cluster,
@@ -397,11 +425,11 @@ export async function getClusterReliability(days: number): Promise<Array<{ clust
       COUNT(*) FILTER (WHERE status = 'FAILED')::int as failed,
       ROUND(COUNT(*) FILTER (WHERE status = 'PASSED')::numeric / NULLIF(COUNT(*), 0) * 100, 1) as pass_rate
     FROM launches
-    WHERE cluster_name IS NOT NULL AND cluster_name != '' AND start_time >= $1
+    WHERE cluster_name IS NOT NULL AND cluster_name != '' AND start_time >= $1${compFilter}
     GROUP BY cluster_name
     HAVING COUNT(*) >= 3
     ORDER BY pass_rate ASC
-  `, [sinceMs]);
+  `, params);
   return rows.map((r: Record<string, unknown>) => ({
     cluster: r.cluster as string,
     total: Number(r.total),
@@ -411,8 +439,11 @@ export async function getClusterReliability(days: number): Promise<Array<{ clust
   }));
 }
 
-export async function getErrorPatterns(days: number, limit: number): Promise<Array<{ pattern: string; count: number; uniqueTests: number; firstSeen: string; lastSeen: string }>> {
+export async function getErrorPatterns(days: number, limit: number, component?: string): Promise<Array<{ pattern: string; count: number; uniqueTests: number; firstSeen: string; lastSeen: string }>> {
   const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+  const compFilter = component ? ' AND l.component = $3' : '';
+  const params: unknown[] = [sinceMs, limit];
+  if (component) params.push(component);
   const rows = await AppDataSource.query(`
     SELECT
       LEFT(ti.error_message, 100) as pattern,
@@ -422,11 +453,11 @@ export async function getErrorPatterns(days: number, limit: number): Promise<Arr
       TO_CHAR(TO_TIMESTAMP(MAX(ti.start_time) / 1000), 'YYYY-MM-DD') as last_seen
     FROM test_items ti
     JOIN launches l ON ti.launch_rp_id = l.rp_id
-    WHERE ti.error_message IS NOT NULL AND l.start_time >= $1
+    WHERE ti.error_message IS NOT NULL AND l.start_time >= $1${compFilter}
     GROUP BY LEFT(ti.error_message, 100)
     ORDER BY count DESC
     LIMIT $2
-  `, [sinceMs, limit]);
+  `, params);
   return rows.map((r: Record<string, unknown>) => ({
     pattern: r.pattern as string,
     count: Number(r.count),
@@ -436,8 +467,11 @@ export async function getErrorPatterns(days: number, limit: number): Promise<Arr
   }));
 }
 
-export async function getDefectTypesTrend(days: number): Promise<Array<{ week: string; productBug: number; automationBug: number; systemIssue: number; noDefect: number; toInvestigate: number }>> {
+export async function getDefectTypesTrend(days: number, component?: string): Promise<Array<{ week: string; productBug: number; automationBug: number; systemIssue: number; noDefect: number; toInvestigate: number }>> {
   const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+  const compFilter = component ? ' AND l.component = $2' : '';
+  const params: unknown[] = [sinceMs];
+  if (component) params.push(component);
   const rows = await AppDataSource.query(`
     SELECT
       TO_CHAR(DATE_TRUNC('week', TO_TIMESTAMP(ti.start_time / 1000)), 'YYYY-MM-DD') as week,
@@ -448,10 +482,10 @@ export async function getDefectTypesTrend(days: number): Promise<Array<{ week: s
       COUNT(*) FILTER (WHERE ti.defect_type LIKE 'ti%' OR ti.defect_type IS NULL)::int as to_investigate
     FROM test_items ti
     JOIN launches l ON ti.launch_rp_id = l.rp_id
-    WHERE ti.status = 'FAILED' AND l.start_time >= $1
+    WHERE ti.status = 'FAILED' AND l.start_time >= $1${compFilter}
     GROUP BY week
     ORDER BY week
-  `, [sinceMs]);
+  `, params);
   return rows.map((r: Record<string, unknown>) => ({
     week: r.week as string,
     productBug: Number(r.product_bug),
@@ -462,8 +496,11 @@ export async function getDefectTypesTrend(days: number): Promise<Array<{ week: s
   }));
 }
 
-export async function getFailuresByHour(days: number): Promise<Array<{ hour: number; total: number; failed: number; failRate: number }>> {
+export async function getFailuresByHour(days: number, component?: string): Promise<Array<{ hour: number; total: number; failed: number; failRate: number }>> {
   const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+  const compFilter = component ? ' AND component = $2' : '';
+  const params: unknown[] = [sinceMs];
+  if (component) params.push(component);
   const rows = await AppDataSource.query(`
     SELECT
       EXTRACT(HOUR FROM TO_TIMESTAMP(start_time / 1000))::int as hour,
@@ -471,10 +508,10 @@ export async function getFailuresByHour(days: number): Promise<Array<{ hour: num
       COUNT(*) FILTER (WHERE status = 'FAILED')::int as failed,
       ROUND(COUNT(*) FILTER (WHERE status = 'FAILED')::numeric / NULLIF(COUNT(*), 0) * 100, 1) as fail_rate
     FROM launches
-    WHERE start_time >= $1
+    WHERE start_time >= $1${compFilter}
     GROUP BY hour
     ORDER BY hour
-  `, [sinceMs]);
+  `, params);
   return rows.map((r: Record<string, unknown>) => ({
     hour: Number(r.hour),
     total: Number(r.total),
@@ -483,14 +520,17 @@ export async function getFailuresByHour(days: number): Promise<Array<{ hour: num
   }));
 }
 
-export async function getFlakyTests(days: number, limit: number): Promise<Array<{ name: string; unique_id: string; flip_count: number; total_runs: number }>> {
+export async function getFlakyTests(days: number, limit: number, component?: string): Promise<Array<{ name: string; unique_id: string; flip_count: number; total_runs: number }>> {
   const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+  const compFilter = component ? ' AND l.component = $3' : '';
+  const params: unknown[] = [sinceMs, limit];
+  if (component) params.push(component);
   const rows = await AppDataSource.query(`
     WITH failed_tests AS (
       SELECT DISTINCT ti.unique_id, ti.name
       FROM test_items ti
       JOIN launches l ON ti.launch_rp_id = l.rp_id
-      WHERE l.start_time >= $1 AND ti.unique_id IS NOT NULL AND ti.status = 'FAILED'
+      WHERE l.start_time >= $1 AND ti.unique_id IS NOT NULL AND ti.status = 'FAILED'${compFilter}
     ),
     test_launches AS (
       SELECT
@@ -519,25 +559,27 @@ export async function getFlakyTests(days: number, limit: number): Promise<Array<
     HAVING COUNT(CASE WHEN status != prev_status AND prev_status IS NOT NULL THEN 1 END) > 0
     ORDER BY flip_count DESC
     LIMIT $2
-  `, [sinceMs, limit]);
+  `, params);
   return rows;
 }
 
-export async function getUntriagedItems(sinceMs: number, untilMs?: number): Promise<TestItemRecord[]> {
+export async function getUntriagedItems(sinceMs: number, untilMs?: number, component?: string): Promise<TestItemRecord[]> {
+  const compFilter = component ? ` AND l.component = $${untilMs ? 3 : 2}` : '';
   const query = untilMs
     ? `SELECT ti.* FROM test_items ti
        JOIN launches l ON ti.launch_rp_id = l.rp_id
        WHERE ti.status = 'FAILED'
          AND (ti.defect_type IS NULL OR ti.defect_type = 'ti001' OR ti.defect_type LIKE 'ti_%')
-         AND l.start_time >= $1 AND l.start_time < $2
+         AND l.start_time >= $1 AND l.start_time < $2${compFilter}
        ORDER BY ti.start_time DESC`
     : `SELECT ti.* FROM test_items ti
        JOIN launches l ON ti.launch_rp_id = l.rp_id
        WHERE ti.status = 'FAILED'
          AND (ti.defect_type IS NULL OR ti.defect_type = 'ti001' OR ti.defect_type LIKE 'ti_%')
-         AND l.start_time >= $1
+         AND l.start_time >= $1${compFilter}
        ORDER BY ti.start_time DESC`;
-  const params = untilMs ? [sinceMs, untilMs] : [sinceMs];
+  const params: unknown[] = untilMs ? [sinceMs, untilMs] : [sinceMs];
+  if (component) params.push(component);
   const rows = await AppDataSource.query(query, params);
   return rows.map(toTestItemRecord);
 }
@@ -620,12 +662,15 @@ export async function getTestFailureStreak(uniqueId: string, maxRuns = 8): Promi
 
 export async function getCurrentlyFailingTests(): Promise<TestItemRecord[]> {
   const rows = await AppDataSource.query(`
-    SELECT DISTINCT ON (ti.unique_id) ti.*
-    FROM test_items ti
-    WHERE ti.unique_id IS NOT NULL
-    ORDER BY ti.unique_id, ti.start_time DESC
+    SELECT * FROM (
+      SELECT DISTINCT ON (ti.unique_id) ti.*
+      FROM test_items ti
+      WHERE ti.unique_id IS NOT NULL
+      ORDER BY ti.unique_id, ti.start_time DESC
+    ) latest
+    WHERE latest.status = 'FAILED'
   `);
-  return rows.filter((r: Record<string, unknown>) => r.status === 'FAILED').map(toTestItemRecord);
+  return rows.map(toTestItemRecord);
 }
 
 export async function getActivityLog(limit = 50, offset = 0): Promise<Array<{
@@ -680,6 +725,7 @@ function toLaunchRecord(row: Launch): LaunchRecord {
     end_time: row.end_time ? Number(row.end_time) : undefined,
     duration: row.duration ?? undefined,
     artifacts_url: row.artifacts_url ?? undefined,
+    component: row.component ?? undefined,
   };
 }
 
@@ -733,4 +779,171 @@ export async function setSetting(key: string, value: string, updatedBy?: string)
 
 export async function deleteSetting(key: string): Promise<void> {
   await settings().delete({ key });
+}
+
+export async function getDistinctComponents(): Promise<string[]> {
+  const rows = await launches()
+    .createQueryBuilder('l')
+    .select('DISTINCT l.component', 'component')
+    .where('l.component IS NOT NULL')
+    .orderBy('l.component', 'ASC')
+    .getRawMany();
+  return rows.map((r: { component: string }) => r.component);
+}
+
+export async function getLaunchesWithoutComponent(limit = 500): Promise<LaunchRecord[]> {
+  const rows = await launches().find({
+    where: { component: IsNull() },
+    order: { start_time: 'DESC' },
+    take: limit,
+  });
+  return rows.map(toLaunchRecord);
+}
+
+export async function updateLaunchComponent(rpId: number, component: string): Promise<void> {
+  await launches().update({ rp_id: rpId }, { component });
+}
+
+export type SubscriptionRecord = {
+  id: number;
+  name: string;
+  components: string[];
+  slackWebhook: string | null;
+  jiraWebhook: string | null;
+  emailRecipients: string[];
+  schedule: string;
+  timezone: string;
+  enabled: boolean;
+  createdBy: string | null;
+};
+
+const subscriptions = () => AppDataSource.getRepository(NotificationSubscription);
+
+function toSubscriptionRecord(row: NotificationSubscription): SubscriptionRecord {
+  let components: string[] = [];
+  try { components = JSON.parse(row.components || '[]'); } catch { /* empty */ }
+  return {
+    id: row.id,
+    name: row.name,
+    components,
+    slackWebhook: row.slack_webhook,
+    jiraWebhook: row.jira_webhook,
+    emailRecipients: (row.email_recipients || '').split(',').filter(Boolean),
+    schedule: row.schedule,
+    timezone: row.timezone || 'Asia/Jerusalem',
+    enabled: row.enabled,
+    createdBy: row.created_by,
+  };
+}
+
+export async function getAllSubscriptions(): Promise<SubscriptionRecord[]> {
+  const rows = await subscriptions().find({ order: { id: 'ASC' } });
+  return rows.map(toSubscriptionRecord);
+}
+
+export async function getSubscription(id: number): Promise<SubscriptionRecord | undefined> {
+  const row = await subscriptions().findOneBy({ id });
+  return row ? toSubscriptionRecord(row) : undefined;
+}
+
+export async function createSubscription(data: Omit<SubscriptionRecord, 'id'>): Promise<SubscriptionRecord> {
+  const row = await subscriptions().save({
+    name: data.name,
+    components: JSON.stringify(data.components),
+    slack_webhook: data.slackWebhook ?? null,
+    jira_webhook: data.jiraWebhook ?? null,
+    email_recipients: data.emailRecipients.join(',') || null,
+    schedule: data.schedule,
+    timezone: data.timezone || 'Asia/Jerusalem',
+    enabled: data.enabled,
+    created_by: data.createdBy ?? null,
+  });
+  return toSubscriptionRecord(row);
+}
+
+export async function updateSubscription(id: number, data: Partial<Omit<SubscriptionRecord, 'id'>>): Promise<SubscriptionRecord | undefined> {
+  const update: Partial<NotificationSubscription> = {};
+  if (data.name !== undefined) update.name = data.name;
+  if (data.components !== undefined) update.components = JSON.stringify(data.components);
+  if (data.slackWebhook !== undefined) update.slack_webhook = data.slackWebhook;
+  if (data.jiraWebhook !== undefined) update.jira_webhook = data.jiraWebhook;
+  if (data.emailRecipients !== undefined) update.email_recipients = data.emailRecipients.join(',') || null;
+  if (data.schedule !== undefined) update.schedule = data.schedule;
+  if (data.timezone !== undefined) update.timezone = data.timezone;
+  if (data.enabled !== undefined) update.enabled = data.enabled;
+
+  await subscriptions().update({ id }, update);
+  return getSubscription(id);
+}
+
+export async function deleteSubscription(id: number): Promise<void> {
+  await subscriptions().delete({ id });
+}
+
+const users = () => AppDataSource.getRepository(UserEntity);
+const userPrefs = () => AppDataSource.getRepository(UserPreference);
+
+export type UserRecord = {
+  email: string;
+  name: string;
+  role: string;
+  lastLogin: string | null;
+  createdAt: string;
+};
+
+export async function upsertUser(email: string, name: string): Promise<UserRecord> {
+  const existing = await users().findOneBy({ email });
+  if (existing) {
+    existing.last_login = new Date();
+    if (name && name !== existing.name) existing.name = name;
+    await users().save(existing);
+    return toUserRecord(existing);
+  }
+  const row = await users().save({ email, name, role: 'user', last_login: new Date() });
+  return toUserRecord(row);
+}
+
+export async function getUser(email: string): Promise<UserRecord | undefined> {
+  const row = await users().findOneBy({ email });
+  return row ? toUserRecord(row) : undefined;
+}
+
+export async function getAllUsers(): Promise<UserRecord[]> {
+  const rows = await users().find({ order: { last_login: 'DESC' } });
+  return rows.map(toUserRecord);
+}
+
+export async function setUserRole(email: string, role: string): Promise<UserRecord | undefined> {
+  await users().update({ email }, { role });
+  return getUser(email);
+}
+
+export async function hasAnyAdmin(): Promise<boolean> {
+  const count = await users().count({ where: { role: 'admin' } });
+  return count > 0;
+}
+
+function toUserRecord(row: UserEntity): UserRecord {
+  return {
+    email: row.email,
+    name: row.name,
+    role: row.role,
+    lastLogin: row.last_login?.toISOString() ?? null,
+    createdAt: row.created_at?.toISOString() ?? new Date().toISOString(),
+  };
+}
+
+export type UserPreferencesData = Record<string, unknown>;
+
+export async function getUserPreferences(email: string): Promise<UserPreferencesData> {
+  const row = await userPrefs().findOneBy({ user_email: email });
+  if (!row) return {};
+  try { return JSON.parse(row.preferences); } catch { return {}; }
+}
+
+export async function setUserPreferences(email: string, prefs: UserPreferencesData): Promise<void> {
+  await userPrefs().upsert(
+    { user_email: email, preferences: JSON.stringify(prefs) },
+    { conflictPaths: ['user_email'] },
+  );
 }

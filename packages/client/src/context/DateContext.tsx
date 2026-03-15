@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 export type LookbackMode = '24h' | '48h' | '7d' | '1m' | '3m' | '6m' | 'range';
 
@@ -47,6 +47,13 @@ export const DateProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [dateFrom, setDateFrom] = useState(todayStr());
   const [dateTo, setDateTo] = useState(todayStr());
   const [lookbackMode, setLookbackModeRaw] = useState<LookbackMode>('24h');
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    if (lookbackMode === 'range') return;
+    const timer = setInterval(() => setTick(t => t + 1), 60_000);
+    return () => clearInterval(timer);
+  }, [lookbackMode]);
 
   const setLookbackMode = useCallback((mode: LookbackMode) => {
     setLookbackModeRaw(mode);
@@ -99,7 +106,7 @@ export const DateProvider: React.FC<{ children: React.ReactNode }> = ({ children
       until,
       displayLabel,
     };
-  }, [dateFrom, dateTo, lookbackMode, setLookbackMode, setCustomRange]);
+  }, [dateFrom, dateTo, lookbackMode, setLookbackMode, setCustomRange, tick]);
 
   return <DateContext.Provider value={value}>{children}</DateContext.Provider>;
 };

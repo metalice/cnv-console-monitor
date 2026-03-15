@@ -35,6 +35,9 @@ export const JiraLinkModal: React.FC<JiraLinkModalProps> = ({ isOpen, onClose, t
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['report'] });
       queryClient.invalidateQueries({ queryKey: ['activity'] });
+      queryClient.invalidateQueries({ queryKey: ['testItems'] });
+      queryClient.invalidateQueries({ queryKey: ['untriaged'] });
+      queryClient.invalidateQueries({ queryKey: ['testProfile'] });
       onClose();
       setJiraKey('');
       setSearchQuery('');
