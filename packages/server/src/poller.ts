@@ -56,12 +56,14 @@ function parseLaunchRecord(launch: RPLaunch): LaunchRecord {
   };
 }
 
-async function fetchJenkinsTeam(artifactsUrl: string): Promise<string | null> {
+type JenkinsInfo = { team: string | null; tier: string | null };
+
+async function fetchJenkinsInfo(artifactsUrl: string): Promise<JenkinsInfo> {
   try {
     const buildApiUrl = artifactsUrl.replace(/\/artifact\/?$/, '/api/json?tree=actions[parameters[name,value]]');
     const response = await withRetry(
       () => axios.get(buildApiUrl, { httpsAgent: jenkinsHttpsAgent, timeout: 10000 }),
-      'fetchJenkinsTeam',
+      'fetchJenkinsInfo',
       { maxRetries: 2 },
     );
     const actions: Array<{ parameters?: Array<{ name: string; value: string }> }> = response.data?.actions || [];
@@ -74,18 +76,23 @@ async function fetchJenkinsTeam(artifactsUrl: string): Promise<string | null> {
       }
     }
     const info = parseJenkinsParams(params);
-    return info.team;
+    const tier = params.DATA_TIER_NAME || params.CNV_TIER_NAME || null;
+    return { team: info.team, tier };
   } catch {
-    return null;
+    return { team: null, tier: null };
   }
 }
 
-async function resolveComponentForLaunch(launch: LaunchRecord): Promise<string | null> {
-  let team: string | null = null;
-  if (launch.artifacts_url) {
-    team = await fetchJenkinsTeam(launch.artifacts_url);
+async function enrichLaunchFromJenkins(launch: LaunchRecord): Promise<void> {
+  if (!launch.artifacts_url) {
+    launch.component = resolveComponent(null, launch.name) ?? undefined;
+    return;
   }
-  return resolveComponent(team, launch.name);
+  const jenkins = await fetchJenkinsInfo(launch.artifacts_url);
+  launch.component = resolveComponent(jenkins.team, launch.name) ?? undefined;
+  if ((!launch.tier || launch.tier === '-') && jenkins.tier) {
+    launch.tier = jenkins.tier;
+  }
 }
 
 function parseClusterFromHosts(hosts?: string): string | undefined {
@@ -142,7 +149,7 @@ export async function pollReportPortal(lookbackHours = 24, fetchDetails = true):
 
     for (const rpLaunch of result.content) {
       const launch = parseLaunchRecord(rpLaunch);
-      launch.component = (await resolveComponentForLaunch(launch)) ?? undefined;
+      await enrichLaunchFromJenkins(launch);
       await upsertLaunch(launch);
       allLaunches.push(launch);
 
@@ -211,9 +218,9 @@ export async function backfillComponents(onBatch?: () => void): Promise<void> {
 
   for (let i = 0; i < missing.length; i++) {
     const launch = missing[i];
-    const component = await resolveComponentForLaunch(launch);
-    if (component) {
-      await updateLaunchComponent(launch.rp_id, component);
+    await enrichLaunchFromJenkins(launch);
+    if (launch.component || launch.tier) {
+      await upsertLaunch(launch);
     }
 
     if ((i + 1) % 50 === 0) {

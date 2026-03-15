@@ -43,11 +43,28 @@ export type DailyReport = {
 };
 
 function parseTier(launch: LaunchRecord): string {
-  const name = launch.name;
+  if (launch.tier && launch.tier !== '-') {
+    const t = launch.tier.toUpperCase();
+    if (t === 'TIER-0' || t === 'TIER0') return 'T0';
+    if (t === 'TIER-1' || t === 'TIER1') return 'T1';
+    if (t === 'TIER-2' || t === 'TIER2') return 'T2';
+    if (t === 'TIER-3' || t === 'TIER3') return 'T3';
+    if (t === 'TIER-4' || t === 'TIER4') return 'T4';
+    if (t === 'UPGRADE') return 'Upgrade';
+    return launch.tier;
+  }
+  const name = launch.name.toLowerCase();
   if (name.includes('-t1-')) return 'T1';
   if (name.includes('-t2-')) return 'T2';
-  if (launch.tier && launch.tier !== '-') return launch.tier;
-  return 'Unknown';
+  if (name.includes('-t3-')) return 'T3';
+  if (name.includes('-tier1')) return 'T1';
+  if (name.includes('-tier2')) return 'T2';
+  if (name.includes('-tier3')) return 'T3';
+  if (name.includes('-gating')) return 'T1';
+  if (name.includes('upgrade')) return 'Upgrade';
+  if (name.includes('smoke')) return 'T0';
+  if (name.includes('verify')) return 'Verify';
+  return 'T1';
 }
 
 function parseLaunchVariant(launch: LaunchRecord): string {

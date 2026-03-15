@@ -77,19 +77,81 @@ export const DashboardPage: React.FC = () => {
   const { preferences, loaded: prefsLoaded, setPreference } = usePreferences();
   const [selectedComponents, setSelectedComponentsState] = useState<Set<string>>(new Set());
   const [versionFilter, setVersionFilterState] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [selectedTiers, setSelectedTiersState] = useState<Set<string>>(new Set());
+  const [statusFilter, setStatusFilterState] = useState<string | null>(null);
 
   const prefsAppliedRef = useRef(false);
   useEffect(() => {
-    if (prefsLoaded && !prefsAppliedRef.current) {
-      prefsAppliedRef.current = true;
+    if (!prefsLoaded || prefsAppliedRef.current) return;
+    prefsAppliedRef.current = true;
+
+    const initialParams = new URLSearchParams(window.location.search);
+    const urlComponents = initialParams.get('components');
+    const urlVersion = initialParams.get('version');
+    const urlTiers = initialParams.get('tiers');
+    const urlStatus = initialParams.get('status');
+    const hasUrlParams = urlComponents !== null || urlVersion !== null || urlTiers !== null || urlStatus !== null;
+
+    if (hasUrlParams) {
+      if (urlComponents) {
+        const comps = urlComponents.split(',').filter(Boolean);
+        setSelectedComponentsState(new Set(comps));
+        setPreference('dashboardComponents', comps);
+      }
+      if (urlVersion && urlVersion !== 'all') {
+        setVersionFilterState(urlVersion);
+        setPreference('dashboardVersion', urlVersion);
+      }
+      if (urlTiers) {
+        setSelectedTiersState(new Set(urlTiers.split(',').filter(Boolean)));
+      }
+      if (urlStatus) {
+        setStatusFilterState(urlStatus);
+      }
+    } else {
       if (preferences.dashboardComponents?.length) setSelectedComponentsState(new Set(preferences.dashboardComponents));
       if (preferences.dashboardVersion) setVersionFilterState(preferences.dashboardVersion);
     }
-  }, [prefsLoaded, preferences.dashboardComponents, preferences.dashboardVersion]);
+  }, [prefsLoaded, preferences.dashboardComponents, preferences.dashboardVersion, setPreference]);
 
-  const setSelectedComponents = (val: Set<string>) => { setSelectedComponentsState(val); setPreference('dashboardComponents', [...val]); };
-  const setVersionFilter = (val: string) => { setVersionFilterState(val); setPreference('dashboardVersion', val); };
+  const filtersRef = useRef({ components: selectedComponents, version: versionFilter, tiers: selectedTiers, status: statusFilter });
+  useEffect(() => {
+    filtersRef.current = { components: selectedComponents, version: versionFilter, tiers: selectedTiers, status: statusFilter };
+  });
+
+  const syncUrl = () => {
+    const { components, version, tiers, status } = filtersRef.current;
+    const params = new URLSearchParams();
+    if (components.size > 0) params.set('components', [...components].join(','));
+    if (version !== 'all') params.set('version', version);
+    if (tiers.size > 0) params.set('tiers', [...tiers].join(','));
+    if (status) params.set('status', status);
+    const qs = params.toString();
+    window.history.replaceState(null, '', qs ? `/?${qs}` : '/');
+  };
+
+  const setSelectedComponents = (val: Set<string>) => {
+    setSelectedComponentsState(val);
+    setPreference('dashboardComponents', [...val]);
+    filtersRef.current.components = val;
+    syncUrl();
+  };
+  const setVersionFilter = (val: string) => {
+    setVersionFilterState(val);
+    setPreference('dashboardVersion', val);
+    filtersRef.current.version = val;
+    syncUrl();
+  };
+  const setSelectedTiers = (val: Set<string>) => {
+    setSelectedTiersState(val);
+    filtersRef.current.tiers = val;
+    syncUrl();
+  };
+  const setStatusFilter = (val: string | null) => {
+    setStatusFilterState(val);
+    filtersRef.current.status = val;
+    syncUrl();
+  };
   const [tableSearch, setTableSearch] = useState('');
   const colMgmt = useColumnManagement('dashboard', DASHBOARD_COLUMNS);
 
@@ -136,14 +198,22 @@ export const DashboardPage: React.FC = () => {
     return ['all', ...Array.from(set).sort()];
   }, [report, selectedComponents]);
 
+  const availableTiers = useMemo(() => {
+    if (!report) return [];
+    let groups = report.groups;
+    if (selectedComponents.size > 0) groups = groups.filter((g) => selectedComponents.has(g.component ?? ''));
+    return [...new Set(groups.map((g) => g.tier))].sort();
+  }, [report, selectedComponents]);
+
   const filteredGroups = useMemo(() => {
     if (!report) return [];
     let groups = report.groups;
     if (selectedComponents.size > 0) groups = groups.filter((g) => selectedComponents.has(g.component ?? ''));
+    if (selectedTiers.size > 0) groups = groups.filter((g) => selectedTiers.has(g.tier));
     if (versionFilter !== 'all') groups = groups.filter((g) => g.cnvVersion === versionFilter);
     if (statusFilter) groups = groups.filter((g) => g.latestLaunch.status === statusFilter);
     return groups;
-  }, [report, selectedComponents, versionFilter, statusFilter]);
+  }, [report, selectedComponents, selectedTiers, versionFilter, statusFilter]);
 
   const scopedStats = useMemo(() => {
     const allLaunches = filteredGroups.flatMap((g) => g.launches);
@@ -202,6 +272,19 @@ export const DashboardPage: React.FC = () => {
                       selected={selectedComponents}
                       options={availableComponents}
                       onChange={(val) => { setSelectedComponents(val); setVersionFilter('all'); }}
+                    />
+                  </ToolbarItem>
+                )}
+                {availableTiers.length > 0 && (
+                  <ToolbarItem>
+                    <ComponentMultiSelect
+                      id="tier-filter"
+                      selected={selectedTiers}
+                      options={availableTiers}
+                      onChange={setSelectedTiers}
+                      placeholder="All Tiers"
+                      itemLabel="tiers"
+                      isDisabled={availableTiers.length <= 1}
                     />
                   </ToolbarItem>
                 )}
