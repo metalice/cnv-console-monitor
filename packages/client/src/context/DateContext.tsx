@@ -15,8 +15,8 @@ type DateContextValue = {
   dateFrom: string;
   dateTo: string;
   lookbackMode: LookbackMode;
-  setDateFrom: (d: string) => void;
-  setDateTo: (d: string) => void;
+  setDateFrom: (date: string) => void;
+  setDateTo: (date: string) => void;
   setLookbackMode: (mode: LookbackMode) => void;
   setCustomRange: (from: string, to: string) => void;
   isRangeMode: boolean;
@@ -25,21 +25,17 @@ type DateContextValue = {
   displayLabel: string;
 };
 
-function todayStr(): string {
-  return new Date().toISOString().split('T')[0];
-}
+const todayStr = (): string =>
+  new Date().toISOString().split('T')[0];
 
-function toDateStr(ts: number): string {
-  return new Date(ts).toISOString().split('T')[0];
-}
+const toDateStr = (ts: number): string =>
+  new Date(ts).toISOString().split('T')[0];
 
-function startOfDay(dateStr: string): number {
-  return new Date(dateStr + 'T00:00:00').getTime();
-}
+const startOfDay = (dateStr: string): number =>
+  new Date(dateStr + 'T00:00:00').getTime();
 
-function endOfDay(dateStr: string): number {
-  return startOfDay(dateStr) + 24 * 60 * 60 * 1000;
-}
+const endOfDay = (dateStr: string): number =>
+  startOfDay(dateStr) + 24 * 60 * 60 * 1000;
 
 const DateContext = createContext<DateContextValue | null>(null);
 
@@ -51,7 +47,7 @@ export const DateProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (lookbackMode === 'range') return;
-    const timer = setInterval(() => setTick(t => t + 1), 60_000);
+    const timer = setInterval(() => setTick(prev => prev + 1), 60_000);
     return () => clearInterval(timer);
   }, [lookbackMode]);
 
@@ -111,8 +107,8 @@ export const DateProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return <DateContext.Provider value={value}>{children}</DateContext.Provider>;
 };
 
-export function useDate(): DateContextValue {
+export const useDate = (): DateContextValue => {
   const ctx = useContext(DateContext);
   if (!ctx) throw new Error('useDate must be used within DateProvider');
   return ctx;
-}
+};

@@ -41,7 +41,7 @@ export const LaunchProgress: React.FC<LaunchProgressProps> = ({ launchRpId }) =>
     );
   }
 
-  const pct = data.progress ?? 0;
+  const percentage = data.progress ?? 0;
   const remaining = data.remainingMinutes ?? 0;
   const stage = data.currentStage;
   const tooltipText = [
@@ -52,10 +52,10 @@ export const LaunchProgress: React.FC<LaunchProgressProps> = ({ launchRpId }) =>
 
   return (
     <Tooltip content={tooltipText}>
-      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-        <Progress value={pct} size="sm" style={{ width: 60 }} aria-label="Build progress" />
-        <span className="app-text-xs app-text-muted" style={{ whiteSpace: 'nowrap' }}>
-          {pct}%{remaining > 0 ? ` (~${remaining}m)` : ''}
+      <div className="app-inline-flex-center">
+        <Progress value={percentage} size="sm" className="app-w-60" aria-label="Build progress" />
+        <span className="app-text-xs app-text-muted app-cell-nowrap">
+          {percentage}%{remaining > 0 ? ` (~${remaining}m)` : ''}
         </span>
       </div>
     </Tooltip>

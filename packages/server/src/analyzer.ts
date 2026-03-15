@@ -1,15 +1,7 @@
-import { LaunchRecord, TestItemRecord, getLaunchesSince, getLaunchesInRange, getFailedTestItems, getUntriagedItems, getTestFailureStreak, getLastPassedLaunchTime, FailureStreakInfo, RunStatus } from './db/store';
+import { LaunchRecord, TestItemRecord, getLaunchesSince, getLaunchesInRange, getFailedTestItems, getUntriagedItems, getLastPassedLaunchTime } from './db/store';
+import { type HealthStatus, type EnrichedFailedItem, parseTier, parseLaunchVariant, parseCnvVersion, computeHealth, enrichFailedItems } from './analyzer-utils';
 
-export type HealthStatus = 'green' | 'yellow' | 'red';
-
-export type EnrichedFailedItem = TestItemRecord & {
-  consecutiveFailures: number;
-  totalRuns: number;
-  lastPassDate: string | null;
-  lastPassTime: number | null;
-  recentStatuses: string[];
-  recentRuns: RunStatus[];
-};
+export type { HealthStatus, EnrichedFailedItem } from './analyzer-utils';
 
 export type LaunchGroup = {
   cnvVersion: string;
@@ -42,82 +34,7 @@ export type DailyReport = {
   components: string[];
 };
 
-function parseTier(launch: LaunchRecord): string {
-  if (launch.tier && launch.tier !== '-') {
-    const t = launch.tier.toUpperCase();
-    if (t === 'TIER-0' || t === 'TIER0') return 'T0';
-    if (t === 'TIER-1' || t === 'TIER1') return 'T1';
-    if (t === 'TIER-2' || t === 'TIER2') return 'T2';
-    if (t === 'TIER-3' || t === 'TIER3') return 'T3';
-    if (t === 'TIER-4' || t === 'TIER4') return 'T4';
-    if (t === 'UPGRADE') return 'Upgrade';
-    return launch.tier;
-  }
-  const name = launch.name.toLowerCase();
-  if (name.includes('-t1-')) return 'T1';
-  if (name.includes('-t2-')) return 'T2';
-  if (name.includes('-t3-')) return 'T3';
-  if (name.includes('-tier1')) return 'T1';
-  if (name.includes('-tier2')) return 'T2';
-  if (name.includes('-tier3')) return 'T3';
-  if (name.includes('-gating')) return 'T1';
-  if (name.includes('upgrade')) return 'Upgrade';
-  if (name.includes('smoke')) return 'T0';
-  if (name.includes('verify')) return 'Verify';
-  return 'T1';
-}
-
-function parseLaunchVariant(launch: LaunchRecord): string {
-  const name = launch.name;
-  const parts: string[] = [];
-  if (name.includes('-gating')) parts.push('gating');
-  if (name.includes('-ocs-nonpriv')) parts.push('ocs-nonpriv');
-  else if (name.includes('-ocs')) parts.push('ocs');
-  return parts.length > 0 ? parts.join('-') : 'default';
-}
-
-function parseCnvVersion(launch: LaunchRecord): string {
-  if (launch.cnv_version && launch.cnv_version !== '-') return launch.cnv_version;
-  const match = launch.name.match(/cnv-(\d+\.\d+)/);
-  return match ? match[1] : 'unknown';
-}
-
-function computeHealth(launches: LaunchRecord[]): HealthStatus {
-  if (launches.some(l => l.status === 'FAILED')) return 'red';
-  if (launches.some(l => l.status === 'IN_PROGRESS')) return 'yellow';
-  return 'green';
-}
-
-async function enrichFailedItems(items: TestItemRecord[]): Promise<EnrichedFailedItem[]> {
-  const enriched: EnrichedFailedItem[] = [];
-  for (const item of items) {
-    let streak: FailureStreakInfo = {
-      consecutiveFailures: 1,
-      totalRuns: 1,
-      lastPassDate: null,
-      lastPassTime: null,
-      recentStatuses: ['FAILED'],
-      recentRuns: [{ status: 'FAILED', date: '' }],
-    };
-
-    if (item.unique_id) {
-      streak = await getTestFailureStreak(item.unique_id);
-    }
-
-    enriched.push({
-      ...item,
-      consecutiveFailures: streak.consecutiveFailures,
-      totalRuns: streak.totalRuns,
-      lastPassDate: streak.lastPassDate,
-      lastPassTime: streak.lastPassTime,
-      recentStatuses: streak.recentStatuses,
-      recentRuns: streak.recentRuns,
-    });
-  }
-  return enriched;
-}
-
-export async function groupLaunches(launches: LaunchRecord[]): Promise<LaunchGroup[]> {
+export const groupLaunches = async (launches: LaunchRecord[]): Promise<LaunchGroup[]> => {
   const groups = new Map<string, LaunchRecord[]>();
 
   for (const launch of launches) {
@@ -139,10 +56,10 @@ export async function groupLaunches(launches: LaunchRecord[]): Promise<LaunchGro
     const enrichedFailedItems = await enrichFailedItems(failedItems);
     const lastPassedTime = await getLastPassedLaunchTime(latest.name);
 
-    const totalTests = sorted.reduce((sum, l) => sum + l.total, 0);
-    const passedTests = sorted.reduce((sum, l) => sum + l.passed, 0);
-    const failedTests = sorted.reduce((sum, l) => sum + l.failed, 0);
-    const skippedTests = sorted.reduce((sum, l) => sum + l.skipped, 0);
+    const totalTests = sorted.reduce((sum, launch) => sum + launch.total, 0);
+    const passedTests = sorted.reduce((sum, launch) => sum + launch.passed, 0);
+    const failedTests = sorted.reduce((sum, launch) => sum + launch.failed, 0);
+    const skippedTests = sorted.reduce((sum, launch) => sum + launch.skipped, 0);
 
     result.push({
       cnvVersion: version,
@@ -169,7 +86,7 @@ export async function groupLaunches(launches: LaunchRecord[]): Promise<LaunchGro
   });
 }
 
-export async function buildDailyReport(lookbackHours = 24, sinceOverride?: number, untilOverride?: number): Promise<DailyReport> {
+export const buildDailyReport = async (lookbackHours = 24, sinceOverride?: number, untilOverride?: number): Promise<DailyReport> => {
   const sinceMs = sinceOverride ?? (Date.now() - lookbackHours * 60 * 60 * 1000);
   const untilMs = untilOverride;
 
@@ -178,27 +95,26 @@ export async function buildDailyReport(lookbackHours = 24, sinceOverride?: numbe
     : await getLaunchesSince(sinceMs);
   const groups = await groupLaunches(launches);
 
-  const passedLaunches = launches.filter(l => l.status === 'PASSED').length;
-  const failedLaunches = launches.filter(l => l.status === 'FAILED').length;
-  const inProgressLaunches = launches.filter(l => l.status === 'IN_PROGRESS').length;
+  const passedLaunches = launches.filter(launch => launch.status === 'PASSED').length;
+  const failedLaunches = launches.filter(launch => launch.status === 'FAILED').length;
+  const inProgressLaunches = launches.filter(launch => launch.status === 'IN_PROGRESS').length;
 
-  const allFailedItems = groups.flatMap(g => g.failedItems);
+  const allFailedItems = groups.flatMap(group => group.failedItems);
 
   const previousDurationMs = untilMs ? (untilMs - sinceMs) : (lookbackHours * 60 * 60 * 1000);
   const previousSinceMs = sinceMs - previousDurationMs;
   const previousLaunches = (await getLaunchesInRange(previousSinceMs, sinceMs));
   const previousGroups = await groupLaunches(previousLaunches);
   const previousFailedUniqueIds = new Set(
-    previousGroups.flatMap(g => g.failedItems).map(i => i.unique_id).filter(Boolean),
+    previousGroups.flatMap(group => group.failedItems).map(item => item.unique_id).filter(Boolean),
   );
 
-  const newFailures = allFailedItems.filter(i => i.unique_id && !previousFailedUniqueIds.has(i.unique_id));
-  const recurringFailures = allFailedItems.filter(i => i.unique_id && previousFailedUniqueIds.has(i.unique_id));
+  const newFailures = allFailedItems.filter(item => item.unique_id && !previousFailedUniqueIds.has(item.unique_id));
+  const recurringFailures = allFailedItems.filter(item => item.unique_id && previousFailedUniqueIds.has(item.unique_id));
 
   const untriagedCount = (await getUntriagedItems(sinceMs, untilMs)).length;
   const overallHealth: HealthStatus = failedLaunches > 0 ? 'red' : inProgressLaunches > 0 ? 'yellow' : 'green';
-
-  const components = [...new Set(groups.map(g => g.component).filter(Boolean) as string[])].sort();
+  const components = [...new Set(groups.map(group => group.component).filter(Boolean) as string[])].sort();
 
   const reportDate = untilOverride
     ? new Date(untilOverride).toISOString().split('T')[0]

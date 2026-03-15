@@ -6,7 +6,7 @@ export type AggregatedItem = {
   occurrences: number;
 };
 
-export function aggregateTestItems(items: TestItem[]): AggregatedItem[] {
+export const aggregateTestItems = (items: TestItem[]): AggregatedItem[] => {
   const groups = new Map<string, TestItem[]>();
   const noUniqueId: TestItem[] = [];
 
@@ -26,7 +26,7 @@ export function aggregateTestItems(items: TestItem[]): AggregatedItem[] {
     const sorted = [...groupItems].sort((a, b) => (b.start_time ?? 0) - (a.start_time ?? 0));
     result.push({
       representative: sorted[0],
-      allRpIds: sorted.map((i) => i.rp_id),
+      allRpIds: sorted.map((item) => item.rp_id),
       occurrences: sorted.length,
     });
   }

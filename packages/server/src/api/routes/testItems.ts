@@ -25,8 +25,8 @@ router.get('/launches', async (req: Request, res: Response, next: NextFunction) 
   try {
     const ids = (req.query.ids as string || '')
       .split(',')
-      .map(s => parseInt(s.trim()))
-      .filter(n => !isNaN(n));
+      .map(idStr => parseInt(idStr.trim()))
+      .filter(parsed => !isNaN(parsed));
     if (ids.length === 0) {
       res.status(400).json({ error: 'ids query parameter required (comma-separated launch rp_ids)' });
       return;
@@ -66,7 +66,7 @@ router.get('/history/:uniqueId', async (req: Request, res: Response, next: NextF
 router.get('/streaks', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const raw = (req.query.uniqueIds as string) || '';
-    const uniqueIds = raw.split(',').map(s => s.trim()).filter(Boolean).slice(0, 50);
+    const uniqueIds = raw.split(',').map(idStr => idStr.trim()).filter(Boolean).slice(0, 50);
     if (uniqueIds.length === 0) {
       res.json({});
       return;

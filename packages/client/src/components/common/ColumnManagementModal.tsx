@@ -71,7 +71,7 @@ export const ColumnManagementModal: React.FC<ColumnManagementModalProps> = ({
       <ModalHeader title="Manage columns" />
       <ModalBody>
         <Content component="p" className="app-mb-md">Selected columns will appear in the table.</Content>
-        <div className="app-mb-sm" style={{ display: 'flex', gap: 'var(--pf-t--global--spacer--md)' }}>
+        <div className="app-mb-sm app-flex-gap-md">
           <Button variant="link" size="sm" isInline onClick={selectAll}>Select all</Button>
           <Button variant="link" size="sm" isInline onClick={handleReset}>Restore defaults</Button>
         </div>
@@ -92,7 +92,7 @@ export const ColumnManagementModal: React.FC<ColumnManagementModalProps> = ({
                   <DataListItemCells
                     dataListCells={[
                       <DataListCell key="name" id={`col-label-${col.id}`}>
-                        <label htmlFor={inputId} style={{ cursor: 'pointer' }}>{col.title}</label>
+                        <label htmlFor={inputId} className="app-cursor-pointer">{col.title}</label>
                       </DataListCell>,
                     ]}
                   />

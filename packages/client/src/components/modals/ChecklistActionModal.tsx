@@ -13,17 +13,11 @@ import {
   TextArea,
   HelperText,
   HelperTextItem,
-  DescriptionList,
-  DescriptionListGroup,
-  DescriptionListTerm,
-  DescriptionListDescription,
-  Label,
   Spinner,
-  Flex,
-  FlexItem,
 } from '@patternfly/react-core';
 import { SearchableSelect } from '../common/SearchableSelect';
 import { fetchChecklistDetail, transitionChecklistTask } from '../../api/releases';
+import { IssueDetailSection } from './IssueDetailSection';
 
 type ChecklistActionModalProps = {
   issueKey: string;
@@ -60,12 +54,6 @@ export const ChecklistActionModal: React.FC<ChecklistActionModalProps> = ({ issu
   });
 
   const transitionOptions = (detail?.transitions || []).map(t => ({ value: t.id, label: t.name }));
-  const statusColor = (s: string): 'blue' | 'green' | 'orange' | 'grey' => {
-    if (s === 'Closed') return 'green';
-    if (s === 'In Progress' || s === 'Testing') return 'blue';
-    if (s === 'To Do' || s === 'New') return 'orange';
-    return 'grey';
-  };
 
   return (
     <Modal variant={ModalVariant.medium} isOpen={isOpen} onClose={onClose}>
@@ -75,41 +63,15 @@ export const ChecklistActionModal: React.FC<ChecklistActionModalProps> = ({ issu
           <Spinner aria-label="Loading" />
         ) : (
           <>
-            <DescriptionList isHorizontal style={{ marginBottom: 24 }}>
-              <DescriptionListGroup>
-                <DescriptionListTerm>Summary</DescriptionListTerm>
-                <DescriptionListDescription>{detail.summary}</DescriptionListDescription>
-              </DescriptionListGroup>
-              <DescriptionListGroup>
-                <DescriptionListTerm>Status</DescriptionListTerm>
-                <DescriptionListDescription><Label color={statusColor(detail.status)}>{detail.status}</Label></DescriptionListDescription>
-              </DescriptionListGroup>
-              <DescriptionListGroup>
-                <DescriptionListTerm>Assignee</DescriptionListTerm>
-                <DescriptionListDescription>{detail.assignee || 'Unassigned'}</DescriptionListDescription>
-              </DescriptionListGroup>
-              <DescriptionListGroup>
-                <DescriptionListTerm>Fix Version</DescriptionListTerm>
-                <DescriptionListDescription>{detail.fixVersions.join(', ') || 'None'}</DescriptionListDescription>
-              </DescriptionListGroup>
-              <DescriptionListGroup>
-                <DescriptionListTerm>Subtasks</DescriptionListTerm>
-                <DescriptionListDescription>
-                  {detail.subtasksDone}/{detail.subtaskCount} done
-                  {detail.subtasks.length > 0 && (
-                    <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsXs' }} style={{ marginTop: 8 }}>
-                      {detail.subtasks.map(st => (
-                        <FlexItem key={st.key}>
-                          <Label color={st.status === 'Closed' ? 'green' : 'grey'} isCompact>{st.key}</Label>{' '}
-                          <span style={{ fontSize: 13 }}>{st.summary.substring(0, 80)}</span>
-                        </FlexItem>
-                      ))}
-                    </Flex>
-                  )}
-                </DescriptionListDescription>
-              </DescriptionListGroup>
-            </DescriptionList>
-
+            <IssueDetailSection
+              summary={detail.summary}
+              status={detail.status}
+              assignee={detail.assignee}
+              fixVersions={detail.fixVersions}
+              subtasks={detail.subtasks}
+              subtasksDone={detail.subtasksDone}
+              subtaskCount={detail.subtaskCount}
+            />
             <Form>
               <FormGroup label="Transition to" isRequired fieldId="transition">
                 <SearchableSelect

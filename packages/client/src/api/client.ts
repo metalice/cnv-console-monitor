@@ -10,16 +10,16 @@ export class ApiError extends Error {
   }
 }
 
-function getImpersonateParam(): string {
+const getImpersonateParam = (): string => {
   const params = new URLSearchParams(window.location.search);
   const impersonate = params.get('impersonate');
   return impersonate ? `impersonate=${encodeURIComponent(impersonate)}` : '';
-}
+};
 
-export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const imp = getImpersonateParam();
+export const apiFetch = async <T>(path: string, options?: RequestInit): Promise<T> => {
+  const impersonateParam = getImpersonateParam();
   const separator = path.includes('?') ? '&' : '?';
-  const url = imp ? `${BASE}${path}${separator}${imp}` : `${BASE}${path}`;
+  const url = impersonateParam ? `${BASE}${path}${separator}${impersonateParam}` : `${BASE}${path}`;
   const res = await fetch(url, {
     headers: { 'Content-Type': 'application/json' },
     ...options,
@@ -32,8 +32,7 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   }
 
   return res.json();
-}
+};
 
-export function apiPost<T>(path: string, body: unknown): Promise<T> {
-  return apiFetch(path, { method: 'POST', body: JSON.stringify(body) });
-}
+export const apiPost = <T>(path: string, body: unknown): Promise<T> =>
+  apiFetch(path, { method: 'POST', body: JSON.stringify(body) });

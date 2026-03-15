@@ -1,15 +1,15 @@
 let polling = false;
 
-export function isPollLocked(): boolean {
+export const isPollLocked = (): boolean => {
   return polling;
 }
 
-export function lockPoll(): boolean {
+export const lockPoll = (): boolean => {
   if (polling) return false;
   polling = true;
   return true;
 }
 
-export function unlockPoll(): void {
+export const unlockPoll = (): void => {
   polling = false;
 }

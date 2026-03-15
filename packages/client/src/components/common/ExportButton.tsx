@@ -8,34 +8,34 @@ type ExportButtonProps = {
   date: string;
 };
 
-function escapeCsvField(value: string | number): string {
+const escapeCsvField = (value: string | number): string => {
   const str = String(value);
   if (str.includes(',') || str.includes('"') || str.includes('\n')) {
     return `"${str.replace(/"/g, '""')}"`;
   }
   return str;
-}
+};
 
 export const ExportButton: React.FC<ExportButtonProps> = ({ groups, date }) => {
   const handleExport = (): void => {
     const header = 'Version,Tier,Status,Total,Passed,Failed,Skipped,PassRate,LastRun\n';
     const rows = groups
-      .map((g) => {
-        const lastRun = new Date(g.latestLaunch.start_time).toISOString();
+      .map((group) => {
+        const lastRun = new Date(group.latestLaunch.start_time).toISOString();
         return [
-          g.cnvVersion, g.tier, g.latestLaunch.status,
-          g.totalTests, g.passedTests, g.failedTests, g.skippedTests,
-          `${g.passRate}%`, lastRun,
+          group.cnvVersion, group.tier, group.latestLaunch.status,
+          group.totalTests, group.passedTests, group.failedTests, group.skippedTests,
+          `${group.passRate}%`, lastRun,
         ].map(escapeCsvField).join(',');
       })
       .join('\n');
 
     const blob = new Blob([header + rows], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `cnv-console-report-${date}.csv`;
-    a.click();
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `cnv-console-report-${date}.csv`;
+    link.click();
     URL.revokeObjectURL(url);
   };
 

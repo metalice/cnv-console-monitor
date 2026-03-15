@@ -20,7 +20,7 @@ const NAME_PATTERNS: Array<[RegExp, string]> = [
   [/performance|scale/i, 'CNV Performance'],
 ];
 
-export function mapTeamToComponent(team: string): string | null {
+export const mapTeamToComponent = (team: string): string | null => {
   if (!team) return null;
   const direct = TEAM_TO_COMPONENT[team];
   if (direct) return direct;
@@ -32,7 +32,7 @@ export function mapTeamToComponent(team: string): string | null {
   return null;
 }
 
-export function mapLaunchNameToComponent(name: string): string | null {
+export const mapLaunchNameToComponent = (name: string): string | null => {
   if (!name) return null;
   for (const [pattern, component] of NAME_PATTERNS) {
     if (pattern.test(name)) return component;
@@ -40,7 +40,7 @@ export function mapLaunchNameToComponent(name: string): string | null {
   return null;
 }
 
-export function resolveComponent(team: string | null | undefined, launchName: string): string | null {
+export const resolveComponent = (team: string | null | undefined, launchName: string): string | null => {
   if (team) {
     const fromTeam = mapTeamToComponent(team);
     if (fromTeam) return fromTeam;
@@ -54,7 +54,7 @@ export interface JenkinsTeamInfo {
   marker: string | null;
 }
 
-export function parseJenkinsParams(params: Record<string, string>): JenkinsTeamInfo {
+export const parseJenkinsParams = (params: Record<string, string>): JenkinsTeamInfo => {
   let team: string | null = null;
 
   const jobMetaStr = params.JOB_METADATA;

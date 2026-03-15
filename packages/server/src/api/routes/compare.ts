@@ -73,8 +73,8 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
       return;
     }
 
-    const mapA = new Map(itemsA.filter(i => i.unique_id).map(i => [i.unique_id!, i]));
-    const mapB = new Map(itemsB.filter(i => i.unique_id).map(i => [i.unique_id!, i]));
+    const mapA = new Map(itemsA.filter(item => item.unique_id).map(item => [item.unique_id!, item]));
+    const mapB = new Map(itemsB.filter(item => item.unique_id).map(item => [item.unique_id!, item]));
 
     const regressions = [];
     const fixes = [];
@@ -92,18 +92,18 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
       }
     }
 
-    const pick = (l: typeof launchA) => ({
-      rp_id: l!.rp_id,
-      name: l!.name,
-      cnv_version: l!.cnv_version ?? null,
-      ocp_version: l!.ocp_version ?? null,
-      tier: l!.tier ?? null,
-      cluster_name: l!.cluster_name ?? null,
-      start_time: l!.start_time,
-      status: l!.status,
-      total: l!.total,
-      passed: l!.passed,
-      failed: l!.failed,
+    const pick = (launch: typeof launchA) => ({
+      rp_id: launch!.rp_id,
+      name: launch!.name,
+      cnv_version: launch!.cnv_version ?? null,
+      ocp_version: launch!.ocp_version ?? null,
+      tier: launch!.tier ?? null,
+      cluster_name: launch!.cluster_name ?? null,
+      start_time: launch!.start_time,
+      status: launch!.status,
+      total: launch!.total,
+      passed: launch!.passed,
+      failed: launch!.failed,
     });
 
     res.json({

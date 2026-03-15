@@ -47,7 +47,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({ itemId }) => {
 
   return (
     <div>
-      <Content component="h4" style={{ marginBottom: 8 }}>
+      <Content component="h4" className="app-mb-sm">
         Error Logs ({data.page.totalElements} entries)
       </Content>
       <CodeBlock>

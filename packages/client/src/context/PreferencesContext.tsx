@@ -53,8 +53,8 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ c
   );
 };
 
-export function usePreferences(): PreferencesContextValue {
+export const usePreferences = (): PreferencesContextValue => {
   const ctx = useContext(PreferencesContext);
   if (!ctx) throw new Error('usePreferences must be used within PreferencesProvider');
   return ctx;
-}
+};

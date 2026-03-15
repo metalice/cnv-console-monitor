@@ -24,7 +24,7 @@ export const logger = pino({
   },
 });
 
-export function setResponseError(res: unknown, message: string): void {
+export const setResponseError = (res: unknown, message: string): void => {
   (res as Record<string, unknown>).__errorMessage = message;
 }
 

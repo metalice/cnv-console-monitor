@@ -27,10 +27,8 @@ export type ReadinessAssessment = {
   recommendation: 'ready' | 'at_risk' | 'blocked';
 };
 
-export function fetchReadiness(version: string, days = 30): Promise<ReadinessAssessment> {
-  return apiFetch(`/readiness/${encodeURIComponent(version)}?days=${days}`);
-}
+export const fetchReadiness = (version: string, days = 30): Promise<ReadinessAssessment> =>
+  apiFetch(`/readiness/${encodeURIComponent(version)}?days=${days}`);
 
-export function fetchReadinessVersions(): Promise<string[]> {
-  return apiFetch('/readiness/versions');
-}
+export const fetchReadinessVersions = (): Promise<string[]> =>
+  apiFetch('/readiness/versions');

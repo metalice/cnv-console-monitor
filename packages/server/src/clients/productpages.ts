@@ -11,7 +11,7 @@ const PP_API = 'https://productpages.redhat.com/api/v1';
 let cachedToken: string | null = null;
 let tokenExpiresAt = 0;
 
-async function getToken(): Promise<string> {
+const getToken = async (): Promise<string> => {
   if (cachedToken && Date.now() < tokenExpiresAt) return cachedToken;
 
   const response = await withRetry(
@@ -50,7 +50,7 @@ export type PPRelease = {
   }>;
 };
 
-export async function fetchCnvReleases(): Promise<PPRelease[]> {
+export const fetchCnvReleases = async (): Promise<PPRelease[]> => {
   if (!config.productpages.enabled) {
     log.debug('Product Pages not configured, skipping');
     return [];

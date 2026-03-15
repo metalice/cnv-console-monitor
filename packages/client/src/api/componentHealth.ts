@@ -11,6 +11,5 @@ export type ComponentHealthSummary = {
   trend: 'improving' | 'worsening' | 'stable';
 };
 
-export function fetchComponentHealth(since: number, until: number): Promise<ComponentHealthSummary[]> {
-  return apiFetch(`/component-health?since=${since}&until=${until}`);
-}
+export const fetchComponentHealth = (since: number, until: number): Promise<ComponentHealthSummary[]> =>
+  apiFetch(`/component-health?since=${since}&until=${until}`);

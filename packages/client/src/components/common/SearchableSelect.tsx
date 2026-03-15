@@ -1,15 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Button,
-  MenuToggle,
   Select,
   SelectList,
   SelectOption,
-  TextInputGroup,
-  TextInputGroupMain,
-  TextInputGroupUtilities,
 } from '@patternfly/react-core';
-import { TimesIcon } from '@patternfly/react-icons';
+import { SearchableSelectToggle } from './SearchableSelectToggle';
 
 export type SearchableSelectOption = {
   value: string;
@@ -31,13 +26,7 @@ const NO_RESULTS_VALUE = '__no_results__';
 const MENU_MAX_HEIGHT = 240;
 
 export const SearchableSelect: React.FC<SearchableSelectProps> = ({
-  id,
-  value,
-  options,
-  onChange,
-  placeholder,
-  isDisabled,
-  noResultsText,
+  id, value, options, onChange, placeholder, isDisabled, noResultsText,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [filterValue, setFilterValue] = useState('');
@@ -54,17 +43,8 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   const selectedOption = normalizedOptions.find((opt) => opt.value === value);
 
   useEffect(() => {
-    if (!isOpen) {
-      setInputValue(selectedOption?.label || value || '');
-    }
+    if (!isOpen) setInputValue(selectedOption?.label || value || '');
   }, [isOpen, selectedOption, value]);
-
-  const renderOptions = (items: SearchableSelectOption[]) =>
-    items.map((opt) => (
-      <SelectOption key={opt.value} value={opt.value} isDisabled={opt.isDisabled}>
-        {opt.label}
-      </SelectOption>
-    ));
 
   const filteredOptions = useMemo(() => {
     const search = filterValue.trim().toLowerCase();
@@ -74,15 +54,13 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
     ));
   }, [filterValue, normalizedOptions]);
 
-  const openMenu = (): void => {
-    if (!isOpen) {
-      setIsOpen(true);
-    }
-  };
+  const openMenu = (): void => { if (!isOpen) setIsOpen(true); };
+  const closeMenu = (): void => { setIsOpen(false); setFilterValue(''); };
 
-  const closeMenu = (): void => {
-    setIsOpen(false);
-    setFilterValue('');
+  const handleInputChange = (val: string): void => {
+    setInputValue(val);
+    setFilterValue(val);
+    openMenu();
   };
 
   return (
@@ -91,59 +69,30 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
       variant="typeahead"
       isOpen={isOpen}
       selected={value}
-      onOpenChange={(nextOpen) => {
-        if (nextOpen) {
-          openMenu();
-        } else {
-          closeMenu();
-        }
-      }}
+      onOpenChange={(nextOpen) => { nextOpen ? openMenu() : closeMenu(); }}
       onSelect={(_event, selection) => {
         const selected = String(selection || '');
         if (!selected || selected === NO_RESULTS_VALUE) return;
         onChange(selected);
-        setInputValue(
-          normalizedOptions.find((opt) => opt.value === selected)?.label || selected,
-        );
+        setInputValue(normalizedOptions.find((opt) => opt.value === selected)?.label || selected);
         closeMenu();
       }}
       isScrollable
       maxMenuHeight={`${MENU_MAX_HEIGHT}px`}
       shouldFocusFirstItemOnOpen={false}
       toggle={(toggleRef) => (
-        <MenuToggle
-          ref={toggleRef}
-          variant="typeahead"
-          onClick={openMenu}
-          isExpanded={isOpen}
+        <SearchableSelectToggle
+          id={id}
+          inputValue={inputValue}
+          filterValue={filterValue}
+          placeholder={placeholder}
+          isOpen={isOpen}
           isDisabled={isDisabled}
-          isFullWidth
-        >
-          <TextInputGroup isDisabled={isDisabled}>
-            <TextInputGroupMain
-              id={`${id}-input`}
-              value={inputValue}
-              placeholder={placeholder}
-              aria-label={placeholder || 'Filter options'}
-              onChange={(_event, val) => {
-                setInputValue(val);
-                setFilterValue(val);
-                openMenu();
-              }}
-              onClick={openMenu}
-            />
-            {isOpen && filterValue && (
-              <TextInputGroupUtilities>
-                <Button
-                  variant="plain"
-                  aria-label="Clear filter"
-                  icon={<TimesIcon />}
-                  onClick={() => setFilterValue('')}
-                />
-              </TextInputGroupUtilities>
-            )}
-          </TextInputGroup>
-        </MenuToggle>
+          onInputChange={handleInputChange}
+          onClearFilter={() => setFilterValue('')}
+          onOpen={openMenu}
+          toggleRef={toggleRef}
+        />
       )}
     >
       <SelectList>
@@ -152,7 +101,11 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
             {noResultsText || 'No results'}
           </SelectOption>
         ) : (
-          renderOptions(filteredOptions)
+          filteredOptions.map((opt) => (
+            <SelectOption key={opt.value} value={opt.value} isDisabled={opt.isDisabled}>
+              {opt.label}
+            </SelectOption>
+          ))
         )}
       </SelectList>
     </Select>

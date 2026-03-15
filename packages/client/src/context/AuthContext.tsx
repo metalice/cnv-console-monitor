@@ -18,9 +18,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const impersonate = params.get('impersonate');
     const url = impersonate ? `/api/user/profile?impersonate=${encodeURIComponent(impersonate)}` : '/api/user/profile';
     fetch(url)
-      .then((res) => {
-        if (!res.ok) throw new Error('Not authenticated');
-        return res.json();
+      .then((response) => {
+        if (!response.ok) throw new Error('Not authenticated');
+        return response.json();
       })
       .then((data: User) => setUser(data))
       .catch(() => setUser(null))
@@ -33,7 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   if (loading) {
     return (
-      <Bullseye style={{ height: '100vh' }}>
+      <Bullseye className="app-full-height">
         <Spinner aria-label="Loading user" />
       </Bullseye>
     );
@@ -41,7 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   if (!value) {
     return (
-      <Bullseye style={{ height: '100vh' }}>
+      <Bullseye className="app-full-height">
         <div>Unable to determine user identity. Ensure you are accessing through the OAuth proxy.</div>
       </Bullseye>
     );
@@ -50,8 +50,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-export function useAuth(): AuthContextValue {
+export const useAuth = (): AuthContextValue => {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
-}
+};

@@ -49,7 +49,7 @@ export const PassRateBar: React.FC<PassRateBarProps> = ({
       title={`${rate}%`}
       variant={variant}
       measureLocation={ProgressMeasureLocation.outside}
-      style={{ minWidth: 120 }}
+      className="app-min-w-120"
     />
   );
 
@@ -58,7 +58,7 @@ export const PassRateBar: React.FC<PassRateBarProps> = ({
   return (
     <Tooltip
       content={
-        <div style={{ textAlign: 'left', whiteSpace: 'pre-line' }}>
+        <div className="app-tooltip-pre">
           {tooltipLines.join('\n')}
         </div>
       }

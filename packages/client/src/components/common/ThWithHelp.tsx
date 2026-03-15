@@ -14,7 +14,7 @@ export const ThWithHelp: React.FC<ThWithHelpProps> = ({ label, help, sort, width
   <Th sort={sort} width={width}>
     {label}{' '}
     <Tooltip content={help}>
-      <OutlinedQuestionCircleIcon style={{ cursor: 'help', opacity: 0.5, fontSize: 12 }} />
+      <OutlinedQuestionCircleIcon className="app-help-icon" />
     </Tooltip>
   </Th>
 );

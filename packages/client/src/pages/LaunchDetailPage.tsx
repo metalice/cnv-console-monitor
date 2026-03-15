@@ -9,152 +9,74 @@ import {
   Button,
   Breadcrumb,
   BreadcrumbItem,
-  ExpandableSection,
   Flex,
   FlexItem,
-  Label,
   Spinner,
   Toolbar,
   ToolbarContent,
   ToolbarItem,
-  Tooltip,
-  Truncate,
 } from '@patternfly/react-core';
-import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
-import { SearchIcon, WrenchIcon, BugIcon, LinkIcon, ExternalLinkAltIcon } from '@patternfly/react-icons';
+import { SearchIcon, WrenchIcon, ExternalLinkAltIcon } from '@patternfly/react-icons';
 import type { TestItem, PublicConfig } from '@cnv-monitor/shared';
 import { apiFetch } from '../api/client';
 import { fetchTestItems, fetchTestItemsForLaunches } from '../api/testItems';
 import { triggerAutoAnalysis, triggerPatternAnalysis, triggerUniqueErrorAnalysis } from '../api/analysis';
-import { SortByDirection } from '@patternfly/react-table';
-import { useTableSort } from '../hooks/useTableSort';
-import { useColumnManagement, type ColumnDef } from '../hooks/useColumnManagement';
-import { StatusBadge } from '../components/common/StatusBadge';
-import { TableToolbar } from '../components/common/TableToolbar';
-import { ThWithHelp } from '../components/common/ThWithHelp';
-import { LogViewer } from '../components/detail/LogViewer';
-import { SimilarFailuresPanel } from '../components/detail/SimilarFailuresPanel';
+import { aggregateTestItems } from '../utils/aggregation';
+import { TestItemsTable } from '../components/detail/TestItemsTable';
 import { ArtifactsPanel } from '../components/detail/ArtifactsPanel';
 import { TriageModal } from '../components/modals/TriageModal';
 import { JiraCreateModal } from '../components/modals/JiraCreateModal';
 import { JiraLinkModal } from '../components/modals/JiraLinkModal';
-
-import { aggregateTestItems, type AggregatedItem } from '../utils/aggregation';
-
-const LAUNCH_COLUMNS: ColumnDef[] = [
-  { id: 'testName', title: 'Test Name' },
-  { id: 'status', title: 'Status' },
-  { id: 'error', title: 'Error' },
-  { id: 'polarion', title: 'Polarion' },
-  { id: 'defect', title: 'AI Prediction' },
-  { id: 'jira', title: 'Jira' },
-  { id: 'actions', title: 'Actions' },
-];
-
-const SINGLE_ACCESSORS: Record<number, (a: AggregatedItem) => string | number | null | undefined> = {
-  1: (a) => a.representative.name.split('.').pop() || a.representative.name,
-  2: (a) => a.representative.status,
-  3: (a) => a.representative.error_message,
-  4: (a) => a.representative.polarion_id,
-  5: (a) => a.representative.ai_prediction,
-  6: (a) => a.representative.jira_key,
-};
-
-const GROUP_ACCESSORS: Record<number, (a: AggregatedItem) => string | number | null | undefined> = {
-  1: (a) => a.representative.name.split('.').pop() || a.representative.name,
-  2: (a) => a.occurrences,
-  3: (a) => a.representative.status,
-  4: (a) => a.representative.error_message,
-  5: (a) => a.representative.polarion_id,
-  6: (a) => a.representative.ai_prediction,
-  7: (a) => a.representative.jira_key,
-};
 
 export const LaunchDetailPage: React.FC = () => {
   const { launchId } = useParams<{ launchId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const id = parseInt(launchId || '0');
+  const launchRpId = parseInt(launchId || '0');
   const launchIdsParam = searchParams.get('launches');
   const groupVersion = searchParams.get('version');
   const groupTier = searchParams.get('tier');
 
   const launchIds = useMemo(() => {
-    if (!launchIdsParam) return [id];
-    return launchIdsParam.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
-  }, [launchIdsParam, id]);
+    if (!launchIdsParam) return [launchRpId];
+    return launchIdsParam.split(',').map(segment => parseInt(segment.trim())).filter(parsed => !isNaN(parsed));
+  }, [launchIdsParam, launchRpId]);
 
   const isGroupMode = launchIds.length > 1;
+  const title = isGroupMode ? `${groupVersion ?? 'Unknown'} ${groupTier ?? ''} — ${launchIds.length} launches` : `Launch #${launchRpId}`;
 
-  const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
-  const [triageItem, setTriageItem] = useState<number[] | null>(null);
+  const [triageItemIds, setTriageItemIds] = useState<number[] | null>(null);
   const [jiraCreateItem, setJiraCreateItem] = useState<TestItem | null>(null);
-  const [jiraLinkItem, setJiraLinkItem] = useState<number | null>(null);
-
-  const title = isGroupMode
-    ? `${groupVersion ?? 'Unknown'} ${groupTier ?? ''} — ${launchIds.length} launches`
-    : `Launch #${id}`;
+  const [jiraLinkItemId, setJiraLinkItemId] = useState<number | null>(null);
 
   useEffect(() => { document.title = `${title} | CNV Console Monitor`; }, [title]);
 
-  const { data: config } = useQuery({
-    queryKey: ['config'],
-    queryFn: () => apiFetch<PublicConfig>('/config'),
-    staleTime: Infinity,
-  });
-
+  const { data: config } = useQuery({ queryKey: ['config'], queryFn: () => apiFetch<PublicConfig>('/config'), staleTime: Infinity });
   const { data: items, isLoading } = useQuery({
-    queryKey: isGroupMode ? ['testItems', 'group', ...launchIds] : ['testItems', id],
-    queryFn: () => isGroupMode ? fetchTestItemsForLaunches(launchIds) : fetchTestItems(id),
+    queryKey: isGroupMode ? ['testItems', 'group', ...launchIds] : ['testItems', launchRpId],
+    queryFn: () => isGroupMode ? fetchTestItemsForLaunches(launchIds) : fetchTestItems(launchRpId),
     enabled: launchIds.length > 0,
   });
 
-  const autoAnalysis = useMutation({ mutationFn: () => triggerAutoAnalysis(id) });
-  const patternAnalysis = useMutation({ mutationFn: () => triggerPatternAnalysis(id) });
-  const uniqueAnalysis = useMutation({ mutationFn: () => triggerUniqueErrorAnalysis(id) });
+  const autoAnalysis = useMutation({ mutationFn: () => triggerAutoAnalysis(launchRpId) });
+  const patternAnalysis = useMutation({ mutationFn: () => triggerPatternAnalysis(launchRpId) });
+  const uniqueAnalysis = useMutation({ mutationFn: () => triggerUniqueErrorAnalysis(launchRpId) });
 
-  const toggleExpand = (itemId: number) => {
-    setExpandedItems((prev) => {
-      const next = new Set(prev);
-      if (next.has(itemId)) next.delete(itemId);
-      else next.add(itemId);
-      return next;
-    });
-  };
-
-  const failedItems = useMemo(() => items?.filter((i) => i.status === 'FAILED') ?? [], [items]);
-  const passedItems = useMemo(() => items?.filter((i) => i.status === 'PASSED') ?? [], [items]);
-  const skippedItems = useMemo(() => items?.filter((i) => i.status === 'SKIPPED') ?? [], [items]);
+  const failedItems = useMemo(() => items?.filter((item) => item.status === 'FAILED') ?? [], [items]);
+  const passedItems = useMemo(() => items?.filter((item) => item.status === 'PASSED') ?? [], [items]);
+  const skippedItems = useMemo(() => items?.filter((item) => item.status === 'SKIPPED') ?? [], [items]);
 
   const displayItems = useMemo(() => {
     if (isGroupMode) return aggregateTestItems(failedItems);
     return failedItems.map(item => ({ representative: item, allRpIds: [item.rp_id], occurrences: 1 }));
   }, [isGroupMode, failedItems]);
 
-  const accessors = isGroupMode ? GROUP_ACCESSORS : SINGLE_ACCESSORS;
-  const { sorted, getSortParams } = useTableSort(displayItems, accessors, { index: 1, direction: SortByDirection.asc });
-
-  const [tableSearch, setTableSearch] = useState('');
-  const colMgmt = useColumnManagement('launchDetail', LAUNCH_COLUMNS);
-
-  const searchFiltered = useMemo(() => {
-    if (!tableSearch.trim()) return sorted;
-    const s = tableSearch.toLowerCase();
-    return sorted.filter(a => {
-      const item = a.representative;
-      return item.name.toLowerCase().includes(s)
-        || (item.error_message?.toLowerCase().includes(s) ?? false)
-        || (item.jira_key?.toLowerCase().includes(s) ?? false)
-        || (item.polarion_id?.toLowerCase().includes(s) ?? false);
-    });
-  }, [sorted, tableSearch]);
-
   return (
     <>
       <PageSection>
-        <Breadcrumb style={{ marginBottom: 16 }}>
-          <BreadcrumbItem onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>Dashboard</BreadcrumbItem>
+        <Breadcrumb className="app-breadcrumb">
+          <BreadcrumbItem onClick={() => navigate('/')} className="app-cursor-pointer">Dashboard</BreadcrumbItem>
           <BreadcrumbItem isActive>{title}</BreadcrumbItem>
         </Breadcrumb>
         <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }}>
@@ -162,7 +84,7 @@ export const LaunchDetailPage: React.FC = () => {
             <Content component="h1">
               {title}
               {!isGroupMode && config && (
-                <a href={`${config.rpLaunchBaseUrl}/${id}`} target="_blank" rel="noreferrer" aria-label="Open in ReportPortal" style={{ marginLeft: 12, fontSize: 14 }}>
+                <a href={`${config.rpLaunchBaseUrl}/${launchRpId}`} target="_blank" rel="noreferrer" aria-label="Open in ReportPortal" className="app-rp-link">
                   <ExternalLinkAltIcon /> ReportPortal
                 </a>
               )}
@@ -179,15 +101,9 @@ export const LaunchDetailPage: React.FC = () => {
             <FlexItem>
               <Toolbar>
                 <ToolbarContent>
-                  <ToolbarItem>
-                    <Button variant="secondary" icon={<SearchIcon />} onClick={() => autoAnalysis.mutate()} isLoading={autoAnalysis.isPending}>Auto-Analysis</Button>
-                  </ToolbarItem>
-                  <ToolbarItem>
-                    <Button variant="secondary" icon={<WrenchIcon />} onClick={() => patternAnalysis.mutate()} isLoading={patternAnalysis.isPending}>Pattern Analysis</Button>
-                  </ToolbarItem>
-                  <ToolbarItem>
-                    <Button variant="secondary" onClick={() => uniqueAnalysis.mutate()} isLoading={uniqueAnalysis.isPending}>Unique Error</Button>
-                  </ToolbarItem>
+                  <ToolbarItem><Button variant="secondary" icon={<SearchIcon />} onClick={() => autoAnalysis.mutate()} isLoading={autoAnalysis.isPending}>Auto-Analysis</Button></ToolbarItem>
+                  <ToolbarItem><Button variant="secondary" icon={<WrenchIcon />} onClick={() => patternAnalysis.mutate()} isLoading={patternAnalysis.isPending}>Pattern Analysis</Button></ToolbarItem>
+                  <ToolbarItem><Button variant="secondary" onClick={() => uniqueAnalysis.mutate()} isLoading={uniqueAnalysis.isPending}>Unique Error</Button></ToolbarItem>
                 </ToolbarContent>
               </Toolbar>
             </FlexItem>
@@ -196,185 +112,20 @@ export const LaunchDetailPage: React.FC = () => {
       </PageSection>
 
       <PageSection>
-        {isLoading ? (
-          <Spinner aria-label="Loading test items" />
-        ) : (
+        {isLoading ? <Spinner aria-label="Loading test items" /> : (
           <Card>
             <CardBody>
-              <TableToolbar
-                searchValue={tableSearch}
-                onSearchChange={setTableSearch}
-                searchPlaceholder="Search test items..."
-                resultCount={searchFiltered.length}
-                totalCount={displayItems.length}
-                columns={LAUNCH_COLUMNS}
-                visibleIds={colMgmt.visibleIds}
-                onSaveColumns={colMgmt.setColumns}
-                onResetColumns={colMgmt.resetColumns}
-              />
-              <div className="app-table-scroll">
-              <Table aria-label="Test items table" variant="compact" isStickyHeader>
-                <colgroup>
-                  <col style={{ width: '3%' }} />
-                </colgroup>
-                <Thead>
-                  <Tr>
-                    <Th />
-                    {colMgmt.isColumnVisible('testName') && <ThWithHelp label="Test Name" help="Short name of the test case (last segment of the full qualified name)." sort={getSortParams(1)} />}
-                    {isGroupMode && (
-                      <ThWithHelp label="Occurrences" help="Number of times this test failed across the launches in this group." sort={getSortParams(2)} />
-                    )}
-                    {colMgmt.isColumnVisible('status') && <ThWithHelp label="Status" help="Test result: FAILED, PASSED, or SKIPPED." sort={getSortParams(isGroupMode ? 3 : 2)} />}
-                    {colMgmt.isColumnVisible('error') && <ThWithHelp label="Error" help="First line of the error log from ReportPortal (truncated). Expand row for full logs." />}
-                    {colMgmt.isColumnVisible('polarion') && <ThWithHelp label="Polarion" help="Polarion test case ID linking this test to the test management system." sort={getSortParams(isGroupMode ? 5 : 4)} />}
-                    {colMgmt.isColumnVisible('defect') && <ThWithHelp label="AI Prediction" help="ReportPortal AI prediction of defect type (Product Bug, Automation Bug, System Issue) with confidence %." sort={getSortParams(isGroupMode ? 6 : 5)} />}
-                    {colMgmt.isColumnVisible('jira') && <ThWithHelp label="Jira" help="Linked Jira issue key and its current status. Click 'Bug' to create or 'Link' to associate." sort={getSortParams(isGroupMode ? 7 : 6)} />}
-                    {colMgmt.isColumnVisible('actions') && <ThWithHelp label="Actions" help="Classify: set defect type. Bug: create Jira issue. Link: associate existing Jira." />}
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  {searchFiltered.map(({ representative: item, allRpIds, occurrences }) => {
-                    const isExpanded = expandedItems.has(item.rp_id);
-                    const shortName = item.name.split('.').pop() || item.name;
-                    return (
-                      <React.Fragment key={item.unique_id ?? item.rp_id}>
-                        <Tr>
-                          <Td
-                            expand={{ isExpanded, onToggle: () => toggleExpand(item.rp_id), rowIndex: item.rp_id }}
-                          />
-                          {colMgmt.isColumnVisible('testName') && (
-                            <Td dataLabel="Test Name" className="app-cell-truncate">
-                              <Tooltip content={item.name}>
-                                {item.unique_id ? (
-                                  <Button variant="link" isInline size="sm" onClick={(e) => { e.stopPropagation(); navigate(`/test/${encodeURIComponent(item.unique_id!)}`); }}>
-                                    {shortName}
-                                  </Button>
-                                ) : <span>{shortName}</span>}
-                              </Tooltip>
-                            </Td>
-                          )}
-                          {isGroupMode && (
-                            <Td dataLabel="Occurrences" className="app-cell-nowrap">
-                              {occurrences > 1 ? (
-                                <Tooltip content={`Failed in ${occurrences} of ${launchIds.length} launches`}>
-                                  <Label color="orange" isCompact>{occurrences}x</Label>
-                                </Tooltip>
-                              ) : null}
-                            </Td>
-                          )}
-                          {colMgmt.isColumnVisible('status') && <Td dataLabel="Status" className="app-cell-nowrap"><StatusBadge status={item.status} /></Td>}
-                          {colMgmt.isColumnVisible('error') && (
-                            <Td dataLabel="Error" className="app-cell-truncate">
-                              {item.error_message && (
-                                <Tooltip content={item.error_message}>
-                                  <span className="app-text-xs app-text-muted">{item.error_message.split('\n')[0]}</span>
-                                </Tooltip>
-                              )}
-                            </Td>
-                          )}
-                          {colMgmt.isColumnVisible('polarion') && (
-                            <Td dataLabel="Polarion" className="app-cell-nowrap">
-                              {item.polarion_id && (
-                                <Label color="blue" isCompact>
-                                  {config?.polarionUrl ? (
-                                    <a href={`${config.polarionUrl}${item.polarion_id}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-                                      {item.polarion_id}
-                                    </a>
-                                  ) : item.polarion_id}
-                                </Label>
-                              )}
-                            </Td>
-                          )}
-                          {colMgmt.isColumnVisible('defect') && (
-                            <Td dataLabel="AI" className="app-cell-nowrap">
-                              {item.ai_prediction && (
-                                <Label
-                                  isCompact
-                                  color={item.ai_prediction.includes('Product') ? 'red' : item.ai_prediction.includes('System') ? 'orange' : 'grey'}
-                                >
-                                  {item.ai_prediction.replace('Predicted ', '')} {item.ai_confidence}%
-                                </Label>
-                              )}
-                            </Td>
-                          )}
-                          {colMgmt.isColumnVisible('jira') && (
-                            <Td dataLabel="Jira" className="app-cell-nowrap">
-                              {item.jira_key && (
-                                <Label color="blue" isCompact>
-                                  {config?.jiraUrl ? (
-                                    <a href={`${config.jiraUrl}/browse/${item.jira_key}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-                                      {item.jira_key}
-                                    </a>
-                                  ) : item.jira_key}
-                                  {' '}({item.jira_status})
-                                </Label>
-                              )}
-                            </Td>
-                          )}
-                          {colMgmt.isColumnVisible('actions') && (
-                            <Td dataLabel="Actions" className="app-cell-nowrap">
-                              <Flex flexWrap={{ default: 'nowrap' }}>
-                                <FlexItem>
-                                  <Button variant="link" isInline icon={<WrenchIcon />} onClick={() => setTriageItem(allRpIds)}>
-                                    Classify{occurrences > 1 ? ` (${occurrences})` : ''}
-                                  </Button>
-                                </FlexItem>
-                                <FlexItem>
-                                  <Button variant="link" isInline icon={<BugIcon />} onClick={() => setJiraCreateItem(item)}>Bug</Button>
-                                </FlexItem>
-                                <FlexItem>
-                                  <Button variant="link" isInline icon={<LinkIcon />} onClick={() => setJiraLinkItem(item.rp_id)}>Link</Button>
-                                </FlexItem>
-                              </Flex>
-                            </Td>
-                          )}
-                        </Tr>
-                        {isExpanded && (
-                          <Tr isExpanded>
-                            <Td colSpan={colMgmt.visibleColumns.length + (isGroupMode ? 2 : 1)} noPadding={false}>
-                              <ExpandableSection toggleText="Error Logs" isIndented>
-                                <LogViewer itemId={item.rp_id} />
-                              </ExpandableSection>
-                              {item.unique_id && (
-                                <ExpandableSection toggleText="Similar Failures History" isIndented>
-                                  <SimilarFailuresPanel uniqueId={item.unique_id} />
-                                </ExpandableSection>
-                              )}
-                            </Td>
-                          </Tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </Tbody>
-              </Table>
-              </div>
+              <TestItemsTable displayItems={displayItems} isGroupMode={isGroupMode} launchCount={launchIds.length} config={config} onNavigate={navigate} onTriage={setTriageItemIds} onCreateJira={setJiraCreateItem} onLinkJira={setJiraLinkItemId} />
             </CardBody>
           </Card>
         )}
       </PageSection>
 
-      {!isGroupMode && (
-        <PageSection>
-          <ArtifactsPanel launchId={id} />
-        </PageSection>
-      )}
+      {!isGroupMode && <PageSection><ArtifactsPanel launchId={launchRpId} /></PageSection>}
 
-      {triageItem && (
-        <TriageModal isOpen onClose={() => setTriageItem(null)} itemIds={triageItem} />
-      )}
-      {jiraCreateItem && (
-        <JiraCreateModal
-          isOpen
-          onClose={() => setJiraCreateItem(null)}
-          testItemId={jiraCreateItem.rp_id}
-          testName={jiraCreateItem.name}
-          polarionId={jiraCreateItem.polarion_id}
-        />
-      )}
-      {jiraLinkItem && (
-        <JiraLinkModal isOpen onClose={() => setJiraLinkItem(null)} testItemId={jiraLinkItem} />
-      )}
+      {triageItemIds && <TriageModal isOpen onClose={() => setTriageItemIds(null)} itemIds={triageItemIds} />}
+      {jiraCreateItem && <JiraCreateModal isOpen onClose={() => setJiraCreateItem(null)} testItemId={jiraCreateItem.rp_id} testName={jiraCreateItem.name} polarionId={jiraCreateItem.polarion_id} />}
+      {jiraLinkItemId && <JiraLinkModal isOpen onClose={() => setJiraLinkItemId(null)} testItemId={jiraLinkItemId} />}
     </>
   );
 };

@@ -9,14 +9,7 @@ export interface RetryOptions {
   retryableCheck?: (error: unknown) => boolean;
 }
 
-const DEFAULT_OPTIONS: Required<RetryOptions> = {
-  maxRetries: 3,
-  baseDelayMs: 1000,
-  maxDelayMs: 10000,
-  retryableCheck: isRetryableError,
-};
-
-function isRetryableError(error: unknown): boolean {
+const isRetryableError = (error: unknown): boolean => {
   if (error && typeof error === 'object') {
     const err = error as Record<string, unknown>;
     const code = err.code as string | undefined;
@@ -29,19 +22,26 @@ function isRetryableError(error: unknown): boolean {
     }
   }
   return false;
-}
+};
 
-function computeDelay(attempt: number, baseDelayMs: number, maxDelayMs: number): number {
+const DEFAULT_OPTIONS: Required<RetryOptions> = {
+  maxRetries: 3,
+  baseDelayMs: 1000,
+  maxDelayMs: 10000,
+  retryableCheck: isRetryableError,
+};
+
+const computeDelay = (attempt: number, baseDelayMs: number, maxDelayMs: number): number => {
   const jitter = Math.random() * 0.3 + 0.85;
   const delay = Math.min(baseDelayMs * Math.pow(2, attempt) * jitter, maxDelayMs);
   return Math.round(delay);
-}
+};
 
-export async function withRetry<T>(
+export const withRetry = async <T>(
   fn: () => Promise<T>,
   label: string,
   options?: RetryOptions,
-): Promise<T> {
+): Promise<T> => {
   const opts = { ...DEFAULT_OPTIONS, ...options };
 
   for (let attempt = 0; attempt <= opts.maxRetries; attempt++) {

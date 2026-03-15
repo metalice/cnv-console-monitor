@@ -14,6 +14,5 @@ export type ArtifactsResponse = {
   artifactsPageUrl: string | null;
 };
 
-export function fetchArtifacts(launchId: number): Promise<ArtifactsResponse> {
-  return apiFetch(`/artifacts/launch/${launchId}`);
-}
+export const fetchArtifacts = (launchId: number): Promise<ArtifactsResponse> =>
+  apiFetch(`/artifacts/launch/${launchId}`);

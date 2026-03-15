@@ -70,7 +70,7 @@ export const JiraCreateModal: React.FC<JiraCreateModalProps> = ({
             </>
           )}
         </Content>
-        <Content component="p" style={{ marginTop: 16, color: 'var(--pf-t--global--color--nonstatus--gray--text--on-gray--default)' }}>
+        <Content component="p" className="app-mt-md app-text-muted">
           If a matching issue already exists, it will be linked instead of creating a duplicate.
         </Content>
 
@@ -78,7 +78,7 @@ export const JiraCreateModal: React.FC<JiraCreateModalProps> = ({
           <Alert
             variant={mutation.data.existing ? 'info' : 'success'}
             title={mutation.data.existing ? 'Found existing issue' : 'Issue created'}
-            style={{ marginTop: 16 }}
+            className="app-mt-md"
           >
             <Content component="p">
               {jiraBrowseUrl ? (
@@ -93,7 +93,7 @@ export const JiraCreateModal: React.FC<JiraCreateModalProps> = ({
           </Alert>
         )}
         {mutation.isError && (
-          <Alert variant="danger" title={(mutation.error as Error).message} style={{ marginTop: 16 }} />
+          <Alert variant="danger" title={(mutation.error as Error).message} className="app-mt-md" />
         )}
       </ModalBody>
       <ModalFooter>

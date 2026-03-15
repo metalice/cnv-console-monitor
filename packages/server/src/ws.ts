@@ -9,7 +9,7 @@ const HEARTBEAT_INTERVAL_MS = 30000;
 let wss: WebSocketServer;
 let heartbeatTimer: ReturnType<typeof setInterval>;
 
-export function initWebSocket(server: Server): void {
+export const initWebSocket = (server: Server): void => {
   wss = new WebSocketServer({ server, path: '/ws' });
 
   wss.on('connection', (ws) => {
@@ -27,13 +27,13 @@ export function initWebSocket(server: Server): void {
 
   heartbeatTimer = setInterval(() => {
     for (const client of wss.clients) {
-      const ws = client as WebSocket & { isAlive: boolean };
-      if (!ws.isAlive) {
-        ws.terminate();
+      const socket = client as WebSocket & { isAlive: boolean };
+      if (!socket.isAlive) {
+        socket.terminate();
         continue;
       }
-      ws.isAlive = false;
-      ws.ping();
+      socket.isAlive = false;
+      socket.ping();
     }
   }, HEARTBEAT_INTERVAL_MS);
 
@@ -44,7 +44,7 @@ export function initWebSocket(server: Server): void {
   log.info('WebSocket server initialized with heartbeat');
 }
 
-export function broadcast(event: string): void {
+export const broadcast = (event: string): void => {
   if (!wss) return;
 
   const message = JSON.stringify({ event });

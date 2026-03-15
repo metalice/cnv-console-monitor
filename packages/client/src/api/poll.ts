@@ -2,6 +2,5 @@ import { apiPost } from './client';
 
 type PollResponse = { success: boolean; launches: number };
 
-export function triggerPollNow(): Promise<PollResponse> {
-  return apiPost('/poll/now', {});
-}
+export const triggerPollNow = (): Promise<PollResponse> =>
+  apiPost('/poll/now', {});
