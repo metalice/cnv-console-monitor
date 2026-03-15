@@ -19,14 +19,11 @@ type JiraSearchResult = {
   status: string;
 };
 
-export function createJiraBug(data: JiraCreateRequest): Promise<JiraCreateResponse> {
-  return apiPost('/jira/create', data);
-}
+export const createJiraBug = (data: JiraCreateRequest): Promise<JiraCreateResponse> =>
+  apiPost('/jira/create', data);
 
-export function linkJiraIssue(data: JiraLinkRequest): Promise<JiraLinkResponse> {
-  return apiPost('/jira/link', data);
-}
+export const linkJiraIssue = (data: JiraLinkRequest): Promise<JiraLinkResponse> =>
+  apiPost('/jira/link', data);
 
-export function searchJiraIssues(query: string): Promise<JiraSearchResult[]> {
-  return apiFetch(`/jira/search?q=${encodeURIComponent(query)}`);
-}
+export const searchJiraIssues = (query: string): Promise<JiraSearchResult[]> =>
+  apiFetch(`/jira/search?q=${encodeURIComponent(query)}`);

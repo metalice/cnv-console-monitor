@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodSchema, ZodError } from 'zod';
 
-export function parseIntParam(value: string | string[], name: string, res: Response): number | null {
+export const parseIntParam = (value: string | string[], name: string, res: Response): number | null => {
   const str = Array.isArray(value) ? value[0] : value;
   const parsed = parseInt(str, 10);
   if (Number.isNaN(parsed)) {
@@ -11,7 +11,7 @@ export function parseIntParam(value: string | string[], name: string, res: Respo
   return parsed;
 }
 
-export function validateBody(schema: ZodSchema) {
+export const validateBody = (schema: ZodSchema) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     try {
       req.body = schema.parse(req.body);
@@ -20,9 +20,9 @@ export function validateBody(schema: ZodSchema) {
       if (err instanceof ZodError) {
         res.status(400).json({
           error: 'Validation failed',
-          details: err.errors.map((e) => ({
-            path: e.path.join('.'),
-            message: e.message,
+          details: err.errors.map((zodError) => ({
+            path: zodError.path.join('.'),
+            message: zodError.message,
           })),
         });
         return;

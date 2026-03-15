@@ -7,7 +7,7 @@ import { broadcast } from '../../ws';
 
 const router = Router();
 
-function todayDate(): string {
+const todayDate = (): string => {
   return new Date().toISOString().split('T')[0];
 }
 
@@ -41,11 +41,11 @@ router.get('/stats', async (req: Request, res: Response, next: NextFunction) => 
     }
 
     res.json({
-      approvers: stats.map((s) => ({
-        reviewer: s.reviewer,
-        totalReviews: s.totalReviews,
-        lastReviewDate: s.lastReviewDate,
-        reviewedDates: reviewerDates.get(s.reviewer) ?? [],
+      approvers: stats.map((stat) => ({
+        reviewer: stat.reviewer,
+        totalReviews: stat.totalReviews,
+        lastReviewDate: stat.lastReviewDate,
+        reviewedDates: reviewerDates.get(stat.reviewer) ?? [],
       })),
       history: Array.from(dateMap.entries()).map(([date, reviewers]) => ({
         date,

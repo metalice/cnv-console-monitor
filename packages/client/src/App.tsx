@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { Bullseye, Spinner } from '@patternfly/react-core';
+import { PageSection, Spinner } from '@patternfly/react-core';
 import { AppLayout } from './components/layout/AppLayout';
 import { DashboardPage } from './pages/DashboardPage';
 
@@ -18,9 +18,11 @@ const ComparePage = React.lazy(() => import('./pages/ComparePage').then(m => ({ 
 const ReadinessPage = React.lazy(() => import('./pages/ReadinessPage').then(m => ({ default: m.ReadinessPage })));
 
 const PageFallback: React.FC = () => (
-  <Bullseye style={{ minHeight: 300 }}>
-    <Spinner aria-label="Loading page" />
-  </Bullseye>
+  <PageSection isFilled>
+    <div className="app-page-spinner">
+      <Spinner aria-label="Loading page" />
+    </div>
+  </PageSection>
 );
 
 const App: React.FC = () => (

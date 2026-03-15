@@ -6,7 +6,7 @@ const SHOW_DISCONNECTED_AFTER_MS = 5000;
 
 export type WebSocketStatus = 'connected' | 'disconnected' | 'connecting';
 
-export function useWebSocket(): WebSocketStatus {
+export const useWebSocket = (): WebSocketStatus => {
   const queryClient = useQueryClient();
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -14,7 +14,7 @@ export function useWebSocket(): WebSocketStatus {
   const [status, setStatus] = useState<WebSocketStatus>('connecting');
 
   useEffect(() => {
-    function connect(): void {
+    const connect = (): void => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const url = `${protocol}//${window.location.host}/ws`;
 

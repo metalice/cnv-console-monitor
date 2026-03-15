@@ -4,15 +4,14 @@ import { AngleLeftIcon, AngleRightIcon } from '@patternfly/react-icons';
 import { useDate, type LookbackMode } from '../../context/DateContext';
 import { usePreferences } from '../../context/PreferencesContext';
 
-function todayStr(): string {
-  return new Date().toISOString().split('T')[0];
-}
+const todayStr = (): string =>
+  new Date().toISOString().split('T')[0];
 
-function shiftDate(dateStr: string, days: number): string {
-  const d = new Date(dateStr + 'T12:00:00');
-  d.setDate(d.getDate() + days);
-  return d.toISOString().split('T')[0];
-}
+const shiftDate = (dateStr: string, days: number): string => {
+  const dateObj = new Date(dateStr + 'T12:00:00');
+  dateObj.setDate(dateObj.getDate() + days);
+  return dateObj.toISOString().split('T')[0];
+};
 
 const RANGE_BUTTONS: { mode: Exclude<LookbackMode, 'range'>; label: string }[] = [
   { mode: '24h', label: '24h' },
@@ -23,14 +22,6 @@ const RANGE_BUTTONS: { mode: Exclude<LookbackMode, 'range'>; label: string }[] =
   { mode: '6m', label: '6M' },
 ];
 
-const inputStyle: React.CSSProperties = {
-  padding: '4px 8px',
-  border: '1px solid var(--pf-t--global--border--color--default)',
-  borderRadius: 4,
-  fontSize: 13,
-  background: 'transparent',
-  color: 'inherit',
-};
 
 export const DateToolbar: React.FC = () => {
   const { dateFrom, dateTo, lookbackMode, setCustomRange, setLookbackMode } = useDate();
@@ -84,7 +75,7 @@ export const DateToolbar: React.FC = () => {
         </ToolbarItem>
       ))}
       <ToolbarItem>
-        <Divider orientation={{ default: 'vertical' }} style={{ margin: '0 4px' }} />
+        <Divider orientation={{ default: 'vertical' }} className="app-divider-vertical" />
       </ToolbarItem>
       <ToolbarItem>
         <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsXs' }}>
@@ -100,15 +91,15 @@ export const DateToolbar: React.FC = () => {
               defaultValue={dateFrom}
               max={dateTo}
               onChange={(e) => {
-                const val = e.target.value;
-                if (val && /^\d{4}-\d{2}-\d{2}$/.test(val) && val <= dateTo) {
-                  setCustomRange(val, dateTo);
+                const inputValue = e.target.value;
+                if (inputValue && /^\d{4}-\d{2}-\d{2}$/.test(inputValue) && inputValue <= dateTo) {
+                  setCustomRange(inputValue, dateTo);
                 }
               }}
-              style={inputStyle}
+              className="app-date-input"
             />
           </FlexItem>
-          <FlexItem style={{ fontSize: 13, opacity: 0.6 }}>—</FlexItem>
+          <FlexItem className="app-date-sep">—</FlexItem>
           <FlexItem>
             <input
               ref={toRef}
@@ -117,12 +108,12 @@ export const DateToolbar: React.FC = () => {
               min={dateFrom}
               max={todayStr()}
               onChange={(e) => {
-                const val = e.target.value;
-                if (val && /^\d{4}-\d{2}-\d{2}$/.test(val) && val >= dateFrom) {
-                  setCustomRange(dateFrom, val);
+                const inputValue = e.target.value;
+                if (inputValue && /^\d{4}-\d{2}-\d{2}$/.test(inputValue) && inputValue >= dateFrom) {
+                  setCustomRange(dateFrom, inputValue);
                 }
               }}
-              style={inputStyle}
+              className="app-date-input"
             />
           </FlexItem>
           <FlexItem>

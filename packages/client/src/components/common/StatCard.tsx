@@ -21,16 +21,16 @@ export const StatCard: React.FC<StatCardProps> = ({ value, label, help, color, o
     className={onClick ? 'app-cursor-pointer' : undefined}
   >
     <CardBody>
-      <Content component="h2" style={{ textAlign: 'center', color }}>
+      <Content component="h2" className="app-text-center" style={{ color }}>
         {value}
       </Content>
-      <Content component="small" style={{ textAlign: 'center', display: 'block' }}>
+      <Content component="small" className="app-text-block-center">
         {label}
         {help && (
           <>
             {' '}
             <Tooltip content={help}>
-              <OutlinedQuestionCircleIcon className="app-cursor-help" style={{ opacity: 0.5, fontSize: 'var(--pf-t--global--font--size--xs)' }} />
+              <OutlinedQuestionCircleIcon className="app-cursor-help app-help-icon-xs" />
             </Tooltip>
           </>
         )}

@@ -3,6 +3,8 @@ import https from 'https';
 import { config } from '../config';
 import { withRetry } from '../utils/retry';
 
+export { buildBugDescription } from './jira-helpers';
+
 export interface JiraIssue {
   key: string;
   id: string;
@@ -25,7 +27,7 @@ export interface JiraSearchResult {
 
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
-function createClient(): AxiosInstance {
+const createClient = (): AxiosInstance => {
   return axios.create({
     baseURL: `${config.jira.url}/rest/api/2`,
     headers: {
@@ -37,7 +39,7 @@ function createClient(): AxiosInstance {
   });
 }
 
-export async function searchIssues(jql: string, maxResults = 10): Promise<JiraSearchResult> {
+export const searchIssues = async (jql: string, maxResults = 10): Promise<JiraSearchResult> => {
   const client = createClient();
   const response = await withRetry(
     () => client.post('/search', {
@@ -50,7 +52,7 @@ export async function searchIssues(jql: string, maxResults = 10): Promise<JiraSe
   return response.data;
 }
 
-export async function findExistingIssue(testName: string, polarionId?: string): Promise<JiraIssue | null> {
+export const findExistingIssue = async (testName: string, polarionId?: string): Promise<JiraIssue | null> => {
   const searchTerms: string[] = [];
 
   if (polarionId) {
@@ -70,14 +72,14 @@ export async function findExistingIssue(testName: string, polarionId?: string): 
   }
 }
 
-export async function createIssue(params: {
+export const createIssue = async (params: {
   summary: string;
   description: string;
   labels?: string[];
   component?: string;
   rpLaunchUrl?: string;
   rpItemUrl?: string;
-}): Promise<JiraIssue> {
+}): Promise<JiraIssue> => {
   const client = createClient();
 
   const fields: Record<string, unknown> = {
@@ -127,7 +129,7 @@ export async function createIssue(params: {
   };
 }
 
-export async function getIssue(key: string): Promise<JiraIssue> {
+export const getIssue = async (key: string): Promise<JiraIssue> => {
   const client = createClient();
   const response = await withRetry(
     () => client.get(`/issue/${key}`, {
@@ -138,53 +140,11 @@ export async function getIssue(key: string): Promise<JiraIssue> {
   return response.data;
 }
 
-export async function getIssueStatus(key: string): Promise<string> {
+export const getIssueStatus = async (key: string): Promise<string> => {
   try {
     const issue = await getIssue(key);
     return issue.fields.status.name;
   } catch {
     return 'Unknown';
   }
-}
-
-export function buildBugDescription(params: {
-  testName: string;
-  polarionId?: string;
-  polarionUrl?: string;
-  launchName: string;
-  cnvVersion?: string;
-  ocpVersion?: string;
-  clusterName?: string;
-  errorMessage?: string;
-  rpLaunchUrl: string;
-  rpItemUrl: string;
-}): string {
-  const lines = [
-    `h2. Automated Test Failure`,
-    ``,
-    `*Test:* ${params.testName}`,
-  ];
-
-  if (params.polarionId) {
-    const polarionLink = params.polarionUrl
-      ? `[${params.polarionId}|${params.polarionUrl}${params.polarionId}]`
-      : params.polarionId;
-    lines.push(`*Polarion ID:* ${polarionLink}`);
-  }
-  lines.push(`*Launch:* ${params.launchName}`);
-  if (params.cnvVersion) lines.push(`*CNV Version:* ${params.cnvVersion}`);
-  if (params.ocpVersion) lines.push(`*OCP Version:* ${params.ocpVersion}`);
-  if (params.clusterName) lines.push(`*Cluster:* ${params.clusterName}`);
-  lines.push('');
-  lines.push(`*ReportPortal:* [Launch|${params.rpLaunchUrl}] | [Test Item|${params.rpItemUrl}]`);
-
-  if (params.errorMessage) {
-    lines.push('');
-    lines.push(`h3. Error`);
-    lines.push(`{code}`);
-    lines.push(params.errorMessage.substring(0, 3000));
-    lines.push(`{code}`);
-  }
-
-  return lines.join('\n');
 }

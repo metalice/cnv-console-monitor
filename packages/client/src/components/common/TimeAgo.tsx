@@ -11,7 +11,7 @@ export const TimeAgo: React.FC<TimeAgoProps> = ({ timestamp }) => {
 
   return (
     <Tooltip content={fullDate}>
-      <span style={{ cursor: 'help' }}>{timeAgo(timestamp)}</span>
+      <span className="app-cursor-help">{timeAgo(timestamp)}</span>
     </Tooltip>
   );
 };

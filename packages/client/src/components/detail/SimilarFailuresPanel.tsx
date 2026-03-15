@@ -37,7 +37,7 @@ export const SimilarFailuresPanel: React.FC<SimilarFailuresPanelProps> = ({ uniq
 
   return (
     <div>
-      <Content component="h4" style={{ marginBottom: 8 }}>
+      <Content component="h4" className="app-mb-sm">
         Recent History ({data.length} runs)
       </Content>
       <DescriptionList isHorizontal>
@@ -51,10 +51,10 @@ export const SimilarFailuresPanel: React.FC<SimilarFailuresPanelProps> = ({ uniq
                 {item.status}
               </Label>
               {item.defect_type && item.defect_type !== 'ti001' && (
-                <Label isCompact style={{ marginLeft: 8 }}>{item.defect_type}</Label>
+                <Label isCompact className="app-ml-sm">{item.defect_type}</Label>
               )}
               {item.jira_key && (
-                <Label color="blue" isCompact style={{ marginLeft: 8 }}>{item.jira_key}</Label>
+                <Label color="blue" isCompact className="app-ml-sm">{item.jira_key}</Label>
               )}
             </DescriptionListDescription>
           </DescriptionListGroup>

@@ -29,7 +29,7 @@ import readinessRouter from './routes/readiness';
 import myWorkRouter from './routes/myWork';
 import { errorHandler } from './middleware/errorHandler';
 
-export function createApp(): express.Application {
+export const createApp = (): express.Application => {
   const app = express();
 
   app.use(httpLogger);

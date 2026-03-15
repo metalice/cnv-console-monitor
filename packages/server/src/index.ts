@@ -10,7 +10,7 @@ import { getAllSubscriptions } from './db/store';
 
 const log = logger.child({ module: 'Main' });
 
-async function dispatchToSubscriptions(report: DailyReport): Promise<void> {
+const dispatchToSubscriptions = async (report: DailyReport): Promise<void> => {
   const subs = await getAllSubscriptions();
   if (subs.length === 0) {
     log.info('No subscriptions configured, skipping notifications');
@@ -21,16 +21,16 @@ async function dispatchToSubscriptions(report: DailyReport): Promise<void> {
     if (!sub.enabled) continue;
     const filtered: DailyReport = { ...report };
     if (sub.components.length > 0) {
-      filtered.groups = report.groups.filter(g => sub.components.includes(g.component ?? ''));
-      const filteredLaunches = filtered.groups.flatMap(g => g.launches);
+      filtered.groups = report.groups.filter(group => sub.components.includes(group.component ?? ''));
+      const filteredLaunches = filtered.groups.flatMap(group => group.launches);
       filtered.totalLaunches = filteredLaunches.length;
-      filtered.passedLaunches = filteredLaunches.filter(l => l.status === 'PASSED').length;
-      filtered.failedLaunches = filteredLaunches.filter(l => l.status === 'FAILED').length;
-      filtered.inProgressLaunches = filteredLaunches.filter(l => l.status === 'IN_PROGRESS').length;
+      filtered.passedLaunches = filteredLaunches.filter(launch => launch.status === 'PASSED').length;
+      filtered.failedLaunches = filteredLaunches.filter(launch => launch.status === 'FAILED').length;
+      filtered.inProgressLaunches = filteredLaunches.filter(launch => launch.status === 'IN_PROGRESS').length;
       filtered.overallHealth = filtered.failedLaunches > 0 ? 'red' : filtered.inProgressLaunches > 0 ? 'yellow' : 'green';
-      const filteredItemIds = new Set(filtered.groups.flatMap(g => g.failedItems.map(i => i.rp_id)));
-      filtered.newFailures = report.newFailures.filter(f => filteredItemIds.has(f.rp_id));
-      filtered.untriagedCount = filtered.groups.flatMap(g => g.failedItems).filter(i => !i.defect_type || i.defect_type === 'ti001' || i.defect_type?.startsWith('ti_')).length;
+      const filteredItemIds = new Set(filtered.groups.flatMap(group => group.failedItems.map(item => item.rp_id)));
+      filtered.newFailures = report.newFailures.filter(failure => filteredItemIds.has(failure.rp_id));
+      filtered.untriagedCount = filtered.groups.flatMap(group => group.failedItems).filter(item => !item.defect_type || item.defect_type === 'ti001' || item.defect_type?.startsWith('ti_')).length;
     }
 
     if (sub.slackWebhook) {
@@ -52,7 +52,7 @@ async function dispatchToSubscriptions(report: DailyReport): Promise<void> {
   }
 }
 
-async function main(): Promise<void> {
+const main = async (): Promise<void> => {
   log.info('Initializing database...');
   await AppDataSource.initialize();
   await AppDataSource.runMigrations();

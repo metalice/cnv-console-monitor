@@ -31,32 +31,32 @@ router.get('/launch/:launchId', async (req: Request, res: Response, next: NextFu
     const baseUrl = launch.artifacts_url.replace(/\/?$/, '/');
 
     const videos = artifacts
-      .filter(a => a.relativePath.includes('/videos/') && a.fileName.endsWith('.mp4'))
-      .map(a => ({
-        name: a.fileName,
-        testFile: a.fileName.replace('.mp4', ''),
-        url: `/api/artifacts/proxy?url=${encodeURIComponent(baseUrl + a.relativePath)}`,
+      .filter(artifact => artifact.relativePath.includes('/videos/') && artifact.fileName.endsWith('.mp4'))
+      .map(artifact => ({
+        name: artifact.fileName,
+        testFile: artifact.fileName.replace('.mp4', ''),
+        url: `/api/artifacts/proxy?url=${encodeURIComponent(baseUrl + artifact.relativePath)}`,
       }));
 
     const screenshots = artifacts
-      .filter(a => a.relativePath.includes('/screenshots/') && a.fileName.endsWith('.png'))
-      .map(a => {
-        const parts = a.relativePath.split('/screenshots/');
-        const relative = parts[1] || a.fileName;
+      .filter(artifact => artifact.relativePath.includes('/screenshots/') && artifact.fileName.endsWith('.png'))
+      .map(artifact => {
+        const parts = artifact.relativePath.split('/screenshots/');
+        const relative = parts[1] || artifact.fileName;
         const testFile = relative.split('/')[0];
         return {
-          name: a.fileName,
+          name: artifact.fileName,
           testFile,
           path: relative,
-          url: `/api/artifacts/proxy?url=${encodeURIComponent(baseUrl + a.relativePath)}`,
+          url: `/api/artifacts/proxy?url=${encodeURIComponent(baseUrl + artifact.relativePath)}`,
         };
       });
 
     const reports = artifacts
-      .filter(a => a.fileName.endsWith('.html') && a.fileName.includes('cypress'))
-      .map(a => ({
-        name: a.fileName,
-        url: `/api/artifacts/proxy?url=${encodeURIComponent(baseUrl + a.relativePath)}`,
+      .filter(artifact => artifact.fileName.endsWith('.html') && artifact.fileName.includes('cypress'))
+      .map(artifact => ({
+        name: artifact.fileName,
+        url: `/api/artifacts/proxy?url=${encodeURIComponent(baseUrl + artifact.relativePath)}`,
       }));
 
     res.json({

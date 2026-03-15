@@ -23,7 +23,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const parsed = CreateSubscriptionSchema.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.issues.map(i => i.message).join(', ') });
+      res.status(400).json({ error: parsed.error.issues.map(issue => issue.message).join(', ') });
       return;
     }
     const createdBy = req.user?.email || 'unknown';
@@ -46,7 +46,7 @@ router.put('/:id', requireOwnerOrAdmin(getSubscriptionOwner), async (req: Reques
 
     const parsed = UpdateSubscriptionSchema.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.issues.map(i => i.message).join(', ') });
+      res.status(400).json({ error: parsed.error.issues.map(issue => issue.message).join(', ') });
       return;
     }
 
@@ -80,7 +80,7 @@ router.post('/:id/test', requireOwnerOrAdmin(getSubscriptionOwner), async (req: 
     const report = await buildDailyReport(24);
     const filtered = { ...report };
     if (sub.components.length > 0) {
-      filtered.groups = report.groups.filter(g => sub.components.includes(g.component ?? ''));
+      filtered.groups = report.groups.filter(group => sub.components.includes(group.component ?? ''));
     }
 
     const results: string[] = [];

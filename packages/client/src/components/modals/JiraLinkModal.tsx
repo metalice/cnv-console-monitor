@@ -45,18 +45,18 @@ export const JiraLinkModal: React.FC<JiraLinkModalProps> = ({ isOpen, onClose, t
     },
   });
 
-  const handleSearch = useCallback((q: string) => {
-    setSearchQuery(q);
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
     clearTimeout(debounceRef.current);
 
-    if (q.length < 3) {
+    if (query.length < 3) {
       setSearchResults([]);
       return;
     }
 
     debounceRef.current = setTimeout(async () => {
       try {
-        const results = await searchJiraIssues(q);
+        const results = await searchJiraIssues(query);
         setSearchResults(results);
       } catch {
         setSearchResults([]);
@@ -72,31 +72,26 @@ export const JiraLinkModal: React.FC<JiraLinkModalProps> = ({ isOpen, onClose, t
           <FormGroup label="Jira Issue Key">
             <TextInput
               value={jiraKey}
-              onChange={(_e, val) => setJiraKey(val)}
+              onChange={(_e, inputValue) => setJiraKey(inputValue)}
               placeholder="e.g. CNV-12345"
             />
           </FormGroup>
           <FormGroup label="Or search">
             <TextInput
               value={searchQuery}
-              onChange={(_e, val) => handleSearch(val)}
+              onChange={(_e, inputValue) => handleSearch(inputValue)}
               placeholder="Search Jira issues..."
             />
             {searchResults.length > 0 && (
-              <div style={{ marginTop: 8, maxHeight: 200, overflow: 'auto' }}>
-                {searchResults.map((r) => (
+              <div className="app-jira-search-results">
+                {searchResults.map((result) => (
                   <div
-                    key={r.key}
-                    onClick={() => setJiraKey(r.key)}
-                    style={{
-                      padding: '8px 12px',
-                      cursor: 'pointer',
-                      borderBottom: '1px solid var(--pf-t--global--border--color--default)',
-                      background: jiraKey === r.key ? 'var(--pf-t--global--background--color--primary--default)' : undefined,
-                    }}
+                    key={result.key}
+                    onClick={() => setJiraKey(result.key)}
+                    className={`app-jira-search-item${jiraKey === result.key ? ' app-jira-search-item--selected' : ''}`}
                   >
-                    <strong>{r.key}</strong> — {r.summary}{' '}
-                    <Label isCompact>{r.status}</Label>
+                    <strong>{result.key}</strong> — {result.summary}{' '}
+                    <Label isCompact>{result.status}</Label>
                   </div>
                 ))}
               </div>

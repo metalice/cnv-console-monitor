@@ -23,7 +23,7 @@ const DEV_USER: User = {
 
 let loggedOnce = false;
 
-export async function extractUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+export const extractUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   if (!config.auth.enabled) {
     if (!loggedOnce) {
       log.warn('Authentication is DISABLED (AUTH_ENABLED=false)');
@@ -91,7 +91,7 @@ export async function extractUser(req: Request, res: Response, next: NextFunctio
   next();
 }
 
-export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+export const requireAdmin = (req: Request, res: Response, next: NextFunction): void => {
   if (!req.user || req.user.role !== 'admin') {
     res.status(403).json({ error: 'Admin access required' });
     return;
@@ -99,7 +99,7 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
   next();
 }
 
-export function requireOwnerOrAdmin(getOwnerId: (req: Request) => Promise<string | null>) {
+export const requireOwnerOrAdmin = (getOwnerId: (req: Request) => Promise<string | null>) => {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     if (req.user?.role === 'admin') {
       next();
@@ -116,7 +116,7 @@ export function requireOwnerOrAdmin(getOwnerId: (req: Request) => Promise<string
   };
 }
 
-export async function getSubscriptionOwner(req: Request): Promise<string | null> {
+export const getSubscriptionOwner = async (req: Request): Promise<string | null> => {
   const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) return null;
   const sub = await getSubscription(id);

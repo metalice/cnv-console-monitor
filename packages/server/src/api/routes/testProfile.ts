@@ -51,7 +51,7 @@ router.get('/:uniqueId', async (req: Request, res: Response, next: NextFunction)
           uniqueId,
           polarionId: (identityRow.polarion_id as string) ?? null,
           component: (identityRow.component as string) ?? null,
-          jiraKeys: jiraRows.map(r => r.jira_key),
+          jiraKeys: jiraRows.map(row => row.jira_key),
         }
       : { name: '', uniqueId, polarionId: null, component: null, jiraKeys: [] as string[] };
 
@@ -59,16 +59,16 @@ router.get('/:uniqueId', async (req: Request, res: Response, next: NextFunction)
       identity,
       streak,
       history,
-      affectedLaunches: (affectedLaunches as Array<Record<string, unknown>>).map(r => ({
-        rp_id: Number(r.rp_id),
-        name: r.name as string,
-        cnv_version: (r.cnv_version as string) ?? null,
-        ocp_version: (r.ocp_version as string) ?? null,
-        tier: (r.tier as string) ?? null,
-        cluster_name: (r.cluster_name as string) ?? null,
-        component: (r.component as string) ?? null,
-        start_time: Number(r.start_time),
-        status: r.status as string,
+      affectedLaunches: (affectedLaunches as Array<Record<string, unknown>>).map(row => ({
+        rp_id: Number(row.rp_id),
+        name: row.name as string,
+        cnv_version: (row.cnv_version as string) ?? null,
+        ocp_version: (row.ocp_version as string) ?? null,
+        tier: (row.tier as string) ?? null,
+        cluster_name: (row.cluster_name as string) ?? null,
+        component: (row.component as string) ?? null,
+        start_time: Number(row.start_time),
+        status: row.status as string,
       })),
       triageHistory,
     });

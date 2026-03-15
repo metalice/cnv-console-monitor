@@ -3,14 +3,11 @@ import { apiPost } from './client';
 
 export type TriageResult = { success: boolean };
 
-export function classifyDefect(itemId: number, data: TriageRequest): Promise<TriageResult> {
-  return apiPost(`/triage/${itemId}`, data);
-}
+export const classifyDefect = (itemId: number, data: TriageRequest): Promise<TriageResult> =>
+  apiPost(`/triage/${itemId}`, data);
 
-export function bulkClassifyDefect(data: BulkTriageRequest): Promise<TriageResult> {
-  return apiPost('/triage/bulk', data);
-}
+export const bulkClassifyDefect = (data: BulkTriageRequest): Promise<TriageResult> =>
+  apiPost('/triage/bulk', data);
 
-export function addComment(itemId: number, data: CommentRequest): Promise<TriageResult> {
-  return apiPost(`/triage/${itemId}/comment`, data);
-}
+export const addComment = (itemId: number, data: CommentRequest): Promise<TriageResult> =>
+  apiPost(`/triage/${itemId}/comment`, data);

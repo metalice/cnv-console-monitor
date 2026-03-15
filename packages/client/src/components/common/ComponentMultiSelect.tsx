@@ -33,9 +33,9 @@ export const ComponentMultiSelect: React.FC<ComponentMultiSelectProps> = ({
     return `${selected.size} ${itemLabel}`;
   }, [selected, placeholder, itemLabel]);
 
-  const toggle = (val: string) => {
+  const toggle = (option: string) => {
     const next = new Set(selected);
-    if (next.has(val)) next.delete(val); else next.add(val);
+    if (next.has(option)) next.delete(option); else next.add(option);
     onChange(next);
   };
 
@@ -47,17 +47,17 @@ export const ComponentMultiSelect: React.FC<ComponentMultiSelectProps> = ({
       isScrollable
       maxMenuHeight="240px"
       onOpenChange={setIsOpen}
-      onSelect={(_e, val) => toggle(val as string)}
+      onSelect={(_e, selected) => toggle(selected as string)}
       toggle={(ref) => (
-        <MenuToggle ref={ref} onClick={() => !isDisabled && setIsOpen(!isOpen)} isExpanded={isOpen} isDisabled={isDisabled} style={{ minWidth: 200 }}>
+        <MenuToggle ref={ref} onClick={() => !isDisabled && setIsOpen(!isOpen)} isExpanded={isOpen} isDisabled={isDisabled} className="app-min-w-200">
           {label}
         </MenuToggle>
       )}
     >
       <SelectList>
-        {options.map(comp => (
-          <SelectOption key={comp} value={comp} hasCheckbox isSelected={selected.has(comp)}>
-            {comp}
+        {options.map(component => (
+          <SelectOption key={component} value={component} hasCheckbox isSelected={selected.has(component)}>
+            {component}
           </SelectOption>
         ))}
       </SelectList>

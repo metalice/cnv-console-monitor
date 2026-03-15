@@ -51,6 +51,5 @@ export type TestProfile = {
   triageHistory: TriageEntry[];
 };
 
-export function fetchTestProfile(uniqueId: string): Promise<TestProfile> {
-  return apiFetch(`/test-profile/${encodeURIComponent(uniqueId)}`);
-}
+export const fetchTestProfile = (uniqueId: string): Promise<TestProfile> =>
+  apiFetch(`/test-profile/${encodeURIComponent(uniqueId)}`);

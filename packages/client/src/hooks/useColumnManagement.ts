@@ -7,7 +7,7 @@ export type ColumnDef = {
   isDefault?: boolean;
 };
 
-export function useColumnManagement(tableId: string, allColumns: ColumnDef[]) {
+export const useColumnManagement = (tableId: string, allColumns: ColumnDef[]) => {
   const { preferences, loaded, setPreference } = usePreferences();
 
   const defaultIds = useMemo(

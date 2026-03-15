@@ -8,11 +8,11 @@ type SortConfig = {
 
 type ColumnAccessor<T> = (item: T) => string | number | null | undefined;
 
-export function useTableSort<T>(
+export const useTableSort = <T,>(
   items: T[],
   accessors: Record<number, ColumnAccessor<T>>,
   defaultSort?: SortConfig,
-) {
+) => {
   const [sortBy, setSortBy] = useState<SortConfig>(defaultSort ?? { index: 0, direction: SortByDirection.asc });
 
   const onSort = useCallback((_event: React.MouseEvent, index: number, direction: SortByDirection) => {

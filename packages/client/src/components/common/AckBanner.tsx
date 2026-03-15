@@ -17,9 +17,8 @@ type AckBannerProps = {
   component?: string;
 };
 
-function todayStr(): string {
-  return new Date().toISOString().split('T')[0];
-}
+const todayStr = (): string =>
+  new Date().toISOString().split('T')[0];
 
 export const AckBanner: React.FC<AckBannerProps> = ({ onAcknowledge, component }) => {
   const queryClient = useQueryClient();
@@ -58,7 +57,7 @@ export const AckBanner: React.FC<AckBannerProps> = ({ onAcknowledge, component }
                   content={
                     <>
                       {ack.acknowledged_at && <div>{new Date(ack.acknowledged_at).toLocaleString()}</div>}
-                      {ack.notes && <div style={{ whiteSpace: 'pre-wrap' }}>{ack.notes}</div>}
+                      {ack.notes && <div className="app-white-space-pre">{ack.notes}</div>}
                     </>
                   }
                 >

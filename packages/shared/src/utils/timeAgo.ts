@@ -1,4 +1,4 @@
-export function timeAgo(ms: number): string {
+export const timeAgo = (ms: number): string => {
   const seconds = Math.floor((Date.now() - ms) / 1000);
   if (seconds < 0) return 'just now';
   if (seconds < 60) return `${seconds}s ago`;

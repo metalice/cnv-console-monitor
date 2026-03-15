@@ -20,7 +20,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     for (const row of subscriptionRows) {
       try {
         const parsed: string[] = JSON.parse(row.components || '[]');
-        for (const c of parsed) componentSet.add(c);
+        for (const comp of parsed) componentSet.add(comp);
       } catch {
         // malformed components JSON – skip
       }
@@ -89,10 +89,10 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
          LIMIT 10`,
         [...myComponents, sinceMs],
       );
-      suggestedWork = suggestedWork.map(r => ({
-        ...r,
-        occurrences: Number(r.occurrences),
-        consecutiveFailures: Number(r.consecutiveFailures),
+      suggestedWork = suggestedWork.map(row => ({
+        ...row,
+        occurrences: Number(row.occurrences),
+        consecutiveFailures: Number(row.consecutiveFailures),
       }));
     }
 

@@ -6,8 +6,11 @@
 .app-mb-xl { margin-bottom: var(--pf-t--global--spacer--xl); }
 .app-mt-sm { margin-top: var(--pf-t--global--spacer--sm); }
 .app-mt-md { margin-top: var(--pf-t--global--spacer--md); }
+.app-ml-xs { margin-left: var(--pf-t--global--spacer--xs); }
 .app-ml-sm { margin-left: var(--pf-t--global--spacer--sm); }
+.app-ml-md { margin-left: var(--pf-t--global--spacer--md); }
 .app-mr-sm { margin-right: var(--pf-t--global--spacer--sm); }
+.app-mb-xs { margin-bottom: var(--pf-t--global--spacer--xs); }
 .app-p-lg { padding: var(--pf-t--global--spacer--lg); }
 
 .app-text-muted { color: var(--pf-t--global--text--color--subtle); }
@@ -226,3 +229,255 @@
 .app-activity-note-line {
   padding: 2px 0;
 }
+
+.app-col-narrow { width: 3%; }
+
+.app-error-tooltip {
+  max-height: 200px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-family: var(--pf-t--global--font--family--mono);
+  font-size: var(--pf-t--global--font--size--xs);
+}
+
+.app-breadcrumb { margin-bottom: var(--pf-t--global--spacer--md); }
+
+.app-rp-link {
+  margin-left: var(--pf-t--global--spacer--md);
+  font-size: var(--pf-t--global--font--size--sm);
+}
+
+/* ─── Sizing & overflow ─── */
+
+.app-min-w-200 { min-width: 200px; }
+.app-min-w-120 { min-width: 120px; }
+.app-min-w-100 { min-width: 100px; }
+.app-min-w-80 { min-width: 80px; }
+.app-min-w-70 { min-width: 70px; }
+.app-min-w-22 { min-width: 22px; }
+.app-min-h-100 { min-height: 100px; }
+.app-min-h-200 { min-height: 200px; }
+.app-min-h-300 { min-height: 300px; }
+.app-max-w-350 { max-width: 350px; }
+.app-max-w-250 { max-width: 250px; }
+.app-max-w-150 { max-width: 150px; }
+.app-max-w-120 { max-width: 120px; }
+.app-max-h-200 { max-height: 200px; overflow: auto; }
+.app-max-h-300 { max-height: 300px; overflow: auto; }
+.app-max-h-400 { max-height: 400px; overflow: auto; }
+.app-max-h-420 { max-height: 420px; overflow: auto; }
+.app-w-100 { width: 100px; }
+.app-w-80 { width: 80px; }
+.app-w-60 { width: 60px; }
+.app-w-90 { width: 90px; }
+.app-w-full { width: 100%; }
+.app-full-height { height: 100vh; }
+
+/* Full-page centered spinner inside a PageSection isFilled */
+.app-page-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+.app-overflow-x-auto { overflow-x: auto; }
+.app-flex-1 { flex: 1; }
+
+/* ─── Chart containers ─── */
+
+.app-chart-container { height: 350px; width: 100%; }
+.app-chart-container-sm { height: 300px; width: 100%; }
+
+/* ─── Text & typography ─── */
+
+.app-white-space-pre { white-space: pre-wrap; }
+.app-white-space-pre-line { white-space: pre-line; }
+.app-word-break-all { word-break: break-all; }
+.app-text-line-through { text-decoration: line-through; }
+.app-text-left { text-align: left; }
+.app-text-no-decoration { text-decoration: none; color: inherit; }
+.app-font-xs { font-size: var(--pf-t--global--font--size--xs); }
+.app-font-11 { font-size: 11px; }
+.app-font-12 { font-size: 12px; }
+.app-font-13 { font-size: 13px; }
+.app-font-14 { font-size: 14px; }
+.app-font-16 { font-size: 16px; }
+.app-font-22 { font-size: 22px; }
+.app-font-bold { font-weight: 600; }
+.app-font-bolder { font-weight: 700; }
+.app-text-danger { color: var(--pf-t--global--color--status--danger--default); }
+.app-opacity-half { opacity: 0.5; }
+.app-opacity-dim { opacity: 0.7; }
+
+/* ─── Layout helpers ─── */
+
+.app-text-block-center { text-align: center; display: block; }
+.app-stat-wrapper { text-align: center; min-width: 70px; cursor: help; }
+.app-inline-flex-center { display: inline-flex; align-items: center; gap: 6px; }
+.app-flex-gap-md { display: flex; gap: var(--pf-t--global--spacer--md); }
+
+/* ─── Masthead ─── */
+
+.app-masthead-brand { text-decoration: none; color: inherit; font-size: 16px; font-weight: 600; white-space: nowrap; }
+.app-masthead-user { display: flex; align-items: center; gap: 8px; color: var(--pf-t--global--color--nonstatus--gray--text--on-filled--default); }
+.app-masthead-admin-badge { font-size: 10px; opacity: 0.7; }
+
+/* ─── Screenshots & videos ─── */
+
+.app-screenshot-thumb { cursor: pointer; border: 1px solid var(--pf-t--global--border--color--default); border-radius: 4px; overflow: hidden; }
+.app-screenshot-img { width: 100%; height: 140px; object-fit: cover; display: block; }
+.app-screenshot-img-full { width: 100%; border-radius: 4px; }
+.app-screenshot-label { padding: 6px 8px; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-video-player { width: 100%; max-width: 800px; border-radius: 4px; border: 1px solid var(--pf-t--global--border--color--default); }
+
+/* ─── Heatmap table ─── */
+
+.app-heatmap-table { border-collapse: collapse; font-size: 12px; width: 100%; }
+.app-heatmap-th-test { text-align: left; padding: 4px 8px; min-width: 200px; }
+.app-heatmap-th-date { padding: 4px 2px; text-align: center; font-size: 10px; white-space: nowrap; }
+.app-heatmap-th-total { padding: 4px 8px; text-align: center; }
+.app-heatmap-td-name { padding: 3px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px; }
+.app-heatmap-td-cell { padding: 3px 2px; text-align: center; }
+.app-heatmap-dot { display: inline-block; width: 14px; height: 14px; border-radius: 2px; cursor: default; }
+.app-heatmap-td-total { padding: 3px 8px; text-align: center; font-weight: 600; }
+.app-heatmap-sticky {
+  position: sticky;
+  left: 0;
+  background: var(--pf-t--global--background--color--primary--default);
+}
+
+/* ─── Time input styling ─── */
+
+.app-time-input {
+  padding: 4px 8px;
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+}
+
+.app-time-input-sm {
+  padding: 3px 6px;
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  width: 90px;
+}
+
+/* ─── Day button (schedule inline editor) ─── */
+
+.app-day-button { padding: 2px 5px; min-width: 22px; font-size: 11px; }
+
+/* ─── Date input ─── */
+
+.app-date-input {
+  padding: 4px 8px;
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: 4px;
+  font-size: 13px;
+  background: transparent;
+  color: inherit;
+}
+
+.app-date-sep { font-size: 13px; opacity: 0.6; }
+
+/* ─── Expanded row & history ─── */
+
+.app-expanded-row {
+  background: var(--pf-t--global--background--color--secondary--default);
+  padding: var(--pf-t--global--spacer--md);
+}
+
+.app-ack-notes {
+  white-space: pre-wrap;
+  font-size: var(--pf-t--global--font--size--sm);
+  font-family: var(--pf-t--global--font--family--mono);
+  margin: 0;
+}
+
+.app-history-row {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+}
+
+.app-date-col { width: 100px; }
+
+/* ─── Cluster progress bar ─── */
+
+.app-cluster-bar-track {
+  width: 100%;
+  max-width: 150px;
+  height: 6px;
+  background: var(--pf-t--global--border--color--default);
+  border-radius: 3px;
+  margin-top: 4px;
+}
+
+/* ─── Checklist mini-progress ─── */
+
+.app-checklist-bar-track {
+  width: 80px;
+  height: 8px;
+  background: var(--pf-t--global--border--color--default);
+  border-radius: 4px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* ─── Component health card ─── */
+
+.app-health-card {
+  cursor: pointer;
+  margin-bottom: var(--pf-t--global--spacer--md);
+}
+
+.app-health-name-col { min-width: 220px; }
+.app-health-rate-col { min-width: 180px; }
+.app-health-component-name { font-size: 16px; font-weight: 600; }
+.app-health-label-big { font-size: 22px; padding: 4px 14px; font-weight: 700; }
+.app-health-progress-track { height: 8px; }
+.app-health-stat-value { font-size: 22px; font-weight: 700; }
+.app-health-stat-label { font-size: 11px; white-space: nowrap; }
+
+/* ─── Streak cells (test profile) ─── */
+
+.app-streak-cell {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  margin: 1px;
+}
+
+/* ─── Jira search results ─── */
+
+.app-jira-search-results { margin-top: 8px; max-height: 200px; overflow: auto; }
+.app-jira-search-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+}
+.app-jira-search-item--selected { background: var(--pf-t--global--background--color--primary--default); }
+
+/* ─── Misc component patterns ─── */
+
+.app-mono-sm {
+  font-family: var(--pf-t--global--font--family--mono);
+  font-size: var(--pf-t--global--font--size--xs);
+}
+
+.app-help-icon { cursor: help; opacity: 0.5; font-size: 12px; }
+.app-help-icon-xs { opacity: 0.5; font-size: var(--pf-t--global--font--size--xs); }
+.app-divider-vertical { margin: 0 4px; }
+.app-section-heading { margin-bottom: 16px; }
+.app-section-subheading { margin-bottom: 12px; }
+
+/* ─── Release history dropdown ─── */
+
+.app-release-history { font-size: 12px; max-height: 200px; overflow: auto; }
+
+/* ─── Tooltip content ─── */
+
+.app-tooltip-pre { text-align: left; white-space: pre-line; }

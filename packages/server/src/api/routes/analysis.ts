@@ -14,7 +14,7 @@ const log = logger.child({ module: 'Analysis' });
 
 const REFRESH_DELAY_MS = 10_000;
 
-function scheduleRefresh(launchId: number, type: string): void {
+const scheduleRefresh = (launchId: number, type: string): void => {
   setTimeout(async () => {
     try {
       log.info({ launchId, type }, 'Refreshing test items after analysis');

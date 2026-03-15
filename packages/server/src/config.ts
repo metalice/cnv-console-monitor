@@ -5,7 +5,7 @@ dotenv.config({ path: path.resolve(__dirname, '..', '..', '..', '.env') });
 
 export let startedAt = Date.now();
 export let lastPollAt: number | null = null;
-export function setLastPollAt(ts: number): void { lastPollAt = ts; }
+export const setLastPollAt = (ts: number): void => { lastPollAt = ts; };
 
 export const config = {
   reportportal: {
@@ -69,28 +69,28 @@ export const config = {
   },
 };
 
-const SETTINGS_MAP: Record<string, (val: string) => void> = {
-  'reportportal.url': (v) => { config.reportportal.url = v; },
-  'reportportal.project': (v) => { config.reportportal.project = v; },
-  'reportportal.token': (v) => { config.reportportal.token = v; },
-  'email.from': (v) => { config.email.from = v; },
-  'email.host': (v) => { config.email.host = v; config.email.enabled = !!v; },
-  'email.user': (v) => { config.email.user = v; },
-  'email.pass': (v) => { config.email.pass = v; },
-  'schedule.pollIntervalMinutes': (v) => { config.schedule.pollIntervalMinutes = parseInt(v, 10); },
-  'schedule.timezone': (v) => { config.schedule.timezone = v; },
-  'schedule.initialLookbackDays': (v) => { config.schedule.initialLookbackDays = parseInt(v, 10); },
-  'dashboard.url': (v) => { config.dashboard.url = v; },
-  'polarion.url': (v) => { config.polarion.url = v; },
-  'jira.url': (v) => { config.jira.url = v; config.jira.enabled = !!v; },
-  'jira.projectKey': (v) => { config.jira.projectKey = v; },
-  'jira.issueType': (v) => { config.jira.issueType = v; },
+const SETTINGS_MAP: Record<string, (settingValue: string) => void> = {
+  'reportportal.url': (settingValue) => { config.reportportal.url = settingValue; },
+  'reportportal.project': (settingValue) => { config.reportportal.project = settingValue; },
+  'reportportal.token': (settingValue) => { config.reportportal.token = settingValue; },
+  'email.from': (settingValue) => { config.email.from = settingValue; },
+  'email.host': (settingValue) => { config.email.host = settingValue; config.email.enabled = !!settingValue; },
+  'email.user': (settingValue) => { config.email.user = settingValue; },
+  'email.pass': (settingValue) => { config.email.pass = settingValue; },
+  'schedule.pollIntervalMinutes': (settingValue) => { config.schedule.pollIntervalMinutes = parseInt(settingValue, 10); },
+  'schedule.timezone': (settingValue) => { config.schedule.timezone = settingValue; },
+  'schedule.initialLookbackDays': (settingValue) => { config.schedule.initialLookbackDays = parseInt(settingValue, 10); },
+  'dashboard.url': (settingValue) => { config.dashboard.url = settingValue; },
+  'polarion.url': (settingValue) => { config.polarion.url = settingValue; },
+  'jira.url': (settingValue) => { config.jira.url = settingValue; config.jira.enabled = !!settingValue; },
+  'jira.projectKey': (settingValue) => { config.jira.projectKey = settingValue; },
+  'jira.issueType': (settingValue) => { config.jira.issueType = settingValue; },
   'jira.component': () => {},
-  'jira.token': (v) => { config.jira.token = v; },
-  'slack.jiraWebhookUrl': (v) => { config.slack.jiraWebhookUrl = v; },
+  'jira.token': (settingValue) => { config.jira.token = settingValue; },
+  'slack.jiraWebhookUrl': (settingValue) => { config.slack.jiraWebhookUrl = settingValue; },
 };
 
-export function applySettingsOverrides(dbSettings: Record<string, string>): void {
+export const applySettingsOverrides = (dbSettings: Record<string, string>): void => {
   for (const [key, value] of Object.entries(dbSettings)) {
     const setter = SETTINGS_MAP[key];
     if (setter) setter(value);
