@@ -203,3 +203,26 @@
   flex-wrap: nowrap;
   gap: 0;
 }
+
+/* Activity feed items */
+.app-activity-item {
+  padding: var(--pf-t--global--spacer--sm) 0;
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+}
+
+.app-activity-item:last-child {
+  border-bottom: none;
+}
+
+.app-activity-notes {
+  margin-top: var(--pf-t--global--spacer--xs);
+  margin-left: var(--pf-t--global--spacer--xl);
+  padding: var(--pf-t--global--spacer--xs) var(--pf-t--global--spacer--sm);
+  border-left: 3px solid var(--pf-t--global--border--color--default);
+  font-size: var(--pf-t--global--font--size--xs);
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.app-activity-note-line {
+  padding: 2px 0;
+}

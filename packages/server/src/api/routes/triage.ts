@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { TriageRequestSchema, CommentRequestSchema, BulkTriageRequestSchema } from '@cnv-monitor/shared';
-import { getTestItemByRpId, updateTestItemDefect, addTriageLog } from '../../db/store';
+import { getTestItemByRpId, updateTestItemDefect, addTriageLog, getLaunchByRpId } from '../../db/store';
 import { updateDefectType, addTestItemComment } from '../../clients/reportportal';
 import { validateBody, parseIntParam } from '../middleware/validate';
 import { broadcast } from '../../ws';
@@ -21,6 +21,8 @@ router.post('/:itemId', validateBody(TriageRequestSchema), async (req: Request, 
       return;
     }
 
+    const launch = await getLaunchByRpId(existing.launch_rp_id);
+
     await updateDefectType([itemId], defectType, comment);
     await updateTestItemDefect(itemId, defectType, comment || '');
 
@@ -30,6 +32,7 @@ router.post('/:itemId', validateBody(TriageRequestSchema), async (req: Request, 
       old_value: existing.defect_type || 'unset',
       new_value: defectType,
       performed_by: performedBy,
+      component: launch?.component,
     });
 
     broadcast('data-updated');
@@ -48,6 +51,7 @@ router.post('/bulk', validateBody(BulkTriageRequestSchema), async (req: Request,
 
     for (const itemId of itemIds) {
       const existing = await getTestItemByRpId(itemId);
+      const launch = existing ? await getLaunchByRpId(existing.launch_rp_id) : undefined;
       await updateTestItemDefect(itemId, defectType, comment || '');
       await addTriageLog({
         test_item_rp_id: itemId,
@@ -55,6 +59,7 @@ router.post('/bulk', validateBody(BulkTriageRequestSchema), async (req: Request,
         old_value: existing?.defect_type || 'unset',
         new_value: defectType,
         performed_by: performedBy,
+        component: launch?.component,
       });
     }
 
@@ -73,6 +78,9 @@ router.post('/:itemId/comment', validateBody(CommentRequestSchema), async (req: 
     const { comment } = req.body;
     const performedBy = req.user?.email || req.body.performedBy || 'unknown';
 
+    const item = await getTestItemByRpId(itemId);
+    const launch = item ? await getLaunchByRpId(item.launch_rp_id) : undefined;
+
     await addTestItemComment(itemId, comment);
 
     await addTriageLog({
@@ -80,6 +88,7 @@ router.post('/:itemId/comment', validateBody(CommentRequestSchema), async (req: 
       action: 'add_comment',
       new_value: comment,
       performed_by: performedBy,
+      component: launch?.component,
     });
 
     broadcast('data-updated');

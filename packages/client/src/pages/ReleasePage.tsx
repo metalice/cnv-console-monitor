@@ -11,8 +11,6 @@ import {
   FlexItem,
   Spinner,
   ExpandableSection,
-  Toolbar,
-  ToolbarContent,
   ToolbarItem,
   ToggleGroup,
   ToggleGroupItem,
@@ -308,48 +306,6 @@ export const ReleasePage: React.FC = () => {
         <Card>
           <CardTitle>Release Checklist</CardTitle>
           <CardBody>
-            <Toolbar>
-              <ToolbarContent>
-                <ToolbarItem>
-                  <ComponentMultiSelect
-                    id="cl-component"
-                    selected={selectedChecklistComps}
-                    options={jiraComponents ?? []}
-                    onChange={setSelectedChecklistComps}
-                  />
-                </ToolbarItem>
-                <ToolbarItem>
-                  <ToggleGroup>
-                    <ToggleGroupItem text="Open" isSelected={checklistStatus === 'open'} onChange={() => setChecklistStatus('open')} />
-                    <ToggleGroupItem text="All" isSelected={checklistStatus === 'all'} onChange={() => setChecklistStatus('all')} />
-                  </ToggleGroup>
-                </ToolbarItem>
-                {availableVersions.length > 0 && (
-                  <ToolbarItem>
-                    <Select
-                      role="menu"
-                      isOpen={versionFilterOpen}
-                      onOpenChange={setVersionFilterOpen}
-                      onSelect={(_e, val) => toggleVersion(val as string)}
-                      toggle={(ref) => (
-                        <MenuToggle ref={ref} onClick={() => setVersionFilterOpen(!versionFilterOpen)} isExpanded={versionFilterOpen}>
-                          {versionFilterLabel}
-                        </MenuToggle>
-                      )}
-                    >
-                      <SelectList>
-                        {availableVersions.map(ver => (
-                          <SelectOption key={ver} value={ver} hasCheckbox isSelected={selectedVersions.has(ver)}>
-                            {ver}
-                          </SelectOption>
-                        ))}
-                      </SelectList>
-                    </Select>
-                  </ToolbarItem>
-                )}
-              </ToolbarContent>
-            </Toolbar>
-
             <TableToolbar
               searchValue={checklistSearch}
               onSearchChange={setChecklistSearch}
@@ -360,7 +316,45 @@ export const ReleasePage: React.FC = () => {
               visibleIds={checklistColMgmt.visibleIds}
               onSaveColumns={checklistColMgmt.setColumns}
               onResetColumns={checklistColMgmt.resetColumns}
-            />
+            >
+              <ToolbarItem>
+                <ComponentMultiSelect
+                  id="cl-component"
+                  selected={selectedChecklistComps}
+                  options={jiraComponents ?? []}
+                  onChange={setSelectedChecklistComps}
+                />
+              </ToolbarItem>
+              <ToolbarItem>
+                <ToggleGroup>
+                  <ToggleGroupItem text="Open" isSelected={checklistStatus === 'open'} onChange={() => setChecklistStatus('open')} />
+                  <ToggleGroupItem text="All" isSelected={checklistStatus === 'all'} onChange={() => setChecklistStatus('all')} />
+                </ToggleGroup>
+              </ToolbarItem>
+              {availableVersions.length > 0 && (
+                <ToolbarItem>
+                  <Select
+                    role="menu"
+                    isOpen={versionFilterOpen}
+                    onOpenChange={setVersionFilterOpen}
+                    onSelect={(_e, val) => toggleVersion(val as string)}
+                    toggle={(ref) => (
+                      <MenuToggle ref={ref} onClick={() => setVersionFilterOpen(!versionFilterOpen)} isExpanded={versionFilterOpen}>
+                        {versionFilterLabel}
+                      </MenuToggle>
+                    )}
+                  >
+                    <SelectList>
+                      {availableVersions.map(ver => (
+                        <SelectOption key={ver} value={ver} hasCheckbox isSelected={selectedVersions.has(ver)}>
+                          {ver}
+                        </SelectOption>
+                      ))}
+                    </SelectList>
+                  </Select>
+                </ToolbarItem>
+              )}
+            </TableToolbar>
 
             {clError ? (
               <Alert variant="danger" isInline title="Failed to load release checklist" className="app-mb-md">

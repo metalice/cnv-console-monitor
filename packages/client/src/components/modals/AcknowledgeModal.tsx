@@ -22,9 +22,10 @@ type AcknowledgeModalProps = {
   isOpen: boolean;
   onClose: () => void;
   groups: LaunchGroup[];
+  component?: string;
 };
 
-export const AcknowledgeModal: React.FC<AcknowledgeModalProps> = ({ isOpen, onClose, groups }) => {
+export const AcknowledgeModal: React.FC<AcknowledgeModalProps> = ({ isOpen, onClose, groups, component }) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
@@ -67,7 +68,7 @@ export const AcknowledgeModal: React.FC<AcknowledgeModalProps> = ({ isOpen, onCl
         jiraKey: t.jiraKey,
         note: notes[t.name] || '',
       }));
-      return submitAcknowledgment({ reviewer: user.name, testNotes });
+      return submitAcknowledgment({ reviewer: user.name, testNotes, component });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['acknowledgment'] });
