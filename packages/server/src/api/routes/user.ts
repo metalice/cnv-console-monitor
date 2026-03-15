@@ -11,7 +11,9 @@ const PreferencesSchema = z.object({
   theme: z.enum(['light', 'dark', 'auto']).optional(),
   sidebarCollapsed: z.boolean().optional(),
   tableColumns: z.record(z.array(z.string())).optional(),
-}).strict();
+}).passthrough();
+
+const DEPRECATED_KEYS = ['dashboardComponent'];
 
 const router = Router();
 
@@ -27,6 +29,7 @@ router.get('/preferences', async (req: Request, res: Response, next: NextFunctio
   try {
     if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
     const prefs = await getUserPreferences(req.user.email);
+    for (const key of DEPRECATED_KEYS) delete (prefs as Record<string, unknown>)[key];
     res.json(prefs);
   } catch (err) {
     next(err);
@@ -43,6 +46,7 @@ router.put('/preferences', async (req: Request, res: Response, next: NextFunctio
     }
     const existing = await getUserPreferences(req.user.email);
     const merged = { ...existing, ...parsed.data };
+    for (const key of DEPRECATED_KEYS) delete (merged as Record<string, unknown>)[key];
     await setUserPreferences(req.user.email, merged);
     res.json(merged);
   } catch (err) {

@@ -11,6 +11,9 @@ type ComponentMultiSelectProps = {
   selected: Set<string>;
   options: string[];
   onChange: (selected: Set<string>) => void;
+  placeholder?: string;
+  itemLabel?: string;
+  isDisabled?: boolean;
 };
 
 export const ComponentMultiSelect: React.FC<ComponentMultiSelectProps> = ({
@@ -18,14 +21,17 @@ export const ComponentMultiSelect: React.FC<ComponentMultiSelectProps> = ({
   selected,
   options,
   onChange,
+  placeholder = 'All Components',
+  itemLabel = 'components',
+  isDisabled,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const label = useMemo(() => {
-    if (selected.size === 0) return 'All Components';
+    if (selected.size === 0) return placeholder;
     if (selected.size === 1) return [...selected][0];
-    return `${selected.size} components`;
-  }, [selected]);
+    return `${selected.size} ${itemLabel}`;
+  }, [selected, placeholder, itemLabel]);
 
   const toggle = (val: string) => {
     const next = new Set(selected);
@@ -43,7 +49,7 @@ export const ComponentMultiSelect: React.FC<ComponentMultiSelectProps> = ({
       onOpenChange={setIsOpen}
       onSelect={(_e, val) => toggle(val as string)}
       toggle={(ref) => (
-        <MenuToggle ref={ref} onClick={() => setIsOpen(!isOpen)} isExpanded={isOpen}>
+        <MenuToggle ref={ref} onClick={() => !isDisabled && setIsOpen(!isOpen)} isExpanded={isOpen} isDisabled={isDisabled} style={{ minWidth: 200 }}>
           {label}
         </MenuToggle>
       )}
