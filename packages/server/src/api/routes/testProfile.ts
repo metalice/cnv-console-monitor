@@ -6,7 +6,7 @@ const router = Router();
 
 router.get('/:uniqueId', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const uniqueId = req.params.uniqueId;
+    const uniqueId = req.params.uniqueId as string;
 
     const [history, streak, identityRows, affectedLaunches, triageHistory] = await Promise.all([
       getTestItemHistory(uniqueId, 30),

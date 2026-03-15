@@ -67,7 +67,7 @@ router.get('/components', async (_req: Request, res: Response, next: NextFunctio
 
 router.get('/progress/:launchId', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const rpId = parseInt(req.params.launchId, 10);
+    const rpId = parseInt(req.params.launchId as string, 10);
     if (isNaN(rpId)) { res.status(400).json({ error: 'Invalid launchId' }); return; }
 
     const launch = await getLaunchByRpId(rpId);

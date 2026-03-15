@@ -154,7 +154,8 @@ router.get('/checklist/:key', async (req: Request, res: Response, next: NextFunc
     res.status(400).json({ error: 'Jira not configured' });
     return;
   }
-  if (!isValidJiraKey(req.params.key)) {
+  const key = req.params.key as string;
+  if (!isValidJiraKey(key)) {
     res.status(400).json({ error: 'Invalid Jira key format' });
     return;
   }
@@ -162,10 +163,10 @@ router.get('/checklist/:key', async (req: Request, res: Response, next: NextFunc
   try {
     const client = createJiraClient();
     const [issueRes, transRes] = await Promise.all([
-      client.get(`/issue/${req.params.key}`, {
+      client.get(`/issue/${key}`, {
         params: { fields: 'summary,status,assignee,components,labels,fixVersions,priority,created,updated,resolutiondate,subtasks,description' },
       }),
-      client.get(`/issue/${req.params.key}/transitions`),
+      client.get(`/issue/${key}/transitions`),
     ]);
 
     const f = issueRes.data.fields;
@@ -201,7 +202,8 @@ router.post('/checklist/:key/transition', requireAdmin, async (req: Request, res
     res.status(400).json({ error: 'Jira not configured' });
     return;
   }
-  if (!isValidJiraKey(req.params.key)) {
+  const key = req.params.key as string;
+  if (!isValidJiraKey(key)) {
     res.status(400).json({ error: 'Invalid Jira key format' });
     return;
   }
@@ -210,16 +212,16 @@ router.post('/checklist/:key/transition', requireAdmin, async (req: Request, res
     const { transitionId, comment, assignee } = req.body as { transitionId: string; comment?: string; assignee?: string };
     const client = createJiraClient();
 
-    await client.post(`/issue/${req.params.key}/transitions`, {
+    await client.post(`/issue/${key}/transitions`, {
       transition: { id: transitionId },
     });
 
     if (comment) {
-      await client.post(`/issue/${req.params.key}/comment`, { body: comment });
+      await client.post(`/issue/${key}/comment`, { body: comment });
     }
 
     if (assignee) {
-      await client.put(`/issue/${req.params.key}`, { fields: { assignee: { name: assignee } } });
+      await client.put(`/issue/${key}`, { fields: { assignee: { name: assignee } } });
     }
 
     res.json({ success: true });
@@ -234,7 +236,8 @@ router.post('/checklist/:key/comment', requireAdmin, async (req: Request, res: R
     res.status(400).json({ error: 'Jira not configured' });
     return;
   }
-  if (!isValidJiraKey(req.params.key)) {
+  const key = req.params.key as string;
+  if (!isValidJiraKey(key)) {
     res.status(400).json({ error: 'Invalid Jira key format' });
     return;
   }
@@ -242,7 +245,7 @@ router.post('/checklist/:key/comment', requireAdmin, async (req: Request, res: R
   try {
     const { comment } = req.body as { comment: string };
     const client = createJiraClient();
-    await client.post(`/issue/${req.params.key}/comment`, { body: comment });
+    await client.post(`/issue/${key}/comment`, { body: comment });
     res.json({ success: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Comment failed';

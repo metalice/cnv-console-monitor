@@ -117,7 +117,7 @@ export function requireOwnerOrAdmin(getOwnerId: (req: Request) => Promise<string
 }
 
 export async function getSubscriptionOwner(req: Request): Promise<string | null> {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) return null;
   const sub = await getSubscription(id);
   return sub?.createdBy ?? null;

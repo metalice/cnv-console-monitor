@@ -27,7 +27,12 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       return;
     }
     const createdBy = req.user?.email || 'unknown';
-    const sub = await createSubscription({ ...parsed.data, createdBy });
+    const sub = await createSubscription({
+      ...parsed.data,
+      slackWebhook: parsed.data.slackWebhook ?? null,
+      jiraWebhook: parsed.data.jiraWebhook ?? null,
+      createdBy,
+    });
     res.status(201).json(sub);
   } catch (err) {
     next(err);
@@ -36,7 +41,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 
 router.put('/:id', requireOwnerOrAdmin(getSubscriptionOwner), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
 
     const parsed = UpdateSubscriptionSchema.safeParse(req.body);
@@ -55,7 +60,7 @@ router.put('/:id', requireOwnerOrAdmin(getSubscriptionOwner), async (req: Reques
 
 router.delete('/:id', requireOwnerOrAdmin(getSubscriptionOwner), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
     await deleteSubscription(id);
     res.json({ success: true });
@@ -66,7 +71,7 @@ router.delete('/:id', requireOwnerOrAdmin(getSubscriptionOwner), async (req: Req
 
 router.post('/:id/test', requireOwnerOrAdmin(getSubscriptionOwner), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
 
     const sub = await getSubscription(id);

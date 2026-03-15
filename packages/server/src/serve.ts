@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import http from 'http';
-import cron from 'node-cron';
+import cron, { type ScheduledTask } from 'node-cron';
 import { createApp } from './api';
 import { config, applySettingsOverrides, setLastPollAt } from './config';
 import { logger } from './logger';
@@ -110,7 +110,7 @@ async function main(): Promise<void> {
     }
   }
 
-  const scheduledJobs = new Map<string, cron.ScheduledTask>();
+  const scheduledJobs = new Map<string, ScheduledTask>();
 
   async function setupSubscriptionCrons(): Promise<void> {
     for (const [, job] of scheduledJobs) job.stop();

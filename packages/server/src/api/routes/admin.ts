@@ -41,7 +41,7 @@ router.get('/users', requireAdmin, async (_req: Request, res: Response, next: Ne
 
 router.put('/users/:email/role', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { email } = req.params;
+    const email = req.params.email as string;
     const { role } = req.body as { role: string };
 
     if (!['admin', 'user'].includes(role)) {
