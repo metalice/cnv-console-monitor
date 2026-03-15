@@ -348,7 +348,6 @@ export const DashboardPage: React.FC = () => {
                     <Tr
                       key={`${g.cnvVersion}-${g.tier}-${g.component}`}
                       isClickable
-                      isHoverable
                       onRowClick={() => {
                         if (g.launches.length > 1) {
                           const ids = g.launches.map(l => l.rp_id).join(',');

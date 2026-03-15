@@ -25,9 +25,9 @@ function passRateColor(rate: number): string {
   return 'var(--pf-t--global--color--status--danger--default)';
 }
 
-function passRateLabelColor(rate: number): 'green' | 'gold' | 'red' {
+function passRateLabelColor(rate: number): 'green' | 'yellow' | 'red' {
   if (rate >= 95) return 'green';
-  if (rate >= 80) return 'gold';
+  if (rate >= 80) return 'yellow';
   return 'red';
 }
 

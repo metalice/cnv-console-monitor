@@ -91,7 +91,6 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
       variant="typeahead"
       isOpen={isOpen}
       selected={value}
-      isDisabled={isDisabled}
       onOpenChange={(nextOpen) => {
         if (nextOpen) {
           openMenu();

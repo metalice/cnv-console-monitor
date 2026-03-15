@@ -73,7 +73,7 @@ function countdownBadge(days: number | null): React.ReactNode {
   if (days === null) return <Label color="grey" isCompact>No upcoming</Label>;
   if (days <= 3) return <Label color="red" isCompact>{days}d</Label>;
   if (days <= 7) return <Label color="orange" isCompact>{days}d</Label>;
-  if (days <= 14) return <Label color="gold" isCompact>{days}d</Label>;
+  if (days <= 14) return <Label color="yellow" isCompact>{days}d</Label>;
   return <Label color="grey" isCompact>{days}d</Label>;
 }
 
@@ -251,7 +251,7 @@ export const ReleasePage: React.FC = () => {
               <Flex spaceItems={{ default: 'spaceItemsMd' }} flexWrap={{ default: 'wrap' }}>
                 {upcomingReleases.map(r => (
                   <FlexItem key={r.shortname}>
-                    <Label color={r.daysUntilNext! <= 3 ? 'red' : r.daysUntilNext! <= 7 ? 'orange' : 'gold'}>
+                    <Label color={r.daysUntilNext! <= 3 ? 'red' : r.daysUntilNext! <= 7 ? 'orange' : 'yellow'}>
                       {r.shortname} &mdash; {r.nextRelease?.name} &mdash; {r.nextRelease?.date} ({r.daysUntilNext}d)
                     </Label>
                   </FlexItem>
@@ -470,7 +470,6 @@ const ReleaseRow: React.FC<{ release: ReleaseInfo; isColumnVisible: (id: string)
                 toggleText={`${pastMilestones.length} releases`}
                 isExpanded={expanded}
                 onToggle={(_e, val) => setExpanded(val)}
-                isCompact
               >
                 <div style={{ fontSize: 12, maxHeight: 200, overflow: 'auto' }}>
                   {pastMilestones.map((m, i) => (
