@@ -53,25 +53,38 @@ function buildBlocks(report: DailyReport): SlackBlock[] {
 
   blocks.push({ type: 'divider' } as SlackBlock);
 
-  const failedGroups = report.groups.filter(g => g.health === 'red');
-  if (failedGroups.length > 0) {
-    blocks.push({
-      type: 'section',
-      text: { type: 'mrkdwn', text: ':rotating_light: *Failed Launches*' },
-    });
-
-    for (const group of failedGroups) {
-      blocks.push(...buildFailedGroupBlocks(group));
-    }
+  const groupsByComponent = new Map<string, LaunchGroup[]>();
+  for (const group of report.groups) {
+    const comp = group.component || 'Other';
+    if (!groupsByComponent.has(comp)) groupsByComponent.set(comp, []);
+    groupsByComponent.get(comp)!.push(group);
   }
 
-  const greenGroups = report.groups.filter(g => g.health === 'green');
-  if (greenGroups.length > 0) {
-    const greenList = greenGroups.map(g => `${g.tier}-${g.cnvVersion}`).join(', ');
+  for (const [component, groups] of [...groupsByComponent.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    const failedGroups = groups.filter(g => g.health === 'red');
+    const greenGroups = groups.filter(g => g.health === 'green');
+    if (failedGroups.length === 0 && greenGroups.length === 0) continue;
+
     blocks.push({
       type: 'section',
-      text: { type: 'mrkdwn', text: `:white_check_mark: *All Green:* ${greenList}` },
+      text: { type: 'mrkdwn', text: `*${component}*` },
     });
+
+    if (failedGroups.length > 0) {
+      for (const group of failedGroups) {
+        blocks.push(...buildFailedGroupBlocks(group));
+      }
+    }
+
+    if (greenGroups.length > 0) {
+      const greenList = greenGroups.map(g => `${g.tier}-${g.cnvVersion}`).join(', ');
+      blocks.push({
+        type: 'section',
+        text: { type: 'mrkdwn', text: `:white_check_mark: All Green: ${greenList}` },
+      });
+    }
+
+    blocks.push({ type: 'divider' } as SlackBlock);
   }
 
   if (report.newFailures.length > 0) {
@@ -97,6 +110,15 @@ function buildBlocks(report: DailyReport): SlackBlock[] {
 
   if (actionElements.length > 0) {
     blocks.push({ type: 'actions', elements: actionElements });
+  }
+
+  if (blocks.length > 48) {
+    const truncated = blocks.slice(0, 47);
+    truncated.push({
+      type: 'section',
+      text: { type: 'mrkdwn', text: `_...and more. View full report in the dashboard._` },
+    });
+    return truncated;
   }
 
   return blocks;
@@ -141,42 +163,57 @@ function buildFailedGroupBlocks(group: LaunchGroup): SlackBlock[] {
   return blocks;
 }
 
-export async function sendSlackReport(report: DailyReport): Promise<void> {
-  if (!config.slack.enabled) {
-    log.debug('Slack not configured, skipping');
+export async function sendSlackReport(report: DailyReport, webhookUrl?: string): Promise<void> {
+  if (!webhookUrl) {
+    log.debug('No Slack webhook provided, skipping');
     return;
   }
 
-  const blocks = buildBlocks(report);
+  try {
+    const blocks = buildBlocks(report);
 
-  await axios.post(config.slack.webhookUrl, {
-    text: `Console Dashboard Report — ${report.date}: ${report.failedLaunches} Failed / ${report.passedLaunches} Passed`,
-    blocks,
-  });
+    await axios.post(webhookUrl, {
+      text: `Console Dashboard Report — ${report.date}: ${report.failedLaunches} Failed / ${report.passedLaunches} Passed`,
+      blocks,
+    });
 
-  log.info('Report sent');
+    log.info('Report sent');
+  } catch (err) {
+    log.error({ err }, 'Failed to send Slack report');
+    throw err;
+  }
 }
 
-export async function sendSlackAcknowledgment(reviewer: string, notes: string, date: string): Promise<void> {
-  if (!config.slack.enabled) return;
+export async function sendSlackAcknowledgment(reviewer: string, notes: string, date: string, webhookUrl?: string): Promise<void> {
+  if (!webhookUrl) return;
 
-  const dashboardUrl = config.dashboard.url;
-  const dashboardLink = dashboardUrl ? ` | <${dashboardUrl}|Dashboard>` : '';
+  try {
+    const dashboardUrl = config.dashboard.url;
+    const dashboardLink = dashboardUrl ? ` | <${dashboardUrl}|Dashboard>` : '';
 
-  await axios.post(config.slack.webhookUrl, {
-    text: `:white_check_mark: *${date} report reviewed* by ${reviewer}${notes ? `\nNotes: "${notes}"` : ''}${dashboardLink}`,
-  });
+    await axios.post(webhookUrl, {
+      text: `:white_check_mark: *${date} report reviewed* by ${reviewer}${notes ? `\nNotes: "${notes}"` : ''}${dashboardLink}`,
+    });
+  } catch (err) {
+    log.error({ err }, 'Failed to send Slack acknowledgment');
+    throw err;
+  }
 }
 
-export async function sendSlackReminder(): Promise<void> {
-  if (!config.slack.enabled) return;
+export async function sendSlackReminder(webhookUrl?: string): Promise<void> {
+  if (!webhookUrl) return;
 
-  const dashboardUrl = config.dashboard.url;
-  const dashboardLink = dashboardUrl ? `\n<${dashboardUrl}|Open Dashboard to review>` : '';
+  try {
+    const dashboardUrl = config.dashboard.url;
+    const dashboardLink = dashboardUrl ? `\n<${dashboardUrl}|Open Dashboard to review>` : '';
 
-  await axios.post(config.slack.webhookUrl, {
-    text: `:warning: *Reminder:* Today's console dashboard report has not been acknowledged yet. Please review and acknowledge.${dashboardLink}`,
-  });
+    await axios.post(webhookUrl, {
+      text: `:warning: *Reminder:* Today's console dashboard report has not been acknowledged yet. Please review and acknowledge.${dashboardLink}`,
+    });
+  } catch (err) {
+    log.error({ err }, 'Failed to send Slack reminder');
+    throw err;
+  }
 }
 
 export async function sendSlackJiraNotification(params: {
@@ -187,8 +224,11 @@ export async function sendSlackJiraNotification(params: {
   cnvVersion?: string;
   rpItemUrl: string;
   createdBy: string;
+  webhookUrls?: string[];
 }): Promise<void> {
-  if (!config.slack.jiraWebhookUrl) return;
+  const urls = params.webhookUrls?.filter(Boolean) ?? [];
+  if (config.slack.jiraWebhookUrl) urls.push(config.slack.jiraWebhookUrl);
+  if (urls.length === 0) return;
 
   const jiraUrl = config.jira.url ? `${config.jira.url}/browse/${params.jiraKey}` : params.jiraKey;
   const polarion = params.polarionId ? `\n*Polarion:* ${params.polarionId}` : '';
@@ -200,10 +240,12 @@ export async function sendSlackJiraNotification(params: {
     `*Created by:* ${params.createdBy}\n` +
     `<${params.rpItemUrl}|View in ReportPortal>`;
 
-  try {
-    await axios.post(config.slack.jiraWebhookUrl, { text });
-    log.info({ jiraKey: params.jiraKey }, 'Jira notification sent to Slack');
-  } catch (err) {
-    log.warn({ err, jiraKey: params.jiraKey }, 'Failed to send Jira Slack notification');
+  for (const url of [...new Set(urls)]) {
+    try {
+      await axios.post(url, { text });
+      log.info({ jiraKey: params.jiraKey }, 'Jira notification sent to Slack');
+    } catch (err) {
+      log.warn({ err, jiraKey: params.jiraKey }, 'Failed to send Jira Slack notification');
+    }
   }
 }

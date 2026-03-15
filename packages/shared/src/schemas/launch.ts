@@ -29,6 +29,7 @@ export const LaunchSchema = z.object({
   start_time: z.number(),
   end_time: z.number().nullish(),
   duration: z.number().nullish(),
+  component: z.string().nullish(),
 });
 
 export type Launch = z.infer<typeof LaunchSchema>;
@@ -49,6 +50,7 @@ export const LaunchGroupSchema = z.object({
   passRate: z.number(),
   failedItems: z.array(TestItemSchema),
   enrichedFailedItems: z.array(EnrichedTestItemSchema).optional(),
+  component: z.string().optional(),
 });
 
 export type LaunchGroup = z.infer<typeof LaunchGroupSchema>;

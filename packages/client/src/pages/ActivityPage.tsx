@@ -15,6 +15,7 @@ import {
   GridItem,
   Flex,
   FlexItem,
+  Tooltip,
 } from '@patternfly/react-core';
 import { Table, Thead, Tr, Tbody, Td } from '@patternfly/react-table';
 import { CheckCircleIcon, TimesCircleIcon } from '@patternfly/react-icons';
@@ -85,6 +86,7 @@ export const ActivityPage: React.FC = () => {
                         <EmptyStateBody>No acknowledgments recorded yet.</EmptyStateBody>
                       </EmptyState>
                     ) : (
+                      <div className="app-table-scroll">
                       <Table aria-label="Approver stats" variant="compact">
                         <Thead>
                           <Tr>
@@ -96,13 +98,14 @@ export const ActivityPage: React.FC = () => {
                         <Tbody>
                           {sortedApprovers.map((a) => (
                             <Tr key={a.reviewer}>
-                              <Td dataLabel="Reviewer"><strong>{a.reviewer}</strong></Td>
+                              <Td dataLabel="Reviewer" className="app-cell-nowrap"><strong>{a.reviewer}</strong></Td>
                               <Td dataLabel="Reviews">{a.totalReviews}</Td>
-                              <Td dataLabel="Last Review">{a.lastReviewDate}</Td>
+                              <Td dataLabel="Last Review" className="app-cell-nowrap">{a.lastReviewDate}</Td>
                             </Tr>
                           ))}
                         </Tbody>
                       </Table>
+                      </div>
                     )}
                   </CardBody>
                 </Card>
@@ -158,7 +161,8 @@ export const ActivityPage: React.FC = () => {
                   </EmptyState>
                 ) : (
                   <>
-                    <Table aria-label="Activity feed">
+                    <div className="app-table-scroll">
+                    <Table aria-label="Activity feed" variant="compact" isStickyHeader>
                       <Thead>
                         <Tr>
                           <ThWithHelp label="Time" help="When the action was performed. Shows relative time (e.g. '5 minutes ago')." />
@@ -173,22 +177,29 @@ export const ActivityPage: React.FC = () => {
                           const shortName = entry.test_name?.split('.').pop() || entry.test_name || '--';
                           return (
                             <Tr key={entry.id}>
-                              <Td dataLabel="Time">{new Date(entry.performed_at).toLocaleString()}</Td>
-                              <Td dataLabel="Action">{actionLabel(entry.action)}</Td>
-                              <Td dataLabel="Test">{shortName}</Td>
-                              <Td dataLabel="Details">
-                                {entry.old_value && entry.new_value
-                                  ? `${entry.old_value} \u2192 ${entry.new_value}`
-                                  : entry.new_value || '--'}
+                              <Td dataLabel="Time" className="app-cell-nowrap">{new Date(entry.performed_at).toLocaleString()}</Td>
+                              <Td dataLabel="Action" className="app-cell-nowrap">{actionLabel(entry.action)}</Td>
+                              <Td dataLabel="Test" className="app-cell-truncate">
+                                <Tooltip content={entry.test_name || shortName}><span>{shortName}</span></Tooltip>
                               </Td>
-                              <Td dataLabel="By">{entry.performed_by || '--'}</Td>
+                              <Td dataLabel="Details" className="app-cell-truncate">
+                                <Tooltip content={entry.old_value && entry.new_value ? `${entry.old_value} \u2192 ${entry.new_value}` : entry.new_value || '--'}>
+                                  <span>
+                                    {entry.old_value && entry.new_value
+                                      ? `${entry.old_value} \u2192 ${entry.new_value}`
+                                      : entry.new_value || '--'}
+                                  </span>
+                                </Tooltip>
+                              </Td>
+                              <Td dataLabel="By" className="app-cell-nowrap">{entry.performed_by || '--'}</Td>
                             </Tr>
                           );
                         })}
                       </Tbody>
                     </Table>
+                    </div>
                     <Pagination
-                      itemCount={entries.length === PAGE_SIZE ? page * PAGE_SIZE + 1 : (page - 1) * PAGE_SIZE + entries.length}
+                      itemCount={(page - 1) * PAGE_SIZE + (entries?.length ?? 0)}
                       perPage={PAGE_SIZE}
                       page={page}
                       onSetPage={(_e, p) => setPage(p)}

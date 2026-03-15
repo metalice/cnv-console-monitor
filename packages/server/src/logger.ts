@@ -3,8 +3,7 @@ import pinoHttp from 'pino-http';
 
 const prettyOptions = {
   colorize: true,
-  errorLikeObjectKeys: ['err', 'error'],
-  errorProps: '*',
+  errorLikeObjectKeys: [],
   ignore: 'pid,hostname',
   levelFirst: true,
   messageFormat: '{if module}[{module}] {end}{msg}',
@@ -15,11 +14,19 @@ const prettyOptions = {
 export const logger = pino({
   level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
   timestamp: pino.stdTimeFunctions.isoTime,
+  serializers: {
+    err: (err) => ({ type: err?.constructor?.name || 'Error', message: err?.message, code: err?.code, status: err?.status || err?.statusCode }),
+    error: (err) => ({ type: err?.constructor?.name || 'Error', message: err?.message, code: err?.code, status: err?.status || err?.statusCode }),
+  },
   transport: {
     target: 'pino-pretty',
     options: prettyOptions,
   },
 });
+
+export function setResponseError(res: unknown, message: string): void {
+  (res as Record<string, unknown>).__errorMessage = message;
+}
 
 export const httpLogger = pinoHttp({
   logger,
@@ -31,6 +38,10 @@ export const httpLogger = pinoHttp({
     if (res.statusCode >= 400) return 'warn';
     return 'info';
   },
+  customErrorMessage: (_req, res) => {
+    const errorMsg = (res as unknown as Record<string, unknown>).__errorMessage as string | undefined;
+    return errorMsg || `request failed with status ${res.statusCode}`;
+  },
   serializers: {
     req: (req) => ({
       method: req.method,
@@ -39,5 +50,6 @@ export const httpLogger = pinoHttp({
     res: (res) => ({
       statusCode: res.statusCode,
     }),
+    err: () => undefined,
   },
 });

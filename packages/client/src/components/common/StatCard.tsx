@@ -15,9 +15,10 @@ export const StatCard: React.FC<StatCardProps> = ({ value, label, help, color, o
   <Card
     isCompact
     isClickable={!!onClick}
+    isSelectable={!!onClick}
     isSelected={isActive}
     onClick={onClick}
-    style={onClick ? { cursor: 'pointer' } : undefined}
+    className={onClick ? 'app-cursor-pointer' : undefined}
   >
     <CardBody>
       <Content component="h2" style={{ textAlign: 'center', color }}>
@@ -29,7 +30,7 @@ export const StatCard: React.FC<StatCardProps> = ({ value, label, help, color, o
           <>
             {' '}
             <Tooltip content={help}>
-              <OutlinedQuestionCircleIcon style={{ cursor: 'help', opacity: 0.5, fontSize: 11 }} />
+              <OutlinedQuestionCircleIcon className="app-cursor-help" style={{ opacity: 0.5, fontSize: 'var(--pf-t--global--font--size--xs)' }} />
             </Tooltip>
           </>
         )}

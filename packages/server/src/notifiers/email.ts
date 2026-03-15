@@ -68,22 +68,7 @@ function buildHtml(report: DailyReport): string {
     <p>${report.failedLaunches} Failed / ${report.passedLaunches} Passed${report.inProgressLaunches > 0 ? ` / ${report.inProgressLaunches} In Progress` : ''}</p>
   </div>
 
-  <table>
-    <thead>
-      <tr>
-        <th>Version</th>
-        <th>Tier</th>
-        <th>Status</th>
-        <th>Pass Rate</th>
-        <th>Tests</th>
-        <th>Last Run</th>
-        <th>Last Passed</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${report.groups.filter(g => g.latestLaunch.status !== 'PASSED').map(g => buildGroupRow(g)).join('')}
-    </tbody>
-  </table>
+  ${buildComponentSections(report)}
 
   ${failedGroups.length > 0 ? `
     <div class="section-title">Failed Test Details</div>
@@ -98,13 +83,54 @@ function buildHtml(report: DailyReport): string {
     </ul>
   ` : ''}
 
-  ${greenGroups.length > 0 ? `
-    <p class="green-list">All green: ${greenGroups.map(g => `${g.tier}-${g.cnvVersion}`).join(', ')}</p>
-  ` : ''}
+  
 
   ${dashboardUrl ? `<a href="${dashboardUrl}" class="btn">Open Dashboard</a>` : ''}
 </body>
 </html>`;
+}
+
+function buildComponentSections(report: DailyReport): string {
+  const groupsByComponent = new Map<string, typeof report.groups>();
+  for (const group of report.groups) {
+    const comp = group.component || 'Other';
+    if (!groupsByComponent.has(comp)) groupsByComponent.set(comp, []);
+    groupsByComponent.get(comp)!.push(group);
+  }
+
+  let html = '';
+  for (const [component, groups] of [...groupsByComponent.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    const nonPassed = groups.filter(g => g.latestLaunch.status !== 'PASSED');
+    if (nonPassed.length === 0) continue;
+
+    html += `<div class="section-title">${component}</div>`;
+    html += `<table>
+      <thead>
+        <tr>
+          <th>Version</th>
+          <th>Tier</th>
+          <th>Status</th>
+          <th>Pass Rate</th>
+          <th>Tests</th>
+          <th>Last Run</th>
+          <th>Last Passed</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${nonPassed.map(g => buildGroupRow(g)).join('')}
+      </tbody>
+    </table>`;
+  }
+
+  const allPassedComponents = [...groupsByComponent.entries()]
+    .filter(([, groups]) => groups.every(g => g.latestLaunch.status === 'PASSED'))
+    .map(([comp]) => comp);
+
+  if (allPassedComponents.length > 0) {
+    html += `<p class="green-list">All green: ${allPassedComponents.join(', ')}</p>`;
+  }
+
+  return html;
 }
 
 function buildGroupRow(group: LaunchGroup): string {
@@ -164,28 +190,34 @@ function buildFailedSection(group: LaunchGroup): string {
   return html;
 }
 
-export async function sendEmailReport(report: DailyReport): Promise<void> {
-  if (!config.email.enabled || config.email.recipients.length === 0) {
-    log.debug('Email not configured, skipping');
+export async function sendEmailReport(report: DailyReport, recipientOverride?: string[]): Promise<void> {
+  const recipients = recipientOverride ?? [];
+  if (!config.email.enabled || recipients.length === 0) {
+    log.debug('Email not configured or no recipients, skipping');
     return;
   }
 
-  const transporter = nodemailer.createTransport({
-    host: config.email.host,
-    port: config.email.port,
-    secure: config.email.port === 465,
-    auth: config.email.user ? { user: config.email.user, pass: config.email.pass } : undefined,
-    tls: { rejectUnauthorized: false },
-  });
+  try {
+    const transporter = nodemailer.createTransport({
+      host: config.email.host,
+      port: config.email.port,
+      secure: config.email.port === 465,
+      auth: config.email.user ? { user: config.email.user, pass: config.email.pass } : undefined,
+      tls: { rejectUnauthorized: false },
+    });
 
-  const statusText = report.overallHealth === 'green' ? 'ALL GREEN' : `${report.failedLaunches} FAILED`;
+    const statusText = report.overallHealth === 'green' ? 'ALL GREEN' : `${report.failedLaunches} FAILED`;
 
-  await transporter.sendMail({
-    from: config.email.from,
-    to: config.email.recipients.join(', '),
-    subject: `[CNV Console] ${report.date} — ${statusText}`,
-    html: buildHtml(report),
-  });
+    await transporter.sendMail({
+      from: config.email.from,
+      to: recipients.join(', '),
+      subject: `[CNV Console] ${report.date} — ${statusText}`,
+      html: buildHtml(report),
+    });
 
-  log.info({ recipients: config.email.recipients.length }, 'Report sent');
+    log.info({ recipients: recipients.length }, 'Report sent');
+  } catch (err) {
+    log.error({ err, recipients: recipients.length }, 'Failed to send email report');
+    throw err;
+  }
 }

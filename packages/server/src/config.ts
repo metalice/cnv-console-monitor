@@ -15,9 +15,7 @@ export const config = {
   },
 
   slack: {
-    webhookUrl: process.env.SLACK_WEBHOOK_URL || '',
     jiraWebhookUrl: process.env.SLACK_JIRA_WEBHOOK_URL || '',
-    enabled: !!process.env.SLACK_WEBHOOK_URL,
   },
 
   email: {
@@ -26,7 +24,6 @@ export const config = {
     user: process.env.SMTP_USER || '',
     pass: process.env.SMTP_PASS || '',
     from: process.env.EMAIL_FROM || process.env.SMTP_USER || 'cnv-ui-monitor@redhat.com',
-    recipients: (process.env.EMAIL_RECIPIENTS || '').split(',').filter(Boolean),
     enabled: !!process.env.SMTP_HOST,
   },
 
@@ -39,8 +36,6 @@ export const config = {
   },
 
   schedule: {
-    cron: process.env.CRON_SCHEDULE || '0 7 * * *',
-    ackReminderHour: parseInt(process.env.ACK_REMINDER_HOUR || '10', 10),
     timezone: process.env.TZ || 'Asia/Jerusalem',
     pollIntervalMinutes: parseInt(process.env.POLL_INTERVAL_MINUTES || '15', 10),
     initialLookbackDays: parseInt(process.env.INITIAL_LOOKBACK_DAYS || '180', 10),
@@ -52,7 +47,6 @@ export const config = {
 
   dashboard: {
     port: parseInt(process.env.DASHBOARD_PORT || '8080', 10),
-    launchFilter: process.env.LAUNCH_FILTER || 'test-kubevirt-console',
     url: process.env.DASHBOARD_URL || '',
   },
 
@@ -61,7 +55,17 @@ export const config = {
   },
 
   auth: {
-    enabled: process.env.AUTH_ENABLED !== 'false',
+    enabled: !['false', '0', 'no'].includes((process.env.AUTH_ENABLED || '').toLowerCase()),
+  },
+
+  admin: {
+    secret: process.env.ADMIN_SECRET || '',
+  },
+
+  productpages: {
+    clientId: process.env.PP_CLIENT_ID || '',
+    clientSecret: process.env.PP_CLIENT_SECRET || '',
+    enabled: !!(process.env.PP_CLIENT_ID && process.env.PP_CLIENT_SECRET),
   },
 };
 
@@ -69,17 +73,13 @@ const SETTINGS_MAP: Record<string, (val: string) => void> = {
   'reportportal.url': (v) => { config.reportportal.url = v; },
   'reportportal.project': (v) => { config.reportportal.project = v; },
   'reportportal.token': (v) => { config.reportportal.token = v; },
-  'email.recipients': (v) => { config.email.recipients = v.split(',').filter(Boolean); },
   'email.from': (v) => { config.email.from = v; },
   'email.host': (v) => { config.email.host = v; config.email.enabled = !!v; },
   'email.user': (v) => { config.email.user = v; },
   'email.pass': (v) => { config.email.pass = v; },
-  'schedule.ackReminderHour': (v) => { config.schedule.ackReminderHour = parseInt(v, 10); },
   'schedule.pollIntervalMinutes': (v) => { config.schedule.pollIntervalMinutes = parseInt(v, 10); },
-  'schedule.cron': (v) => { config.schedule.cron = v; },
   'schedule.timezone': (v) => { config.schedule.timezone = v; },
   'schedule.initialLookbackDays': (v) => { config.schedule.initialLookbackDays = parseInt(v, 10); },
-  'dashboard.launchFilter': (v) => { config.dashboard.launchFilter = v; },
   'dashboard.url': (v) => { config.dashboard.url = v; },
   'polarion.url': (v) => { config.polarion.url = v; },
   'jira.url': (v) => { config.jira.url = v; config.jira.enabled = !!v; },
@@ -87,7 +87,6 @@ const SETTINGS_MAP: Record<string, (val: string) => void> = {
   'jira.issueType': (v) => { config.jira.issueType = v; },
   'jira.component': () => {},
   'jira.token': (v) => { config.jira.token = v; },
-  'slack.webhookUrl': (v) => { config.slack.webhookUrl = v; config.slack.enabled = !!v; },
   'slack.jiraWebhookUrl': (v) => { config.slack.jiraWebhookUrl = v; },
 };
 

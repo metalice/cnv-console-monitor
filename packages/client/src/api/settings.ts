@@ -25,7 +25,7 @@ export function fetchLaunchNames(): Promise<string[]> {
 }
 
 export type JiraMeta = {
-  projects: string[];
+  projects: Array<{ key: string; name: string }>;
   issueTypes: string[];
   components: string[];
 };
@@ -39,10 +39,37 @@ export function fetchRpProjects(): Promise<string[]> {
   return apiFetch('/settings/rp-projects');
 }
 
-export function testRpConnection(): Promise<{ success: boolean; message: string }> {
-  return apiFetch('/settings/test-rp', { method: 'POST' });
+export type RpTestPayload = {
+  url?: string;
+  project?: string;
+  token?: string;
+};
+
+export type RpTestResponse = {
+  success: boolean;
+  message: string;
+  projects?: string[];
+  launchNames?: string[];
+};
+
+export function testRpConnection(payload?: RpTestPayload): Promise<RpTestResponse> {
+  return apiFetch('/settings/test-rp', { method: 'POST', body: JSON.stringify(payload ?? {}) });
 }
 
-export function testJiraConnection(): Promise<{ success: boolean; message: string }> {
-  return apiFetch('/settings/test-jira', { method: 'POST' });
+export type JiraTestPayload = {
+  url?: string;
+  token?: string;
+  projectKey?: string;
+};
+
+export type JiraTestResponse = {
+  success: boolean;
+  message: string;
+  projects?: Array<{ key: string; name: string }>;
+  issueTypes?: string[];
+  components?: string[];
+};
+
+export function testJiraConnection(payload?: JiraTestPayload): Promise<JiraTestResponse> {
+  return apiFetch('/settings/test-jira', { method: 'POST', body: JSON.stringify(payload ?? {}) });
 }

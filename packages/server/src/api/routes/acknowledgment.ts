@@ -88,7 +88,13 @@ router.post('/', validateBody(AcknowledgeRequestSchema), async (req: Request, re
     await addAcknowledgment({ date, reviewer, notes: combinedNotes || undefined });
 
     try {
-      await sendSlackAcknowledgment(reviewer, notes || '', date);
+      const { getAllSubscriptions } = await import('../../db/store');
+      const subs = await getAllSubscriptions();
+      for (const sub of subs) {
+        if (sub.enabled && sub.slackWebhook) {
+          await sendSlackAcknowledgment(reviewer, combinedNotes || '', date, sub.slackWebhook);
+        }
+      }
     } catch {
       // Slack notification is non-critical
     }
@@ -105,6 +111,11 @@ router.delete('/:date', validateBody(DeleteAckRequestSchema), async (req: Reques
   try {
     const date = req.params.date as string;
     const { reviewer } = req.body;
+
+    if (reviewer !== req.user?.name && reviewer !== req.user?.email && req.user?.role !== 'admin') {
+      res.status(403).json({ error: 'You can only remove your own acknowledgment' });
+      return;
+    }
 
     await deleteAcknowledgment(date, reviewer);
 

@@ -63,6 +63,10 @@ export class Launch {
   @Column({ type: 'varchar', nullable: true })
   artifacts_url!: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  @Index('idx_launches_component')
+  component!: string | null;
+
   @CreateDateColumn()
   fetched_at!: Date;
 }

@@ -13,7 +13,6 @@ describe('config', () => {
   it('has default schedule values', () => {
     expect(config.schedule.pollIntervalMinutes).toBeGreaterThan(0);
     expect(config.schedule.initialLookbackDays).toBeGreaterThan(0);
-    expect(config.schedule.ackReminderHour).toBeGreaterThanOrEqual(0);
     expect(config.schedule.timezone).toBeTruthy();
   });
 
@@ -26,11 +25,11 @@ describe('config', () => {
     expect(config.email.from).toBeTruthy();
   });
 
-  it('email recipients is an array', () => {
-    expect(Array.isArray(config.email.recipients)).toBe(true);
+  it('email from has a default', () => {
+    expect(config.email.from).toBeTruthy();
   });
 
-  it('launch filter has a default', () => {
-    expect(config.dashboard.launchFilter).toBe('test-kubevirt-console');
+  it('dashboard url has a default', () => {
+    expect(typeof config.dashboard.url).toBe('string');
   });
 });

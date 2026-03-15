@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { getFailedTestItems, getFailedTestItemsForLaunches, getAllTestItems, getUntriagedItems, getTestItemHistory } from '../../db/store';
+import { getFailedTestItems, getFailedTestItemsForLaunches, getAllTestItems, getUntriagedItems, getTestItemHistory, getTestFailureStreak } from '../../db/store';
 import { fetchTestItemLogs } from '../../clients/reportportal';
 import { parseIntParam } from '../middleware/validate';
 
@@ -43,8 +43,9 @@ router.get('/untriaged', async (req: Request, res: Response, next: NextFunction)
     const since = req.query.since ? parseInt(req.query.since as string) : undefined;
     const until = req.query.until ? parseInt(req.query.until as string) : undefined;
     const hours = parseInt(req.query.hours as string) || 24;
+    const component = (req.query.component as string) || undefined;
     const sinceMs = since ?? (Date.now() - hours * 60 * 60 * 1000);
-    const items = await getUntriagedItems(sinceMs, until);
+    const items = await getUntriagedItems(sinceMs, until, component);
     res.json(items);
   } catch (err) {
     next(err);
@@ -57,6 +58,28 @@ router.get('/history/:uniqueId', async (req: Request, res: Response, next: NextF
     const limit = parseInt(req.query.limit as string) || 20;
     const history = await getTestItemHistory(uniqueId, limit);
     res.json(history);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/streaks', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const raw = (req.query.uniqueIds as string) || '';
+    const uniqueIds = raw.split(',').map(s => s.trim()).filter(Boolean).slice(0, 50);
+    if (uniqueIds.length === 0) {
+      res.json({});
+      return;
+    }
+
+    const entries = await Promise.all(
+      uniqueIds.map(async (id) => [id, await getTestFailureStreak(id, 8)] as const),
+    );
+    const result: Record<string, Awaited<ReturnType<typeof getTestFailureStreak>>> = {};
+    for (const [id, info] of entries) {
+      result[id] = info;
+    }
+    res.json(result);
   } catch (err) {
     next(err);
   }

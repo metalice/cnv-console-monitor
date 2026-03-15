@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import https from 'https';
 import { config } from '../config';
+import { withRetry } from '../utils/retry';
 
 export interface JiraIssue {
   key: string;
@@ -38,11 +39,14 @@ function createClient(): AxiosInstance {
 
 export async function searchIssues(jql: string, maxResults = 10): Promise<JiraSearchResult> {
   const client = createClient();
-  const response = await client.post('/search', {
-    jql,
-    maxResults,
-    fields: ['summary', 'status', 'assignee', 'created', 'updated', 'description', 'labels'],
-  });
+  const response = await withRetry(
+    () => client.post('/search', {
+      jql,
+      maxResults,
+      fields: ['summary', 'status', 'assignee', 'created', 'updated', 'description', 'labels'],
+    }),
+    'jira.searchIssues',
+  );
   return response.data;
 }
 
@@ -91,7 +95,10 @@ export async function createIssue(params: {
     fields.components = [{ name: params.component }];
   }
 
-  const response = await client.post('/issue', { fields });
+  const response = await withRetry(
+    () => client.post('/issue', { fields }),
+    'jira.createIssue',
+  );
   const created = response.data as { key: string; id: string; self: string };
 
   if (params.rpItemUrl) {
@@ -122,9 +129,12 @@ export async function createIssue(params: {
 
 export async function getIssue(key: string): Promise<JiraIssue> {
   const client = createClient();
-  const response = await client.get(`/issue/${key}`, {
-    params: { fields: 'summary,status,assignee,created,updated,labels' },
-  });
+  const response = await withRetry(
+    () => client.get(`/issue/${key}`, {
+      params: { fields: 'summary,status,assignee,created,updated,labels' },
+    }),
+    `jira.getIssue(${key})`,
+  );
   return response.data;
 }
 

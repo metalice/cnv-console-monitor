@@ -3,10 +3,15 @@ import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider, keepPreviousData } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import '@patternfly/react-core/dist/styles/base.css';
+import './styles/app.css';
 import App from './App';
 import { useWebSocket } from './hooks/useWebSocket';
+import { ConnectionBanner } from './components/common/ConnectionBanner';
 import { DateProvider } from './context/DateContext';
 import { AuthProvider } from './context/AuthContext';
+import { PreferencesProvider } from './context/PreferencesContext';
+import { ToastProvider } from './context/ToastContext';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,9 +24,10 @@ const queryClient = new QueryClient({
 });
 
 const AppWithProviders: React.FC = () => {
-  useWebSocket();
+  const wsStatus = useWebSocket();
   return (
     <BrowserRouter>
+      <ConnectionBanner status={wsStatus} />
       <DateProvider>
         <App />
       </DateProvider>
@@ -31,10 +37,16 @@ const AppWithProviders: React.FC = () => {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <AppWithProviders />
-      </AuthProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <PreferencesProvider>
+            <ToastProvider>
+              <AppWithProviders />
+            </ToastProvider>
+          </PreferencesProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   </React.StrictMode>,
 );

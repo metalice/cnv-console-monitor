@@ -9,14 +9,13 @@ import {
   Button,
   Form,
   FormGroup,
-  FormSelect,
-  FormSelectOption,
   TextArea,
   HelperText,
   HelperTextItem,
 } from '@patternfly/react-core';
 import { fetchDefectTypes } from '../../api/defectTypes';
 import { classifyDefect, bulkClassifyDefect } from '../../api/triage';
+import { SearchableSelect } from '../common/SearchableSelect';
 
 type TriageModalProps = {
   isOpen: boolean;
@@ -46,6 +45,10 @@ export const TriageModal: React.FC<TriageModalProps> = ({ isOpen, onClose, itemI
       queryClient.invalidateQueries({ queryKey: ['report'] });
       queryClient.invalidateQueries({ queryKey: ['untriaged'] });
       queryClient.invalidateQueries({ queryKey: ['activity'] });
+      queryClient.invalidateQueries({ queryKey: ['testItems'] });
+      queryClient.invalidateQueries({ queryKey: ['testProfile'] });
+      queryClient.invalidateQueries({ queryKey: ['streaks'] });
+      queryClient.invalidateQueries({ queryKey: ['flakyTests'] });
       onClose();
       setDefectType('');
       setComment('');
@@ -75,12 +78,14 @@ export const TriageModal: React.FC<TriageModalProps> = ({ isOpen, onClose, itemI
       <ModalBody>
         <Form>
           <FormGroup label="Defect Type" isRequired>
-            <FormSelect value={defectType} onChange={(_e, val) => setDefectType(val)}>
-              <FormSelectOption value="" label="Select a defect type..." isDisabled />
-              {options.map((o) => (
-                <FormSelectOption key={o.value} value={o.value} label={o.label} />
-              ))}
-            </FormSelect>
+            <SearchableSelect
+              id="defect-type"
+              value={defectType}
+              options={options}
+              onChange={setDefectType}
+              placeholder="Select a defect type..."
+              noResultsText="No defect types"
+            />
           </FormGroup>
           <FormGroup label="Comment">
             <TextArea value={comment} onChange={(_e, val) => setComment(val)} placeholder="Reason for classification..." />

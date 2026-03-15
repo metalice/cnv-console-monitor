@@ -1,163 +1,61 @@
 ---
-description: Coding standards and best practices for this project
-globs: ["packages/**/*.{ts,tsx}", "packages/**/*.css"]
+description: Core coding standards - naming, arrow functions, no inline styles
+globs: "packages/**/*.{ts,tsx}"
 alwaysApply: false
 ---
 
 # Coding Standards
 
-Coding standards for the CNV Console Monitor monorepo. Apply to all packages.
+## 1. Variable Naming — No Short Meaningless Names
 
----
+All variable, parameter, and function names must be at least 4 characters and descriptive.
 
-## General Goals
+```typescript
+// BAD
+const s = 'hello';
+const cb = () => {};
+items.map((e) => e.name);
+const d = new Date();
+const i = 0;
 
-- Aim for **maintainable, readable code** while keeping the project pragmatic
-- Share types and validation via `@cnv-monitor/shared`
-- Keep clear boundaries between client, server, and shared code
+// GOOD
+const message = 'hello';
+const callback = () => {};
+items.map((item) => item.name);
+const date = new Date();
+const index = 0;
+```
 
----
+Single-letter exceptions allowed ONLY in:
+- Generic type parameters: `<T>`, `<K, V>`
+- Unused event params required by API: `(_event, value) =>`
 
-## 1. Monorepo Conventions
+## 2. Arrow Functions Only
 
-### Package Boundaries
-- **`packages/shared`** — Zod schemas, inferred types, pure utility functions. No runtime dependencies on client or server.
-- **`packages/server`** — Express API, poller, notifiers, DB. Imports from `@cnv-monitor/shared`.
-- **`packages/client`** — React SPA. Imports from `@cnv-monitor/shared`. Never imports server code.
+Use arrow functions for all declarations. The `function` keyword is only allowed when `this` binding is required (e.g., class methods, Mocha-style tests).
 
-### Build Order
-Shared must build before server and client. The root `npm run build` handles this.
+```typescript
+// BAD
+function calculateRate(total, passed) { ... }
+function MyComponent() { ... }
 
-### Import Rules
-- Import shared types: `import { Launch, TriageRequest } from '@cnv-monitor/shared'`
-- Never import server code from client or vice versa
-- Never import from `dist/` paths directly
+// GOOD
+const calculateRate = (total: number, passed: number) => { ... };
+const MyComponent: React.FC = () => { ... };
+```
 
----
+React components should use `const Name: React.FC = () => (...)`.
 
-## 2. File Conventions
+## 3. No Inline Styling
 
-### File Extensions
-- **React components**: `.tsx`
-- **Logic/utils/types**: `.ts`
-- **Tests**: `.test.ts` (vitest)
+All styles must be in CSS files. Do not use the `style` prop on JSX elements.
 
-### File Naming
-- **Components**: PascalCase matching component name (`DashboardPage.tsx`, `StatusBadge.tsx`)
-- **Non-component files**: camelCase (`client.ts`, `reportportal.ts`, `store.ts`)
-- **Shared schemas**: camelCase matching domain (`launch.ts`, `testItem.ts`, `triage.ts`)
+```tsx
+// BAD
+<div style={{ marginTop: 16, color: 'red' }}>text</div>
 
-### File Size Limits
-- Maximum **200 lines** per file
-- If exceeding, split into smaller modules
-- One component per file (client); one concern per file (server/shared)
+// GOOD — use CSS classes
+<div className="app-mt-md app-text-danger">text</div>
+```
 
----
-
-## 3. React Patterns (Client)
-
-### Component Function Order
-1. React and external library imports
-2. PatternFly component imports
-3. Internal imports (API, components, types)
-4. Type definitions (props)
-5. Component function
-6. Default/named export
-
-### Inside Component Order
-1. Router hooks (`useParams`, `useNavigate`)
-2. TanStack Query hooks (`useQuery`, `useMutation`)
-3. Local state (`useState`)
-4. Derived values (`useMemo`)
-5. Callbacks (`useCallback`)
-6. Effects (`useEffect`)
-7. Early returns (loading, error, empty)
-8. Main JSX return
-
-### TanStack React Query
-- Use `useQuery` for all data fetching (no raw `useEffect` + `fetch`)
-- Use `useMutation` for POST/PUT/DELETE operations
-- Invalidate queries after mutations
-- Configure `staleTime` and `refetchInterval` appropriately
-
-### PatternFly
-- Use PatternFly components as base UI building blocks
-- Don't target PatternFly class names in CSS
-- Use PatternFly CSS variables for spacing, colors, typography
-
----
-
-## 4. TypeScript Standards
-
-### Type Safety
-- **Never use `any`** — use `unknown` and narrow
-- Always define explicit return types on exported functions
-- Use optional chaining (`?.`) and nullish coalescing (`??`)
-
-### Zod Schemas (Shared Package)
-- Define Zod schemas in `packages/shared/src/schemas/`
-- Infer TypeScript types from schemas: `type Launch = z.infer<typeof LaunchSchema>`
-- Use schemas for API request validation (server middleware) and type sharing
-- Export both schemas and inferred types
-
-### Naming Conventions
-- Types: PascalCase (`LaunchData`, `TriageRequest`)
-- Constants: UPPER_SNAKE_CASE (`DEFAULT_PORT`, `POLL_INTERVAL_MS`)
-- Functions/variables: camelCase (`fetchLaunches`, `buildReport`)
-- Components: PascalCase (`DashboardPage`, `StatusBadge`)
-
----
-
-## 5. Server Patterns
-
-### Express Routes
-- Try/catch in async handlers with `next(err)` forwarding
-- Use `validateBody(ZodSchema)` middleware for POST body validation
-- Return appropriate HTTP status codes
-- Consistent JSON response format
-
-### SQLite (better-sqlite3)
-- Synchronous operations (no await)
-- Parameterized queries always (`:param` style)
-- Transactions for multi-statement operations
-- All queries in `store.ts`
-
-### External API Clients
-- One file per service in `clients/`
-- Config-driven enablement (`config.*.enabled`)
-- Graceful degradation when service is unavailable
-- Timeout handling on all HTTP requests
-
----
-
-## 6. Code Quality
-
-### Comments
-- Avoid when possible; write self-documenting code
-- Use comments for non-obvious decisions or workarounds
-
-### Error Handling
-- Never swallow errors silently
-- Server: try/catch with `next(err)` in routes
-- Client: TanStack Query error states
-- Client: `ApiError` class for typed HTTP errors
-
-### No Debug Code
-- No `console.log` in production
-- No commented-out code
-
----
-
-## 7. AI-Specific Guidance
-
-### When Generating Code
-- Check existing patterns in the same package before creating new files
-- Reuse shared schemas and types from `@cnv-monitor/shared`
-- Match existing route handler and component patterns
-- Run `npm run build` and `npm run typecheck` after changes
-
-### When Reviewing Code
-- Verify shared types are used (not duplicated)
-- Ensure Zod validation on POST routes
-- Check loading, error, and empty states in React components
-- Verify no sensitive data in API responses
+Add classes to `packages/client/src/styles/app.css` using PatternFly CSS variables for consistency.

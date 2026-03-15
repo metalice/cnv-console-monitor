@@ -4,6 +4,7 @@ import { Bullseye, Spinner } from '@patternfly/react-core';
 
 type AuthContextValue = {
   user: User;
+  isAdmin: boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -13,7 +14,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/auth/user')
+    const params = new URLSearchParams(window.location.search);
+    const impersonate = params.get('impersonate');
+    const url = impersonate ? `/api/user/profile?impersonate=${encodeURIComponent(impersonate)}` : '/api/user/profile';
+    fetch(url)
       .then((res) => {
         if (!res.ok) throw new Error('Not authenticated');
         return res.json();
@@ -23,7 +27,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .finally(() => setLoading(false));
   }, []);
 
-  const value = useMemo((): AuthContextValue | null => (user ? { user } : null), [user]);
+  const value = useMemo((): AuthContextValue | null => (
+    user ? { user, isAdmin: user.role === 'admin' } : null
+  ), [user]);
 
   if (loading) {
     return (

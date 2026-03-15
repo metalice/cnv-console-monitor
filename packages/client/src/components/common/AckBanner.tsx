@@ -73,7 +73,7 @@ export const AckBanner: React.FC<AckBannerProps> = ({ onAcknowledge }) => {
             ))}
           </Flex>
         }
-        style={{ marginBottom: 16 }}
+        className="app-mb-md"
       />
     );
   }
@@ -96,7 +96,7 @@ export const AckBanner: React.FC<AckBannerProps> = ({ onAcknowledge }) => {
           )}
         </Flex>
       }
-      style={{ marginBottom: 16 }}
+      className="app-mb-md"
     />
   );
 };

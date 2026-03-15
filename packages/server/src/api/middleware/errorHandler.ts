@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { AxiosError } from 'axios';
-import { logger } from '../../logger';
+import { logger, setResponseError } from '../../logger';
 
 const log = logger.child({ module: 'API' });
 
@@ -15,8 +15,10 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
       upstream,
     }, 'Upstream API error');
 
+    const errorMsg = `Upstream error: ${err.message}`;
+    setResponseError(res, errorMsg);
     res.status(502).json({
-      error: `Upstream error: ${err.message}`,
+      error: errorMsg,
       upstream: typeof upstream === 'object' ? upstream : undefined,
       status,
       timestamp: new Date().toISOString(),
@@ -24,9 +26,11 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
     return;
   }
 
-  log.error({ err }, 'Internal server error');
+  const errorMsg = err.message || 'Internal server error';
+  setResponseError(res, errorMsg);
+  log.error({ err }, errorMsg);
   res.status(500).json({
-    error: err.message || 'Internal server error',
+    error: errorMsg,
     timestamp: new Date().toISOString(),
   });
 }

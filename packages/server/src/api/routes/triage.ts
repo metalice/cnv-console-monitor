@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { TriageRequestSchema, CommentRequestSchema, BulkTriageRequestSchema } from '@cnv-monitor/shared';
 import { getTestItemByRpId, updateTestItemDefect, addTriageLog } from '../../db/store';
 import { updateDefectType, addTestItemComment } from '../../clients/reportportal';
@@ -7,20 +7,20 @@ import { broadcast } from '../../ws';
 
 const router = Router();
 
-router.post('/:itemId', validateBody(TriageRequestSchema), async (req: Request, res: Response) => {
-  const itemId = parseIntParam(req.params.itemId, 'itemId', res);
-  if (itemId === null) return;
-
-  const { defectType, comment } = req.body;
-  const performedBy = req.user?.email || req.body.performedBy || 'unknown';
-
-  const existing = await getTestItemByRpId(itemId);
-  if (!existing) {
-    res.status(404).json({ error: 'Test item not found' });
-    return;
-  }
-
+router.post('/:itemId', validateBody(TriageRequestSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const itemId = parseIntParam(req.params.itemId, 'itemId', res);
+    if (itemId === null) return;
+
+    const { defectType, comment } = req.body;
+    const performedBy = req.user?.email || 'unknown';
+
+    const existing = await getTestItemByRpId(itemId);
+    if (!existing) {
+      res.status(404).json({ error: 'Test item not found' });
+      return;
+    }
+
     await updateDefectType([itemId], defectType, comment);
     await updateTestItemDefect(itemId, defectType, comment || '');
 
@@ -35,16 +35,15 @@ router.post('/:itemId', validateBody(TriageRequestSchema), async (req: Request, 
     broadcast('data-updated');
     res.json({ success: true, itemId, defectType });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to update defect type';
-    res.status(502).json({ error: message });
+    next(err);
   }
 });
 
-router.post('/bulk', validateBody(BulkTriageRequestSchema), async (req: Request, res: Response) => {
-  const { itemIds, defectType, comment } = req.body;
-  const performedBy = req.user?.email || req.body.performedBy || 'unknown';
-
+router.post('/bulk', validateBody(BulkTriageRequestSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const { itemIds, defectType, comment } = req.body;
+    const performedBy = req.user?.email || 'unknown';
+
     await updateDefectType(itemIds, defectType, comment);
 
     for (const itemId of itemIds) {
@@ -62,19 +61,18 @@ router.post('/bulk', validateBody(BulkTriageRequestSchema), async (req: Request,
     broadcast('data-updated');
     res.json({ success: true, count: itemIds.length, defectType });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to bulk update defect types';
-    res.status(502).json({ error: message });
+    next(err);
   }
 });
 
-router.post('/:itemId/comment', validateBody(CommentRequestSchema), async (req: Request, res: Response) => {
-  const itemId = parseIntParam(req.params.itemId, 'itemId', res);
-  if (itemId === null) return;
-
-  const { comment } = req.body;
-  const performedBy = req.user?.email || req.body.performedBy || 'unknown';
-
+router.post('/:itemId/comment', validateBody(CommentRequestSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const itemId = parseIntParam(req.params.itemId, 'itemId', res);
+    if (itemId === null) return;
+
+    const { comment } = req.body;
+    const performedBy = req.user?.email || req.body.performedBy || 'unknown';
+
     await addTestItemComment(itemId, comment);
 
     await addTriageLog({
@@ -87,8 +85,7 @@ router.post('/:itemId/comment', validateBody(CommentRequestSchema), async (req: 
     broadcast('data-updated');
     res.json({ success: true, itemId });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to add comment';
-    res.status(502).json({ error: message });
+    next(err);
   }
 });
 

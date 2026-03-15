@@ -17,7 +17,7 @@ export const HealthBanner: React.FC<HealthBannerProps> = ({ health, passed, fail
       : `${failed} failed / ${passed} passed${inProgress > 0 ? ` / ${inProgress} in progress` : ''}`;
 
   return (
-    <Banner color={color} style={{ marginBottom: 16 }}>
+    <Banner color={color} className="app-mb-md">
       {message}
     </Banner>
   );
