@@ -1,8 +1,54 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { getLaunchByRpId, getAllTestItems } from '../../db/store';
+import { AppDataSource } from '../../db/data-source';
 import { parseIntParam } from '../middleware/validate';
 
 const router = Router();
+
+router.get('/launches', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const days = parseInt(req.query.days as string) || 30;
+    const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+
+    const rows = await AppDataSource.query(`
+      SELECT l.rp_id, l.name, l.number, l.status, l.cnv_version, l.tier,
+             l.cluster_name, l.start_time, l.total, l.passed, l.failed, l.component
+      FROM launches l
+      WHERE l.start_time >= $1
+      ORDER BY l.name ASC, l.start_time DESC
+    `, [sinceMs]);
+
+    const grouped = new Map<string, Array<Record<string, unknown>>>();
+    for (const row of rows) {
+      const name = row.name as string;
+      if (!grouped.has(name)) grouped.set(name, []);
+      grouped.get(name)!.push(row);
+    }
+
+    const result = Array.from(grouped.entries()).map(([name, runs]) => ({
+      name,
+      runCount: runs.length,
+      latestStatus: runs[0].status,
+      cnvVersion: runs[0].cnv_version,
+      tier: runs[0].tier,
+      component: runs[0].component,
+      runs: runs.map((launch) => ({
+        rp_id: Number(launch.rp_id),
+        number: Number(launch.number),
+        status: launch.status as string,
+        start_time: Number(launch.start_time),
+        total: Number(launch.total),
+        passed: Number(launch.passed),
+        failed: Number(launch.failed),
+        cluster_name: launch.cluster_name as string | null,
+      })),
+    }));
+
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
 
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {

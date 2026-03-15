@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   PageSection,
@@ -16,14 +16,18 @@ import {
   Flex,
   FlexItem,
   Tooltip,
+  ExpandableSection,
 } from '@patternfly/react-core';
 import { Table, Thead, Tr, Tbody, Td } from '@patternfly/react-table';
 import { CheckCircleIcon, TimesCircleIcon } from '@patternfly/react-icons';
 import type { ApproverStat } from '@cnv-monitor/shared';
+import { apiFetch } from '../api/client';
 import { fetchActivity } from '../api/activity';
 import { fetchAckStats } from '../api/acknowledgment';
 import { SortByDirection } from '@patternfly/react-table';
 import { useTableSort } from '../hooks/useTableSort';
+import { usePreferences } from '../context/PreferencesContext';
+import { ComponentMultiSelect } from '../components/common/ComponentMultiSelect';
 import { ThWithHelp } from '../components/common/ThWithHelp';
 
 const PAGE_SIZE = 25;
@@ -35,6 +39,7 @@ const actionLabel = (action: string): React.ReactNode => {
     case 'add_comment': return <Label color="blue" isCompact>Comment</Label>;
     case 'create_jira': return <Label color="red" isCompact>Jira Created</Label>;
     case 'link_jira': return <Label color="orange" isCompact>Jira Linked</Label>;
+    case 'acknowledge': return <Label color="green" isCompact>Acknowledged</Label>;
     default: return <Label isCompact>{action}</Label>;
   }
 };
@@ -47,12 +52,30 @@ const REVIEWER_ACCESSORS: Record<number, (a: ApproverStat) => string | number | 
 
 export const ActivityPage: React.FC = () => {
   const [page, setPage] = useState(1);
+  const { preferences, loaded: prefsLoaded, setPreference } = usePreferences();
+  const [selectedComponents, setSelectedComponentsState] = useState<Set<string>>(new Set());
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   useEffect(() => { document.title = 'Activity | CNV Console Monitor'; }, []);
 
+  useEffect(() => {
+    if (prefsLoaded && preferences.dashboardComponents?.length) {
+      setSelectedComponentsState(new Set(preferences.dashboardComponents));
+    }
+  }, [prefsLoaded, preferences.dashboardComponents]);
+
+  const setSelectedComponents = (val: Set<string>) => { setSelectedComponentsState(val); setPreference('dashboardComponents', [...val]); };
+  const comp = selectedComponents.size === 1 ? [...selectedComponents][0] : undefined;
+
+  const { data: availableComponents } = useQuery({
+    queryKey: ['availableComponents'],
+    queryFn: () => apiFetch<string[]>('/launches/components'),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const { data: entries, isLoading } = useQuery({
-    queryKey: ['activity', page],
-    queryFn: () => fetchActivity(PAGE_SIZE, (page - 1) * PAGE_SIZE),
+    queryKey: ['activity', page, comp],
+    queryFn: () => fetchActivity(PAGE_SIZE, (page - 1) * PAGE_SIZE, comp),
   });
 
   const { data: ackStats } = useQuery({
@@ -69,15 +92,29 @@ export const ActivityPage: React.FC = () => {
   return (
     <>
       <PageSection>
-        <Content component="h1">Activity Feed</Content>
-        <Content component="small">Recent triage, Jira, and acknowledgment actions</Content>
+        <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }}>
+          <FlexItem>
+            <Content component="h1">Activity Feed</Content>
+            <Content component="small">Recent triage, Jira, and acknowledgment actions</Content>
+          </FlexItem>
+          <FlexItem>
+            {(availableComponents?.length ?? 0) > 0 && (
+              <ComponentMultiSelect
+                id="activity-component"
+                selected={selectedComponents}
+                options={availableComponents ?? []}
+                onChange={setSelectedComponents}
+              />
+            )}
+          </FlexItem>
+        </Flex>
       </PageSection>
 
       <PageSection>
         <Grid hasGutter>
           {ackStats && (
             <>
-              <GridItem span={6}>
+              <GridItem span={12} md={6}>
                 <Card>
                   <CardTitle>Reviewer Stats (last 30 days)</CardTitle>
                   <CardBody>
@@ -90,17 +127,17 @@ export const ActivityPage: React.FC = () => {
                       <Table aria-label="Approver stats" variant="compact">
                         <Thead>
                           <Tr>
-                            <ThWithHelp label="Reviewer" help="Name of the person who acknowledged (signed off) daily test results." sort={getApproverSortParams(0)} />
-                            <ThWithHelp label="Reviews" help="Total number of daily acknowledgments submitted by this reviewer." sort={getApproverSortParams(1)} />
-                            <ThWithHelp label="Last Review" help="Date of the most recent acknowledgment by this reviewer." sort={getApproverSortParams(2)} />
+                            <ThWithHelp label="Reviewer" help="Name of the person who acknowledged daily test results." sort={getApproverSortParams(0)} />
+                            <ThWithHelp label="Reviews" help="Total number of daily acknowledgments." sort={getApproverSortParams(1)} />
+                            <ThWithHelp label="Last Review" help="Date of the most recent acknowledgment." sort={getApproverSortParams(2)} />
                           </Tr>
                         </Thead>
                         <Tbody>
                           {sortedApprovers.map((a) => (
                             <Tr key={a.reviewer}>
-                              <Td dataLabel="Reviewer" className="app-cell-nowrap"><strong>{a.reviewer}</strong></Td>
+                              <Td dataLabel="Reviewer"><strong>{a.reviewer}</strong></Td>
                               <Td dataLabel="Reviews">{a.totalReviews}</Td>
-                              <Td dataLabel="Last Review" className="app-cell-nowrap">{a.lastReviewDate}</Td>
+                              <Td dataLabel="Last Review">{a.lastReviewDate}</Td>
                             </Tr>
                           ))}
                         </Tbody>
@@ -111,7 +148,7 @@ export const ActivityPage: React.FC = () => {
                 </Card>
               </GridItem>
 
-              <GridItem span={6}>
+              <GridItem span={12} md={6}>
                 <Card>
                   <CardTitle>Daily Review History (last 30 days)</CardTitle>
                   <CardBody style={{ maxHeight: 300, overflow: 'auto' }}>
@@ -151,7 +188,7 @@ export const ActivityPage: React.FC = () => {
 
           <GridItem span={12}>
             <Card>
-              <CardTitle>Triage Activity</CardTitle>
+              <CardTitle>Activity</CardTitle>
               <CardBody>
                 {isLoading ? (
                   <Spinner aria-label="Loading activity" />
@@ -165,34 +202,63 @@ export const ActivityPage: React.FC = () => {
                     <Table aria-label="Activity feed" variant="compact" isStickyHeader>
                       <Thead>
                         <Tr>
-                          <ThWithHelp label="Time" help="When the action was performed. Shows relative time (e.g. '5 minutes ago')." />
-                          <ThWithHelp label="Action" help="Type of action: Classified (defect type set), Jira Created, Jira Linked, Acknowledged." />
-                          <ThWithHelp label="Test" help="Short name of the test item this action was performed on." />
-                          <ThWithHelp label="Details" help="Additional context: defect type assigned, Jira key created/linked, or acknowledgment note." />
+                          <ThWithHelp label="Time" help="When the action was performed." />
+                          <ThWithHelp label="Action" help="Type of action performed." />
+                          <ThWithHelp label="Component" help="Component this action relates to." />
+                          <ThWithHelp label="Test / Target" help="Test item or acknowledgment target." />
+                          <ThWithHelp label="Details" help="Additional context." />
                           <ThWithHelp label="By" help="The user who performed this action." />
                         </Tr>
                       </Thead>
                       <Tbody>
                         {entries.map((entry) => {
-                          const shortName = entry.test_name?.split('.').pop() || entry.test_name || '--';
+                          const isAck = entry.action === 'acknowledge';
+                          const shortName = isAck ? '--' : (entry.test_name?.split('.').pop() || entry.test_name || '--');
+                          const hasNotes = isAck && entry.notes;
+                          const isExpanded = expandedId === entry.id;
+
                           return (
-                            <Tr key={entry.id}>
-                              <Td dataLabel="Time" className="app-cell-nowrap">{new Date(entry.performed_at).toLocaleString()}</Td>
-                              <Td dataLabel="Action" className="app-cell-nowrap">{actionLabel(entry.action)}</Td>
-                              <Td dataLabel="Test" className="app-cell-truncate">
-                                <Tooltip content={entry.test_name || shortName}><span>{shortName}</span></Tooltip>
-                              </Td>
-                              <Td dataLabel="Details" className="app-cell-truncate">
-                                <Tooltip content={entry.old_value && entry.new_value ? `${entry.old_value} \u2192 ${entry.new_value}` : entry.new_value || '--'}>
-                                  <span>
-                                    {entry.old_value && entry.new_value
-                                      ? `${entry.old_value} \u2192 ${entry.new_value}`
-                                      : entry.new_value || '--'}
-                                  </span>
-                                </Tooltip>
-                              </Td>
-                              <Td dataLabel="By" className="app-cell-nowrap">{entry.performed_by || '--'}</Td>
-                            </Tr>
+                            <React.Fragment key={entry.id}>
+                              <Tr
+                                isClickable={!!hasNotes}
+                                onRowClick={hasNotes ? () => setExpandedId(isExpanded ? null : entry.id) : undefined}
+                              >
+                                <Td dataLabel="Time">{new Date(entry.performed_at).toLocaleString()}</Td>
+                                <Td dataLabel="Action">{actionLabel(entry.action)}</Td>
+                                <Td dataLabel="Component">{entry.component ? <Label color="grey" isCompact>{entry.component}</Label> : '--'}</Td>
+                                <Td dataLabel="Test / Target">
+                                  {isAck ? (
+                                    <span>{entry.component || 'Report'} acknowledged</span>
+                                  ) : (
+                                    <Tooltip content={entry.test_name || shortName}><span>{shortName}</span></Tooltip>
+                                  )}
+                                </Td>
+                                <Td dataLabel="Details">
+                                  {isAck ? (
+                                    hasNotes ? <Label color="blue" isCompact>View notes</Label> : '--'
+                                  ) : (
+                                    <Tooltip content={entry.old_value && entry.new_value ? `${entry.old_value} \u2192 ${entry.new_value}` : entry.new_value || '--'}>
+                                      <span>
+                                        {entry.old_value && entry.new_value
+                                          ? `${entry.old_value} \u2192 ${entry.new_value}`
+                                          : entry.new_value || '--'}
+                                      </span>
+                                    </Tooltip>
+                                  )}
+                                </Td>
+                                <Td dataLabel="By">{entry.performed_by || '--'}</Td>
+                              </Tr>
+                              {isExpanded && hasNotes && (
+                                <Tr>
+                                  <Td colSpan={6} style={{ background: 'var(--pf-t--global--background--color--secondary--default)', padding: 'var(--pf-t--global--spacer--md)' }}>
+                                    <Content component="small" className="app-text-muted app-mb-sm">Acknowledgment notes by {entry.performed_by}:</Content>
+                                    <pre style={{ whiteSpace: 'pre-wrap', fontSize: 'var(--pf-t--global--font--size--sm)', fontFamily: 'var(--pf-t--global--font--family--mono)', margin: 0 }}>
+                                      {entry.notes}
+                                    </pre>
+                                  </Td>
+                                </Tr>
+                              )}
+                            </React.Fragment>
                           );
                         })}
                       </Tbody>
@@ -204,7 +270,7 @@ export const ActivityPage: React.FC = () => {
                       page={page}
                       onSetPage={(_e, p) => setPage(p)}
                       isCompact
-                      style={{ marginTop: 16 }}
+                      className="app-mt-md"
                     />
                   </>
                 )}

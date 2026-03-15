@@ -1,9 +1,10 @@
 import type { AcknowledgmentStatus, AcknowledgeRequest, ApproverStat, AckHistoryEntry } from '@cnv-monitor/shared';
 import { apiFetch, apiPost } from './client';
 
-export function fetchAckStatus(date?: string): Promise<AcknowledgmentStatus> {
-  if (date) return apiFetch(`/acknowledgment/${date}`);
-  return apiFetch('/acknowledgment/today');
+export function fetchAckStatus(date?: string, component?: string): Promise<AcknowledgmentStatus> {
+  const comp = component ? `?component=${encodeURIComponent(component)}` : '';
+  if (date) return apiFetch(`/acknowledgment/${date}${comp}`);
+  return apiFetch(`/acknowledgment/today${comp}`);
 }
 
 export function submitAcknowledgment(data: AcknowledgeRequest): Promise<AcknowledgmentStatus> {

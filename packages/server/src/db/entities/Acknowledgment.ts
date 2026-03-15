@@ -1,7 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Unique } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
 
 @Entity('acknowledgments')
-@Unique('uq_ack_date_reviewer', ['date', 'reviewer'])
 export class Acknowledgment {
   @PrimaryGeneratedColumn()
   id!: number;
@@ -14,6 +13,9 @@ export class Acknowledgment {
 
   @Column({ type: 'text', nullable: true })
   notes!: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  component!: string | null;
 
   @CreateDateColumn()
   acknowledged_at!: Date;

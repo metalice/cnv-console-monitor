@@ -51,6 +51,7 @@ export const AcknowledgeRequestSchema = z.object({
   reviewer: z.string().min(1),
   notes: z.string().optional(),
   testNotes: z.array(TestNoteSchema).optional(),
+  component: z.string().optional(),
 });
 
 export type AcknowledgeRequest = z.infer<typeof AcknowledgeRequestSchema>;

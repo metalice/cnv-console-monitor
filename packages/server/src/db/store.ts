@@ -53,6 +53,7 @@ export type AcknowledgmentRecord = {
   date: string;
   reviewer: string;
   notes?: string;
+  component?: string;
   acknowledged_at?: string;
 };
 
@@ -62,6 +63,7 @@ export type TriageLogRecord = {
   old_value?: string;
   new_value?: string;
   performed_by?: string;
+  component?: string;
 };
 
 const launches = () => AppDataSource.getRepository(Launch);
@@ -190,22 +192,28 @@ export async function updateTestItemJira(rpId: number, jiraKey: string, jiraStat
 }
 
 export async function addAcknowledgment(ack: AcknowledgmentRecord): Promise<void> {
-  await acknowledgments().upsert(
-    { date: ack.date, reviewer: ack.reviewer, notes: ack.notes ?? null },
-    { conflictPaths: ['date', 'reviewer'] },
-  );
+  await acknowledgments().save({
+    date: ack.date,
+    reviewer: ack.reviewer,
+    notes: ack.notes ?? null,
+    component: ack.component ?? null,
+  });
 }
 
-export async function getAcknowledgmentsForDate(date: string): Promise<AcknowledgmentRecord[]> {
+export async function getAcknowledgmentsForDate(date: string, component?: string): Promise<AcknowledgmentRecord[]> {
+  const where: Record<string, unknown> = { date };
+  if (component) where.component = component;
   const rows = await acknowledgments().find({
-    where: { date },
+    where,
     order: { acknowledged_at: 'ASC' },
   });
   return rows.map(toAckRecord);
 }
 
-export async function deleteAcknowledgment(date: string, reviewer: string): Promise<void> {
-  await acknowledgments().delete({ date, reviewer });
+export async function deleteAcknowledgment(date: string, reviewer: string, component?: string): Promise<void> {
+  const where: Record<string, unknown> = { date, reviewer };
+  if (component) where.component = component;
+  await acknowledgments().delete(where);
 }
 
 export async function getAckHistory(days: number): Promise<Array<{ date: string; reviewer: string; acknowledged_at: string | null }>> {
@@ -240,6 +248,7 @@ export async function addTriageLog(log: TriageLogRecord): Promise<void> {
     old_value: log.old_value ?? null,
     new_value: log.new_value ?? null,
     performed_by: log.performed_by ?? null,
+    component: log.component ?? null,
   });
 }
 
@@ -673,29 +682,57 @@ export async function getCurrentlyFailingTests(): Promise<TestItemRecord[]> {
   return rows.map(toTestItemRecord);
 }
 
-export async function getActivityLog(limit = 50, offset = 0): Promise<Array<{
+export type ActivityLogEntry = {
   id: number;
-  test_item_rp_id: number;
+  test_item_rp_id: number | null;
   action: string;
   old_value: string | null;
   new_value: string | null;
   performed_by: string | null;
   performed_at: string;
   test_name: string | null;
-}>> {
+  component: string | null;
+  notes: string | null;
+};
+
+export async function getActivityLog(limit = 50, offset = 0, component?: string): Promise<ActivityLogEntry[]> {
+  const compFilter = component ? `WHERE component = '${component.replace(/'/g, "''")}'` : '';
+  const compFilterTl = component ? `AND tl.component = '${component.replace(/'/g, "''")}'` : '';
+
   const rows = await AppDataSource.query(`
-    SELECT
-      tl.id,
-      tl.test_item_rp_id,
-      tl.action,
-      tl.old_value,
-      tl.new_value,
-      tl.performed_by,
-      tl.performed_at,
-      ti.name as test_name
-    FROM triage_log tl
-    LEFT JOIN test_items ti ON tl.test_item_rp_id = ti.rp_id
-    ORDER BY tl.performed_at DESC
+    (
+      SELECT
+        tl.id,
+        tl.test_item_rp_id,
+        tl.action,
+        tl.old_value,
+        tl.new_value,
+        tl.performed_by,
+        tl.performed_at,
+        ti.name as test_name,
+        tl.component,
+        NULL as notes
+      FROM triage_log tl
+      LEFT JOIN test_items ti ON tl.test_item_rp_id = ti.rp_id
+      WHERE 1=1 ${compFilterTl}
+    )
+    UNION ALL
+    (
+      SELECT
+        a.id + 1000000 as id,
+        NULL as test_item_rp_id,
+        'acknowledge' as action,
+        NULL as old_value,
+        a.component as new_value,
+        a.reviewer as performed_by,
+        a.acknowledged_at as performed_at,
+        NULL as test_name,
+        a.component,
+        a.notes
+      FROM acknowledgments a
+      ${compFilter}
+    )
+    ORDER BY performed_at DESC
     LIMIT $1 OFFSET $2
   `, [limit, offset]);
   return rows;
@@ -754,6 +791,7 @@ function toAckRecord(row: Acknowledgment): AcknowledgmentRecord {
     date: row.date,
     reviewer: row.reviewer,
     notes: row.notes ?? undefined,
+    component: row.component ?? undefined,
     acknowledged_at: row.acknowledged_at?.toISOString() ?? undefined,
   };
 }

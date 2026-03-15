@@ -46,13 +46,17 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     }
 
     const myRecentActivity = await AppDataSource.query(
-      `SELECT tl.action, ti.name as test_name, tl.new_value, tl.performed_at
-       FROM triage_log tl
-       LEFT JOIN test_items ti ON tl.test_item_rp_id = ti.rp_id
-       WHERE tl.performed_by = $1
-       ORDER BY tl.performed_at DESC
-       LIMIT 10`,
-      [email],
+      `(SELECT tl.action, ti.name as test_name, tl.new_value, tl.performed_at
+        FROM triage_log tl
+        LEFT JOIN test_items ti ON tl.test_item_rp_id = ti.rp_id
+        WHERE tl.performed_by = $1)
+       UNION ALL
+       (SELECT 'acknowledge' as action, NULL as test_name, a.notes as new_value, a.acknowledged_at as performed_at
+        FROM acknowledgments a
+        WHERE a.reviewer = $1 OR a.reviewer = $2)
+       ORDER BY performed_at DESC
+       LIMIT 15`,
+      [email, req.user?.name ?? email],
     );
 
     const myJiraBugs = await AppDataSource.query(

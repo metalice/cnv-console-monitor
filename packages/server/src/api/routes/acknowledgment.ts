@@ -11,10 +11,11 @@ function todayDate(): string {
   return new Date().toISOString().split('T')[0];
 }
 
-router.get('/today', async (_req: Request, res: Response, next: NextFunction) => {
+router.get('/today', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const date = todayDate();
-    const acks = await getAcknowledgmentsForDate(date);
+    const component = (req.query.component as string) || undefined;
+    const acks = await getAcknowledgmentsForDate(date, component);
     res.json({ date, acknowledged: acks.length > 0, acknowledgments: acks });
   } catch (err) {
     next(err);
@@ -59,7 +60,8 @@ router.get('/stats', async (req: Request, res: Response, next: NextFunction) => 
 
 router.get('/:date', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const acks = await getAcknowledgmentsForDate(req.params.date as string);
+    const component = (req.query.component as string) || undefined;
+    const acks = await getAcknowledgmentsForDate(req.params.date as string, component);
     res.json({ date: req.params.date, acknowledged: acks.length > 0, acknowledgments: acks });
   } catch (err) {
     next(err);
@@ -85,7 +87,8 @@ router.post('/', validateBody(AcknowledgeRequestSchema), async (req: Request, re
         : testNotesText;
     }
 
-    await addAcknowledgment({ date, reviewer, notes: combinedNotes || undefined });
+    const component = req.body.component as string | undefined;
+    await addAcknowledgment({ date, reviewer, notes: combinedNotes || undefined, component });
 
     try {
       const { getAllSubscriptions } = await import('../../db/store');
@@ -117,9 +120,10 @@ router.delete('/:date', validateBody(DeleteAckRequestSchema), async (req: Reques
       return;
     }
 
-    await deleteAcknowledgment(date, reviewer);
+    const component = req.body.component as string | undefined;
+    await deleteAcknowledgment(date, reviewer, component);
 
-    const acks = await getAcknowledgmentsForDate(date);
+    const acks = await getAcknowledgmentsForDate(date, component);
     broadcast('data-updated');
     res.json({ success: true, date, acknowledgments: acks });
   } catch (err) {

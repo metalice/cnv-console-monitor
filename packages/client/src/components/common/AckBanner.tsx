@@ -14,20 +14,21 @@ import { useDate } from '../../context/DateContext';
 
 type AckBannerProps = {
   onAcknowledge: () => void;
+  component?: string;
 };
 
 function todayStr(): string {
   return new Date().toISOString().split('T')[0];
 }
 
-export const AckBanner: React.FC<AckBannerProps> = ({ onAcknowledge }) => {
+export const AckBanner: React.FC<AckBannerProps> = ({ onAcknowledge, component }) => {
   const queryClient = useQueryClient();
   const { dateTo } = useDate();
   const isToday = dateTo === todayStr();
 
   const { data } = useQuery({
-    queryKey: ['acknowledgment', dateTo],
-    queryFn: () => fetchAckStatus(dateTo),
+    queryKey: ['acknowledgment', dateTo, component],
+    queryFn: () => fetchAckStatus(dateTo, component),
     refetchInterval: isToday ? 60000 : false,
   });
 

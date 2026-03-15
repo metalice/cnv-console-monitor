@@ -22,7 +22,7 @@ import {
   EmptyStateBody,
 } from '@patternfly/react-core';
 import { Table, Thead, Tr, Tbody, Td } from '@patternfly/react-table';
-import { SyncAltIcon, ExternalLinkAltIcon, RedoIcon } from '@patternfly/react-icons';
+import { ExternalLinkAltIcon, RedoIcon } from '@patternfly/react-icons';
 import { apiFetch } from '../api/client';
 import { fetchReportForRange } from '../api/launches';
 import { fetchReleases } from '../api/releases';
@@ -101,7 +101,7 @@ export const DashboardPage: React.FC = () => {
     staleTime: Infinity,
   });
 
-  const { data: report, isLoading, refetch } = useQuery({
+  const { data: report, isLoading } = useQuery({
     queryKey: ['report', lookbackMode, since, until],
     queryFn: () => fetchReportForRange(since, until),
   });
@@ -223,10 +223,9 @@ export const DashboardPage: React.FC = () => {
                   <ExportButton groups={filteredGroups} date={displayLabel} />
                 </ToolbarItem>
                 <ToolbarItem>
-                  <Button variant="secondary" icon={<SyncAltIcon />} onClick={() => refetch()}>Refresh</Button>
-                </ToolbarItem>
-                <ToolbarItem>
-                  <Button variant="secondary" icon={<RedoIcon />} onClick={() => pollNow.mutate()} isLoading={pollNow.isPending}>Poll Now</Button>
+                  <Tooltip content="Triggers a full sync with ReportPortal — fetches new launches and test items, then stores them locally. The server also auto-polls periodically (configured in Settings). This may take 10–30 seconds.">
+                    <Button variant="secondary" icon={<RedoIcon />} onClick={() => pollNow.mutate()} isLoading={pollNow.isPending}>Poll Now</Button>
+                  </Tooltip>
                 </ToolbarItem>
               </ToolbarContent>
             </Toolbar>
@@ -235,11 +234,16 @@ export const DashboardPage: React.FC = () => {
       </PageSection>
 
       <PageSection>
-        <AckBanner onAcknowledge={() => setAckModalOpen(true)} />
+        {selectedComponents.size === 1 && (
+          <AckBanner
+            onAcknowledge={() => setAckModalOpen(true)}
+            component={[...selectedComponents][0]}
+          />
+        )}
         {upcomingReleases.length > 0 && (
           <Alert variant="warning" isInline title="Upcoming Releases" className="app-mb-md">
             {upcomingReleases.map(r => (
-              <Label key={r.shortname} color={r.daysUntilNext! <= 3 ? 'red' : 'orange'} className="app-mr-sm">
+              <Label key={r.shortname} color={r.daysUntilNext! <= 3 ? 'red' : 'orange'} className="app-mr-sm" style={{ cursor: 'pointer' }} onClick={() => navigate('/releases')}>
                 {r.shortname.replace('cnv-', 'CNV ')} &mdash; {r.nextRelease?.date} ({r.daysUntilNext}d)
               </Label>
             ))}
@@ -406,7 +410,8 @@ export const DashboardPage: React.FC = () => {
       <AcknowledgeModal
         isOpen={ackModalOpen}
         onClose={() => setAckModalOpen(false)}
-        groups={report.groups}
+        groups={filteredGroups}
+        component={selectedComponents.size === 1 ? [...selectedComponents][0] : undefined}
       />
     </>
   );

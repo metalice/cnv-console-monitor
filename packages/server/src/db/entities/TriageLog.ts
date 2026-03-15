@@ -20,6 +20,9 @@ export class TriageLog {
   @Column({ type: 'varchar', nullable: true })
   performed_by!: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  component!: string | null;
+
   @CreateDateColumn()
   performed_at!: Date;
 }
