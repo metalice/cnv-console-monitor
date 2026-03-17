@@ -153,7 +153,7 @@ export const SettingsPage: React.FC = () => {
   const dangerActions: Record<string, { label: string; description: string; confirmWord: string; action: () => Promise<unknown> }> = {
     clearData: {
       label: 'Clear All Data',
-      description: 'This will delete all launches, test items, and trends. Settings and users are preserved.',
+      description: 'This will delete all launches, test items, and trends, then re-fetch from ReportPortal. Settings and users are preserved.',
       confirmWord: 'DELETE',
       action: () => apiFetch('/poll/backfill', { method: 'POST' }),
     },
@@ -165,18 +165,16 @@ export const SettingsPage: React.FC = () => {
     },
   };
 
-  const handleDangerConfirm = async () => {
+  const handleDangerConfirm = () => {
     if (!dangerModal) return;
     const action = dangerActions[dangerModal];
     if (!action || dangerConfirm !== action.confirmWord) return;
-    try {
-      await action.action();
-      addToast('success', `${action.label} completed`);
-    } catch (e) {
-      addToast('danger', e instanceof Error ? e.message : 'Operation failed');
-    }
     setDangerModal(null);
     setDangerConfirm('');
+    addToast('info', `${action.label} started...`);
+    action.action()
+      .then(() => addToast('success', `${action.label} completed`))
+      .catch((e) => addToast('danger', e instanceof Error ? e.message : 'Operation failed'));
   };
 
   const handleExport = async () => {

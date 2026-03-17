@@ -5,7 +5,7 @@ import { requireAdmin } from '../middleware/auth';
 import { logger } from '../../logger';
 import {
   lockPoll, unlockPoll, getPollProgress,
-  forceUnlockPoll, isPollLocked,
+  forceUnlockPoll, isPollLocked, isPollCancelled,
   pauseAutoPoll, resumeAutoPoll,
 } from '../../pollLock';
 import { config, lastPollAt, setLastPollAt } from '../../config';
@@ -53,23 +53,32 @@ router.post('/backfill', requireAdmin, async (_req: Request, res: Response, next
     await clearAllLaunches();
 
     const result = await pollReportPortal(lookbackDays * 24, true, pollId);
+    const wasCancelled = isPollCancelled();
     setLastPollAt(Date.now());
     unlockPoll();
     broadcast('data-updated');
-    res.json({ success: true, launches: result.launches.length, lookbackDays });
+    res.json({ success: true, launches: result.launches.length, lookbackDays, cancelled: wasCancelled });
 
-    log.info('Phase 2: Jenkins enrichment');
-    enrichLaunchesFromJenkins(result.launches)
-      .then(async (enrichResult) => {
-        log.info(enrichResult, 'Phase 3: Auto-mapping');
-        broadcast('jenkins-progress', { phase: 'mapping', current: 0, total: 0, message: 'Auto-mapping components...' });
-        const mapResult = await autoGenerateMappings();
-        const backfilled = await backfillComponentFromSiblings();
-        log.info({ backfilled }, 'Backfilled components from sibling launches');
-        broadcast('jenkins-progress', { phase: 'complete', current: 0, total: 0, message: `Done — ${enrichResult.succeeded} enriched, ${mapResult.mapped.length} mapped, ${backfilled} backfilled` });
-        broadcast('data-updated');
-      })
-      .finally(() => resumeAutoPoll());
+    if (wasCancelled) {
+      log.info({ fetched: result.launches.length }, 'Backfill was cancelled — clearing partial data');
+      await clearAllTestItems();
+      await clearAllLaunches();
+      broadcast('data-updated');
+      resumeAutoPoll();
+    } else {
+      log.info('Phase 2: Jenkins enrichment');
+      enrichLaunchesFromJenkins(result.launches)
+        .then(async (enrichResult) => {
+          log.info(enrichResult, 'Phase 3: Auto-mapping');
+          broadcast('jenkins-progress', { phase: 'mapping', current: 0, total: 0, message: 'Auto-mapping components...' });
+          const mapResult = await autoGenerateMappings();
+          const backfilled = await backfillComponentFromSiblings();
+          log.info({ backfilled }, 'Backfilled components from sibling launches');
+          broadcast('jenkins-progress', { phase: 'complete', current: 0, total: 0, message: `Done — ${enrichResult.succeeded} enriched, ${mapResult.mapped.length} mapped, ${backfilled} backfilled` });
+          broadcast('data-updated');
+        })
+        .finally(() => resumeAutoPoll());
+    }
   } catch (err) { unlockPoll(); resumeAutoPoll(); next(err); }
 });
 
@@ -97,6 +106,16 @@ router.post('/retry-failed', requireAdmin, async (_req: Request, res: Response, 
     const result = await enrichRemainingLaunches();
     broadcast('data-updated');
     res.json({ success: true, ...result });
+  } catch (err) { next(err); }
+});
+
+router.post('/clear', requireAdmin, async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    await clearAllTestItems();
+    await clearAllLaunches();
+    broadcast('data-updated');
+    log.info('All data cleared');
+    res.json({ success: true });
   } catch (err) { next(err); }
 });
 
