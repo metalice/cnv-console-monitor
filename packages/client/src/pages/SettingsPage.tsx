@@ -165,18 +165,16 @@ export const SettingsPage: React.FC = () => {
     },
   };
 
-  const handleDangerConfirm = async () => {
+  const handleDangerConfirm = () => {
     if (!dangerModal) return;
     const action = dangerActions[dangerModal];
     if (!action || dangerConfirm !== action.confirmWord) return;
-    try {
-      await action.action();
-      addToast('success', `${action.label} completed`);
-    } catch (e) {
-      addToast('danger', e instanceof Error ? e.message : 'Operation failed');
-    }
     setDangerModal(null);
     setDangerConfirm('');
+    addToast('info', `${action.label} started...`);
+    action.action()
+      .then(() => addToast('success', `${action.label} completed`))
+      .catch((e) => addToast('danger', e instanceof Error ? e.message : 'Operation failed'));
   };
 
   const handleExport = async () => {
