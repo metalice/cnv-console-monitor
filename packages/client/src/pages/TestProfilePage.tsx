@@ -52,7 +52,7 @@ export const TestProfilePage: React.FC = () => {
   }, [profile]);
 
   if (isLoading || !profile) {
-    return <PageSection isFilled><div className="app-page-spinner"><Spinner aria-label="Loading test profile" /></div></PageSection>;
+    return <div className="app-page-spinner"><Spinner aria-label="Loading test profile" /></div>;
   }
 
   return (

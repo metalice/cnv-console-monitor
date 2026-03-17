@@ -18,6 +18,9 @@ export type LaunchRecord = {
   duration?: number;
   artifacts_url?: string;
   component?: string;
+  jenkins_team?: string;
+  jenkins_metadata?: Record<string, unknown>;
+  jenkins_status?: string;
 };
 
 export type TestItemRecord = {

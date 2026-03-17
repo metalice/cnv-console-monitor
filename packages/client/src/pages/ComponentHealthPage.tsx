@@ -7,7 +7,6 @@ import {
   Spinner,
   EmptyState,
   EmptyStateBody,
-  Bullseye,
 } from '@patternfly/react-core';
 import { CubesIcon } from '@patternfly/react-icons';
 import { fetchComponentHealth } from '../api/componentHealth';
@@ -28,13 +27,7 @@ export const ComponentHealthPage: React.FC = () => {
   });
 
   if (isLoading) {
-    return (
-      <PageSection>
-        <Bullseye className="app-min-h-300">
-          <Spinner aria-label="Loading component health" />
-        </Bullseye>
-      </PageSection>
-    );
+    return <div className="app-page-spinner"><Spinner aria-label="Loading component health" /></div>;
   }
 
   if (!components?.length) {

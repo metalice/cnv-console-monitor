@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePreferences } from '../context/PreferencesContext';
+import { useComponentFilter } from '../context/ComponentFilterContext';
 import type { DailyReport, LaunchGroup } from '@cnv-monitor/shared';
 
 export type DashboardFilterActions = {
-  setSelectedComponents: (value: Set<string>) => void;
   setVersionFilter: (value: string) => void;
   setSelectedTiers: (value: Set<string>) => void;
   setStatusFilter: (value: string | null) => void;
@@ -26,7 +26,7 @@ export type DashboardFilterState = {
 
 export const useDashboardFilters = (report: DailyReport | undefined): DashboardFilterState & DashboardFilterActions => {
   const { preferences, loaded: prefsLoaded, setPreference } = usePreferences();
-  const [selectedComponents, setSelectedComponentsState] = useState<Set<string>>(new Set());
+  const { selectedComponents } = useComponentFilter();
   const [versionFilter, setVersionFilterState] = useState<string>('all');
   const [selectedTiers, setSelectedTiersState] = useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilterState] = useState<string | null>(null);
@@ -38,47 +38,34 @@ export const useDashboardFilters = (report: DailyReport | undefined): DashboardF
     prefsAppliedRef.current = true;
 
     const initialParams = new URLSearchParams(window.location.search);
-    const urlComponents = initialParams.get('components');
     const urlVersion = initialParams.get('version');
     const urlTiers = initialParams.get('tiers');
     const urlStatus = initialParams.get('status');
-    const hasUrlParams = urlComponents !== null || urlVersion !== null || urlTiers !== null || urlStatus !== null;
 
-    if (hasUrlParams) {
-      if (urlComponents) {
-        const comps = urlComponents.split(',').filter(Boolean);
-        setSelectedComponentsState(new Set(comps));
-        setPreference('dashboardComponents', comps);
-      }
-      if (urlVersion && urlVersion !== 'all') {
-        setVersionFilterState(urlVersion);
-        setPreference('dashboardVersion', urlVersion);
-      }
-      if (urlTiers) setSelectedTiersState(new Set(urlTiers.split(',').filter(Boolean)));
-      if (urlStatus) setStatusFilterState(urlStatus);
-    } else {
-      if (preferences.dashboardComponents?.length) setSelectedComponentsState(new Set(preferences.dashboardComponents));
-      if (preferences.dashboardVersion) setVersionFilterState(preferences.dashboardVersion);
+    if (urlVersion && urlVersion !== 'all') {
+      setVersionFilterState(urlVersion);
+      setPreference('dashboardVersion', urlVersion);
+    } else if (preferences.dashboardVersion) {
+      setVersionFilterState(preferences.dashboardVersion);
     }
-  }, [prefsLoaded, preferences.dashboardComponents, preferences.dashboardVersion, setPreference]);
+    if (urlTiers) setSelectedTiersState(new Set(urlTiers.split(',').filter(Boolean)));
+    if (urlStatus) setStatusFilterState(urlStatus);
+  }, [prefsLoaded, preferences.dashboardVersion, setPreference]);
 
-  const filtersRef = useRef({ components: selectedComponents, version: versionFilter, tiers: selectedTiers, status: statusFilter });
+  const filtersRef = useRef({ version: versionFilter, tiers: selectedTiers, status: statusFilter });
   useEffect(() => {
-    filtersRef.current = { components: selectedComponents, version: versionFilter, tiers: selectedTiers, status: statusFilter };
+    filtersRef.current = { version: versionFilter, tiers: selectedTiers, status: statusFilter };
   });
 
   const syncUrl = () => {
-    const { components, version, tiers, status } = filtersRef.current;
-    const params = new URLSearchParams();
-    if (components.size > 0) params.set('components', [...components].join(','));
-    if (version !== 'all') params.set('version', version);
-    if (tiers.size > 0) params.set('tiers', [...tiers].join(','));
-    if (status) params.set('status', status);
-    const queryString = params.toString();
-    window.history.replaceState(null, '', queryString ? `/?${queryString}` : '/');
+    const { version, tiers, status } = filtersRef.current;
+    const url = new URL(window.location.href);
+    if (version !== 'all') url.searchParams.set('version', version); else url.searchParams.delete('version');
+    if (tiers.size > 0) url.searchParams.set('tiers', [...tiers].join(',')); else url.searchParams.delete('tiers');
+    if (status) url.searchParams.set('status', status); else url.searchParams.delete('status');
+    window.history.replaceState(null, '', url.pathname + (url.search || ''));
   };
 
-  const setSelectedComponents = (value: Set<string>) => { setSelectedComponentsState(value); setPreference('dashboardComponents', [...value]); filtersRef.current.components = value; syncUrl(); };
   const setVersionFilter = (value: string) => { setVersionFilterState(value); setPreference('dashboardVersion', value); filtersRef.current.version = value; syncUrl(); };
   const setSelectedTiers = (value: Set<string>) => { setSelectedTiersState(value); filtersRef.current.tiers = value; syncUrl(); };
   const setStatusFilter = (value: string | null) => { setStatusFilterState(value); filtersRef.current.status = value; syncUrl(); };
@@ -94,7 +81,10 @@ export const useDashboardFilters = (report: DailyReport | undefined): DashboardF
   const versions = useMemo(() => {
     if (!report) return [];
     const set = new Set(componentFilteredGroups.map((group) => group.cnvVersion));
-    return ['all', ...Array.from(set).sort()];
+    const sorted = Array.from(set).sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }),
+    );
+    return ['all', ...sorted];
   }, [report, componentFilteredGroups]);
 
   const availableTiers = useMemo(() => {
@@ -106,32 +96,63 @@ export const useDashboardFilters = (report: DailyReport | undefined): DashboardF
     let groups = componentFilteredGroups;
     if (selectedTiers.size > 0) groups = groups.filter((group) => selectedTiers.has(group.tier));
     if (versionFilter !== 'all') groups = groups.filter((group) => group.cnvVersion === versionFilter);
-    if (statusFilter) groups = groups.filter((group) => group.latestLaunch.status === statusFilter);
+    if (statusFilter === 'PASSED') groups = groups.filter((group) => group.health === 'green');
+    else if (statusFilter === 'FAILED') groups = groups.filter((group) => group.health === 'red');
+    else if (statusFilter === 'IN_PROGRESS') groups = groups.filter((group) => group.latestLaunch?.status === 'IN_PROGRESS');
     return groups;
   }, [componentFilteredGroups, selectedTiers, versionFilter, statusFilter]);
 
+  const isFiltered = selectedComponents.size > 0 || selectedTiers.size > 0 || versionFilter !== 'all';
+
   const scopedStats = useMemo(() => {
-    const allLaunches = filteredGroups.flatMap((group) => group.launches);
+    const newFailuresCount = typeof report?.newFailures === 'number'
+      ? report.newFailures
+      : Array.isArray(report?.newFailures) ? report.newFailures.length : 0;
+
+    if (!isFiltered && report) {
+      return {
+        total: report.totalLaunches,
+        passed: report.passedLaunches,
+        failed: report.failedLaunches,
+        inProgress: report.inProgressLaunches,
+        newFailures: newFailuresCount,
+        untriaged: report.untriagedCount ?? 0,
+      };
+    }
+
+    const hasLaunchData = filteredGroups.length > 0 && Array.isArray(filteredGroups[0]?.launches);
+    if (hasLaunchData) {
+      const allLaunches = filteredGroups.flatMap((group) => group.launches!);
+      return {
+        total: allLaunches.length,
+        passed: allLaunches.filter((launch) => launch.status === 'PASSED').length,
+        failed: allLaunches.filter((launch) => launch.status === 'FAILED').length,
+        inProgress: allLaunches.filter((launch) => launch.status === 'IN_PROGRESS').length,
+        newFailures: newFailuresCount,
+        untriaged: report?.untriagedCount ?? 0,
+      };
+    }
+
+    const totalLaunches = filteredGroups.reduce((sum, g) => sum + (g.launchCount ?? 1), 0);
+    const passedGroups = filteredGroups.filter((g) => g.health === 'green');
+    const failedGroups = filteredGroups.filter((g) => g.health === 'red');
+    const inProgressGroups = filteredGroups.filter((g) => g.latestLaunch?.status === 'IN_PROGRESS');
+
     return {
-      total: allLaunches.length,
-      passed: allLaunches.filter((launch) => launch.status === 'PASSED').length,
-      failed: allLaunches.filter((launch) => launch.status === 'FAILED').length,
-      inProgress: allLaunches.filter((launch) => launch.status === 'IN_PROGRESS').length,
-      newFailures: report?.newFailures.filter((failure) => {
-        if (selectedComponents.size === 0) return true;
-        return filteredGroups.some((group) => group.failedItems.some((item) => item.rp_id === failure.rp_id));
-      }).length ?? 0,
-      untriaged: selectedComponents.size === 0
-        ? (report?.untriagedCount ?? 0)
-        : filteredGroups.flatMap(g => g.failedItems).filter(i => !i.defect_type || i.defect_type === 'ti001' || i.defect_type?.startsWith('ti_')).length,
+      total: totalLaunches,
+      passed: passedGroups.reduce((sum, g) => sum + (g.launchCount ?? 1), 0),
+      failed: failedGroups.reduce((sum, g) => sum + (g.launchCount ?? 1), 0),
+      inProgress: inProgressGroups.reduce((sum, g) => sum + (g.launchCount ?? 1), 0),
+      newFailures: newFailuresCount,
+      untriaged: report?.untriagedCount ?? 0,
     };
-  }, [filteredGroups, report, selectedComponents]);
+  }, [filteredGroups, report, isFiltered]);
 
   const scopedHealth: 'red' | 'yellow' | 'green' = scopedStats.failed > 0 ? 'red' : scopedStats.inProgress > 0 ? 'yellow' : 'green';
 
   return {
     selectedComponents, versionFilter, selectedTiers, statusFilter, tableSearch,
-    setSelectedComponents, setVersionFilter, setSelectedTiers, setStatusFilter, setTableSearch,
+    setVersionFilter, setSelectedTiers, setStatusFilter, setTableSearch,
     availableComponents, versions, availableTiers, filteredGroups, scopedStats, scopedHealth,
   };
 }

@@ -34,8 +34,11 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
       'jira.projectKey': config.jira.projectKey,
       'jira.issueType': config.jira.issueType,
       'jira.component': dbSettings['jira.component'] || 'CNV User Interface',
+      'jira.email': config.jira.email,
       'jira.token': maskToken(config.jira.token),
       'slack.jiraWebhookUrl': config.slack.jiraWebhookUrl,
+      'jenkins.user': config.jenkins.user,
+      'jenkins.token': maskToken(config.jenkins.token),
     };
 
     for (const key of EDITABLE_KEYS) {

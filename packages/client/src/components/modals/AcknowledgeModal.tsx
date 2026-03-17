@@ -33,7 +33,7 @@ export const AcknowledgeModal: React.FC<AcknowledgeModalProps> = ({ isOpen, onCl
     const seen = new Set<string>();
     const tests: Array<{ name: string; shortName: string; jiraKey?: string; polarionId?: string }> = [];
     for (const group of groups) {
-      for (const item of group.failedItems) {
+      for (const item of (group.failedItems ?? [])) {
         const key = item.unique_id || `${item.name}-${item.rp_id}`;
         if (seen.has(key)) continue;
         seen.add(key);
@@ -136,7 +136,7 @@ export const AcknowledgeModal: React.FC<AcknowledgeModalProps> = ({ isOpen, onCl
           isDisabled={!allFilled}
           isLoading={mutation.isPending}
         >
-          Acknowledge ({failingTests.length} tests)
+          Acknowledge{failingTests.length > 0 ? ` (${failingTests.length} tests)` : ''}
         </Button>
         <Button variant="link" onClick={onClose}>Cancel</Button>
       </ModalFooter>

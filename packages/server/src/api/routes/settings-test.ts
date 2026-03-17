@@ -82,35 +82,21 @@ router.post('/test-rp', requireAdmin, async (req: Request, res: Response) => {
 });
 
 router.post('/test-jira', requireAdmin, async (req: Request, res: Response) => {
-  const payload = (req.body || {}) as { url?: string; token?: string; projectKey?: string };
+  const payload = (req.body || {}) as { url?: string; token?: string; email?: string; projectKey?: string };
   const dbSettings = await getAllSettings();
-  const jiraUrl = (
-    payload.url !== undefined
-      ? payload.url
-      : (dbSettings['jira.url'] ?? config.jira.url)
-  ).replace(/\/+$/, '');
-  const jiraToken = (
-    payload.token !== undefined
-      ? payload.token
-      : (dbSettings['jira.token'] ?? config.jira.token)
-  ).trim();
-  const jiraProject = (
-    payload.projectKey !== undefined
-      ? payload.projectKey
-      : (dbSettings['jira.projectKey'] ?? config.jira.projectKey)
-  ).trim();
+  const resolve = (key: string, fallback: string) => (payload[key as keyof typeof payload] !== undefined ? String(payload[key as keyof typeof payload]) : (dbSettings[`jira.${key}`] ?? fallback)).trim();
+  const jiraUrl = resolve('url', config.jira.url).replace(/\/+$/, '');
+  const jiraToken = resolve('token', config.jira.token);
+  const jiraEmail = resolve('email', config.jira.email);
+  const jiraProject = resolve('projectKey', config.jira.projectKey);
 
   if (!jiraUrl || !jiraToken) {
     res.status(400).json({ success: false, message: 'Jira URL and token are required.', error: 'Jira URL and token are required.' });
     return;
   }
   try {
-    const client = axios.create({
-      baseURL: `${jiraUrl}/rest/api/2`,
-      headers: { Authorization: `Bearer ${jiraToken}` },
-      timeout: 10000,
-      httpsAgent,
-    });
+    const { createJiraClient } = await import('../../clients/jira-auth');
+    const client = createJiraClient({ url: jiraUrl, token: jiraToken, email: jiraEmail });
     await client.get('/myself');
     const projectResponse = jiraProject ? await client.get(`/project/${jiraProject}`) : null;
 
@@ -144,6 +130,32 @@ router.post('/test-jira', requireAdmin, async (req: Request, res: Response) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Connection failed';
     res.status(502).json({ success: false, message: `Jira connection failed: ${msg}`, error: `Jira connection failed: ${msg}` });
+  }
+});
+
+router.post('/test-jenkins', requireAdmin, async (req: Request, res: Response) => {
+  const payload = (req.body || {}) as { user?: string; token?: string };
+  const dbSettings = await getAllSettings();
+  const jenkinsUser = (payload.user ?? dbSettings['jenkins.user'] ?? config.jenkins.user).trim();
+  const jenkinsToken = (payload.token ?? dbSettings['jenkins.token'] ?? config.jenkins.token).trim();
+
+  if (!jenkinsUser || !jenkinsToken) {
+    res.status(400).json({ success: false, message: 'Jenkins username and API token are required.' });
+    return;
+  }
+  try {
+    const testUrl = 'https://jenkins-csb-cnvqe-main.dno.corp.redhat.com/api/json?tree=nodeName';
+    await axios.get(testUrl, {
+      auth: { username: jenkinsUser, password: jenkinsToken },
+      httpsAgent, timeout: 10000,
+    });
+    res.json({ success: true, message: `Connected to Jenkins as ${jenkinsUser}.` });
+  } catch (err) {
+    const status = (err as Record<string, unknown>).response
+      ? ((err as Record<string, unknown>).response as Record<string, unknown>).status
+      : undefined;
+    const message = status === 403 ? 'Invalid credentials (403 Forbidden)' : (err instanceof Error ? err.message : 'Connection failed');
+    res.status(502).json({ success: false, message: `Jenkins connection failed: ${message}` });
   }
 });
 

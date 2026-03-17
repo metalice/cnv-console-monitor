@@ -67,6 +67,16 @@ export class Launch {
   @Index('idx_launches_component')
   component!: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  jenkins_team!: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  jenkins_metadata!: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', nullable: true, default: 'pending' })
+  @Index('idx_launches_jenkins_status')
+  jenkins_status!: string | null;
+
   @CreateDateColumn()
   fetched_at!: Date;
 }

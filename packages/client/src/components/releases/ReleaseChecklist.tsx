@@ -1,15 +1,16 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Card, CardBody, CardTitle, Content, MenuToggle, Select, SelectList, SelectOption, Spinner, ToggleGroup, ToggleGroupItem, ToolbarItem } from '@patternfly/react-core';
+import { Alert, Card, CardBody, CardTitle, Content, MenuToggle, Pagination, Select, SelectList, SelectOption, Spinner, ToggleGroup, ToggleGroupItem, ToolbarItem } from '@patternfly/react-core';
 import { Table, Thead, Tbody, SortByDirection } from '@patternfly/react-table';
 import { useTableSort } from '../../hooks/useTableSort';
 import { useColumnManagement, type ColumnDef } from '../../hooks/useColumnManagement';
-import { ComponentMultiSelect } from '../common/ComponentMultiSelect';
+import { useComponentFilter } from '../../context/ComponentFilterContext';
 import { TableToolbar } from '../common/TableToolbar';
 import { ChecklistActionModal } from '../modals/ChecklistActionModal';
 import { ChecklistHeader, ChecklistRow } from './ChecklistRow';
-import type { ChecklistTask } from '@cnv-monitor/shared';
+import type { ChecklistTask, ReleaseInfo } from '@cnv-monitor/shared';
 
 const CHECKLIST_COLUMNS: ColumnDef[] = [
+  { id: 'dueDate', title: 'Due Date' },
   { id: 'version', title: 'Version' }, { id: 'key', title: 'Key' },
   { id: 'summary', title: 'Summary' }, { id: 'status', title: 'Status' },
   { id: 'component', title: 'Component', isDefault: false }, { id: 'assignee', title: 'Assignee' },
@@ -17,17 +18,44 @@ const CHECKLIST_COLUMNS: ColumnDef[] = [
   { id: 'updated', title: 'Updated' }, { id: 'actions', title: 'Actions' },
 ];
 
-const SORT_ACCESSORS: Record<number, (t: ChecklistTask) => string | number | null> = {
-  0: (task) => task.fixVersions[0] || '',
-  1: (task) => task.key,
-  2: (task) => task.summary,
-  3: (task) => task.status,
-  4: (task) => task.components?.[0] || '',
-  5: (task) => task.assignee,
-  6: (task) => task.priority,
-  7: (task) => task.subtaskCount > 0 ? task.subtasksDone / task.subtaskCount : 0,
-  8: (task) => new Date(task.updated).getTime(),
+const toMajorMinor = (v: string): string => {
+  const stripped = v.replace(/^cnv[\s\-_]*v?/i, '').trim().toLowerCase();
+  const match = stripped.match(/(\d+\.\d+)/);
+  return match ? match[1] : stripped;
 };
+
+const buildDueDateMap = (releases: ReleaseInfo[] | undefined): Map<string, string> => {
+  const map = new Map<string, string>();
+  if (!releases) return map;
+  for (const release of releases) {
+    if (!release.nextRelease) continue;
+    const key = toMajorMinor(release.shortname);
+    if (key) map.set(key, release.nextRelease.date);
+  }
+  return map;
+};
+
+const getDueDate = (task: ChecklistTask, dueDateMap: Map<string, string>): string | null => {
+  for (const fv of task.fixVersions) {
+    const mm = toMajorMinor(fv);
+    const date = dueDateMap.get(mm);
+    if (date) return date;
+  }
+  return null;
+};
+
+const buildSortAccessors = (dueDateMap: Map<string, string>): Record<number, (t: ChecklistTask) => string | number | null> => ({
+  0: (task) => { const d = getDueDate(task, dueDateMap); return d ? new Date(d).getTime() : Infinity; },
+  1: (task) => task.fixVersions[0] || '',
+  2: (task) => task.key,
+  3: (task) => task.summary,
+  4: (task) => task.status,
+  5: (task) => task.components?.[0] || '',
+  6: (task) => task.assignee,
+  7: (task) => task.priority,
+  8: (task) => task.subtaskCount > 0 ? task.subtasksDone / task.subtaskCount : 0,
+  9: (task) => new Date(task.updated).getTime(),
+});
 
 type ReleaseChecklistProps = {
   checklist: ChecklistTask[] | undefined;
@@ -35,19 +63,19 @@ type ReleaseChecklistProps = {
   error: Error | null;
   checklistStatus: 'open' | 'all';
   onStatusChange: (status: 'open' | 'all') => void;
-  selectedComponents: Set<string>;
-  jiraComponents: string[];
-  onComponentsChange: (components: Set<string>) => void;
+  releases: ReleaseInfo[] | undefined;
 };
 
 export const ReleaseChecklist: React.FC<ReleaseChecklistProps> = ({
-  checklist, isLoading, error, checklistStatus, onStatusChange,
-  selectedComponents, jiraComponents, onComponentsChange,
+  checklist, isLoading, error, checklistStatus, onStatusChange, releases,
 }) => {
+  const { selectedComponents } = useComponentFilter();
   const [search, setSearch] = useState('');
   const [selectedVersions, setSelectedVersions] = useState<Set<string>>(new Set());
   const [versionFilterOpen, setVersionFilterOpen] = useState(false);
   const [modalKey, setModalKey] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(100);
   const colMgmt = useColumnManagement('releaseChecklist', CHECKLIST_COLUMNS);
 
   const availableVersions = useMemo(() => {
@@ -75,11 +103,17 @@ export const ReleaseChecklist: React.FC<ReleaseChecklistProps> = ({
         (task.assignee && task.assignee.toLowerCase().includes(term)) || task.fixVersions.some(version => version.toLowerCase().includes(term)),
       );
     }
+    setPage(1);
     return result;
   }, [checklist, selectedVersions, search]);
 
-  const { sorted, getSortParams } = useTableSort(filtered, SORT_ACCESSORS, { index: 0, direction: SortByDirection.desc });
+  const dueDateMap = useMemo(() => buildDueDateMap(releases), [releases]);
+  const sortAccessors = useMemo(() => buildSortAccessors(dueDateMap), [dueDateMap]);
+  const { sorted, getSortParams } = useTableSort(filtered, sortAccessors, { index: 0, direction: SortByDirection.desc });
   const showComponentCol = colMgmt.isColumnVisible('component') && selectedComponents.size !== 1;
+
+  const startIdx = (page - 1) * perPage;
+  const paginatedRows = sorted.slice(startIdx, startIdx + perPage);
 
   return (
     <Card>
@@ -88,7 +122,6 @@ export const ReleaseChecklist: React.FC<ReleaseChecklistProps> = ({
         <TableToolbar searchValue={search} onSearchChange={setSearch} searchPlaceholder="Search by key, summary, assignee, version..."
           resultCount={sorted.length} totalCount={(checklist || []).length} columns={CHECKLIST_COLUMNS}
           visibleIds={colMgmt.visibleIds} onSaveColumns={colMgmt.setColumns} onResetColumns={colMgmt.resetColumns}>
-          <ToolbarItem><ComponentMultiSelect id="cl-component" selected={selectedComponents} options={jiraComponents} onChange={onComponentsChange} /></ToolbarItem>
           <ToolbarItem>
             <ToggleGroup>
               <ToggleGroupItem text="Open" isSelected={checklistStatus === 'open'} onChange={() => onStatusChange('open')} />
@@ -113,22 +146,28 @@ export const ReleaseChecklist: React.FC<ReleaseChecklistProps> = ({
             {error.message || 'Jira may be unavailable. Check your VPN connection and try again.'}
           </Alert>
         ) : isLoading ? (
-          <Spinner aria-label="Loading checklist" />
+          <div className="app-page-spinner"><Spinner aria-label="Loading checklist" /></div>
         ) : !checklist || checklist.length === 0 ? (
           <Content component="p" className="app-p-lg app-text-muted">No checklist tasks found.</Content>
         ) : (
           <>
-            <Content component="small" className="app-mb-sm">
-              {filtered.length === checklist.length ? `${checklist.length} tasks` : `${filtered.length} of ${checklist.length} tasks`}
-            </Content>
             <div className="app-table-scroll app-table-wide">
               <Table aria-label="Release checklist" variant="compact">
                 <Thead><ChecklistHeader isColumnVisible={colMgmt.isColumnVisible} showComponentCol={showComponentCol} getSortParams={getSortParams} /></Thead>
                 <Tbody>
-                  {sorted.map(task => <ChecklistRow key={task.key} task={task} isColumnVisible={colMgmt.isColumnVisible} showComponentCol={showComponentCol} onEdit={setModalKey} />)}
+                  {paginatedRows.map(task => <ChecklistRow key={task.key} task={task} isColumnVisible={colMgmt.isColumnVisible} showComponentCol={showComponentCol} onEdit={setModalKey} dueDateMap={dueDateMap} />)}
                 </Tbody>
               </Table>
             </div>
+            <Pagination
+              itemCount={sorted.length}
+              perPage={perPage}
+              page={page}
+              onSetPage={(_e, p) => setPage(p)}
+              onPerPageSelect={(_e, pp) => { setPerPage(pp); setPage(1); }}
+              perPageOptions={[{ title: '50', value: 50 }, { title: '100', value: 100 }, { title: '200', value: 200 }, { title: '500', value: 500 }]}
+              variant="bottom"
+            />
           </>
         )}
       </CardBody>

@@ -1,4 +1,4 @@
-import type { DailyReport, TrendPoint, VersionTrendPoint, HeatmapCell, TopFailingTest, AIPredictionAccuracy, ClusterReliability, ErrorPattern, DefectTypeTrend, HourlyFailure } from '@cnv-monitor/shared';
+import type { DailyReport, Launch, TrendPoint, VersionTrendPoint, HeatmapCell, TopFailingTest, AIPredictionAccuracy, ClusterReliability, ErrorPattern, DefectTypeTrend, HourlyFailure } from '@cnv-monitor/shared';
 import { apiFetch } from './client';
 
 export const fetchReport = (hours = 24): Promise<DailyReport> =>
@@ -11,8 +11,11 @@ export const fetchReportForDate = (dateStr: string): Promise<DailyReport> => {
   return apiFetch(`/launches/report?since=${since}&until=${until}`);
 };
 
-export const fetchReportForRange = (since: number, until: number): Promise<DailyReport> =>
-  apiFetch(`/launches/report?since=${since}&until=${until}`);
+export const fetchReportForRange = (since: number, until: number, components?: string[]): Promise<DailyReport> => {
+  const params = new URLSearchParams({ since: String(since), until: String(until) });
+  if (components && components.length > 0) params.set('components', components.join(','));
+  return apiFetch(`/launches/report?${params}`);
+};
 
 const compParam = (component?: string): string =>
   component ? `&component=${encodeURIComponent(component)}` : '';
@@ -43,3 +46,11 @@ export const fetchDefectTypesTrend = (days = 90, component?: string): Promise<De
 
 export const fetchFailuresByHour = (days = 30, component?: string): Promise<HourlyFailure[]> =>
   apiFetch(`/launches/trends/by-hour?days=${days}${compParam(component)}`);
+
+export const fetchLaunchesByName = (name: string, since?: number, until?: number): Promise<Launch[]> => {
+  const params = new URLSearchParams();
+  if (since) params.set('since', String(since));
+  if (until) params.set('until', String(until));
+  const queryString = params.toString();
+  return apiFetch(`/launches/by-name/${encodeURIComponent(name)}${queryString ? `?${queryString}` : ''}`);
+};

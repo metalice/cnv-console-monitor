@@ -7,12 +7,10 @@ import {
 import { Table, Thead, Tr, Tbody, Td, SortByDirection } from '@patternfly/react-table';
 import { CheckCircleIcon, TimesCircleIcon } from '@patternfly/react-icons';
 import type { ApproverStat } from '@cnv-monitor/shared';
-import { apiFetch } from '../api/client';
 import { fetchActivity } from '../api/activity';
 import { fetchAckStats } from '../api/acknowledgment';
 import { useTableSort } from '../hooks/useTableSort';
-import { usePreferences } from '../context/PreferencesContext';
-import { ComponentMultiSelect } from '../components/common/ComponentMultiSelect';
+import { useComponentFilter } from '../context/ComponentFilterContext';
 import { ThWithHelp } from '../components/common/ThWithHelp';
 import { ActivityTable } from '../components/activity/ActivityTable';
 
@@ -26,25 +24,9 @@ const REVIEWER_ACCESSORS: Record<number, (a: ApproverStat) => string | number | 
 
 export const ActivityPage: React.FC = () => {
   const [page, setPage] = useState(1);
-  const { preferences, loaded: prefsLoaded, setPreference } = usePreferences();
-  const [selectedComponents, setSelectedComponentsState] = useState<Set<string>>(new Set());
+  const { selectedComponent } = useComponentFilter();
 
   useEffect(() => { document.title = 'Activity | CNV Console Monitor'; }, []);
-
-  useEffect(() => {
-    if (prefsLoaded && preferences.dashboardComponents?.length) {
-      setSelectedComponentsState(new Set(preferences.dashboardComponents));
-    }
-  }, [prefsLoaded, preferences.dashboardComponents]);
-
-  const setSelectedComponents = (value: Set<string>) => { setSelectedComponentsState(value); setPreference('dashboardComponents', [...value]); };
-  const selectedComponent = selectedComponents.size === 1 ? [...selectedComponents][0] : undefined;
-
-  const { data: availableComponents } = useQuery({
-    queryKey: ['availableComponents'],
-    queryFn: () => apiFetch<string[]>('/launches/components'),
-    staleTime: 5 * 60 * 1000,
-  });
 
   const { data: entries, isLoading } = useQuery({
     queryKey: ['activity', page, selectedComponent],
@@ -68,11 +50,7 @@ export const ActivityPage: React.FC = () => {
             <Content component="h1">Activity Feed</Content>
             <Content component="small">Recent triage, Jira, and acknowledgment actions</Content>
           </FlexItem>
-          <FlexItem>
-            {(availableComponents?.length ?? 0) > 0 && (
-              <ComponentMultiSelect id="activity-component" selected={selectedComponents} options={availableComponents ?? []} onChange={setSelectedComponents} />
-            )}
-          </FlexItem>
+          <FlexItem />
         </Flex>
       </PageSection>
 

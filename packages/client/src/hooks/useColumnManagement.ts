@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { usePreferences } from '../context/PreferencesContext';
 
 export type ColumnDef = {
@@ -15,21 +15,24 @@ export const useColumnManagement = (tableId: string, allColumns: ColumnDef[]) =>
     [allColumns],
   );
 
-  const [visibleIds, setVisibleIds] = useState<string[]>(defaultIds);
+  const initializedRef = useRef(false);
+  const initialIds = useMemo(() => {
+    if (initializedRef.current || !loaded) return defaultIds;
+    initializedRef.current = true;
+    const saved = preferences.tableColumns?.[tableId];
+    if (saved?.length) return saved.filter((id: string) => allColumns.some(c => c.id === id));
+    return defaultIds;
+  }, [loaded, defaultIds, tableId, allColumns, preferences.tableColumns]);
 
-  useEffect(() => {
-    if (loaded) {
-      const saved = preferences.tableColumns?.[tableId];
-      if (saved?.length) {
-        setVisibleIds(saved.filter(id => allColumns.some(c => c.id === id)));
-      }
-    }
-  }, [loaded, preferences.tableColumns, tableId, allColumns]);
+  const [visibleIds, setVisibleIds] = useState<string[]>(initialIds);
+
+  const prefsRef = useRef(preferences);
+  prefsRef.current = preferences;
 
   const persist = useCallback((ids: string[]) => {
-    const current = preferences.tableColumns ?? {};
+    const current = prefsRef.current.tableColumns ?? {};
     setPreference('tableColumns', { ...current, [tableId]: ids });
-  }, [preferences.tableColumns, setPreference, tableId]);
+  }, [setPreference, tableId]);
 
   const isColumnVisible = useCallback((id: string) => visibleIds.includes(id), [visibleIds]);
 

@@ -1,11 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { PageSection, Content, Button, Gallery, GalleryItem, Grid, GridItem, Flex, FlexItem } from '@patternfly/react-core';
 import { DownloadIcon } from '@patternfly/react-icons';
 import { fetchTrends, fetchTrendsByVersion, fetchHeatmap, fetchTopFailures, fetchAIAccuracy, fetchClusterReliability, fetchErrorPatterns, fetchDefectTypesTrend, fetchFailuresByHour } from '../api/launches';
-import { apiFetch } from '../api/client';
-import { ComponentMultiSelect } from '../components/common/ComponentMultiSelect';
-import { usePreferences } from '../context/PreferencesContext';
+import { useComponentFilter } from '../context/ComponentFilterContext';
 import { StatCard } from '../components/common/StatCard';
 import { exportCsv } from '../utils/csvExport';
 import { buildVersionGroups, buildHeatmap, buildAIMatrix, computeVersionHealth, computeSummaryStats } from '../components/trends/trendUtils';
@@ -22,19 +20,8 @@ import type { TopFailingTest } from '@cnv-monitor/shared';
 export const TrendsPage: React.FC = () => {
   useEffect(() => { document.title = 'Trends | CNV Console Monitor'; }, []);
 
-  const { preferences, loaded: prefsLoaded, setPreference } = usePreferences();
-  const [selectedComponents, setSelectedComponentsState] = useState<Set<string>>(new Set());
+  const { selectedComponent } = useComponentFilter();
 
-  useEffect(() => {
-    if (prefsLoaded && preferences.dashboardComponents?.length) {
-      setSelectedComponentsState(new Set(preferences.dashboardComponents));
-    }
-  }, [prefsLoaded, preferences.dashboardComponents]);
-
-  const setSelectedComponents = (value: Set<string>) => { setSelectedComponentsState(value); setPreference('dashboardComponents', [...value]); };
-  const selectedComponent = selectedComponents.size === 1 ? [...selectedComponents][0] : undefined;
-
-  const { data: availableComponents } = useQuery({ queryKey: ['availableComponents'], queryFn: () => apiFetch<string[]>('/launches/components'), staleTime: 5 * 60 * 1000 });
   const { data: trends } = useQuery({ queryKey: ['trends', selectedComponent], queryFn: () => fetchTrends('', 30, selectedComponent) });
   const { data: versionTrends, isLoading: versionLoading } = useQuery({ queryKey: ['trendsByVersion', selectedComponent], queryFn: () => fetchTrendsByVersion(30, selectedComponent) });
   const { data: heatmapData, isLoading: heatmapLoading } = useQuery({ queryKey: ['heatmap', selectedComponent], queryFn: () => fetchHeatmap(14, 20, selectedComponent) });
@@ -61,11 +48,6 @@ export const TrendsPage: React.FC = () => {
           </FlexItem>
           <FlexItem>
             <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
-              {(availableComponents?.length ?? 0) > 0 && (
-                <FlexItem>
-                  <ComponentMultiSelect id="trends-component" selected={selectedComponents} options={availableComponents ?? []} onChange={setSelectedComponents} />
-                </FlexItem>
-              )}
               <FlexItem>
                 <Button variant="secondary" icon={<DownloadIcon />} isDisabled={!topFailures?.length} onClick={() => {
                   if (!topFailures) return;

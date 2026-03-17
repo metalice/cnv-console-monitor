@@ -60,7 +60,7 @@ const main = async (): Promise<void> => {
   log.info({ url: config.reportportal.url, project: config.reportportal.project }, 'Configuration');
 
   try {
-    await pollReportPortal(24);
+    await pollReportPortal(24, true, Date.now());
 
     const report = await buildDailyReport(24);
 

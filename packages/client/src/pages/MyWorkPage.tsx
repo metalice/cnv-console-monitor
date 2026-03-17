@@ -33,7 +33,7 @@ export const MyWorkPage: React.FC = () => {
   });
 
   if (isLoading) {
-    return <PageSection isFilled><div className="app-page-spinner"><Spinner aria-label="Loading my work" /></div></PageSection>;
+    return <div className="app-page-spinner"><Spinner aria-label="Loading my work" /></div>;
   }
 
   if (!data) {

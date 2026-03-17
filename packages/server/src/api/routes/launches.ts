@@ -35,26 +35,41 @@ router.get('/report', async (req: Request, res: Response, next: NextFunction) =>
     const since = req.query.since ? parseInt(req.query.since as string) : undefined;
     const until = req.query.until ? parseInt(req.query.until as string) : undefined;
     const hours = parseInt(req.query.hours as string) || 24;
-    const componentFilter = req.query.component as string | undefined;
+    const componentsParam = req.query.components as string | undefined;
+    const components = componentsParam ? componentsParam.split(',').filter(Boolean) : undefined;
 
     const report = since
-      ? await buildDailyReport(24, since, until)
+      ? await buildDailyReport(24, since, until, components)
       : await buildDailyReport(hours);
 
-    if (componentFilter) {
-      report.groups = report.groups.filter(group => group.component === componentFilter);
-      const filteredLaunches = report.groups.flatMap(group => group.launches);
-      report.passedLaunches = filteredLaunches.filter(launch => launch.status === 'PASSED').length;
-      report.failedLaunches = filteredLaunches.filter(launch => launch.status === 'FAILED').length;
-      report.inProgressLaunches = filteredLaunches.filter(launch => launch.status === 'IN_PROGRESS').length;
-      report.totalLaunches = filteredLaunches.length;
-      report.overallHealth = report.failedLaunches > 0 ? 'red' : report.inProgressLaunches > 0 ? 'yellow' : 'green';
-    }
-
-    res.json(report);
+    const lightGroups = report.groups.map(({ launches, failedItems: _f, enrichedFailedItems: _e, ...rest }) => ({
+      ...rest,
+      launchCount: launches.length,
+      failedItemCount: _f.length,
+    }));
+    res.json({
+      ...report, groups: lightGroups,
+      newFailures: report.newFailures.length,
+      recurringFailures: report.recurringFailures.length,
+    });
   } catch (err) {
     next(err);
   }
+});
+
+router.get('/by-name/:name', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const launchName = decodeURIComponent(req.params.name as string);
+    const since = req.query.since ? parseInt(req.query.since as string) : undefined;
+    const until = req.query.until ? parseInt(req.query.until as string) : undefined;
+    const { AppDataSource } = await import('../../db/data-source');
+    const queryBuilder = AppDataSource.getRepository('Launch').createQueryBuilder('l')
+      .where('l.name = :launchName', { launchName }).orderBy('l.start_time', 'DESC');
+    if (since) queryBuilder.andWhere('l.start_time >= :since', { since });
+    if (until) queryBuilder.andWhere('l.start_time < :until', { until });
+    const launches = await queryBuilder.getMany();
+    res.json(launches);
+  } catch (err) { next(err); }
 });
 
 router.get('/components', async (_req: Request, res: Response, next: NextFunction) => {

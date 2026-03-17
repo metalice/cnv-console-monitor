@@ -11,7 +11,6 @@ import {
   Gallery,
   GalleryItem,
   Spinner,
-  Bullseye,
 } from '@patternfly/react-core';
 import { fetchReadinessVersions } from '../api/readiness';
 import { ReadinessDetails } from '../components/readiness/ReadinessDetails';
@@ -25,11 +24,7 @@ const VersionPicker: React.FC = () => {
   });
 
   if (isLoading) {
-    return (
-      <Bullseye className="app-min-h-300">
-        <Spinner aria-label="Loading versions" />
-      </Bullseye>
-    );
+    return <div className="app-page-spinner"><Spinner aria-label="Loading versions" /></div>;
   }
 
   if (!versions?.length) {

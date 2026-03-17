@@ -44,10 +44,10 @@ export const initWebSocket = (server: Server): void => {
   log.info('WebSocket server initialized with heartbeat');
 }
 
-export const broadcast = (event: string): void => {
+export const broadcast = (event: string, data?: Record<string, unknown>): void => {
   if (!wss) return;
 
-  const message = JSON.stringify({ event });
+  const message = JSON.stringify(data ? { event, ...data } : { event });
   let sent = 0;
 
   for (const client of wss.clients) {
@@ -57,7 +57,7 @@ export const broadcast = (event: string): void => {
     }
   }
 
-  if (sent > 0) {
+  if (sent > 0 && event !== 'poll-progress') {
     log.debug({ event, clients: sent }, 'Broadcast sent');
   }
 }

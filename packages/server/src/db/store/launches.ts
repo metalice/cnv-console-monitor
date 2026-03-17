@@ -26,34 +26,40 @@ const toLaunchRecord = (row: Launch): LaunchRecord => {
     duration: row.duration ?? undefined,
     artifacts_url: row.artifacts_url ?? undefined,
     component: row.component ?? undefined,
+    jenkins_team: row.jenkins_team ?? undefined,
+    jenkins_metadata: row.jenkins_metadata ?? undefined,
+    jenkins_status: row.jenkins_status ?? undefined,
   };
 }
 
 export const upsertLaunch = async (launch: LaunchRecord): Promise<void> => {
-  await launches().upsert(
-    {
-      rp_id: launch.rp_id,
-      uuid: launch.uuid,
-      name: launch.name,
-      number: launch.number,
-      status: launch.status,
-      cnv_version: launch.cnv_version ?? null,
-      bundle: launch.bundle ?? null,
-      ocp_version: launch.ocp_version ?? null,
-      tier: launch.tier ?? null,
-      cluster_name: launch.cluster_name ?? null,
-      total: launch.total,
-      passed: launch.passed,
-      failed: launch.failed,
-      skipped: launch.skipped,
-      start_time: launch.start_time,
-      end_time: launch.end_time ?? null,
-      duration: launch.duration ?? null,
-      artifacts_url: launch.artifacts_url ?? null,
-      component: launch.component ?? null,
-    },
-    { conflictPaths: ['rp_id'], skipUpdateIfNoValuesChanged: true },
-  );
+  const repo = launches();
+  const existing = await repo.findOneBy({ rp_id: launch.rp_id });
+  const entity = existing ?? repo.create({ rp_id: launch.rp_id });
+
+  entity.uuid = launch.uuid;
+  entity.name = launch.name;
+  entity.number = launch.number;
+  entity.status = launch.status;
+  entity.cnv_version = launch.cnv_version ?? null;
+  entity.bundle = launch.bundle ?? null;
+  entity.ocp_version = launch.ocp_version ?? null;
+  entity.tier = launch.tier ?? null;
+  entity.cluster_name = launch.cluster_name ?? null;
+  entity.total = launch.total;
+  entity.passed = launch.passed;
+  entity.failed = launch.failed;
+  entity.skipped = launch.skipped;
+  entity.start_time = launch.start_time;
+  entity.end_time = launch.end_time ?? null;
+  entity.duration = launch.duration ?? null;
+  entity.artifacts_url = launch.artifacts_url ?? null;
+  entity.component = launch.component ?? null;
+  entity.jenkins_team = launch.jenkins_team ?? null;
+  entity.jenkins_metadata = launch.jenkins_metadata ?? null;
+  entity.jenkins_status = launch.jenkins_status ?? 'pending';
+
+  await repo.save(entity);
 }
 
 export const getLaunchesSince = async (sinceMs: number): Promise<LaunchRecord[]> => {
@@ -64,13 +70,15 @@ export const getLaunchesSince = async (sinceMs: number): Promise<LaunchRecord[]>
   return rows.map(toLaunchRecord);
 }
 
-export const getLaunchesInRange = async (sinceMs: number, untilMs: number): Promise<LaunchRecord[]> => {
-  const rows = await launches()
+export const getLaunchesInRange = async (sinceMs: number, untilMs: number, components?: string[]): Promise<LaunchRecord[]> => {
+  const queryBuilder = launches()
     .createQueryBuilder('l')
     .where('l.start_time >= :sinceMs', { sinceMs })
-    .andWhere('l.start_time < :untilMs', { untilMs })
-    .orderBy('l.start_time', 'DESC')
-    .getMany();
+    .andWhere('l.start_time < :untilMs', { untilMs });
+  if (components && components.length > 0) {
+    queryBuilder.andWhere('l.component IN (:...components)', { components });
+  }
+  const rows = await queryBuilder.orderBy('l.start_time', 'DESC').getMany();
   return rows.map(toLaunchRecord);
 }
 
@@ -110,7 +118,26 @@ export const getLaunchesWithoutComponent = async (limit = 500): Promise<LaunchRe
   return rows.map(toLaunchRecord);
 }
 
+export const getAllLaunchesForRemap = async (batchSize = 500, offset = 0): Promise<LaunchRecord[]> => {
+  const rows = await launches().find({
+    order: { start_time: 'DESC' },
+    take: batchSize,
+    skip: offset,
+  });
+  return rows.map(toLaunchRecord);
+}
+
 export const updateLaunchComponent = async (rpId: number, component: string): Promise<void> => {
   await launches().update({ rp_id: rpId }, { component });
-}
+};
+
+export const clearAllLaunches = async (): Promise<void> => {
+  await launches().clear();
+};
+
+export const getMostRecentLaunchTime = async (): Promise<number | null> => {
+  const row = await launches().findOne({ where: {}, order: { start_time: 'DESC' }, select: ['start_time'] });
+  return row?.start_time ?? null;
+};
+
 

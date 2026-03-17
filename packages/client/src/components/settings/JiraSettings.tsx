@@ -57,13 +57,16 @@ export const JiraSettings: React.FC<JiraSettingsProps> = ({
     </CardTitle>
     <CardBody>
       <Content component="small" className="app-text-muted app-mb-md">
-        Jira integration for creating bugs and viewing release checklists. To get a Personal Access Token: Jira &gt; Profile &gt; Personal Access Tokens &gt; Create token. Use "Test Connection" to verify and load projects.
+        Jira Cloud integration. Create an API token at id.atlassian.com &gt; Security &gt; API tokens. Enter your Atlassian email and the token below.
       </Content>
       <Form>
         <FormGroup label={<>URL {sourceLabel('jira.url')}</>} fieldId="jira-url">
-          <TextInput id="jira-url" value={val('jira.url')} onChange={(_e, inputValue) => set('jira.url', inputValue)} placeholder="https://issues.redhat.com" isDisabled={adminOnly} />
+          <TextInput id="jira-url" value={val('jira.url')} onChange={(_e, inputValue) => set('jira.url', inputValue)} placeholder="https://redhat.atlassian.net" isDisabled={adminOnly} />
         </FormGroup>
-        <FormGroup label={<>Token {sourceLabel('jira.token')}</>} fieldId="jira-token">
+        <FormGroup label={<>Email {sourceLabel('jira.email')}</>} fieldId="jira-email">
+          <TextInput id="jira-email" value={val('jira.email')} onChange={(_e, inputValue) => set('jira.email', inputValue)} placeholder="you@redhat.com" isDisabled={adminOnly} />
+        </FormGroup>
+        <FormGroup label={<>API Token {sourceLabel('jira.token')}</>} fieldId="jira-token">
           <Flex alignItems={{ default: 'alignItemsFlexEnd' }} spaceItems={{ default: 'spaceItemsSm' }}>
             <FlexItem className="app-flex-1">
               <TextInput
@@ -73,7 +76,7 @@ export const JiraSettings: React.FC<JiraSettingsProps> = ({
                 onFocus={() => startTokenEdit('jira.token')}
                 onBlur={() => endTokenEdit('jira.token')}
                 onChange={(_e, inputValue) => onTokenChange(inputValue)}
-                placeholder="Bearer token"
+                placeholder="API token"
                 isDisabled={adminOnly}
               />
             </FlexItem>

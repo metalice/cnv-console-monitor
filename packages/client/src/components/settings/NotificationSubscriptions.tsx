@@ -1,16 +1,11 @@
 import React, { useState } from 'react';
 import {
-  Card,
-  CardBody,
-  CardTitle,
-  Button,
-  Alert,
-  Flex,
-  FlexItem,
-  Content,
+  Card, CardBody, CardTitle,
+  Button, Alert, Flex, FlexItem,
+  Content, Gallery, GalleryItem,
+  EmptyState, EmptyStateBody,
 } from '@patternfly/react-core';
 import { PlusCircleIcon } from '@patternfly/react-icons';
-import { Table, Thead, Tr, Th, Tbody } from '@patternfly/react-table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   fetchSubscriptions,
@@ -20,8 +15,8 @@ import {
   testSubscriptionApi,
 } from '../../api/subscriptions';
 import { useAuth } from '../../context/AuthContext';
-import { SubscriptionRow } from './SubscriptionRows';
-import { NewSubscriptionRow, type NewRowState } from './NewSubscriptionRow';
+import { SubscriptionCard } from './SubscriptionCard';
+import { NewSubscriptionForm, type NewRowState } from './NewSubscriptionForm';
 import type { Subscription } from '@cnv-monitor/shared';
 import type { AlertMessage } from './types';
 
@@ -38,9 +33,6 @@ export const NotificationSubscriptions: React.FC = () => {
 
   const [subTestMessages, setSubTestMessages] = useState<Record<number | string, AlertMessage>>({});
   const [testingSubId, setTestingSubId] = useState<number | string | null>(null);
-  const [editingSubId, setEditingSubId] = useState<number | null>(null);
-  const [kebabOpenId, setKebabOpenId] = useState<number | null>(null);
-  const [editDraft, setEditDraft] = useState<Partial<Subscription>>({});
   const [newRow, setNewRow] = useState<NewRowState | null>(null);
   const [newRowTested, setNewRowTested] = useState(false);
   const [subSaveMsg, setSubSaveMsg] = useState<AlertMessage | null>(null);
@@ -54,7 +46,7 @@ export const NotificationSubscriptions: React.FC = () => {
 
   const updateSub = useMutation({
     mutationFn: ({ id, data: updateData }: { id: number; data: Partial<Subscription> }) => updateSubscriptionApi(id, updateData),
-    onSuccess: () => { refetchSubs(); setEditingSubId(null); setEditDraft({}); setSubSaveMsg({ type: 'success', text: 'Subscription updated successfully.' }); setTimeout(() => setSubSaveMsg(null), 4000); },
+    onSuccess: () => { refetchSubs(); setSubSaveMsg({ type: 'success', text: 'Subscription updated.' }); setTimeout(() => setSubSaveMsg(null), 4000); },
     onError: (e) => setSubSaveMsg({ type: 'danger', text: (e as Error).message }),
   });
 
@@ -79,6 +71,8 @@ export const NotificationSubscriptions: React.FC = () => {
     onError: (error) => { setSubTestMessages(prev => ({ ...prev, new: { type: 'danger', text: (error as Error).message } })); setTestingSubId(null); setNewRowTested(false); },
   });
 
+  const subList = subs || [];
+
   return (
     <Card>
       <CardTitle>
@@ -99,45 +93,51 @@ export const NotificationSubscriptions: React.FC = () => {
         <Content component="small" className="app-text-muted app-mb-md">
           Configure where and when to send test reports and Jira bug alerts. Each subscription can target specific components with its own Slack channel, email list, and schedule.
         </Content>
-        <Alert variant="info" isInline isPlain className="app-mb-md" title="How to set up webhooks">
-          <Content component="small">
-            <strong>Slack Webhook:</strong> Go to api.slack.com/apps &gt; Create New App &gt; From scratch &gt; Incoming Webhooks &gt; Activate &gt; Add New Webhook to Workspace &gt; Select channel &gt; Copy URL.
-            <br /><strong>Jira Webhook:</strong> Same as Slack — create a separate webhook for the channel where you want Jira bug creation alerts.
-            <br /><strong>Email:</strong> Comma-separated addresses. Uses the SMTP server configured above.
-            <br /><strong>Test:</strong> Click Test on a new row to verify delivery before saving. Save is only enabled after a successful test.
-          </Content>
-        </Alert>
+
         {subSaveMsg && <Alert variant={subSaveMsg.type} isInline title={subSaveMsg.text} className="app-mb-md" />}
-        <div className="app-table-scroll app-table-wide">
-          <Table aria-label="Notification subscriptions" variant="compact">
-            <Thead>
-              <Tr>
-                <Th>Name</Th><Th>Components</Th><Th>Slack Webhook</Th><Th>Jira Webhook</Th><Th>Email Recipients</Th><Th>Schedule</Th>
-                <Th className="app-min-w-80">Enabled</Th><Th className="app-min-w-80">Owner</Th><Th className="app-min-w-100">Actions</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {(subs || []).map(sub => (
-                <SubscriptionRow
-                  key={sub.id} sub={sub} isEditing={editingSubId === sub.id} editDraft={editDraft} setEditDraft={setEditDraft}
-                  availableComponents={availableComponents ?? []} kebabOpenId={kebabOpenId} setKebabOpenId={setKebabOpenId}
-                  testingSubId={testingSubId} subTestMessages={subTestMessages} canEdit={isAdmin || sub.createdBy === user.email}
-                  onEdit={() => { setEditingSubId(sub.id); setEditDraft({}); }} onCancelEdit={() => { setEditingSubId(null); setEditDraft({}); }}
-                  onSave={() => updateSub.mutate({ id: sub.id, data: editDraft })} onToggle={(checked) => updateSub.mutate({ id: sub.id, data: { enabled: checked } })}
-                  onTest={() => testSub.mutate(sub.id)} onDelete={() => deleteSub.mutate(sub.id)}
+
+        {newRow && (
+          <div className="app-mb-md">
+            <NewSubscriptionForm
+              newRow={newRow} setNewRow={setNewRow} setNewRowTested={setNewRowTested} newRowTested={newRowTested}
+              availableComponents={availableComponents ?? []} testingSubId={testingSubId} subTestMessages={subTestMessages} userEmail={user.email}
+              onTest={() => testNewRow.mutate()} onCancel={() => { setNewRow(null); setNewRowTested(false); }} isCreatePending={createSub.isPending}
+              onSave={() => createSub.mutate({ name: newRow.name, components: newRow.components, slackWebhook: newRow.slackWebhook, jiraWebhook: newRow.jiraWebhook, emailRecipients: newRow.emailRecipients.split(',').map(addr => addr.trim()).filter(Boolean), schedule: newRow.schedule, enabled: true })}
+            />
+          </div>
+        )}
+
+        {subList.length === 0 && !newRow ? (
+          <EmptyState variant="sm">
+            <EmptyStateBody>
+              No subscriptions yet. Create one to receive daily test reports via Slack, email, or Jira webhook.
+            </EmptyStateBody>
+            <Button variant="primary" size="sm" icon={<PlusCircleIcon />} onClick={() => {
+              setNewRow({ name: '', components: [], slackWebhook: '', jiraWebhook: '', emailRecipients: '', schedule: '0 7 * * *', enabled: true });
+              setNewRowTested(false);
+            }}>
+              Add Subscription
+            </Button>
+          </EmptyState>
+        ) : (
+          <Gallery hasGutter minWidths={{ default: '100%', md: '480px' }}>
+            {subList.map(sub => (
+              <GalleryItem key={sub.id}>
+                <SubscriptionCard
+                  sub={sub}
+                  availableComponents={availableComponents ?? []}
+                  testingSubId={testingSubId}
+                  subTestMessages={subTestMessages}
+                  canEdit={isAdmin || sub.createdBy === user.email}
+                  onUpdate={(data) => updateSub.mutate({ id: sub.id, data })}
+                  onToggle={(checked) => updateSub.mutate({ id: sub.id, data: { enabled: checked } })}
+                  onTest={() => testSub.mutate(sub.id)}
+                  onDelete={() => deleteSub.mutate(sub.id)}
                 />
-              ))}
-              {newRow && (
-                <NewSubscriptionRow
-                  newRow={newRow} setNewRow={setNewRow} setNewRowTested={setNewRowTested} newRowTested={newRowTested}
-                  availableComponents={availableComponents ?? []} testingSubId={testingSubId} subTestMessages={subTestMessages} userEmail={user.email}
-                  onTest={() => testNewRow.mutate()} onCancel={() => { setNewRow(null); setNewRowTested(false); }} isCreatePending={createSub.isPending}
-                  onSave={() => createSub.mutate({ name: newRow.name, components: newRow.components, slackWebhook: newRow.slackWebhook, jiraWebhook: newRow.jiraWebhook, emailRecipients: newRow.emailRecipients.split(',').map(addr => addr.trim()).filter(Boolean), schedule: newRow.schedule, enabled: true })}
-                />
-              )}
-            </Tbody>
-          </Table>
-        </div>
+              </GalleryItem>
+            ))}
+          </Gallery>
+        )}
       </CardBody>
     </Card>
   );

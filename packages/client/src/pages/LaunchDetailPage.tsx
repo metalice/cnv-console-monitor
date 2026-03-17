@@ -111,15 +111,17 @@ export const LaunchDetailPage: React.FC = () => {
         </Flex>
       </PageSection>
 
-      <PageSection>
-        {isLoading ? <Spinner aria-label="Loading test items" /> : (
+      {isLoading ? (
+        <PageSection isFilled><div className="app-page-spinner"><Spinner aria-label="Loading test items" /></div></PageSection>
+      ) : (
+        <PageSection>
           <Card>
             <CardBody>
               <TestItemsTable displayItems={displayItems} isGroupMode={isGroupMode} launchCount={launchIds.length} config={config} onNavigate={navigate} onTriage={setTriageItemIds} onCreateJira={setJiraCreateItem} onLinkJira={setJiraLinkItemId} />
             </CardBody>
           </Card>
-        )}
-      </PageSection>
+        </PageSection>
+      )}
 
       {!isGroupMode && <PageSection><ArtifactsPanel launchId={launchRpId} /></PageSection>}
 

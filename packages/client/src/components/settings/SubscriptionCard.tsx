@@ -1,50 +1,57 @@
 import React, { useState, useMemo } from 'react';
 import {
-  Card, CardBody, CardTitle, Form, FormGroup,
-  TextInput, Button, Switch, Alert, Flex, FlexItem, Label,
-  Select, SelectList, SelectOption, MenuToggle, MenuToggleCheckbox,
+  Card, CardBody, CardHeader, CardTitle,
+  Button, Switch, Label, Tooltip, Flex, FlexItem,
+  TextInput, Alert, Icon,
+  Dropdown, DropdownItem, DropdownList, MenuToggle,
+  DescriptionList, DescriptionListGroup, DescriptionListTerm, DescriptionListDescription,
+  ExpandableSection,
 } from '@patternfly/react-core';
-import { TrashIcon, PlusCircleIcon, PlayIcon } from '@patternfly/react-icons';
-import type { Subscription } from '@cnv-monitor/shared';
+import {
+  EllipsisVIcon, SlackIcon, EnvelopeIcon,
+  ClockIcon, CalendarAltIcon, UserIcon,
+  CheckCircleIcon, BanIcon, ExternalLinkAltIcon, BugIcon,
+} from '@patternfly/react-icons';
+import { ComponentMultiSelect } from '../common/ComponentMultiSelect';
 import { ScheduleEditor } from './ScheduleEditor';
+import { formatScheduleLabel } from '../../utils/cronHelpers';
+import type { Subscription } from '@cnv-monitor/shared';
+import type { AlertMessage } from './types';
 
 type SubscriptionCardProps = {
-  subscription: Subscription;
+  sub: Subscription;
   availableComponents: string[];
-  onUpdate: (id: number, data: Partial<Subscription>) => void;
-  onDelete: (id: number) => void;
-  onTest: (id: number) => void;
-  testMessage?: { type: 'success' | 'danger'; text: string } | null;
-  isTesting?: boolean;
-  currentUserEmail?: string;
-  isAdmin?: boolean;
+  testingSubId: number | string | null;
+  subTestMessages: Record<number | string, AlertMessage>;
+  canEdit: boolean;
+  onUpdate: (data: Partial<Subscription>) => void;
+  onToggle: (checked: boolean) => void;
+  onTest: () => void;
+  onDelete: () => void;
+};
+
+const truncateUrl = (url: string | null | undefined): string => {
+  if (!url) return '';
+  const segments = url.split('/');
+  const last = segments[segments.length - 1];
+  return last.length > 20 ? `...${last.slice(-18)}` : `.../${last}`;
 };
 
 export const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
-  subscription, availableComponents, onUpdate, onDelete, onTest,
-  testMessage, isTesting, currentUserEmail, isAdmin: isAdminProp,
+  sub, availableComponents, testingSubId, subTestMessages, canEdit,
+  onUpdate, onToggle, onTest, onDelete,
 }) => {
-  const sub = subscription;
-  const canEdit = isAdminProp || sub.createdBy === currentUserEmail;
-  const [newEmail, setNewEmail] = useState('');
-  const [compOpen, setCompOpen] = useState(false);
+  const [kebabOpen, setKebabOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState<Partial<Subscription>>({});
 
-  const toggleComponent = (component: string): void => {
-    const next = sub.components.includes(component) ? sub.components.filter(existing => existing !== component) : [...sub.components, component];
-    onUpdate(sub.id, { components: next });
-  };
-
-  const addEmail = (): void => {
-    const email = newEmail.trim();
-    if (email && !sub.emailRecipients.includes(email)) {
-      onUpdate(sub.id, { emailRecipients: [...sub.emailRecipients, email] });
-      setNewEmail('');
-    }
-  };
-
-  const removeEmail = (email: string): void => {
-    onUpdate(sub.id, { emailRecipients: sub.emailRecipients.filter(existing => existing !== email) });
-  };
+  const channelCount = useMemo(() => {
+    let count = 0;
+    if (sub.slackWebhook) count++;
+    if (sub.jiraWebhook) count++;
+    if (sub.emailRecipients.length > 0) count++;
+    return count;
+  }, [sub.slackWebhook, sub.jiraWebhook, sub.emailRecipients]);
 
   const componentLabel = useMemo(() => {
     if (sub.components.length === 0) return 'All Components';
@@ -52,74 +59,221 @@ export const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
     return `${sub.components.length} components`;
   }, [sub.components]);
 
+  const owner = sub.createdBy ? sub.createdBy.split('@')[0] : 'Unknown';
+
+  const handleSave = () => {
+    onUpdate(draft);
+    setIsEditing(false);
+    setDraft({});
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setDraft({});
+  };
+
+  const cardClass = `app-sub-card ${sub.enabled ? '' : 'app-sub-card--disabled'}`;
+
   return (
-    <Card>
-      <CardTitle>
-        <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }}>
-          <FlexItem className="app-flex-1">
-            <TextInput value={sub.name} onChange={(_e, inputValue) => onUpdate(sub.id, { name: inputValue })} aria-label="Subscription name" placeholder="Subscription name" isDisabled={!canEdit} />
-          </FlexItem>
-          <FlexItem>
-            {sub.createdBy && <Label color="grey" isCompact className="app-mr-sm">{sub.createdBy}</Label>}
-          </FlexItem>
-          <FlexItem>
-            <Switch id={`sub-enabled-${sub.id}`} isChecked={sub.enabled} onChange={(_e, checked) => onUpdate(sub.id, { enabled: checked })} label="Enabled" isReversed isDisabled={!canEdit} />
-          </FlexItem>
-        </Flex>
-      </CardTitle>
-      <CardBody>
-        <Form>
-          <FormGroup label="Components" fieldId={`sub-comp-${sub.id}`}>
-            <Select role="menu" id={`sub-comp-${sub.id}`} isOpen={compOpen} onOpenChange={setCompOpen} onSelect={(_e, selected) => toggleComponent(selected as string)}
-              toggle={(ref) => (
-                <MenuToggle ref={ref} onClick={() => setCompOpen(!compOpen)} isExpanded={compOpen} className="app-w-full">
-                  <MenuToggleCheckbox id={`sub-comp-check-${sub.id}`} isChecked={sub.components.length === availableComponents.length ? true : sub.components.length > 0 ? null : false}
-                    onChange={(checked) => onUpdate(sub.id, { components: checked ? [...availableComponents] : [] })} aria-label="Select components" />
-                  {componentLabel}
-                </MenuToggle>
-              )}>
-              <SelectList>
-                {availableComponents.map(component => (
-                  <SelectOption key={component} value={component} hasCheckbox isSelected={sub.components.includes(component)}>{component}</SelectOption>
-                ))}
-              </SelectList>
-            </Select>
-          </FormGroup>
-
-          <FormGroup label="Slack Webhook" fieldId={`sub-slack-${sub.id}`}>
-            <TextInput id={`sub-slack-${sub.id}`} value={sub.slackWebhook ?? ''} onChange={(_e, inputValue) => onUpdate(sub.id, { slackWebhook: inputValue || null })} placeholder="https://hooks.slack.com/services/..." />
-          </FormGroup>
-
-          <FormGroup label="Email Recipients" fieldId={`sub-email-${sub.id}`}>
-            <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsSm' }}>
-              {sub.emailRecipients.map(email => (
-                <FlexItem key={email}>
-                  <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
-                    <FlexItem><Label>{email}</Label></FlexItem>
-                    <FlexItem><Button variant="plain" size="sm" aria-label={`Remove ${email}`} onClick={() => removeEmail(email)} icon={<TrashIcon />} /></FlexItem>
-                  </Flex>
-                </FlexItem>
-              ))}
+    <Card className={cardClass} isCompact>
+      <CardHeader
+        actions={{
+          actions: canEdit ? (
+            <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
               <FlexItem>
-                <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
-                  <FlexItem className="app-flex-1">
-                    <TextInput value={newEmail} onChange={(_e, inputValue) => setNewEmail(inputValue)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addEmail(); } }} placeholder="Add email address..." aria-label="New email" />
-                  </FlexItem>
-                  <FlexItem><Button variant="plain" size="sm" onClick={addEmail} isDisabled={!newEmail.trim()} icon={<PlusCircleIcon />} aria-label="Add email" /></FlexItem>
-                </Flex>
+                <Switch
+                  id={`sub-toggle-${sub.id}`}
+                  isChecked={sub.enabled}
+                  onChange={(_e, checked) => onToggle(checked)}
+                  aria-label="Toggle subscription"
+                  isReversed
+                />
+              </FlexItem>
+              <FlexItem>
+                <Dropdown
+                  isOpen={kebabOpen}
+                  onOpenChange={setKebabOpen}
+                  onSelect={() => setKebabOpen(false)}
+                  popperProps={{ position: 'right' }}
+                  toggle={(ref) => (
+                    <MenuToggle ref={ref} variant="plain" onClick={() => setKebabOpen(!kebabOpen)} isExpanded={kebabOpen} aria-label="Actions">
+                      <EllipsisVIcon />
+                    </MenuToggle>
+                  )}
+                >
+                  <DropdownList>
+                    <DropdownItem key="edit" onClick={() => { setIsEditing(true); setDraft({}); }}>Edit</DropdownItem>
+                    <DropdownItem key="test" onClick={onTest}>{testingSubId === sub.id ? 'Testing...' : 'Test'}</DropdownItem>
+                    <DropdownItem key="delete" isDanger onClick={onDelete}>Delete</DropdownItem>
+                  </DropdownList>
+                </Dropdown>
               </FlexItem>
             </Flex>
-          </FormGroup>
-
-          <ScheduleEditor subId={sub.id} schedule={sub.schedule} timezone={sub.timezone} onScheduleChange={(schedule) => onUpdate(sub.id, { schedule })} onTimezoneChange={(timezone) => onUpdate(sub.id, { timezone })} />
-
-          <Flex spaceItems={{ default: 'spaceItemsSm' }}>
-            <FlexItem><Button variant="secondary" size="sm" icon={<PlayIcon />} onClick={() => onTest(sub.id)} isLoading={isTesting}>Test</Button></FlexItem>
-            <FlexItem><Button variant="danger" size="sm" icon={<TrashIcon />} onClick={() => onDelete(sub.id)} isDisabled={!canEdit}>Delete</Button></FlexItem>
+          ) : (
+            <Switch
+              id={`sub-toggle-${sub.id}`}
+              isChecked={sub.enabled}
+              onChange={() => {}}
+              aria-label="Subscription status"
+              isReversed
+              isDisabled
+            />
+          ),
+          hasNoOffset: true,
+        }}
+      >
+        <CardTitle>
+          <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
+            <FlexItem>
+              <Icon status={sub.enabled ? 'success' : 'danger'} size="sm">
+                {sub.enabled ? <CheckCircleIcon /> : <BanIcon />}
+              </Icon>
+            </FlexItem>
+            <FlexItem className="app-sub-card-name">{sub.name}</FlexItem>
           </Flex>
+        </CardTitle>
+      </CardHeader>
 
-          {testMessage && <Alert variant={testMessage.type} isInline isPlain title={testMessage.text} className="app-mt-sm" />}
-        </Form>
+      <CardBody>
+        <div className="app-sub-card-meta">
+          <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
+            <FlexItem>
+              <Tooltip content={componentLabel}>
+                <Label color={sub.components.length === 0 ? 'blue' : 'grey'} isCompact>
+                  {componentLabel}
+                </Label>
+              </Tooltip>
+            </FlexItem>
+            <FlexItem className="app-sub-card-divider">|</FlexItem>
+            <FlexItem>
+              <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsXs' }}>
+                <FlexItem><Icon size="sm"><ClockIcon /></Icon></FlexItem>
+                <FlexItem className="app-text-sm">{formatScheduleLabel(sub.schedule)}</FlexItem>
+              </Flex>
+            </FlexItem>
+            <FlexItem className="app-sub-card-divider">|</FlexItem>
+            <FlexItem>
+              <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsXs' }}>
+                <FlexItem><Icon size="sm"><UserIcon /></Icon></FlexItem>
+                <FlexItem className="app-text-sm app-text-muted">{owner}</FlexItem>
+              </Flex>
+            </FlexItem>
+          </Flex>
+        </div>
+
+        <div className="app-sub-channels">
+          <Flex spaceItems={{ default: 'spaceItemsMd' }}>
+            {sub.slackWebhook && (
+              <FlexItem>
+                <Tooltip content={sub.slackWebhook}>
+                  <div className="app-sub-channel-chip app-sub-channel-chip--slack">
+                    <SlackIcon className="app-sub-channel-icon" />
+                    <span>Slack</span>
+                    <span className="app-sub-channel-detail">{truncateUrl(sub.slackWebhook)}</span>
+                  </div>
+                </Tooltip>
+              </FlexItem>
+            )}
+            {sub.jiraWebhook && (
+              <FlexItem>
+                <Tooltip content={sub.jiraWebhook}>
+                  <div className="app-sub-channel-chip app-sub-channel-chip--jira">
+                    <BugIcon className="app-sub-channel-icon" />
+                    <span>Jira</span>
+                    <span className="app-sub-channel-detail">{truncateUrl(sub.jiraWebhook)}</span>
+                  </div>
+                </Tooltip>
+              </FlexItem>
+            )}
+            {sub.emailRecipients.length > 0 && (
+              <FlexItem>
+                <Tooltip content={sub.emailRecipients.join(', ')}>
+                  <div className="app-sub-channel-chip app-sub-channel-chip--email">
+                    <EnvelopeIcon className="app-sub-channel-icon" />
+                    <span>Email</span>
+                    <span className="app-sub-channel-detail">
+                      {sub.emailRecipients.length === 1 ? sub.emailRecipients[0] : `${sub.emailRecipients.length} recipients`}
+                    </span>
+                  </div>
+                </Tooltip>
+              </FlexItem>
+            )}
+            {channelCount === 0 && (
+              <FlexItem>
+                <span className="app-text-muted app-text-sm">No channels configured</span>
+              </FlexItem>
+            )}
+          </Flex>
+        </div>
+
+        {subTestMessages[sub.id] && (
+          <Alert variant={subTestMessages[sub.id].type} isInline isPlain title={subTestMessages[sub.id].text} className="app-mt-sm" />
+        )}
+
+        {isEditing && (
+          <ExpandableSection toggleText="Edit subscription" isExpanded isDetached className="app-mt-md">
+            <div className="app-sub-edit-form">
+              <DescriptionList isCompact isHorizontal columnModifier={{ default: '1Col' }}>
+                <DescriptionListGroup>
+                  <DescriptionListTerm>Name</DescriptionListTerm>
+                  <DescriptionListDescription>
+                    <TextInput value={draft.name ?? sub.name} onChange={(_e, v) => setDraft(d => ({ ...d, name: v }))} aria-label="Subscription name" />
+                  </DescriptionListDescription>
+                </DescriptionListGroup>
+                <DescriptionListGroup>
+                  <DescriptionListTerm>Components</DescriptionListTerm>
+                  <DescriptionListDescription>
+                    <ComponentMultiSelect
+                      id={`sub-comp-edit-${sub.id}`}
+                      selected={new Set(draft.components ?? sub.components)}
+                      options={availableComponents}
+                      onChange={(s) => setDraft(d => ({ ...d, components: [...s] }))}
+                    />
+                  </DescriptionListDescription>
+                </DescriptionListGroup>
+                <DescriptionListGroup>
+                  <DescriptionListTerm>Slack Webhook</DescriptionListTerm>
+                  <DescriptionListDescription>
+                    <TextInput value={draft.slackWebhook ?? sub.slackWebhook ?? ''} onChange={(_e, v) => setDraft(d => ({ ...d, slackWebhook: v }))} placeholder="https://hooks.slack.com/..." aria-label="Slack Webhook" />
+                  </DescriptionListDescription>
+                </DescriptionListGroup>
+                <DescriptionListGroup>
+                  <DescriptionListTerm>Jira Webhook</DescriptionListTerm>
+                  <DescriptionListDescription>
+                    <TextInput value={draft.jiraWebhook ?? sub.jiraWebhook ?? ''} onChange={(_e, v) => setDraft(d => ({ ...d, jiraWebhook: v }))} placeholder="https://hooks.slack.com/..." aria-label="Jira Webhook" />
+                  </DescriptionListDescription>
+                </DescriptionListGroup>
+                <DescriptionListGroup>
+                  <DescriptionListTerm>Email Recipients</DescriptionListTerm>
+                  <DescriptionListDescription>
+                    <TextInput
+                      value={draft.emailRecipients !== undefined ? (draft.emailRecipients as string[]).join(', ') : sub.emailRecipients.join(', ')}
+                      onChange={(_e, v) => setDraft(d => ({ ...d, emailRecipients: v.split(',').map(a => a.trim()).filter(Boolean) }))}
+                      placeholder="a@b.com, c@d.com" aria-label="Email Recipients"
+                    />
+                  </DescriptionListDescription>
+                </DescriptionListGroup>
+              </DescriptionList>
+
+              <ScheduleEditor
+                subId={sub.id}
+                schedule={draft.schedule ?? sub.schedule}
+                timezone={sub.timezone}
+                onScheduleChange={(s) => setDraft(d => ({ ...d, schedule: s }))}
+                onTimezoneChange={(tz) => setDraft(d => ({ ...d, timezone: tz }))}
+              />
+
+              <Flex className="app-mt-md" spaceItems={{ default: 'spaceItemsSm' }}>
+                <FlexItem>
+                  <Button variant="primary" size="sm" onClick={handleSave}>Save</Button>
+                </FlexItem>
+                <FlexItem>
+                  <Button variant="link" size="sm" onClick={handleCancel}>Cancel</Button>
+                </FlexItem>
+              </Flex>
+            </div>
+          </ExpandableSection>
+        )}
       </CardBody>
     </Card>
   );

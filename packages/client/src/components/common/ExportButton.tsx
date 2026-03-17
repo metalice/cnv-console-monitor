@@ -18,14 +18,14 @@ const escapeCsvField = (value: string | number): string => {
 
 export const ExportButton: React.FC<ExportButtonProps> = ({ groups, date }) => {
   const handleExport = (): void => {
-    const header = 'Version,Tier,Status,Total,Passed,Failed,Skipped,PassRate,LastRun\n';
+    const header = 'Version,Tier,Component,Status,Total,Passed,Failed,Skipped,PassRate,LastRun\n';
     const rows = groups
       .map((group) => {
-        const lastRun = new Date(group.latestLaunch.start_time).toISOString();
+        const lastRun = group.latestLaunch ? new Date(group.latestLaunch.start_time).toISOString() : '';
         return [
-          group.cnvVersion, group.tier, group.latestLaunch.status,
-          group.totalTests, group.passedTests, group.failedTests, group.skippedTests,
-          `${group.passRate}%`, lastRun,
+          group.cnvVersion, group.tier, group.component ?? '',
+          group.latestLaunch?.status ?? '', group.totalTests, group.passedTests,
+          group.failedTests, group.skippedTests, `${group.passRate}%`, lastRun,
         ].map(escapeCsvField).join(',');
       })
       .join('\n');
