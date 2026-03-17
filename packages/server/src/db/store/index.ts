@@ -67,6 +67,7 @@ export {
   getCurrentlyFailingTests,
   getClusterReliability,
   getFailuresByHour,
+  getNewlyFailingUniqueIds,
 } from './streaks';
 
 export { getFlakyTests } from './flaky';
@@ -99,11 +100,13 @@ export {
   setUserPreferences,
 } from './users';
 
+export type { SettingsLogEntry } from './settings';
 export {
   getAllSettings,
   getSetting,
   setSetting,
   deleteSetting,
+  getSettingsLog,
 } from './settings';
 
 export type { ComponentMappingRecord, UnmappedLaunchEntry } from './componentMappings';

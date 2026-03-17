@@ -29,6 +29,15 @@ export class NotificationSubscription {
   @Column({ type: 'boolean', default: true })
   enabled!: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  reminder_enabled!: boolean;
+
+  @Column({ type: 'varchar', default: '10:00' })
+  reminder_time!: string;
+
+  @Column({ type: 'varchar', default: '1,2,3,4,5' })
+  reminder_days!: string;
+
   @Column({ type: 'varchar', nullable: true })
   created_by!: string | null;
 

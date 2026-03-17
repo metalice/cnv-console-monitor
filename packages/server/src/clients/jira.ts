@@ -1,8 +1,11 @@
 import { config } from '../config';
 import { withRetry } from '../utils/retry';
 import { createJiraClient } from './jira-auth';
+import { logger } from '../logger';
 
 export { buildBugDescription } from './jira-helpers';
+
+const log = logger.child({ module: 'Jira' });
 
 export interface JiraIssue {
   key: string;
@@ -101,7 +104,8 @@ export const findExistingIssue = async (testName: string, polarionId?: string): 
   try {
     const result = await searchIssues(jql, 5);
     return result.issues.length > 0 ? result.issues[0] : null;
-  } catch {
+  } catch (err) {
+    log.warn({ err, testName }, 'Failed to search for existing Jira issue');
     return null;
   }
 }
@@ -146,8 +150,8 @@ export const createIssue = async (params: {
           icon: { url16x16: `${config.reportportal.url}/favicon.ico` },
         },
       });
-    } catch {
-      // non-critical
+    } catch (err) {
+      log.warn({ err, key: created.key }, 'Failed to add RP remote link to Jira issue');
     }
   }
 
@@ -178,7 +182,8 @@ export const getIssueStatus = async (key: string): Promise<string> => {
   try {
     const issue = await getIssue(key);
     return issue.fields.status.name;
-  } catch {
+  } catch (err) {
+    log.warn({ err, key }, 'Failed to fetch Jira issue status');
     return 'Unknown';
   }
 }

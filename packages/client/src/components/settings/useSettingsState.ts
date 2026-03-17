@@ -1,6 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Label } from '@patternfly/react-core';
 import { fetchSettings, updateSettings, fetchRpProjects, testRpConnection, testJiraConnection, fetchJiraMeta } from '../../api/settings';
 import { useAuth } from '../../context/AuthContext';
 import { isMaskedValue } from './types';
@@ -127,18 +126,13 @@ export const useSettingsState = () => {
     for (const key of Object.keys(draft)) { if (isDirty(key)) changed[key] = draft[key]; }
     if (Object.keys(changed).length > 0) saveMutation.mutate(changed);
   };
-  const sourceLabel = (key: string): React.ReactNode => {
-    const source = data?.settings[key]?.source;
-    if (!source) return null;
-    return React.createElement(Label, { color: source === 'db' ? 'blue' : 'grey', isCompact: true, style: { marginLeft: 8 } }, source === 'db' ? 'Custom' : 'Default');
-  };
 
   const rpProjectOptions = resolveRpProjectOptions(rpProjectsOverride, rpProjects, val('reportportal.project'));
   const { jiraProjectSelectOptions, issueTypeSelectOptions } = resolveJiraMeta(jiraMeta, jiraMetaDraft, jiraMetaOverride, jiraTokenDirty, jiraTestMode);
 
   return {
     data, isLoading, isAdmin,
-    val, set, sourceLabel, adminOnly: !isAdmin,
+    val, set, adminOnly: !isAdmin,
     tokenEditing, startTokenEdit, endTokenEdit,
     saveMessage, saveAll, saveMutation, hasChanges,
     rpProjectOptions, rpTestMsg, rpTest,

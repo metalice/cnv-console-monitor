@@ -6,7 +6,6 @@ export type AlertMessage = { type: 'success' | 'danger'; text: string };
 export type SettingsSectionProps = {
   val: (key: string) => string;
   set: (key: string, settingValue: string) => void;
-  sourceLabel: (key: string) => React.ReactNode;
   adminOnly: boolean;
 };
 

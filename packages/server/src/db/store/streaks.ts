@@ -143,3 +143,29 @@ export const getClusterReliability = async (
     passRate: Number(row.pass_rate),
   }));
 }
+
+export const getNewlyFailingUniqueIds = async (uniqueIds: string[]): Promise<Set<string>> => {
+  if (uniqueIds.length === 0) return new Set();
+
+  const rows: Array<{ unique_id: string; prev_status: string | null }> = await AppDataSource.query(`
+    SELECT DISTINCT ON (ti.unique_id) ti.unique_id,
+      (SELECT CASE WHEN prev_ti.rp_id IS NOT NULL THEN 'FAILED' ELSE 'PASSED' END
+       FROM launches prev_l
+       LEFT JOIN test_items prev_ti ON prev_ti.launch_rp_id = prev_l.rp_id
+         AND prev_ti.unique_id = ti.unique_id AND prev_ti.status = 'FAILED'
+       WHERE prev_l.name = l.name AND prev_l.start_time < l.start_time
+       ORDER BY prev_l.start_time DESC LIMIT 1
+      ) as prev_status
+    FROM test_items ti
+    JOIN launches l ON l.rp_id = ti.launch_rp_id
+    WHERE ti.unique_id = ANY($1) AND ti.status = 'FAILED'
+  `, [uniqueIds]);
+
+  const newIds = new Set<string>();
+  for (const row of rows) {
+    if (row.prev_status === null || row.prev_status === 'PASSED') {
+      newIds.add(row.unique_id);
+    }
+  }
+  return newIds;
+}

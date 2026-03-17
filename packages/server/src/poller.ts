@@ -8,8 +8,9 @@ import { broadcast } from './ws';
 export { backfillTestItems, refreshLaunchTestItems } from './poller-backfill';
 
 const log = logger.child({ module: 'Poller' });
-const JENKINS_CONCURRENCY = 3;
-const JENKINS_BATCH_DELAY_MS = 500;
+const RP_CONCURRENCY = 10;
+const JENKINS_CONCURRENCY = 10;
+const JENKINS_BATCH_DELAY_MS = 200;
 let activePollId = 0;
 
 const emitProgress = (channel: string, phase: string, current: number, total: number, message: string): void => {
@@ -79,21 +80,50 @@ export const pollReportPortal = async (lookbackHours: number, fetchDetails: bool
       emitProgress('poll-progress', 'cancelled', allLaunches.length, totalElements, 'Poll cancelled');
       break;
     }
-    const result = await fetchLaunches({ sinceTime, pageSize: 50, page });
+    let result;
+    try {
+      result = await fetchLaunches({ sinceTime, pageSize: 50, page });
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 401) {
+        log.error('ReportPortal returned 401 Unauthorized — check your API token. Stopping poll.');
+        emitProgress('poll-progress', 'error', allLaunches.length, totalElements, 'Authentication failed (401) — check RP token');
+        break;
+      }
+      throw err;
+    }
     totalPages = result.page.totalPages;
     totalElements = result.page.totalElements;
 
+    const pageLaunches: Array<{ launch: LaunchRecord; rpId: number; needsDetails: boolean }> = [];
     for (const rpLaunch of result.content) {
-      if (isPollCancelled()) break;
       const launch = parseLaunchRecord(rpLaunch);
       await upsertLaunch(launch);
       allLaunches.push(launch);
+      pageLaunches.push({
+        launch,
+        rpId: rpLaunch.id,
+        needsDetails: fetchDetails && (launch.failed > 0 || launch.status === 'FAILED'),
+      });
+    }
 
-      if (fetchDetails && (launch.failed > 0 || launch.status === 'FAILED')) {
-        const items = await fetchFailedItemsForLaunch(rpLaunch.id);
-        allFailedItems.set(rpLaunch.id, items);
+    const needDetails = pageLaunches.filter(p => p.needsDetails);
+    for (let i = 0; i < needDetails.length; i += RP_CONCURRENCY) {
+      if (isPollCancelled()) break;
+      const batch = needDetails.slice(i, i + RP_CONCURRENCY);
+      const results = await Promise.all(batch.map(async ({ rpId }) => {
+        try {
+          return { rpId, items: await fetchFailedItemsForLaunch(rpId) };
+        } catch (err) {
+          log.warn({ rpId, err }, 'Failed to fetch items for launch');
+          return { rpId, items: [] as TestItemRecord[] };
+        }
+      }));
+      for (const { rpId, items } of results) {
+        if (items.length > 0) allFailedItems.set(rpId, items);
       }
     }
+
     emitProgress('poll-progress', 'fetching', allLaunches.length, totalElements, `Fetched ${allLaunches.length} of ${totalElements} launches`);
     page++;
   }

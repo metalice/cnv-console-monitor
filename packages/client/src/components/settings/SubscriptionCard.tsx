@@ -10,7 +10,7 @@ import {
 import {
   EllipsisVIcon, SlackIcon, EnvelopeIcon,
   ClockIcon, CalendarAltIcon, UserIcon,
-  CheckCircleIcon, BanIcon, ExternalLinkAltIcon, BugIcon,
+  CheckCircleIcon, BanIcon, ExternalLinkAltIcon, BugIcon, BellIcon,
 } from '@patternfly/react-icons';
 import { ComponentMultiSelect } from '../common/ComponentMultiSelect';
 import { ScheduleEditor } from './ScheduleEditor';
@@ -158,6 +158,17 @@ export const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
                 <FlexItem className="app-text-sm app-text-muted">{owner}</FlexItem>
               </Flex>
             </FlexItem>
+            {sub.reminderEnabled && (
+              <>
+                <FlexItem className="app-sub-card-divider">|</FlexItem>
+                <FlexItem>
+                  <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsXs' }}>
+                    <FlexItem><Icon size="sm"><BellIcon /></Icon></FlexItem>
+                    <FlexItem className="app-text-sm">Reminder {sub.reminderTime || '10:00'}</FlexItem>
+                  </Flex>
+                </FlexItem>
+              </>
+            )}
           </Flex>
         </div>
 
@@ -262,6 +273,27 @@ export const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
                 onScheduleChange={(s) => setDraft(d => ({ ...d, schedule: s }))}
                 onTimezoneChange={(tz) => setDraft(d => ({ ...d, timezone: tz }))}
               />
+
+              <DescriptionList isCompact isHorizontal columnModifier={{ default: '1Col' }} className="app-mt-md">
+                <DescriptionListGroup>
+                  <DescriptionListTerm>Ack Reminder</DescriptionListTerm>
+                  <DescriptionListDescription>
+                    <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
+                      <FlexItem>
+                        <Switch id={`sub-reminder-${sub.id}`} isChecked={draft.reminderEnabled ?? sub.reminderEnabled ?? false}
+                          onChange={(_e, checked) => setDraft(d => ({ ...d, reminderEnabled: checked }))} label="Enabled" hasCheckIcon isReversed />
+                      </FlexItem>
+                      {(draft.reminderEnabled ?? sub.reminderEnabled) && (
+                        <FlexItem>
+                          <input type="time" className="app-time-input-sm"
+                            value={draft.reminderTime ?? sub.reminderTime ?? '10:00'}
+                            onChange={(e) => setDraft(d => ({ ...d, reminderTime: e.target.value }))} />
+                        </FlexItem>
+                      )}
+                    </Flex>
+                  </DescriptionListDescription>
+                </DescriptionListGroup>
+              </DescriptionList>
 
               <Flex className="app-mt-md" spaceItems={{ default: 'spaceItemsSm' }}>
                 <FlexItem>

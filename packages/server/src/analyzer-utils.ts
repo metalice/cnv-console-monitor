@@ -42,6 +42,9 @@ export const parseLaunchVariant = (launch: LaunchRecord): string => {
   if (name.includes('-gating')) parts.push('gating');
   if (name.includes('-ocs-nonpriv')) parts.push('ocs-nonpriv');
   else if (name.includes('-ocs')) parts.push('ocs');
+  if (name.includes('-s390x')) parts.push('s390x');
+  else if (name.includes('-ppc64le')) parts.push('ppc64le');
+  else if (name.includes('-arm64') || name.includes('-aarch64')) parts.push('arm64');
   return parts.length > 0 ? parts.join('-') : 'default';
 }
 

@@ -275,6 +275,14 @@
 .app-w-full { width: 100%; }
 .app-full-height { height: 100vh; }
 
+/* Centered spinner inside a card */
+.app-card-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--pf-t--global--spacer--xl) 0;
+}
+
 /* Full-page centered spinner: uses viewport height minus the masthead */
 .app-page-spinner {
   display: flex;
@@ -502,6 +510,21 @@
 }
 
 .app-help-icon { cursor: help; opacity: 0.5; font-size: 12px; }
+
+.app-help-label { display: inline-flex; align-items: center; gap: 6px; }
+.app-help-label-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--pf-t--global--text--color--subtle);
+  font-size: 12px;
+  opacity: 0.6;
+}
+.app-help-label-btn:hover { opacity: 1; }
 .app-help-icon-xs { opacity: 0.5; font-size: var(--pf-t--global--font--size--xs); }
 .app-divider-vertical { margin: 0 4px; }
 .app-section-heading { margin-bottom: 16px; }
@@ -747,4 +770,92 @@
 .app-select-count {
   font-size: var(--pf-t--global--font--size--xs);
   color: var(--pf-t--global--color--nonstatus--gray--text--default);
+}
+
+/* ─── Settings page ─── */
+
+.app-sticky-save-bar {
+  position: sticky;
+  top: 0;
+  z-index: var(--pf-t--global--z-index--sm);
+  background: var(--pf-t--global--color--status--warning--default);
+  color: var(--pf-t--global--text--color--on-filled--default);
+  padding-block: var(--pf-t--global--spacer--sm) !important;
+}
+
+.app-unsaved-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pf-t--global--text--color--on-filled--default);
+}
+
+.app-status-banner {
+  background: var(--pf-t--global--background--color--primary--default);
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+  padding-block: var(--pf-t--global--spacer--sm) !important;
+}
+
+.app-tab-content {
+  padding: var(--pf-t--global--spacer--md) var(--pf-t--global--spacer--lg);
+}
+
+/* Vertical tabs layout */
+.app-vtabs {
+  display: flex;
+  min-height: 300px;
+}
+
+.app-vtabs-nav {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 180px;
+  border-right: 1px solid var(--pf-t--global--border--color--default);
+  padding: var(--pf-t--global--spacer--sm) 0;
+  gap: 2px;
+}
+
+.app-vtabs-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--sm);
+  padding: var(--pf-t--global--spacer--sm) var(--pf-t--global--spacer--md);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--pf-t--global--font--size--body--default);
+  color: var(--pf-t--global--text--color--regular);
+  text-align: left;
+  border-left: 3px solid transparent;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.app-vtabs-btn:hover {
+  background: var(--pf-t--global--background--color--primary--hover);
+}
+
+.app-vtabs-btn--active {
+  border-left-color: var(--pf-t--global--color--brand--default);
+  background: var(--pf-t--global--background--color--primary--hover);
+  font-weight: 600;
+}
+
+.app-vtabs-icon--ok { color: var(--pf-t--global--color--status--success--default); font-size: 12px; }
+.app-vtabs-icon--off { color: var(--pf-t--global--text--color--subtle); font-size: 12px; }
+
+.app-vtabs-panel {
+  flex: 1;
+  min-width: 0;
+  padding: var(--pf-t--global--spacer--md) var(--pf-t--global--spacer--lg);
+}
+
+/* Danger zone card */
+.app-danger-zone {
+  border: 1px solid var(--pf-t--global--color--status--danger--default) !important;
+}
+
+.app-danger-zone .pf-v6-c-card__title {
+  color: var(--pf-t--global--color--status--danger--default);
 }

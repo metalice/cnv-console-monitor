@@ -69,6 +69,9 @@ export type SubscriptionRecord = {
   timezone: string;
   enabled: boolean;
   createdBy: string | null;
+  reminderEnabled: boolean;
+  reminderTime: string;
+  reminderDays: string;
 };
 
 export type UserRecord = {

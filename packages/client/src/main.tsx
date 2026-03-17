@@ -9,7 +9,7 @@ import { useWebSocket } from './hooks/useWebSocket';
 import { ConnectionBanner } from './components/common/ConnectionBanner';
 import { DateProvider } from './context/DateContext';
 import { AuthProvider } from './context/AuthContext';
-import { PreferencesProvider } from './context/PreferencesContext';
+import { PreferencesProvider, usePreferences } from './context/PreferencesContext';
 import { ToastProvider } from './context/ToastContext';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { ComponentFilterProvider } from './context/ComponentFilterContext';
@@ -24,10 +24,21 @@ const queryClient = new QueryClient({
   },
 });
 
+const ThemeEffect: React.FC = () => {
+  const { preferences } = usePreferences();
+  React.useEffect(() => {
+    const theme = preferences.theme || 'auto';
+    const prefersDark = theme === 'auto' ? window.matchMedia('(prefers-color-scheme: dark)').matches : theme === 'dark';
+    document.documentElement.classList.toggle('pf-v6-theme-dark', prefersDark);
+  }, [preferences.theme]);
+  return null;
+};
+
 const AppWithProviders: React.FC = () => {
   const wsStatus = useWebSocket();
   return (
     <BrowserRouter>
+      <ThemeEffect />
       <ConnectionBanner status={wsStatus} />
       <DateProvider>
         <App />

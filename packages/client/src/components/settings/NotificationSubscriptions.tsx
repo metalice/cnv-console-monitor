@@ -38,8 +38,8 @@ export const NotificationSubscriptions: React.FC = () => {
   const [subSaveMsg, setSubSaveMsg] = useState<AlertMessage | null>(null);
 
   const createSub = useMutation({
-    mutationFn: (data: { name: string; components: string[]; slackWebhook: string; jiraWebhook: string; emailRecipients: string[]; schedule: string; enabled: boolean }) =>
-      createSubscriptionApi({ ...data, timezone: 'Asia/Jerusalem', slackWebhook: data.slackWebhook || null, jiraWebhook: data.jiraWebhook || null }),
+    mutationFn: (data: { name: string; components: string[]; slackWebhook: string; jiraWebhook: string; emailRecipients: string[]; schedule: string; enabled: boolean; reminderEnabled?: boolean; reminderTime?: string }) =>
+      createSubscriptionApi({ ...data, timezone: 'Asia/Jerusalem', slackWebhook: data.slackWebhook || null, jiraWebhook: data.jiraWebhook || null, reminderEnabled: data.reminderEnabled ?? false, reminderTime: data.reminderTime ?? '10:00', reminderDays: '1,2,3,4,5' }),
     onSuccess: () => { refetchSubs(); queryClient.invalidateQueries({ queryKey: ['subscriptions'] }); setNewRow(null); setNewRowTested(false); setSubSaveMsg({ type: 'success', text: 'Subscription created successfully.' }); setTimeout(() => setSubSaveMsg(null), 4000); },
     onError: (e) => setSubSaveMsg({ type: 'danger', text: (e as Error).message }),
   });
@@ -62,7 +62,7 @@ export const NotificationSubscriptions: React.FC = () => {
     mutationFn: async () => {
       if (!newRow) throw new Error('No new row');
       setTestingSubId('new');
-      const temp = await createSubscriptionApi({ name: newRow.name || 'Test', components: [], slackWebhook: newRow.slackWebhook || null, emailRecipients: newRow.emailRecipients ? newRow.emailRecipients.split(',').map(addr => addr.trim()).filter(Boolean) : [], schedule: newRow.schedule || '0 7 * * *', timezone: 'Asia/Jerusalem', enabled: false });
+      const temp = await createSubscriptionApi({ name: newRow.name || 'Test', components: [], slackWebhook: newRow.slackWebhook || null, emailRecipients: newRow.emailRecipients ? newRow.emailRecipients.split(',').map(addr => addr.trim()).filter(Boolean) : [], schedule: newRow.schedule || '0 7 * * *', timezone: 'Asia/Jerusalem', enabled: false, reminderEnabled: false, reminderTime: '10:00', reminderDays: '1,2,3,4,5' });
       const result = await testSubscriptionApi(temp.id);
       await deleteSubscriptionApi(temp.id);
       return result;
@@ -80,7 +80,7 @@ export const NotificationSubscriptions: React.FC = () => {
           <FlexItem>Notification Subscriptions</FlexItem>
           <FlexItem>
             <Button variant="primary" size="sm" icon={<PlusCircleIcon />} isDisabled={!!newRow} onClick={() => {
-              setNewRow({ name: '', components: [], slackWebhook: '', jiraWebhook: '', emailRecipients: '', schedule: '0 7 * * *', enabled: true });
+              setNewRow({ name: '', components: [], slackWebhook: '', jiraWebhook: '', emailRecipients: '', schedule: '0 7 * * *', enabled: true, reminderEnabled: false, reminderTime: '10:00' });
               setNewRowTested(false);
               setSubTestMessages(prev => { const updated = { ...prev }; delete updated['new']; return updated; });
             }}>
@@ -102,7 +102,7 @@ export const NotificationSubscriptions: React.FC = () => {
               newRow={newRow} setNewRow={setNewRow} setNewRowTested={setNewRowTested} newRowTested={newRowTested}
               availableComponents={availableComponents ?? []} testingSubId={testingSubId} subTestMessages={subTestMessages} userEmail={user.email}
               onTest={() => testNewRow.mutate()} onCancel={() => { setNewRow(null); setNewRowTested(false); }} isCreatePending={createSub.isPending}
-              onSave={() => createSub.mutate({ name: newRow.name, components: newRow.components, slackWebhook: newRow.slackWebhook, jiraWebhook: newRow.jiraWebhook, emailRecipients: newRow.emailRecipients.split(',').map(addr => addr.trim()).filter(Boolean), schedule: newRow.schedule, enabled: true })}
+              onSave={() => createSub.mutate({ name: newRow.name, components: newRow.components, slackWebhook: newRow.slackWebhook, jiraWebhook: newRow.jiraWebhook, emailRecipients: newRow.emailRecipients.split(',').map(addr => addr.trim()).filter(Boolean), schedule: newRow.schedule, enabled: true, reminderEnabled: newRow.reminderEnabled, reminderTime: newRow.reminderTime })}
             />
           </div>
         )}
@@ -113,7 +113,7 @@ export const NotificationSubscriptions: React.FC = () => {
               No subscriptions yet. Create one to receive daily test reports via Slack, email, or Jira webhook.
             </EmptyStateBody>
             <Button variant="primary" size="sm" icon={<PlusCircleIcon />} onClick={() => {
-              setNewRow({ name: '', components: [], slackWebhook: '', jiraWebhook: '', emailRecipients: '', schedule: '0 7 * * *', enabled: true });
+              setNewRow({ name: '', components: [], slackWebhook: '', jiraWebhook: '', emailRecipients: '', schedule: '0 7 * * *', enabled: true, reminderEnabled: false, reminderTime: '10:00' });
               setNewRowTested(false);
             }}>
               Add Subscription
@@ -138,6 +138,7 @@ export const NotificationSubscriptions: React.FC = () => {
             ))}
           </Gallery>
         )}
+
       </CardBody>
     </Card>
   );

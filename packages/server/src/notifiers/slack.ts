@@ -3,8 +3,13 @@ import { config } from '../config';
 import { logger } from '../logger';
 import { DailyReport } from '../analyzer';
 import { buildBlocks } from './slack-blocks';
+import { withRetry } from '../utils/retry';
 
 const log = logger.child({ module: 'Slack' });
+const SLACK_TIMEOUT_MS = 15000;
+
+const postSlack = (url: string, body: Record<string, unknown>): Promise<void> =>
+  withRetry(() => axios.post(url, body, { timeout: SLACK_TIMEOUT_MS }), 'slack.post', { maxRetries: 2, baseDelayMs: 2000 }).then(() => {});
 
 export const sendSlackReport = async (report: DailyReport, webhookUrl?: string): Promise<void> => {
   if (!webhookUrl) {
@@ -14,12 +19,10 @@ export const sendSlackReport = async (report: DailyReport, webhookUrl?: string):
 
   try {
     const blocks = buildBlocks(report);
-
-    await axios.post(webhookUrl, {
+    await postSlack(webhookUrl, {
       text: `Console Dashboard Report — ${report.date}: ${report.failedLaunches} Failed / ${report.passedLaunches} Passed`,
       blocks,
     });
-
     log.info('Report sent');
   } catch (err) {
     log.error({ err }, 'Failed to send Slack report');
@@ -33,8 +36,7 @@ export const sendSlackAcknowledgment = async (reviewer: string, notes: string, d
   try {
     const dashboardUrl = config.dashboard.url;
     const dashboardLink = dashboardUrl ? ` | <${dashboardUrl}|Dashboard>` : '';
-
-    await axios.post(webhookUrl, {
+    await postSlack(webhookUrl, {
       text: `:white_check_mark: *${date} report reviewed* by ${reviewer}${notes ? `\nNotes: "${notes}"` : ''}${dashboardLink}`,
     });
   } catch (err) {
@@ -49,8 +51,7 @@ export const sendSlackReminder = async (webhookUrl?: string): Promise<void> => {
   try {
     const dashboardUrl = config.dashboard.url;
     const dashboardLink = dashboardUrl ? `\n<${dashboardUrl}|Open Dashboard to review>` : '';
-
-    await axios.post(webhookUrl, {
+    await postSlack(webhookUrl, {
       text: `:warning: *Reminder:* Today's console dashboard report has not been acknowledged yet. Please review and acknowledge.${dashboardLink}`,
     });
   } catch (err) {
@@ -85,7 +86,7 @@ export const sendSlackJiraNotification = async (params: {
 
   for (const url of [...new Set(urls)]) {
     try {
-      await axios.post(url, { text });
+      await postSlack(url, { text });
       log.info({ jiraKey: params.jiraKey }, 'Jira notification sent to Slack');
     } catch (err) {
       log.warn({ err, jiraKey: params.jiraKey }, 'Failed to send Jira Slack notification');
