@@ -5,6 +5,7 @@ import { DailyReport } from '../analyzer';
 import { buildHtml } from './email-template';
 
 const log = logger.child({ module: 'Email' });
+const EMAIL_TIMEOUT_MS = 30000;
 
 export const sendEmailReport = async (report: DailyReport, recipientOverride?: string[]): Promise<void> => {
   const recipients = recipientOverride ?? [];
@@ -20,6 +21,9 @@ export const sendEmailReport = async (report: DailyReport, recipientOverride?: s
       secure: config.email.port === 465,
       auth: config.email.user ? { user: config.email.user, pass: config.email.pass } : undefined,
       tls: { rejectUnauthorized: false },
+      connectionTimeout: EMAIL_TIMEOUT_MS,
+      greetingTimeout: EMAIL_TIMEOUT_MS,
+      socketTimeout: EMAIL_TIMEOUT_MS,
     });
 
     const statusText = report.overallHealth === 'green' ? 'ALL GREEN' : `${report.failedLaunches} FAILED`;

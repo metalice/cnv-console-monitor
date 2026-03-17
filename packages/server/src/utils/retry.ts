@@ -17,7 +17,7 @@ const isRetryableError = (error: unknown): boolean => {
       return true;
     }
     const status = (err.response as Record<string, unknown> | undefined)?.status as number | undefined;
-    if (status && (status === 429 || status === 502 || status === 503 || status === 504)) {
+    if (status && (status === 403 || status === 429 || status === 500 || status === 502 || status === 503 || status === 504)) {
       return true;
     }
   }

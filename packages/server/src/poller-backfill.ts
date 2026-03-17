@@ -7,6 +7,7 @@ import { upsertTestItem, LaunchRecord, TestItemRecord, getFailedTestItems } from
 import { logger } from './logger';
 
 const log = logger.child({ module: 'PollerBackfill' });
+const ITEM_CONCURRENCY = 10;
 
 const parseTestItemRecord = (item: RPTestItem, launchRpId: number): TestItemRecord => {
   const polarionAttr = item.attributes.find(attr => attr.key === 'polarion-testcase-id');
@@ -33,7 +34,7 @@ const parseTestItemRecord = (item: RPTestItem, launchRpId: number): TestItemReco
 }
 
 export const fetchFailedItemsForLaunch = async (launchId: number): Promise<TestItemRecord[]> => {
-  const items: TestItemRecord[] = [];
+  const allRpItems: Array<{ item: TestItemRecord; rpItemId: number }> = [];
   let page = 1;
   let totalPages = 1;
 
@@ -42,9 +43,17 @@ export const fetchFailedItemsForLaunch = async (launchId: number): Promise<TestI
     totalPages = result.page.totalPages;
 
     for (const rpItem of result.content) {
-      const item = parseTestItemRecord(rpItem, launchId);
+      allRpItems.push({ item: parseTestItemRecord(rpItem, launchId), rpItemId: rpItem.id });
+    }
+    page++;
+  }
+
+  const items: TestItemRecord[] = [];
+  for (let i = 0; i < allRpItems.length; i += ITEM_CONCURRENCY) {
+    const batch = allRpItems.slice(i, i + ITEM_CONCURRENCY);
+    await Promise.all(batch.map(async ({ item, rpItemId }) => {
       try {
-        const logs = await fetchTestItemLogs(rpItem.id, { level: 'ERROR', pageSize: 1 });
+        const logs = await fetchTestItemLogs(rpItemId, { level: 'ERROR', pageSize: 1 });
         if (logs.content.length > 0) {
           item.error_message = logs.content[0].message.substring(0, 2000);
         }
@@ -53,8 +62,7 @@ export const fetchFailedItemsForLaunch = async (launchId: number): Promise<TestI
       }
       await upsertTestItem(item);
       items.push(item);
-    }
-    page++;
+    }));
   }
 
   return items;

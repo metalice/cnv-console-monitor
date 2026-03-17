@@ -1,5 +1,6 @@
 import { config } from '../config';
 import { createRPClient } from './reportportal-types';
+import { withRetry } from '../utils/retry';
 
 export const updateDefectType = async (
   testItemIds: number[],
@@ -17,12 +18,12 @@ export const updateDefectType = async (
     },
   }));
 
-  await client.put('/item', { issues });
+  await withRetry(() => client.put('/item', { issues }), 'rp.updateDefectType');
 }
 
 export const addTestItemComment = async (testItemId: number, comment: string): Promise<void> => {
   const client = createRPClient();
-  const item = await client.get(`/item/${testItemId}`);
+  const item = await withRetry(() => client.get(`/item/${testItemId}`), 'rp.getItem');
   const existingIssue = item.data?.issue || {};
 
   const existingComment = existingIssue.comment || '';
@@ -30,7 +31,7 @@ export const addTestItemComment = async (testItemId: number, comment: string): P
     ? `${existingComment}\n---\n${comment}`
     : comment;
 
-  await client.put('/item', {
+  await withRetry(() => client.put('/item', {
     issues: [{
       testItemId,
       issue: {
@@ -38,32 +39,32 @@ export const addTestItemComment = async (testItemId: number, comment: string): P
         comment: newComment,
       },
     }],
-  });
+  }), 'rp.addComment');
 }
 
 export const triggerAutoAnalysis = async (launchId: number): Promise<void> => {
   const client = createRPClient();
-  await client.post('/launch/analyze', {
+  await withRetry(() => client.post('/launch/analyze', {
     launchId,
     analyzerMode: 'current_launch',
     analyzerTypeName: 'autoAnalyzer',
     analyzeItemsMode: ['to_investigate'],
-  });
+  }), 'rp.autoAnalysis');
 }
 
 export const triggerPatternAnalysis = async (launchId: number): Promise<void> => {
   const client = createRPClient();
-  await client.post('/launch/analyze', {
+  await withRetry(() => client.post('/launch/analyze', {
     launchId,
     analyzerMode: 'current_launch',
     analyzerTypeName: 'patternAnalyzer',
     analyzeItemsMode: ['to_investigate'],
-  });
+  }), 'rp.patternAnalysis');
 }
 
 export const triggerUniqueErrorAnalysis = async (launchId: number): Promise<void> => {
   const client = createRPClient();
-  await client.post('/launch/cluster', { launchId, removeNumbers: false });
+  await withRetry(() => client.post('/launch/cluster', { launchId, removeNumbers: false }), 'rp.uniqueErrorAnalysis');
 }
 
 export const extractAttribute = (attrs: Array<{ key?: string; value: string }>, key: string): string | undefined => {
