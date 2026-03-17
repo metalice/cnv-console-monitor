@@ -1,10 +1,9 @@
 import cron, { type ScheduledTask } from 'node-cron';
-import { config } from './config';
 import { logger } from './logger';
 import { getAllSubscriptions, getAcknowledgmentsForDate } from './db/store';
-import { buildDailyReport, DailyReport } from './analyzer';
-import { sendSlackReport, sendSlackReminder } from './notifiers/slack';
-import { sendEmailReport } from './notifiers/email';
+import { buildDailyReport } from './analyzer';
+import { sendSlackReminder } from './notifiers/slack';
+import { dispatchToSubscription } from './notifiers/dispatch';
 
 const log = logger.child({ module: 'ServeCron' });
 
@@ -17,36 +16,7 @@ const dispatchSubscriptionNotifications = async (): Promise<void> => {
 
     for (const sub of subs) {
       if (!sub.enabled) continue;
-      const filtered: DailyReport = { ...report };
-      if (sub.components.length > 0) {
-        filtered.groups = report.groups.filter(group => sub.components.includes(group.component ?? ''));
-        const filteredLaunches = filtered.groups.flatMap(group => group.launches);
-        filtered.totalLaunches = filteredLaunches.length;
-        filtered.passedLaunches = filteredLaunches.filter(launch => launch.status === 'PASSED').length;
-        filtered.failedLaunches = filteredLaunches.filter(launch => launch.status === 'FAILED').length;
-        filtered.inProgressLaunches = filteredLaunches.filter(launch => launch.status === 'IN_PROGRESS').length;
-        filtered.overallHealth = filtered.failedLaunches > 0 ? 'red' : filtered.inProgressLaunches > 0 ? 'yellow' : 'green';
-        const filteredItemIds = new Set(filtered.groups.flatMap(group => group.failedItems.map(item => item.rp_id)));
-        filtered.newFailures = report.newFailures.filter(failure => filteredItemIds.has(failure.rp_id));
-        filtered.untriagedCount = filtered.groups.flatMap(group => group.failedItems).filter(item => !item.defect_type || item.defect_type === 'ti001' || item.defect_type?.startsWith('ti_')).length;
-      }
-
-      if (sub.slackWebhook) {
-        try {
-          await sendSlackReport(filtered, sub.slackWebhook);
-          log.info({ subId: sub.id, name: sub.name }, 'Subscription Slack sent');
-        } catch (err) {
-          log.warn({ err, subId: sub.id }, 'Subscription Slack failed');
-        }
-      }
-      if (sub.emailRecipients.length > 0) {
-        try {
-          await sendEmailReport(filtered, sub.emailRecipients);
-          log.info({ subId: sub.id, name: sub.name }, 'Subscription email sent');
-        } catch (err) {
-          log.warn({ err, subId: sub.id }, 'Subscription email failed');
-        }
-      }
+      await dispatchToSubscription(report, sub);
     }
   } catch (err) {
     log.error({ err }, 'Subscription dispatch failed');
@@ -60,43 +30,53 @@ export const setupSubscriptionCrons = async (): Promise<void> => {
   scheduledJobs.clear();
 
   const subs = await getAllSubscriptions();
-  const scheduleGroups = new Map<string, boolean>();
+  const scheduleGroups = new Map<string, string>();
   for (const sub of subs) {
-    if (sub.enabled) scheduleGroups.set(sub.schedule, true);
+    if (!sub.enabled) continue;
+    const key = `${sub.schedule}|${sub.timezone || 'Asia/Jerusalem'}`;
+    if (!scheduleGroups.has(key)) scheduleGroups.set(key, sub.timezone || 'Asia/Jerusalem');
   }
 
-  for (const schedule of scheduleGroups.keys()) {
+  for (const [key, timezone] of scheduleGroups) {
+    const schedule = key.split('|')[0];
     if (!cron.validate(schedule)) {
       log.warn({ schedule }, 'Invalid cron in subscription, skipping');
       continue;
     }
     const job = cron.schedule(schedule, () => {
       dispatchSubscriptionNotifications().catch(err => log.error({ err }, 'Dispatch failed'));
-    });
-    scheduledJobs.set(schedule, job);
-    log.info({ schedule }, 'Subscription cron scheduled');
+    }, { timezone });
+    scheduledJobs.set(key, job);
+    log.info({ schedule, timezone }, 'Subscription cron scheduled');
   }
 }
 
 export const setupAckReminder = (): void => {
-  const reminderTz = config.schedule.timezone || 'Asia/Jerusalem';
-  cron.schedule('0 10 * * *', async () => {
-    const today = new Date().toLocaleDateString('en-CA', { timeZone: reminderTz });
-    const acks = await getAcknowledgmentsForDate(today);
+  cron.schedule('* * * * *', async () => {
+    const subs = await getAllSubscriptions();
+    const now = new Date();
 
-    if (acks.length === 0) {
-      log.warn({ date: today }, 'No acknowledgment, sending reminder');
-      const subs = await getAllSubscriptions();
-      for (const sub of subs) {
-        if (!sub.enabled || !sub.slackWebhook) continue;
-        try {
-          await sendSlackReminder(sub.slackWebhook);
-        } catch (err) {
-          log.error({ err, subId: sub.id }, 'Failed to send ack reminder');
-        }
+    for (const sub of subs) {
+      if (!sub.enabled || !sub.slackWebhook || !sub.reminderEnabled) continue;
+
+      const tz = sub.timezone || 'Asia/Jerusalem';
+      const [rHour, rMinute] = (sub.reminderTime || '10:00').split(':').map(Number);
+      const allowedDays = (sub.reminderDays || '1,2,3,4,5').split(',').map(d => parseInt(d.trim(), 10));
+
+      const localTime = new Date(now.toLocaleString('en-US', { timeZone: tz }));
+      if (localTime.getHours() !== rHour || localTime.getMinutes() !== rMinute) continue;
+      if (!allowedDays.includes(localTime.getDay())) continue;
+
+      const today = now.toLocaleDateString('en-CA', { timeZone: tz });
+      const acks = await getAcknowledgmentsForDate(today);
+      if (acks.length > 0) continue;
+
+      try {
+        await sendSlackReminder(sub.slackWebhook);
+        log.info({ subId: sub.id, date: today }, 'Ack reminder sent');
+      } catch (err) {
+        log.error({ err, subId: sub.id }, 'Failed to send ack reminder');
       }
-    } else {
-      log.info({ date: today, reviewer: acks[0].reviewer }, 'Already acknowledged');
     }
   });
 }

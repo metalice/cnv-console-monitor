@@ -11,6 +11,8 @@ import {
   Label,
   Spinner,
   Content,
+  Flex,
+  FlexItem,
 } from '@patternfly/react-core';
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -20,6 +22,7 @@ import type { UserRecord, AlertMessage } from './types';
 
 export const UserManagement: React.FC = () => {
   const { isAdmin } = useAuth();
+  const currentImpersonation = new URLSearchParams(window.location.search).get('impersonate');
 
   const { data: adminUsers, refetch: refetchUsers } = useQuery({
     queryKey: ['adminUsers'],
@@ -38,7 +41,22 @@ export const UserManagement: React.FC = () => {
 
   return (
     <Card>
-      <CardTitle>User Management</CardTitle>
+      <CardTitle>
+        <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }}>
+          <FlexItem>User Management</FlexItem>
+          <FlexItem>
+            {currentImpersonation ? (
+              <Button variant="link" size="sm" onClick={() => { const url = new URL(window.location.href); url.searchParams.delete('impersonate'); window.location.href = url.toString(); }}>
+                Stop impersonating {currentImpersonation}
+              </Button>
+            ) : (
+              <Button variant="secondary" size="sm" onClick={() => { const url = new URL(window.location.href); url.searchParams.set('impersonate', 'testuser@redhat.com'); window.location.href = url.toString(); }}>
+                Impersonate Test User
+              </Button>
+            )}
+          </FlexItem>
+        </Flex>
+      </CardTitle>
       <CardBody>
         {!adminUsers ? (
           <Spinner aria-label="Loading users" />

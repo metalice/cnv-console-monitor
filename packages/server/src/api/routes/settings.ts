@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { config, applySettingsOverrides, EDITABLE_KEYS, startedAt, lastPollAt } from '../../config';
-import { getAllSettings, setSetting } from '../../db/store';
+import { getAllSettings, setSetting, deleteSetting, getSettingsLog } from '../../db/store';
 import { requireAdmin } from '../middleware/auth';
 import settingsTestRouter from './settings-test';
 import settingsMetaRouter from './settings-meta';
@@ -39,6 +39,9 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
       'slack.jiraWebhookUrl': config.slack.jiraWebhookUrl,
       'jenkins.user': config.jenkins.user,
       'jenkins.token': maskToken(config.jenkins.token),
+      'schedule.reminderTime': config.schedule.reminderTime,
+      'schedule.reminderDays': config.schedule.reminderDays,
+      'email.port': String(config.email.port),
     };
 
     for (const key of EDITABLE_KEYS) {
@@ -83,6 +86,28 @@ router.put('/', requireAdmin, async (req: Request, res: Response, next: NextFunc
     applySettingsOverrides(dbSettings);
 
     res.json({ success: true, updated: Object.keys(updates) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/changelog', requireAdmin, async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const log = await getSettingsLog(100);
+    res.json(log);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/reset', requireAdmin, async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const dbSettings = await getAllSettings();
+    for (const key of Object.keys(dbSettings)) {
+      await deleteSetting(key);
+    }
+    applySettingsOverrides({});
+    res.json({ success: true, cleared: Object.keys(dbSettings).length });
   } catch (err) {
     next(err);
   }

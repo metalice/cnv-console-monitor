@@ -18,6 +18,9 @@ const toSubscriptionRecord = (row: NotificationSubscription): SubscriptionRecord
     timezone: row.timezone || 'Asia/Jerusalem',
     enabled: row.enabled,
     createdBy: row.created_by,
+    reminderEnabled: row.reminder_enabled ?? false,
+    reminderTime: row.reminder_time || '10:00',
+    reminderDays: row.reminder_days || '1,2,3,4,5',
   };
 }
 
@@ -42,6 +45,9 @@ export const createSubscription = async (data: Omit<SubscriptionRecord, 'id'>): 
     timezone: data.timezone || 'Asia/Jerusalem',
     enabled: data.enabled,
     created_by: data.createdBy ?? null,
+    reminder_enabled: data.reminderEnabled ?? false,
+    reminder_time: data.reminderTime || '10:00',
+    reminder_days: data.reminderDays || '1,2,3,4,5',
   });
   return toSubscriptionRecord(row);
 }
@@ -59,6 +65,9 @@ export const updateSubscription = async (
   if (data.schedule !== undefined) update.schedule = data.schedule;
   if (data.timezone !== undefined) update.timezone = data.timezone;
   if (data.enabled !== undefined) update.enabled = data.enabled;
+  if (data.reminderEnabled !== undefined) update.reminder_enabled = data.reminderEnabled;
+  if (data.reminderTime !== undefined) update.reminder_time = data.reminderTime;
+  if (data.reminderDays !== undefined) update.reminder_days = data.reminderDays;
 
   await subscriptions().update({ id }, update);
   return getSubscription(id);

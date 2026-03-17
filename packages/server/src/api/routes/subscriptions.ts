@@ -2,8 +2,8 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { CreateSubscriptionSchema, UpdateSubscriptionSchema } from '@cnv-monitor/shared';
 import { getAllSubscriptions, getSubscription, createSubscription, updateSubscription, deleteSubscription } from '../../db/store';
 import { buildDailyReport } from '../../analyzer';
-import { sendSlackReport } from '../../notifiers/slack';
-import { sendEmailReport } from '../../notifiers/email';
+import { dispatchToSubscription } from '../../notifiers/dispatch';
+import { setupSubscriptionCrons } from '../../serve-cron';
 import { requireOwnerOrAdmin, getSubscriptionOwner } from '../middleware/auth';
 import { logger } from '../../logger';
 
@@ -33,6 +33,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       jiraWebhook: parsed.data.jiraWebhook ?? null,
       createdBy,
     });
+    setupSubscriptionCrons().catch(err => log.warn({ err }, 'Failed to refresh crons'));
     res.status(201).json(sub);
   } catch (err) {
     next(err);
@@ -52,6 +53,7 @@ router.put('/:id', requireOwnerOrAdmin(getSubscriptionOwner), async (req: Reques
 
     const updated = await updateSubscription(id, parsed.data);
     if (!updated) { res.status(404).json({ error: 'Subscription not found' }); return; }
+    setupSubscriptionCrons().catch(err => log.warn({ err }, 'Failed to refresh crons'));
     res.json(updated);
   } catch (err) {
     next(err);
@@ -63,6 +65,7 @@ router.delete('/:id', requireOwnerOrAdmin(getSubscriptionOwner), async (req: Req
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
     await deleteSubscription(id);
+    setupSubscriptionCrons().catch(err => log.warn({ err }, 'Failed to refresh crons'));
     res.json({ success: true });
   } catch (err) {
     next(err);
@@ -78,34 +81,7 @@ router.post('/:id/test', requireOwnerOrAdmin(getSubscriptionOwner), async (req: 
     if (!sub) { res.status(404).json({ error: 'Subscription not found' }); return; }
 
     const report = await buildDailyReport(24);
-    const filtered = { ...report };
-    if (sub.components.length > 0) {
-      filtered.groups = report.groups.filter(group => sub.components.includes(group.component ?? ''));
-    }
-
-    const results: string[] = [];
-
-    if (sub.slackWebhook) {
-      try {
-        await sendSlackReport(filtered, sub.slackWebhook);
-        results.push('Slack sent');
-      } catch (err) {
-        results.push(`Slack failed: ${err instanceof Error ? err.message : 'unknown'}`);
-      }
-    }
-
-    if (sub.emailRecipients.length > 0) {
-      try {
-        await sendEmailReport(filtered, sub.emailRecipients);
-        results.push(`Email sent to ${sub.emailRecipients.join(', ')}`);
-      } catch (err) {
-        results.push(`Email failed: ${err instanceof Error ? err.message : 'unknown'}`);
-      }
-    }
-
-    if (results.length === 0) {
-      results.push('No Slack webhook or email recipients configured');
-    }
+    const results = await dispatchToSubscription(report, sub);
 
     log.info({ subId: id, results }, 'Test notification sent');
     res.json({ success: true, message: results.join('; ') });

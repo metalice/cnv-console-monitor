@@ -60,7 +60,7 @@ export const ComponentMappings: React.FC = () => {
   const hasData = (data?.launchCount ?? 0) > 0;
   const summary = data?.summary;
 
-  if (isLoading) return <Card><CardBody><Spinner size="md" /></CardBody></Card>;
+  if (isLoading) return <Card><CardBody><div className="app-card-spinner"><Spinner size="md" /></div></CardBody></Card>;
 
   return (
     <Card>
@@ -97,7 +97,7 @@ export const ComponentMappings: React.FC = () => {
                 <FlexItem><Label color={summary.unmappedLaunches > 0 ? 'orange' : 'green'} isCompact>{summary.unmappedLaunches.toLocaleString()} unmapped</Label></FlexItem>
                 <FlexItem><Label color="blue" isCompact>{summary.componentCount} components</Label></FlexItem>
                 <FlexItem className="app-poll-progress-bar">
-                  <Progress value={summary.coveragePercent} size={ProgressSize.sm} title={`${summary.coveragePercent}% coverage`} aria-label="Mapping coverage" />
+                  <Progress value={summary.coveragePercent} size={ProgressSize.sm} title="" aria-label={`${summary.coveragePercent}% mapping coverage`} />
                 </FlexItem>
               </Flex>
             )}

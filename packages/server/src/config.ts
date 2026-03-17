@@ -45,6 +45,8 @@ export const config = {
     timezone: process.env.TZ || 'Asia/Jerusalem',
     pollIntervalMinutes: 15,
     initialLookbackDays: 180,
+    reminderTime: process.env.ACK_REMINDER_TIME || '10:00',
+    reminderDays: process.env.ACK_REMINDER_DAYS || '1,2,3,4,5',
   },
 
   polarion: {
@@ -97,6 +99,9 @@ const SETTINGS_MAP: Record<string, (settingValue: string) => void> = {
   'slack.jiraWebhookUrl': (settingValue) => { config.slack.jiraWebhookUrl = settingValue; },
   'jenkins.user': (settingValue) => { config.jenkins.user = settingValue; },
   'jenkins.token': (settingValue) => { config.jenkins.token = settingValue; },
+  'schedule.reminderTime': (settingValue) => { config.schedule.reminderTime = settingValue; },
+  'schedule.reminderDays': (settingValue) => { config.schedule.reminderDays = settingValue; },
+  'email.port': (settingValue) => { config.email.port = parseInt(settingValue, 10); },
 };
 
 export const applySettingsOverrides = (dbSettings: Record<string, string>): void => {

@@ -1,5 +1,6 @@
 import { LaunchRecord, TestItemRecord, getLaunchesSince, getLaunchesInRange, getFailedTestItems, getUntriagedItems, getLastPassedLaunchTime } from './db/store';
 import { type HealthStatus, type EnrichedFailedItem, parseTier, parseLaunchVariant, parseCnvVersion, computeHealth, enrichFailedItems } from './analyzer-utils';
+import { getNewlyFailingUniqueIds } from './db/store';
 
 export type { HealthStatus, EnrichedFailedItem } from './analyzer-utils';
 
@@ -136,9 +137,8 @@ export const buildDailyReport = async (lookbackHours = 24, sinceOverride?: numbe
   const failedLaunches = launches.filter((item) => item.status === 'FAILED').length;
   const inProgressLaunches = launches.filter((item) => item.status === 'IN_PROGRESS').length;
   const allFailedItems = groups.flatMap((item) => item.failedItems);
-  const prevDuration = untilMs ? (untilMs - sinceMs) : (lookbackHours * 60 * 60 * 1000);
-  const prevGroups = await groupLaunches(await getLaunchesInRange(sinceMs - prevDuration, sinceMs));
-  const prevFailedIds = new Set(prevGroups.flatMap((item) => item.failedItems).map((item) => item.unique_id).filter(Boolean));
+  const allUniqueIds = allFailedItems.map((item) => item.unique_id).filter(Boolean) as string[];
+  const newlyFailingIds = await getNewlyFailingUniqueIds(allUniqueIds);
   const untriagedCount = (await getUntriagedItems(sinceMs, untilMs)).length;
   const components = [...new Set(launches.map((item) => item.component).filter(Boolean) as string[])].sort();
 
@@ -147,8 +147,8 @@ export const buildDailyReport = async (lookbackHours = 24, sinceOverride?: numbe
     groups, launchers,
     overallHealth: failedLaunches > 0 ? 'red' : inProgressLaunches > 0 ? 'yellow' : 'green',
     totalLaunches: launches.length, passedLaunches, failedLaunches, inProgressLaunches, untriagedCount,
-    newFailures: allFailedItems.filter((item) => item.unique_id && !prevFailedIds.has(item.unique_id)),
-    recurringFailures: allFailedItems.filter((item) => item.unique_id && prevFailedIds.has(item.unique_id)),
+    newFailures: allFailedItems.filter((item) => item.unique_id && newlyFailingIds.has(item.unique_id)),
+    recurringFailures: allFailedItems.filter((item) => item.unique_id && !newlyFailingIds.has(item.unique_id)),
     components,
   };
 };

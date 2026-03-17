@@ -70,3 +70,15 @@ export type JenkinsTestResponse = { success: boolean; message: string };
 
 export const testJenkinsConnection = (payload?: { user?: string; token?: string }): Promise<JenkinsTestResponse> =>
   apiFetch('/settings/test-jenkins', { method: 'POST', body: JSON.stringify(payload ?? {}) });
+
+export type SettingsLogEntry = {
+  id: number;
+  key: string;
+  old_value: string | null;
+  new_value: string;
+  changed_by: string | null;
+  changed_at: string;
+};
+
+export const fetchSettingsChangelog = (): Promise<SettingsLogEntry[]> =>
+  apiFetch('/settings/changelog');
