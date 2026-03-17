@@ -4,8 +4,10 @@
 .app-mb-md { margin-bottom: var(--pf-t--global--spacer--md); }
 .app-mb-lg { margin-bottom: var(--pf-t--global--spacer--lg); }
 .app-mb-xl { margin-bottom: var(--pf-t--global--spacer--xl); }
+.app-mt-xs { margin-top: var(--pf-t--global--spacer--xs); }
 .app-mt-sm { margin-top: var(--pf-t--global--spacer--sm); }
 .app-mt-md { margin-top: var(--pf-t--global--spacer--md); }
+.app-mr-xs { margin-right: var(--pf-t--global--spacer--xs); }
 .app-ml-xs { margin-left: var(--pf-t--global--spacer--xs); }
 .app-ml-sm { margin-left: var(--pf-t--global--spacer--sm); }
 .app-ml-md { margin-left: var(--pf-t--global--spacer--md); }
@@ -273,12 +275,12 @@
 .app-w-full { width: 100%; }
 .app-full-height { height: 100vh; }
 
-/* Full-page centered spinner inside a PageSection isFilled */
+/* Full-page centered spinner: uses viewport height minus the masthead */
 .app-page-spinner {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 1;
+  min-height: calc(100vh - 56px);
 }
 .app-overflow-x-auto { overflow-x: auto; }
 .app-flex-1 { flex: 1; }
@@ -321,6 +323,37 @@
 .app-masthead-brand { text-decoration: none; color: inherit; font-size: 16px; font-weight: 600; white-space: nowrap; }
 .app-masthead-user { display: flex; align-items: center; gap: 8px; color: var(--pf-t--global--color--nonstatus--gray--text--on-filled--default); }
 .app-masthead-admin-badge { font-size: 10px; opacity: 0.7; }
+
+.pf-v6-c-menu-toggle.app-masthead-select,
+.pf-v6-c-menu-toggle.app-masthead-select.pf-m-plain {
+  font-size: var(--pf-t--global--font--size--sm);
+  color: var(--pf-t--global--color--nonstatus--gray--text--on-filled--default);
+  white-space: nowrap;
+  border: 1px solid var(--pf-t--global--border--color--default) !important;
+  border-radius: 4px;
+  padding: 4px 8px;
+  background: transparent;
+}
+.pf-v6-c-menu-toggle.app-masthead-select:hover,
+.pf-v6-c-menu-toggle.app-masthead-select.pf-m-plain:hover {
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.app-masthead-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  background: var(--pf-t--global--color--brand--default);
+  color: #fff;
+  margin-right: 6px;
+}
 
 /* ─── Screenshots & videos ─── */
 
@@ -481,3 +514,237 @@
 /* ─── Tooltip content ─── */
 
 .app-tooltip-pre { text-align: left; white-space: pre-line; }
+
+/* ─── Poll indicator (masthead) ─── */
+
+.app-poll-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--pf-t--global--color--nonstatus--gray--text--on-filled--default);
+  font-size: var(--pf-t--global--font--size--sm);
+  background: none;
+  border: none;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: default;
+}
+.app-poll-indicator--idle {
+  opacity: 0.7;
+  cursor: pointer;
+}
+.app-poll-indicator--idle:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.08);
+}
+.app-poll-indicator:disabled {
+  cursor: default;
+}
+.app-poll-indicator-pct {
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.app-poll-indicator-time {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+@keyframes app-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.app-spin {
+  animation: app-spin 1.2s linear infinite;
+}
+
+/* ─── Poll progress inline indicator ─── */
+
+.app-poll-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--sm);
+  white-space: nowrap;
+}
+.app-poll-status--success {
+  color: var(--pf-t--global--color--status--success--default);
+}
+.app-poll-progress-bar {
+  width: 140px;
+}
+.app-poll-cancel {
+  padding: 2px;
+  color: var(--pf-t--global--color--nonstatus--gray--default);
+}
+.app-poll-cancel:hover {
+  color: var(--pf-t--global--color--status--danger--default);
+}
+
+/* ─── Subscription cards ─── */
+
+.app-sub-card {
+  border-left: 3px solid var(--pf-t--global--color--status--success--default);
+  transition: border-color 0.2s, opacity 0.2s;
+}
+
+.app-sub-card--disabled {
+  border-left-color: var(--pf-t--global--color--nonstatus--gray--default);
+  opacity: 0.7;
+}
+
+.app-sub-card--disabled:hover {
+  opacity: 0.85;
+}
+
+.app-sub-card--new {
+  border-left-color: var(--pf-t--global--color--brand--default);
+  opacity: 1;
+}
+
+.app-sub-card-name {
+  font-weight: 600;
+  font-size: var(--pf-t--global--font--size--md);
+}
+
+.app-sub-card-meta {
+  margin-bottom: var(--pf-t--global--spacer--sm);
+  padding-bottom: var(--pf-t--global--spacer--sm);
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+}
+
+.app-sub-card-divider {
+  color: var(--pf-t--global--border--color--default);
+  font-size: var(--pf-t--global--font--size--xs);
+}
+
+.app-sub-channels {
+  padding: var(--pf-t--global--spacer--sm) 0;
+}
+
+.app-sub-channel-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: var(--pf-t--global--font--size--sm);
+  font-weight: 500;
+  border: 1px solid var(--pf-t--global--border--color--default);
+  background: var(--pf-t--global--background--color--secondary--default);
+  cursor: default;
+}
+
+.app-sub-channel-chip--slack {
+  border-color: #4a154b33;
+  color: #4a154b;
+}
+.app-sub-channel-chip--jira {
+  border-color: #0052cc33;
+  color: #0052cc;
+}
+.app-sub-channel-chip--email {
+  border-color: #00659c33;
+  color: #00659c;
+}
+
+.app-sub-channel-icon {
+  font-size: 14px;
+}
+
+.app-sub-channel-detail {
+  font-size: var(--pf-t--global--font--size--xs);
+  color: var(--pf-t--global--text--color--subtle);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-sub-edit-form {
+  padding: var(--pf-t--global--spacer--sm) 0;
+}
+
+.app-sub-new-icon {
+  color: var(--pf-t--global--color--brand--default);
+}
+
+/* ─── Component mapping editor ─── */
+
+.app-preview-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pf-t--global--spacer--xs);
+  padding: var(--pf-t--global--spacer--sm) 0;
+}
+.app-preview-item {
+  font-size: var(--pf-t--global--font--size--xs);
+  background: var(--pf-t--global--background--color--secondary--default);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.app-unmapped-list {
+  max-height: 300px;
+  overflow: auto;
+}
+.app-unmapped-row {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+}
+.app-unmapped-row:last-child {
+  border-bottom: none;
+}
+
+/* ─── Global loading bar ─── */
+
+.app-global-loading-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--pf-t--global--color--brand--default);
+  z-index: 9999;
+  animation: app-loading-slide 1.5s infinite ease-in-out;
+}
+@keyframes app-loading-slide {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(0); }
+  100% { transform: translateX(100%); }
+}
+
+/* ─── Dashboard column widths ─── */
+
+.app-col-name { width: 40%; }
+.app-col-component { width: 15%; }
+.app-col-narrow { width: 70px; }
+.app-col-xs { width: 55px; }
+.app-col-passrate { width: 120px; }
+.app-col-date { width: 140px; }
+
+/* ─── Dashboard expanded sub-rows ─── */
+
+.app-expanded-sub-row {
+  padding-left: var(--pf-t--global--spacer--xl);
+}
+
+.app-select-all-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px var(--pf-t--global--spacer--md);
+}
+.app-select-all-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: var(--pf-t--global--font--size--sm);
+  font-weight: 600;
+  color: var(--pf-t--global--color--brand--default);
+}
+.app-select-all-toggle:hover {
+  text-decoration: underline;
+}
+.app-select-count {
+  font-size: var(--pf-t--global--font--size--xs);
+  color: var(--pf-t--global--color--nonstatus--gray--text--default);
+}

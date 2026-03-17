@@ -114,5 +114,9 @@ export const getTestItemHistory = async (uniqueId: string, limit = 20): Promise<
     take: limit,
   });
   return rows.map(toTestItemRecord);
-}
+};
+
+export const clearAllTestItems = async (): Promise<void> => {
+  await testItems().clear();
+};
 

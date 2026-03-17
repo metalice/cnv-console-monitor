@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -15,8 +15,7 @@ import { fetchUntriagedForRange, fetchStreaks } from '../api/testItems';
 import { fetchReportForRange } from '../api/launches';
 import { apiFetch } from '../api/client';
 import { useDate } from '../context/DateContext';
-import { usePreferences } from '../context/PreferencesContext';
-import { ComponentMultiSelect } from '../components/common/ComponentMultiSelect';
+import { useComponentFilter } from '../context/ComponentFilterContext';
 import { FailuresTable } from '../components/failures/FailuresTable';
 import { TriageModal } from '../components/modals/TriageModal';
 import { JiraCreateModal } from '../components/modals/JiraCreateModal';
@@ -27,31 +26,13 @@ import { exportCsv } from '../utils/csvExport';
 export const FailuresPage: React.FC = () => {
   const navigate = useNavigate();
   const { lookbackMode, since, until, isRangeMode } = useDate();
-  const { preferences, loaded: prefsLoaded, setPreference } = usePreferences();
-  const [selectedComponents, setSelectedComponentsState] = useState<Set<string>>(new Set());
+  const { selectedComponent: component } = useComponentFilter();
   const [triageIds, setTriageIds] = useState<number[]>([]);
   const [jiraCreateItem, setJiraCreateItem] = useState<TestItem | null>(null);
-
-  const prefsAppliedRef = useRef(false);
-  useEffect(() => {
-    if (prefsLoaded && !prefsAppliedRef.current) {
-      prefsAppliedRef.current = true;
-      if (preferences.dashboardComponents?.length) {
-        setSelectedComponentsState(new Set(preferences.dashboardComponents));
-      }
-    }
-  }, [prefsLoaded, preferences.dashboardComponents]);
-
-  const setSelectedComponents = (value: Set<string>) => {
-    setSelectedComponentsState(value);
-    setPreference('dashboardComponents', [...value]);
-  };
-  const component = selectedComponents.size === 1 ? [...selectedComponents][0] : undefined;
 
   useEffect(() => { document.title = 'Untriaged Failures | CNV Console Monitor'; }, []);
 
   const { data: config } = useQuery({ queryKey: ['config'], queryFn: () => apiFetch<PublicConfig>('/config'), staleTime: Infinity });
-  const { data: availableComponents } = useQuery({ queryKey: ['availableComponents'], queryFn: () => apiFetch<string[]>('/launches/components'), staleTime: 5 * 60 * 1000 });
   const { data: items, isLoading } = useQuery({ queryKey: ['untriaged', lookbackMode, since, until, component], queryFn: () => fetchUntriagedForRange(since, until, component) });
   const { data: report } = useQuery({ queryKey: ['report', lookbackMode, since, until], queryFn: () => fetchReportForRange(since, until) });
 
@@ -60,8 +41,8 @@ export const FailuresPage: React.FC = () => {
   const { data: streaks } = useQuery({ queryKey: ['streaks', uniqueIds], queryFn: () => fetchStreaks(uniqueIds), enabled: uniqueIds.length > 0, staleTime: 5 * 60 * 1000 });
 
   const newFailureIds = useMemo(() => {
-    if (!report) return new Set<string>();
-    return new Set(report.newFailures.map((failure) => failure.unique_id).filter((uid): uid is string => !!uid));
+    if (!report || !Array.isArray(report.newFailures)) return new Set<string>();
+    return new Set<string>(report.newFailures.map((failure) => failure.unique_id).filter((uid): uid is string => !!uid));
   }, [report]);
 
   return (
@@ -74,11 +55,6 @@ export const FailuresPage: React.FC = () => {
           </FlexItem>
           <FlexItem>
             <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
-              {(availableComponents?.length ?? 0) > 0 && (
-                <FlexItem>
-                  <ComponentMultiSelect id="failures-component" selected={selectedComponents} options={availableComponents ?? []} onChange={setSelectedComponents} />
-                </FlexItem>
-              )}
               <FlexItem>
                 <Button variant="secondary" icon={<DownloadIcon />} isDisabled={!aggregated.length} onClick={() => {
                   exportCsv('untriaged-failures.csv',

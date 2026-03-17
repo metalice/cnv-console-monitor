@@ -20,8 +20,21 @@ export {
   getLaunchCount,
   getDistinctComponents,
   getLaunchesWithoutComponent,
+  getAllLaunchesForRemap,
   updateLaunchComponent,
+  clearAllLaunches,
+  getMostRecentLaunchTime,
 } from './launches';
+
+export type { EnrichmentStats } from './enrichment';
+export {
+  getEnrichmentStats,
+  getLaunchesWithFailedEnrichment,
+  getLaunchesPendingEnrichment,
+  getDistinctJenkinsTeams,
+  updateComponentByJenkinsTeam,
+  backfillComponentFromSiblings,
+} from './enrichment';
 
 export {
   upsertTestItem,
@@ -33,6 +46,7 @@ export {
   updateTestItemJira,
   getUntriagedItems,
   getTestItemHistory,
+  clearAllTestItems,
 } from './testItems';
 
 export {
@@ -91,3 +105,13 @@ export {
   setSetting,
   deleteSetting,
 } from './settings';
+
+export type { ComponentMappingRecord, UnmappedLaunchEntry } from './componentMappings';
+export {
+  getAllComponentMappings,
+  upsertComponentMapping,
+  deleteComponentMapping,
+  getUnmappedLaunchNames,
+  getMatchCountForPattern,
+  getMatchingLaunchNames,
+} from './componentMappings';

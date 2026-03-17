@@ -46,7 +46,6 @@ export const PassRateBar: React.FC<PassRateBarProps> = ({
   const bar = (
     <Progress
       value={rate}
-      title={`${rate}%`}
       variant={variant}
       measureLocation={ProgressMeasureLocation.outside}
       className="app-min-w-120"

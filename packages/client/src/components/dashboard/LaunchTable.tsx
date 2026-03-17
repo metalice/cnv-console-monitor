@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardBody, Tooltip, Label, EmptyState, EmptyStateBody } from '@patternfly/react-core';
+import { Card, CardBody, Tooltip, Label, EmptyState, EmptyStateBody, ToolbarItem } from '@patternfly/react-core';
 import { Table, Thead, Tr, Tbody, Td, SortByDirection } from '@patternfly/react-table';
 import { ExternalLinkAltIcon } from '@patternfly/react-icons';
 import type { LaunchGroup, PublicConfig } from '@cnv-monitor/shared';
@@ -11,6 +11,8 @@ import { PassRateBar } from '../common/PassRateBar';
 import { ThWithHelp } from '../common/ThWithHelp';
 import { LaunchProgress } from '../common/LaunchProgress';
 import { TableToolbar } from '../common/TableToolbar';
+import { ComponentMultiSelect } from '../common/ComponentMultiSelect';
+import { SearchableSelect, type SearchableSelectOption } from '../common/SearchableSelect';
 
 const DASHBOARD_COLUMNS: ColumnDef[] = [
   { id: 'version', title: 'Version' },
@@ -28,11 +30,11 @@ const SORT_ACCESSORS: Record<number, (g: LaunchGroup) => string | number | null>
   0: (group) => group.cnvVersion,
   1: (group) => group.tier,
   2: (group) => group.component ?? '',
-  3: (group) => group.latestLaunch.status,
+  3: (group) => group.latestLaunch?.status ?? '',
   4: (group) => group.passRate,
   5: (group) => group.totalTests,
   6: (group) => group.failedTests,
-  7: (group) => group.latestLaunch.start_time,
+  7: (group) => group.latestLaunch?.start_time ?? 0,
 };
 
 type LaunchTableProps = {
@@ -41,32 +43,45 @@ type LaunchTableProps = {
   tableSearch: string;
   onSearchChange: (val: string) => void;
   config: PublicConfig | undefined;
+  selectedTiers: Set<string>;
+  availableTiers: string[];
+  onTiersChange: (value: Set<string>) => void;
+  versionFilter: string;
+  versionOptions: SearchableSelectOption[];
+  onVersionChange: (value: string) => void;
 };
 
-export const LaunchTable: React.FC<LaunchTableProps> = ({ groups, availableComponents, tableSearch, onSearchChange, config }) => {
+export const LaunchTable: React.FC<LaunchTableProps> = ({
+  groups, availableComponents, tableSearch, onSearchChange, config,
+  selectedTiers, availableTiers, onTiersChange,
+  versionFilter, versionOptions, onVersionChange,
+}) => {
   const navigate = useNavigate();
   const colMgmt = useColumnManagement('dashboard', DASHBOARD_COLUMNS);
   const vis = colMgmt.isColumnVisible;
 
-  const { sorted: sortedGroupsRaw, getSortParams } = useTableSort(groups, SORT_ACCESSORS, { index: 7, direction: SortByDirection.desc });
+  const { sorted: sortedGroupsRaw, getSortParams } = useTableSort(groups, SORT_ACCESSORS, { index: 0, direction: SortByDirection.desc });
 
   const sortedGroups = useMemo(() => {
     if (!tableSearch.trim()) return sortedGroupsRaw;
     const searchLower = tableSearch.toLowerCase();
     return sortedGroupsRaw.filter(group =>
       group.cnvVersion.toLowerCase().includes(searchLower) || group.tier.toLowerCase().includes(searchLower)
-      || (group.component ?? '').toLowerCase().includes(searchLower) || group.latestLaunch.status.toLowerCase().includes(searchLower),
+      || (group.component ?? '').toLowerCase().includes(searchLower) || (group.latestLaunch?.status ?? '').toLowerCase().includes(searchLower),
     );
   }, [sortedGroupsRaw, tableSearch]);
 
   const showComponentCol = availableComponents.length > 1 || vis('component');
 
   const navigateToGroup = useCallback((group: LaunchGroup) => {
-    if (group.launches.length > 1) {
-      const ids = group.launches.map(launch => launch.rp_id).join(',');
-      navigate(`/launch/${group.latestLaunch.rp_id}?launches=${ids}&version=${encodeURIComponent(group.cnvVersion)}&tier=${encodeURIComponent(group.tier)}`);
+    const rpId = group.latestLaunch?.rp_id;
+    if (!rpId) return;
+    const launches = group.launches ?? [];
+    if (launches.length > 1) {
+      const ids = launches.map(launch => launch.rp_id).join(',');
+      navigate(`/launch/${rpId}?launches=${ids}&version=${encodeURIComponent(group.cnvVersion)}&tier=${encodeURIComponent(group.tier)}`);
     } else {
-      navigate(`/launch/${group.latestLaunch.rp_id}`);
+      navigate(`/launch/${rpId}`);
     }
   }, [navigate]);
 
@@ -78,7 +93,18 @@ export const LaunchTable: React.FC<LaunchTableProps> = ({ groups, availableCompo
   return (
     <Card>
       <CardBody>
-        <TableToolbar searchValue={tableSearch} onSearchChange={onSearchChange} searchPlaceholder="Search by version, tier, component..." resultCount={sortedGroups.length} totalCount={groups.length} columns={DASHBOARD_COLUMNS} visibleIds={colMgmt.visibleIds} onSaveColumns={colMgmt.setColumns} onResetColumns={colMgmt.resetColumns} />
+        <TableToolbar searchValue={tableSearch} onSearchChange={onSearchChange} searchPlaceholder="Search by version, tier, component..." resultCount={sortedGroups.length} totalCount={groups.length} columns={DASHBOARD_COLUMNS} visibleIds={colMgmt.visibleIds} onSaveColumns={colMgmt.setColumns} onResetColumns={colMgmt.resetColumns}>
+          {availableTiers.length > 0 && (
+            <ToolbarItem>
+              <ComponentMultiSelect id="tier-filter" selected={selectedTiers} options={availableTiers} onChange={onTiersChange} placeholder="All Tiers" itemLabel="tiers" isDisabled={availableTiers.length <= 1} />
+            </ToolbarItem>
+          )}
+          {versionOptions.length > 2 && (
+            <ToolbarItem>
+              <SearchableSelect id="version-filter" value={versionFilter} options={versionOptions} onChange={onVersionChange} placeholder="All Versions" />
+            </ToolbarItem>
+          )}
+        </TableToolbar>
         <div className="app-table-scroll">
           <Table aria-label="Launch status table" variant="compact" isStickyHeader>
             <Thead>
@@ -103,12 +129,12 @@ export const LaunchTable: React.FC<LaunchTableProps> = ({ groups, availableCompo
                   {vis('version') && <Td dataLabel="Version" className="app-cell-nowrap"><strong>{group.cnvVersion}</strong></Td>}
                   {vis('tier') && <Td dataLabel="Tier" className="app-cell-nowrap">{group.tier}</Td>}
                   {showComponentCol && vis('component') && <Td dataLabel="Component" className="app-cell-nowrap"><Label color="grey" isCompact>{group.component || '--'}</Label></Td>}
-                  {vis('status') && <Td dataLabel="Status" className="app-cell-nowrap">{group.latestLaunch.status === 'IN_PROGRESS' ? <LaunchProgress launchRpId={group.latestLaunch.rp_id} /> : <StatusBadge status={group.latestLaunch.status} />}</Td>}
-                  {vis('passRate') && <Td dataLabel="Pass Rate" className="app-cell-nowrap"><PassRateBar rate={group.passRate} passed={group.passedTests} total={group.totalTests} failed={group.failedTests} skipped={group.skippedTests} launchName={group.latestLaunch.name} startTime={group.latestLaunch.start_time} launchCount={group.launches.length} /></Td>}
+                  {vis('status') && <Td dataLabel="Status" className="app-cell-nowrap">{group.latestLaunch?.status === 'IN_PROGRESS' ? <LaunchProgress launchRpId={group.latestLaunch.rp_id} /> : <StatusBadge status={group.latestLaunch?.status ?? 'UNKNOWN'} />}</Td>}
+                  {vis('passRate') && <Td dataLabel="Pass Rate" className="app-cell-nowrap"><PassRateBar rate={group.passRate} passed={group.passedTests} total={group.totalTests} failed={group.failedTests} skipped={group.skippedTests} launchName={group.latestLaunch?.name} startTime={group.latestLaunch?.start_time} launchCount={group.launchCount ?? group.launches?.length ?? 1} /></Td>}
                   {vis('tests') && <Td dataLabel="Tests" className="app-cell-nowrap">{group.passedTests}/{group.totalTests}</Td>}
                   {vis('failed') && <Td dataLabel="Failed" className="app-cell-nowrap">{group.failedTests}</Td>}
-                  {vis('lastRun') && <Td dataLabel="Last Run" className="app-cell-nowrap"><Tooltip content={new Date(group.latestLaunch.start_time).toLocaleString()}><span className="app-cursor-help">{fmtTime(group.latestLaunch.start_time)}</span></Tooltip></Td>}
-                  {vis('rp') && <Td dataLabel="RP" onClick={(e) => e.stopPropagation()}>{config && <a href={`${config.rpLaunchBaseUrl}/${group.latestLaunch.rp_id}`} target="_blank" rel="noreferrer" aria-label="Open in ReportPortal"><ExternalLinkAltIcon /></a>}</Td>}
+                  {vis('lastRun') && <Td dataLabel="Last Run" className="app-cell-nowrap">{group.latestLaunch ? <Tooltip content={new Date(group.latestLaunch.start_time).toLocaleString()}><span className="app-cursor-help">{fmtTime(group.latestLaunch.start_time)}</span></Tooltip> : '--'}</Td>}
+                  {vis('rp') && <Td dataLabel="RP" onClick={(e) => e.stopPropagation()}>{config && group.latestLaunch && <a href={`${config.rpLaunchBaseUrl}/${group.latestLaunch.rp_id}`} target="_blank" rel="noreferrer" aria-label="Open in ReportPortal"><ExternalLinkAltIcon /></a>}</Td>}
                 </Tr>
               ))}
             </Tbody>

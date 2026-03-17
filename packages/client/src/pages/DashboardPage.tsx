@@ -1,16 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   PageSection, Content, Gallery, GalleryItem,
-  Flex, FlexItem, Button, Toolbar, ToolbarContent, ToolbarItem,
-  Spinner, Tooltip, Alert, Label,
+  Flex, FlexItem, Toolbar, ToolbarContent, ToolbarItem,
+  Spinner, Alert, Label,
 } from '@patternfly/react-core';
-import { RedoIcon } from '@patternfly/react-icons';
 import { apiFetch } from '../api/client';
 import { fetchReportForRange } from '../api/launches';
 import { fetchReleases } from '../api/releases';
-import { triggerPollNow } from '../api/poll';
 import type { PublicConfig, ReleaseInfo } from '@cnv-monitor/shared';
 import { useDate } from '../context/DateContext';
 import { useDashboardFilters } from '../hooks/useDashboardFilters';
@@ -19,8 +17,6 @@ import { AckBanner } from '../components/common/AckBanner';
 import { ExportButton } from '../components/common/ExportButton';
 import { StatCard } from '../components/common/StatCard';
 import { AcknowledgeModal } from '../components/modals/AcknowledgeModal';
-import { ComponentMultiSelect } from '../components/common/ComponentMultiSelect';
-import { SearchableSelect } from '../components/common/SearchableSelect';
 import { LaunchTable } from '../components/dashboard/LaunchTable';
 
 const STATUS_SUCCESS = 'var(--pf-t--global--color--status--success--default)';
@@ -29,7 +25,6 @@ const STATUS_WARNING = 'var(--pf-t--global--color--status--warning--default)';
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const { lookbackMode, since, until, displayLabel } = useDate();
   const [ackModalOpen, setAckModalOpen] = useState(false);
 
@@ -37,7 +32,6 @@ export const DashboardPage: React.FC = () => {
 
   const { data: config } = useQuery({ queryKey: ['config'], queryFn: () => apiFetch<PublicConfig>('/config'), staleTime: Infinity });
   const { data: report, isLoading } = useQuery({ queryKey: ['report', lookbackMode, since, until], queryFn: () => fetchReportForRange(since, until) });
-  const pollNow = useMutation({ mutationFn: triggerPollNow, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['report'] }) });
   const { data: releases } = useQuery({ queryKey: ['releases'], queryFn: fetchReleases, staleTime: 10 * 60 * 1000 });
 
   const filters = useDashboardFilters(report);
@@ -61,27 +55,7 @@ export const DashboardPage: React.FC = () => {
           <FlexItem>
             <Toolbar>
               <ToolbarContent>
-                {filters.availableComponents.length > 0 && (
-                  <ToolbarItem>
-                    <ComponentMultiSelect id="component-filter" selected={filters.selectedComponents} options={filters.availableComponents} onChange={(selected) => { filters.setSelectedComponents(selected); filters.setVersionFilter('all'); }} />
-                  </ToolbarItem>
-                )}
-                {filters.availableTiers.length > 0 && (
-                  <ToolbarItem>
-                    <ComponentMultiSelect id="tier-filter" selected={filters.selectedTiers} options={filters.availableTiers} onChange={filters.setSelectedTiers} placeholder="All Tiers" itemLabel="tiers" isDisabled={filters.availableTiers.length <= 1} />
-                  </ToolbarItem>
-                )}
-                {filters.versions.length > 2 && (
-                  <ToolbarItem>
-                    <SearchableSelect id="version-filter" value={filters.versionFilter} options={filters.versions.map((version) => ({ value: version, label: version === 'all' ? 'All Versions' : `CNV ${version}` }))} onChange={(selected) => filters.setVersionFilter(selected)} placeholder="All Versions" />
-                  </ToolbarItem>
-                )}
                 <ToolbarItem><ExportButton groups={filters.filteredGroups} date={displayLabel} /></ToolbarItem>
-                <ToolbarItem>
-                  <Tooltip content="Triggers a full sync with ReportPortal — fetches new launches and test items, then stores them locally. This may take 10–30 seconds.">
-                    <Button variant="secondary" icon={<RedoIcon />} onClick={() => pollNow.mutate()} isLoading={pollNow.isPending}>Poll Now</Button>
-                  </Tooltip>
-                </ToolbarItem>
               </ToolbarContent>
             </Toolbar>
           </FlexItem>
@@ -114,7 +88,12 @@ export const DashboardPage: React.FC = () => {
           ))}
         </Gallery>
 
-        <LaunchTable groups={filters.filteredGroups} availableComponents={filters.availableComponents} tableSearch={filters.tableSearch} onSearchChange={filters.setTableSearch} config={config} />
+        <LaunchTable
+          groups={filters.filteredGroups} availableComponents={filters.availableComponents}
+          tableSearch={filters.tableSearch} onSearchChange={filters.setTableSearch} config={config}
+          selectedTiers={filters.selectedTiers} availableTiers={filters.availableTiers} onTiersChange={filters.setSelectedTiers}
+          versionFilter={filters.versionFilter} versionOptions={filters.versions.map((v) => ({ value: v, label: v === 'all' ? 'All Versions' : `CNV ${v}` }))} onVersionChange={filters.setVersionFilter}
+        />
       </PageSection>
 
       <AcknowledgeModal isOpen={ackModalOpen} onClose={() => setAckModalOpen(false)} groups={filters.filteredGroups} component={filters.selectedComponents.size === 1 ? [...filters.selectedComponents][0] : undefined} />

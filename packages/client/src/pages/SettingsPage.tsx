@@ -19,7 +19,9 @@ import { JiraSettings } from '../components/settings/JiraSettings';
 import { EmailServerSettings } from '../components/settings/EmailServerSettings';
 import { PollingSettings } from '../components/settings/PollingSettings';
 import { LinksSettings } from '../components/settings/LinksSettings';
+import { JenkinsSettings } from '../components/settings/JenkinsSettings';
 import { NotificationSubscriptions } from '../components/settings/NotificationSubscriptions';
+import { ComponentMappings } from '../components/settings/ComponentMappings';
 import { UserManagement, BootstrapAdmin } from '../components/settings/UserManagement';
 import { SystemHealth } from '../components/settings/SystemHealth';
 import { formatUptime } from '../components/settings/types';
@@ -39,7 +41,7 @@ export const SettingsPage: React.FC = () => {
     setJiraTestMode, setJiraMetaOverride, setJiraTestMsg,
   } = state;
 
-  if (isLoading || !data) return <PageSection isFilled><div className="app-page-spinner"><Spinner aria-label="Loading settings" /></div></PageSection>;
+  if (isLoading || !data) return <div className="app-page-spinner"><Spinner aria-label="Loading settings" /></div>;
 
   const systemInfo = data.system;
   const sectionProps = { val, set, sourceLabel, adminOnly };
@@ -96,10 +98,16 @@ export const SettingsPage: React.FC = () => {
             <PollingSettings {...sectionProps} />
           </GridItem>
           <GridItem span={12} md={6}>
+            <JenkinsSettings {...sectionProps} {...tokenHandlers} />
+          </GridItem>
+          <GridItem span={12} md={6}>
             <LinksSettings {...sectionProps} />
           </GridItem>
           <GridItem span={12}>
             <NotificationSubscriptions />
+          </GridItem>
+          <GridItem span={12}>
+            <ComponentMappings />
           </GridItem>
           <GridItem span={12}>
             <UserManagement />

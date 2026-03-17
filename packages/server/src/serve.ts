@@ -3,15 +3,56 @@ import http from 'http';
 import { createApp } from './api';
 import { config, applySettingsOverrides, setLastPollAt } from './config';
 import { logger } from './logger';
-import { getAllSettings } from './db/store';
+import { getAllSettings, getMostRecentLaunchTime } from './db/store';
 import { AppDataSource } from './db/data-source';
 import { initWebSocket, broadcast } from './ws';
-import { pollReportPortal, backfillTestItems, backfillComponents } from './poller';
-import { lockPoll, unlockPoll } from './pollLock';
-import { getLaunchCount } from './db/store';
+import { pollReportPortal, enrichLaunchesFromJenkins, refreshStaleInProgress } from './poller';
+import { lockPoll, unlockPoll, isPollLocked, isAutoPollPaused } from './pollLock';
+import { backfillComponentFromSiblings } from './db/store';
 import { setupSubscriptionCrons, setupAckReminder } from './serve-cron';
+import { refreshMappingCache } from './componentMap';
 
 const log = logger.child({ module: 'Dashboard' });
+
+const runScheduledPoll = async (): Promise<void> => {
+  if (isAutoPollPaused()) {
+    log.info('Scheduled poll skipped — auto-poll paused (backfill in progress)');
+    return;
+  }
+  if (isPollLocked()) {
+    log.info('Scheduled poll skipped — another poll is in progress');
+    return;
+  }
+  const pollId = lockPoll();
+  if (!pollId) {
+    log.info('Scheduled poll skipped — lock contention');
+    return;
+  }
+  try {
+    const lookbackHours = 24;
+    log.info({ lookbackHours, pollId }, 'Starting scheduled poll');
+    const result = await pollReportPortal(lookbackHours, true, pollId);
+    setLastPollAt(Date.now());
+    unlockPoll();
+    broadcast('data-updated');
+
+    refreshStaleInProgress().catch((staleErr) => log.error({ staleErr }, 'Stale refresh failed'));
+    if (result.launches.length > 0) {
+      enrichLaunchesFromJenkins(result.launches)
+        .then(() => backfillComponentFromSiblings())
+        .then(() => broadcast('data-updated'))
+        .catch((enrichErr) => log.error({ enrichErr }, 'Post-poll enrichment failed'));
+    } else {
+      backfillComponentFromSiblings()
+        .then(() => broadcast('data-updated'))
+        .catch((backfillErr) => log.error({ backfillErr }, 'Sibling backfill failed'));
+    }
+    log.info('Scheduled poll complete');
+  } catch (err) {
+    log.error({ err }, 'Poll cycle failed');
+    unlockPoll();
+  }
+};
 
 const main = async (): Promise<void> => {
   log.info('Initializing database...');
@@ -23,45 +64,15 @@ const main = async (): Promise<void> => {
   applySettingsOverrides(dbSettings);
   log.info({ overrides: Object.keys(dbSettings).length }, 'Settings loaded from DB');
 
+  await refreshMappingCache();
+
+  const lastLaunchTime = await getMostRecentLaunchTime();
+  if (lastLaunchTime) setLastPollAt(Number(lastLaunchTime));
+
   const app = createApp();
   const server = http.createServer(app);
 
   initWebSocket(server);
-
-  const runPoll = async (): Promise<void> => {
-    if (!lockPoll()) {
-      log.info('Poll already in progress, skipping');
-      return;
-    }
-    try {
-      const count = await getLaunchCount();
-      const isInitial = count === 0;
-      const lookbackHours = isInitial
-        ? config.schedule.initialLookbackDays * 24
-        : 168;
-
-      log.info({ lookbackHours, isInitial }, 'Starting poll cycle');
-      const result = await pollReportPortal(lookbackHours, !isInitial);
-      setLastPollAt(Date.now());
-      broadcast('data-updated');
-
-      if (isInitial && result.launches.length > 0) {
-        log.info('Starting background backfill of test items...');
-        backfillTestItems(result.launches, () => broadcast('data-updated')).catch(
-          (err) => log.error({ err }, 'Backfill failed'),
-        );
-      }
-
-      log.info('Poll cycle complete');
-    } catch (err) {
-      log.error({ err }, 'Poll cycle failed');
-    } finally {
-      unlockPoll();
-    }
-  }
-
-  const pollIntervalMs = config.schedule.pollIntervalMinutes * 60 * 1000;
-
   setupAckReminder();
 
   server.listen(config.dashboard.port, () => {
@@ -70,30 +81,24 @@ const main = async (): Promise<void> => {
       reportportal: config.reportportal.url,
       project: config.reportportal.project,
       pollInterval: `${config.schedule.pollIntervalMinutes}m`,
-      initialLookback: `${config.schedule.initialLookbackDays}d`,
       ackReminder: '10:00',
-    }, 'Server started');
-
-    backfillComponents(() => broadcast('data-updated')).catch(
-      (err) => log.error({ err }, 'Component backfill failed'),
-    );
+    }, 'Server started — use Settings > Fetch Full History to populate data');
 
     setupSubscriptionCrons().catch(
       (err) => log.error({ err }, 'Failed to setup subscription crons'),
     );
 
-    runPoll().catch((err) => log.error({ err }, 'Initial poll failed'));
-
-    const schedulePoll = () => {
+    const scheduleNextPoll = () => {
+      const intervalMs = config.schedule.pollIntervalMinutes * 60 * 1000;
       setTimeout(() => {
-        runPoll()
+        runScheduledPoll()
           .catch((err) => log.error({ err }, 'Scheduled poll failed'))
-          .finally(schedulePoll);
-      }, pollIntervalMs);
+          .finally(scheduleNextPoll);
+      }, intervalMs);
     };
-    schedulePoll();
+    scheduleNextPoll();
   });
-}
+};
 
 main().catch((err) => {
   log.fatal({ err }, 'Failed to start server');

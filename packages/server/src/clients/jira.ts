@@ -1,7 +1,6 @@
-import axios, { AxiosInstance } from 'axios';
-import https from 'https';
 import { config } from '../config';
 import { withRetry } from '../utils/retry';
+import { createJiraClient } from './jira-auth';
 
 export { buildBugDescription } from './jira-helpers';
 
@@ -25,31 +24,66 @@ export interface JiraSearchResult {
   total: number;
 }
 
-const httpsAgent = new https.Agent({ rejectUnauthorized: false });
-
-const createClient = (): AxiosInstance => {
-  return axios.create({
-    baseURL: `${config.jira.url}/rest/api/2`,
-    headers: {
-      Authorization: `Bearer ${config.jira.token}`,
-      'Content-Type': 'application/json',
-    },
-    timeout: 15000,
-    httpsAgent,
-  });
-}
-
 export const searchIssues = async (jql: string, maxResults = 10): Promise<JiraSearchResult> => {
-  const client = createClient();
+  const client = createJiraClient();
+  const fields = ['summary', 'status', 'assignee', 'created', 'updated', 'description', 'labels'];
   const response = await withRetry(
-    () => client.post('/search', {
-      jql,
-      maxResults,
-      fields: ['summary', 'status', 'assignee', 'created', 'updated', 'description', 'labels'],
-    }),
+    () => jiraSearch(client, jql, fields, maxResults, 0),
     'jira.searchIssues',
   );
   return response.data;
+}
+
+let useNewSearchEndpoint = false;
+
+export const jiraSearch = async (
+  client: ReturnType<typeof createJiraClient>,
+  jql: string,
+  fields: string[],
+  maxResults: number,
+  startAt: number,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<{ data: { issues: any[]; total: number } }> => {
+  if (!useNewSearchEndpoint) {
+    try {
+      return await client.post('/search', { jql, maxResults, startAt, fields });
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 410) {
+        useNewSearchEndpoint = true;
+      } else {
+        throw err;
+      }
+    }
+  }
+  return jiraSearchPaginated(client, jql, fields, maxResults);
+}
+
+async function jiraSearchPaginated(
+  client: ReturnType<typeof createJiraClient>,
+  jql: string,
+  fields: string[],
+  maxResults: number,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<{ data: { issues: any[]; total: number } }> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allIssues: any[] = [];
+  let nextPageToken: string | undefined;
+  let total = 0;
+
+  do {
+    const params = new URLSearchParams({ jql, maxResults: String(maxResults), fields: fields.join(',') });
+    if (nextPageToken) params.set('nextPageToken', nextPageToken);
+    const response = await client.get(`/search/jql?${params.toString()}`);
+    const data = response.data;
+    total = data.total || 0;
+    const issues = data.issues || data.values || [];
+    allIssues.push(...issues);
+    nextPageToken = data.nextPageToken;
+    if (issues.length === 0) break;
+  } while (nextPageToken);
+
+  return { data: { issues: allIssues, total: total || allIssues.length } };
 }
 
 export const findExistingIssue = async (testName: string, polarionId?: string): Promise<JiraIssue | null> => {
@@ -80,7 +114,7 @@ export const createIssue = async (params: {
   rpLaunchUrl?: string;
   rpItemUrl?: string;
 }): Promise<JiraIssue> => {
-  const client = createClient();
+  const client = createJiraClient();
 
   const fields: Record<string, unknown> = {
     project: { key: config.jira.projectKey },
@@ -130,7 +164,7 @@ export const createIssue = async (params: {
 }
 
 export const getIssue = async (key: string): Promise<JiraIssue> => {
-  const client = createClient();
+  const client = createJiraClient();
   const response = await withRetry(
     () => client.get(`/issue/${key}`, {
       params: { fields: 'summary,status,assignee,created,updated,labels' },

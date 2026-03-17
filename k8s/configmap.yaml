@@ -7,8 +7,6 @@ metadata:
 data:
   DASHBOARD_PORT: "8080"
   AUTH_ENABLED: "true"
-  POLL_INTERVAL_MINUTES: "15"
-  INITIAL_LOOKBACK_DAYS: "180"
   TZ: "Asia/Jerusalem"
   SMTP_PORT: "587"
   EMAIL_FROM: "cnv-ui-monitor@redhat.com"

@@ -12,6 +12,7 @@ import { AuthProvider } from './context/AuthContext';
 import { PreferencesProvider } from './context/PreferencesContext';
 import { ToastProvider } from './context/ToastContext';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { ComponentFilterProvider } from './context/ComponentFilterContext';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,9 +42,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <PreferencesProvider>
-            <ToastProvider>
-              <AppWithProviders />
-            </ToastProvider>
+            <ComponentFilterProvider>
+              <ToastProvider>
+                <AppWithProviders />
+              </ToastProvider>
+            </ComponentFilterProvider>
           </PreferencesProvider>
         </AuthProvider>
       </QueryClientProvider>

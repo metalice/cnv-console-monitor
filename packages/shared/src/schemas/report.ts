@@ -1,18 +1,19 @@
 import { z } from 'zod';
-import { LaunchSchema, LaunchGroupSchema, HealthStatusEnum } from './launch';
+import { LaunchSchema, LaunchGroupSchema, LauncherRowSchema, HealthStatusEnum } from './launch';
 import { TestItemSchema } from './testItem';
 
 export const DailyReportSchema = z.object({
   date: z.string(),
   groups: z.array(LaunchGroupSchema),
+  launchers: z.array(LauncherRowSchema).optional(),
   overallHealth: HealthStatusEnum,
   totalLaunches: z.number(),
   passedLaunches: z.number(),
   failedLaunches: z.number(),
   inProgressLaunches: z.number(),
   untriagedCount: z.number(),
-  newFailures: z.array(TestItemSchema),
-  recurringFailures: z.array(TestItemSchema),
+  newFailures: z.union([z.array(TestItemSchema), z.number()]),
+  recurringFailures: z.union([z.array(TestItemSchema), z.number()]),
   components: z.array(z.string()).optional(),
 });
 

@@ -10,9 +10,8 @@ import {
   FlexItem,
   Label,
 } from '@patternfly/react-core';
-import { apiFetch } from '../api/client';
 import { fetchReleases, fetchChecklist } from '../api/releases';
-import { usePreferences } from '../context/PreferencesContext';
+import { useComponentFilter } from '../context/ComponentFilterContext';
 import { ReleaseTimeline } from '../components/releases/ReleaseTimeline';
 import { ReleaseChecklist } from '../components/releases/ReleaseChecklist';
 import type { ReleaseInfo } from '@cnv-monitor/shared';
@@ -26,37 +25,15 @@ export const ReleasePage: React.FC = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: jiraComponents } = useQuery({
-    queryKey: ['jiraComponents'],
-    queryFn: async () => {
-      const meta = await apiFetch<{ components: string[] }>('/settings/jira-meta');
-      return meta.components || [];
-    },
-    staleTime: 10 * 60 * 1000,
-  });
-
-  const { preferences, loaded: prefsLoaded, setPreference } = usePreferences();
-  const [selectedComponents, setSelectedComponentsState] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    if (prefsLoaded && preferences.dashboardComponents?.length) {
-      setSelectedComponentsState(new Set(preferences.dashboardComponents));
-    }
-  }, [prefsLoaded, preferences.dashboardComponents]);
-
-  const setSelectedComponents = (value: Set<string>) => {
-    setSelectedComponentsState(value);
-    setPreference('dashboardComponents', [...value]);
-  };
-
-  const checklistComponent = selectedComponents.size === 1 ? [...selectedComponents][0] : undefined;
+  const { selectedComponent: checklistComponent } = useComponentFilter();
   const [checklistStatus, setChecklistStatus] = useState<'open' | 'all'>('open');
 
-  const { data: checklist, isLoading: clLoading, error: clError } = useQuery({
+  const { data: checklist, isLoading: clLoading, isFetching: clFetching, error: clError } = useQuery({
     queryKey: ['checklist', checklistComponent, checklistStatus],
     queryFn: () => fetchChecklist(checklistComponent, checklistStatus),
     staleTime: 60 * 1000,
     retry: 1,
+    placeholderData: undefined,
   });
 
   const upcomingReleases = useMemo(() => {
@@ -97,13 +74,11 @@ export const ReleasePage: React.FC = () => {
       <PageSection>
         <ReleaseChecklist
           checklist={checklist}
-          isLoading={clLoading}
+          isLoading={clLoading || clFetching}
           error={clError as Error | null}
           checklistStatus={checklistStatus}
           onStatusChange={setChecklistStatus}
-          selectedComponents={selectedComponents}
-          jiraComponents={jiraComponents ?? []}
-          onComponentsChange={setSelectedComponents}
+          releases={releases}
         />
       </PageSection>
     </>

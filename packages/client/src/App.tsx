@@ -1,9 +1,9 @@
 import React, { Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { PageSection, Spinner } from '@patternfly/react-core';
+import { Spinner } from '@patternfly/react-core';
 import { AppLayout } from './components/layout/AppLayout';
-import { DashboardPage } from './pages/DashboardPage';
 
+const DashboardPage = React.lazy(() => import('./pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
 const MyWorkPage = React.lazy(() => import('./pages/MyWorkPage').then(m => ({ default: m.MyWorkPage })));
 const LaunchDetailPage = React.lazy(() => import('./pages/LaunchDetailPage').then(m => ({ default: m.LaunchDetailPage })));
 const FailuresPage = React.lazy(() => import('./pages/FailuresPage').then(m => ({ default: m.FailuresPage })));
@@ -18,11 +18,9 @@ const ComparePage = React.lazy(() => import('./pages/ComparePage').then(m => ({ 
 const ReadinessPage = React.lazy(() => import('./pages/ReadinessPage').then(m => ({ default: m.ReadinessPage })));
 
 const PageFallback: React.FC = () => (
-  <PageSection isFilled>
-    <div className="app-page-spinner">
-      <Spinner aria-label="Loading page" />
-    </div>
-  </PageSection>
+  <div className="app-page-spinner">
+    <Spinner aria-label="Loading page" />
+  </div>
 );
 
 const App: React.FC = () => (

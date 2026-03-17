@@ -30,15 +30,21 @@ export const config = {
   jira: {
     url: process.env.JIRA_URL || '',
     token: process.env.JIRA_TOKEN || '',
+    email: process.env.JIRA_EMAIL || '',
     projectKey: process.env.JIRA_PROJECT_KEY || 'CNV',
     issueType: process.env.JIRA_ISSUE_TYPE || 'Bug',
     enabled: !!process.env.JIRA_URL,
   },
 
+  jenkins: {
+    user: process.env.JENKINS_USER || '',
+    token: process.env.JENKINS_TOKEN || '',
+  },
+
   schedule: {
     timezone: process.env.TZ || 'Asia/Jerusalem',
-    pollIntervalMinutes: parseInt(process.env.POLL_INTERVAL_MINUTES || '15', 10),
-    initialLookbackDays: parseInt(process.env.INITIAL_LOOKBACK_DAYS || '180', 10),
+    pollIntervalMinutes: 15,
+    initialLookbackDays: 180,
   },
 
   polarion: {
@@ -87,7 +93,10 @@ const SETTINGS_MAP: Record<string, (settingValue: string) => void> = {
   'jira.issueType': (settingValue) => { config.jira.issueType = settingValue; },
   'jira.component': () => {},
   'jira.token': (settingValue) => { config.jira.token = settingValue; },
+  'jira.email': (settingValue) => { config.jira.email = settingValue; },
   'slack.jiraWebhookUrl': (settingValue) => { config.slack.jiraWebhookUrl = settingValue; },
+  'jenkins.user': (settingValue) => { config.jenkins.user = settingValue; },
+  'jenkins.token': (settingValue) => { config.jenkins.token = settingValue; },
 };
 
 export const applySettingsOverrides = (dbSettings: Record<string, string>): void => {
