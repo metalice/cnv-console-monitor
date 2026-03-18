@@ -45,7 +45,7 @@ export const getUnmappedLaunchNames = async (): Promise<UnmappedLaunchEntry[]> =
     .createQueryBuilder('l')
     .select('l.name', 'name')
     .addSelect('COUNT(*)', 'count')
-    .addSelect("BOOL_OR(l.jenkins_status IN ('job_deleted', 'not_found'))", 'job_deleted')
+    .addSelect("BOOL_AND(l.jenkins_status IN ('job_deleted', 'not_found'))", 'job_deleted')
     .where('l.component IS NULL')
     .groupBy('l.name')
     .orderBy('count', 'DESC')

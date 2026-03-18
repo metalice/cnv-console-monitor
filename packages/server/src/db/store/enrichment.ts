@@ -36,6 +36,7 @@ export const getEnrichmentStats = async (): Promise<EnrichmentStats> => {
     else if (row.status === 'not_found') stats.notFound = count;
     else if (row.status === 'auth_required') stats.authRequired = count;
     else if (row.status === 'job_deleted') stats.notFound += count;
+    else if (row.status === 'build_pruned') stats.success += count;
     else if (row.status === 'regex_mapped') stats.mapped += count;
     else stats.pending += count;
   }
