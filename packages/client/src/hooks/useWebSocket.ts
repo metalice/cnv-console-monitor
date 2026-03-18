@@ -7,7 +7,7 @@ const SHOW_DISCONNECTED_AFTER_MS = 5000;
 
 export type WebSocketStatus = 'connected' | 'disconnected' | 'connecting';
 
-export type ProgressInfo = { phase: string; current: number; total: number; message: string };
+export type ProgressInfo = { phase: string; current: number; total: number; message: string; startedAt?: number | null };
 
 type ProgressListener = (progress: ProgressInfo) => void;
 const pollListeners = new Set<ProgressListener>();
@@ -18,7 +18,7 @@ export const usePollProgress = (): PollStatus | null => {
 
   useEffect(() => {
     const handler: ProgressListener = (info) =>
-      setProgress({ active: info.phase !== 'complete' && info.phase !== 'cancelled', ...info, startedAt: null, lastPollAt: null });
+      setProgress({ active: info.phase !== 'complete' && info.phase !== 'cancelled', ...info, startedAt: info.startedAt ?? null, lastPollAt: null });
     pollListeners.add(handler);
     return () => { pollListeners.delete(handler); };
   }, []);
@@ -56,7 +56,7 @@ export const useWebSocket = (): WebSocketStatus => {
         });
       }
       if (data.event === 'poll-progress') {
-        const info: ProgressInfo = { phase: data.phase, current: data.current, total: data.total, message: data.message };
+        const info: ProgressInfo = { phase: data.phase, current: data.current, total: data.total, message: data.message, startedAt: data.startedAt };
         for (const listener of pollListeners) listener(info);
       }
       if (data.event === 'jenkins-progress') {

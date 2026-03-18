@@ -47,6 +47,9 @@ export const config = {
     initialLookbackDays: 180,
     reminderTime: process.env.ACK_REMINDER_TIME || '10:00',
     reminderDays: process.env.ACK_REMINDER_DAYS || '1,2,3,4,5',
+    rpConcurrency: 20,
+    jenkinsConcurrency: 20,
+    rpPageSize: 100,
   },
 
   polarion: {
@@ -101,6 +104,9 @@ const SETTINGS_MAP: Record<string, (settingValue: string) => void> = {
   'jenkins.token': (settingValue) => { config.jenkins.token = settingValue; },
   'schedule.reminderTime': (settingValue) => { config.schedule.reminderTime = settingValue; },
   'schedule.reminderDays': (settingValue) => { config.schedule.reminderDays = settingValue; },
+  'schedule.rpConcurrency': (settingValue) => { config.schedule.rpConcurrency = Math.max(1, Math.min(100, parseInt(settingValue, 10) || 20)); },
+  'schedule.jenkinsConcurrency': (settingValue) => { config.schedule.jenkinsConcurrency = Math.max(1, Math.min(100, parseInt(settingValue, 10) || 20)); },
+  'schedule.rpPageSize': (settingValue) => { config.schedule.rpPageSize = Math.max(10, Math.min(1000, parseInt(settingValue, 10) || 100)); },
   'email.port': (settingValue) => { config.email.port = parseInt(settingValue, 10); },
 };
 

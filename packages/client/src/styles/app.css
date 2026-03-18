@@ -795,6 +795,7 @@
   background: var(--pf-t--global--background--color--primary--default);
   border-bottom: 1px solid var(--pf-t--global--border--color--default);
   padding-block: var(--pf-t--global--spacer--sm) !important;
+  margin-bottom: var(--pf-t--global--spacer--lg);
 }
 
 .app-tab-content {
@@ -858,4 +859,26 @@
 
 .app-danger-zone .pf-v6-c-card__title {
   color: var(--pf-t--global--color--status--danger--default);
+}
+
+/* Data pipeline card */
+.app-enrichment-card {
+  padding: var(--pf-t--global--spacer--sm) var(--pf-t--global--spacer--md);
+  margin-top: var(--pf-t--global--spacer--md);
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: var(--pf-t--global--border--radius--small);
+  background: var(--pf-t--global--background--color--secondary--default);
+}
+
+.app-pipeline-phase {
+  padding: var(--pf-t--global--spacer--xs) 0;
+}
+
+.app-poll-summary-row { padding: var(--pf-t--global--spacer--xs) 0; }
+.app-poll-summary-row + .app-poll-summary-row { border-top: 1px solid var(--pf-t--global--border--color--default); margin-top: var(--pf-t--global--spacer--xs); padding-top: var(--pf-t--global--spacer--sm); }
+
+.app-pipeline-phase + .app-pipeline-phase {
+  border-top: 1px solid var(--pf-t--global--border--color--default);
+  margin-top: var(--pf-t--global--spacer--xs);
+  padding-top: var(--pf-t--global--spacer--sm);
 }

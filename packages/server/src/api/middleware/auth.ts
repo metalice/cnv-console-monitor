@@ -42,14 +42,11 @@ export const extractUser = async (req: Request, res: Response, next: NextFunctio
     const impersonate = req.query.impersonate as string;
     if (impersonate) {
       try {
-        const { getUser } = await import('../../db/store');
-        const impUser = await getUser(impersonate);
-        if (impUser) {
-          log.debug({ impersonate }, 'Dev mode impersonation active');
-          req.user = { id: impUser.email, email: impUser.email, name: impUser.name, role: impUser.role };
-          next();
-          return;
-        }
+        const impUser = await upsertUser(impersonate, impersonate.split('@')[0]);
+        log.debug({ impersonate }, 'Dev mode impersonation active');
+        req.user = { id: impUser.email, email: impUser.email, name: impUser.name, role: impUser.role };
+        next();
+        return;
       } catch {
         // fall through to dev user
       }

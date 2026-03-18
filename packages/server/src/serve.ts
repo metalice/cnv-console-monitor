@@ -69,6 +69,9 @@ const main = async (): Promise<void> => {
   const lastLaunchTime = await getMostRecentLaunchTime();
   if (lastLaunchTime) setLastPollAt(Number(lastLaunchTime));
 
+  const { loadLastPollSummary } = await import('./pollLock');
+  await loadLastPollSummary();
+
   const app = createApp();
   const server = http.createServer(app);
 
