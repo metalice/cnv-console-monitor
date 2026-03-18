@@ -117,7 +117,23 @@ Types: `feat`, `fix`, `refactor`, `chore`, `docs`
 
 ---
 
-## 8. Final Checklist
+## 8. PR State Check
+
+Before pushing to an existing PR branch or amending a commit:
+
+1. **Check if the PR is still open**: `gh pr view <number> --json state -q '.state'`
+2. If state is `MERGED` or `CLOSED`:
+   - Do NOT push to the old branch
+   - `git checkout main && git pull origin main`
+   - Create a new branch from main
+   - Apply changes and open a new PR
+3. If state is `OPEN`: safe to push/amend
+
+**Never push to a merged PR branch.**
+
+---
+
+## 9. Final Checklist
 
 - [ ] `npm run typecheck` passes
 - [ ] `npm run test` passes
@@ -125,3 +141,4 @@ Types: `feat`, `fix`, `refactor`, `chore`, `docs`
 - [ ] No debug code
 - [ ] Self-reviewed
 - [ ] Commits clean
+- [ ] PR is still open (not merged) before pushing
