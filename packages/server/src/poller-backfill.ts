@@ -5,9 +5,9 @@ import {
 } from './clients/reportportal';
 import { upsertTestItem, LaunchRecord, TestItemRecord, getFailedTestItems } from './db/store';
 import { logger } from './logger';
+import { config } from './config';
 
 const log = logger.child({ module: 'PollerBackfill' });
-const ITEM_CONCURRENCY = 10;
 
 const parseTestItemRecord = (item: RPTestItem, launchRpId: number): TestItemRecord => {
   const polarionAttr = item.attributes.find(attr => attr.key === 'polarion-testcase-id');
@@ -49,8 +49,9 @@ export const fetchFailedItemsForLaunch = async (launchId: number): Promise<TestI
   }
 
   const items: TestItemRecord[] = [];
-  for (let i = 0; i < allRpItems.length; i += ITEM_CONCURRENCY) {
-    const batch = allRpItems.slice(i, i + ITEM_CONCURRENCY);
+  const itemConcurrency = config.schedule.rpConcurrency;
+  for (let i = 0; i < allRpItems.length; i += itemConcurrency) {
+    const batch = allRpItems.slice(i, i + itemConcurrency);
     await Promise.all(batch.map(async ({ item, rpItemId }) => {
       try {
         const logs = await fetchTestItemLogs(rpItemId, { level: 'ERROR', pageSize: 1 });

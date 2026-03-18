@@ -41,6 +41,9 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
       'jenkins.token': maskToken(config.jenkins.token),
       'schedule.reminderTime': config.schedule.reminderTime,
       'schedule.reminderDays': config.schedule.reminderDays,
+      'schedule.rpConcurrency': String(config.schedule.rpConcurrency),
+      'schedule.jenkinsConcurrency': String(config.schedule.jenkinsConcurrency),
+      'schedule.rpPageSize': String(config.schedule.rpPageSize),
       'email.port': String(config.email.port),
     };
 

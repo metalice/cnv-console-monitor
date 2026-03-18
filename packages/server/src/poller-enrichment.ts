@@ -50,7 +50,16 @@ const fetchJenkinsData = async (artifactsUrl: string): Promise<JenkinsResult> =>
     const response = await withRetry(
       () => axios.get(buildApiUrl, requestConfig),
       'fetchJenkinsData',
-      { maxRetries: 3, baseDelayMs: 2000, maxDelayMs: 15000 },
+      {
+        maxRetries: 3, baseDelayMs: 2000, maxDelayMs: 15000,
+        retryableCheck: (err) => {
+          const s = getHttpStatus(err);
+          if (s === 403 || s === 404 || s === 410) return false;
+          const code = (err as Record<string, unknown>)?.code as string | undefined;
+          if (code === 'ECONNRESET' || code === 'ETIMEDOUT' || code === 'ENOTFOUND') return true;
+          return s === 429 || s === 500 || s === 502 || s === 503 || s === 504;
+        },
+      },
     );
 
     const actions: Array<{ parameters?: Array<{ name: string; value: string }> }> = response.data?.actions || [];
@@ -92,10 +101,10 @@ const fetchJenkinsData = async (artifactsUrl: string): Promise<JenkinsResult> =>
   }
 };
 
-export const enrichLaunchFromJenkins = async (launch: LaunchRecord): Promise<void> => {
+export const enrichLaunchFromJenkins = async (launch: LaunchRecord): Promise<string | null> => {
   if (!launch.artifacts_url) {
     launch.jenkins_status = 'no_url';
-    return;
+    return null;
   }
 
   const result = await fetchJenkinsData(launch.artifacts_url);
@@ -105,7 +114,7 @@ export const enrichLaunchFromJenkins = async (launch: LaunchRecord): Promise<voi
     if (result.status === 'failed') {
       log.debug({ launchName: launch.name, error: result.error }, 'Jenkins enrichment failed (retryable)');
     }
-    return;
+    return result.error || null;
   }
 
   if (result.team) {
@@ -121,4 +130,5 @@ export const enrichLaunchFromJenkins = async (launch: LaunchRecord): Promise<voi
   if (result.tier && (!launch.tier || launch.tier === '-')) {
     launch.tier = result.tier;
   }
+  return null;
 };

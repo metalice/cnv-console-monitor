@@ -43,6 +43,7 @@ import { NotificationSubscriptions } from '../components/settings/NotificationSu
 import { ComponentMappings } from '../components/settings/ComponentMappings';
 import { UserManagement, BootstrapAdmin } from '../components/settings/UserManagement';
 import { SystemHealth } from '../components/settings/SystemHealth';
+import { DataPipeline } from '../components/settings/DataPipeline';
 import { formatUptime } from '../components/settings/types';
 import { usePreferences } from '../context/PreferencesContext';
 import { useToast } from '../context/ToastContext';
@@ -173,7 +174,6 @@ export const SettingsPage: React.FC = () => {
     setDangerConfirm('');
     addToast('info', `${action.label} started...`);
     action.action()
-      .then(() => addToast('success', `${action.label} completed`))
       .catch((e) => addToast('danger', e instanceof Error ? e.message : 'Operation failed'));
   };
 
@@ -300,6 +300,7 @@ export const SettingsPage: React.FC = () => {
             </Button>
           </FlexItem>
         </Flex>
+        <DataPipeline />
       </PageSection>
 
       <PageSection>
@@ -390,6 +391,15 @@ export const SettingsPage: React.FC = () => {
           </CardBody>
         </Card>
 
+        {/* User Management */}
+        <div className="app-mb-lg">
+          <UserManagement />
+        </div>
+
+        <div className="app-mb-lg">
+          <BootstrapAdmin />
+        </div>
+
         {/* Danger Zone */}
         {isAdmin && (
           <Card className="app-mb-lg app-danger-zone">
@@ -409,15 +419,6 @@ export const SettingsPage: React.FC = () => {
             </CardBody>
           </Card>
         )}
-
-        {/* User Management */}
-        <div className="app-mb-lg">
-          <UserManagement />
-        </div>
-
-        <div className="app-mb-lg">
-          <BootstrapAdmin />
-        </div>
 
         {/* About */}
         <Card>
