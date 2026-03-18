@@ -72,6 +72,11 @@ const main = async (): Promise<void> => {
   const { loadLastPollSummary } = await import('./pollLock');
   await loadLastPollSummary();
 
+  const { initPipelineManager, registerDefaultPhases } = await import('./pipeline');
+  await initPipelineManager();
+  registerDefaultPhases();
+  log.info('Pipeline manager initialized');
+
   const app = createApp();
   const server = http.createServer(app);
 

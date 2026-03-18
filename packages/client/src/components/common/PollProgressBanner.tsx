@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Progress, ProgressSize, Icon, Spinner, Button, Stack, StackItem } from '@patternfly/react-core';
 import { CheckCircleIcon, TimesIcon } from '@patternfly/react-icons';
 import { usePollProgress, useJenkinsProgress } from '../../hooks/useWebSocket';
-import { fetchPollStatus, cancelPoll, PollStatus } from '../../api/poll';
+import { fetchPollStatus, cancelPoll, type PollStatusLegacy } from '../../api/poll';
 import type { ProgressInfo } from '../../hooks/useWebSocket';
 
 const AUTO_HIDE_DELAY_MS = 5000;
@@ -37,7 +37,7 @@ const ProgressLine: React.FC<{ info: ProgressInfo; onCancel?: () => void; cancel
 export const PollProgressBanner: React.FC = () => {
   const wsPoll = usePollProgress();
   const wsJenkins = useJenkinsProgress();
-  const [httpStatus, setHttpStatus] = useState<PollStatus | null>(null);
+  const [httpStatus, setHttpStatus] = useState<PollStatusLegacy | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const activeRef = useRef(true);
@@ -47,7 +47,7 @@ export const PollProgressBanner: React.FC = () => {
     if (!activeRef.current) return;
     try {
       const result = await fetchPollStatus();
-      if (activeRef.current) setHttpStatus(result);
+      if (activeRef.current) setHttpStatus({ active: result.active, phase: result.phase, current: result.current, total: result.total, message: result.message, startedAt: result.startedAt, lastPollAt: result.lastPollAt });
       if (result.active) timerRef.current = setTimeout(pollHttp, HTTP_POLL_MS);
       else if (result.phase) timerRef.current = setTimeout(pollHttp, HTTP_POLL_MS * 3);
     } catch {
