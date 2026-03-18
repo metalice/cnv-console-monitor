@@ -45,7 +45,7 @@ export const getUnmappedLaunchNames = async (): Promise<UnmappedLaunchEntry[]> =
     .createQueryBuilder('l')
     .select('l.name', 'name')
     .addSelect('COUNT(*)', 'count')
-    .addSelect("BOOL_OR(l.jenkins_status = 'job_deleted')", 'job_deleted')
+    .addSelect("BOOL_OR(l.jenkins_status IN ('job_deleted', 'not_found'))", 'job_deleted')
     .where('l.component IS NULL')
     .groupBy('l.name')
     .orderBy('count', 'DESC')
@@ -60,7 +60,7 @@ export const getUnmappedLaunchNames = async (): Promise<UnmappedLaunchEntry[]> =
 
 export const applyRegexMapping = async (pattern: string, component: string, includeDeleted = false): Promise<number> => {
   try {
-    const statusFilter = includeDeleted ? '' : " AND jenkins_status != 'job_deleted'";
+    const statusFilter = includeDeleted ? '' : " AND jenkins_status NOT IN ('job_deleted', 'not_found')";
     const result = await AppDataSource.query(
       `UPDATE launches SET component = $1, jenkins_status = 'regex_mapped' WHERE component IS NULL AND jenkins_team IS NULL${statusFilter} AND name ~* $2`,
       [component, pattern],
@@ -82,7 +82,7 @@ export const clearRegexMapping = async (pattern: string, component: string): Pro
 export const getMatchCountForPattern = async (pattern: string, includeDeleted = false): Promise<{ launches: number; names: number }> => {
   const baseWhere = includeDeleted
     ? 'l.component IS NULL AND l.jenkins_team IS NULL'
-    : "l.component IS NULL AND l.jenkins_team IS NULL AND l.jenkins_status != 'job_deleted'";
+    : "l.component IS NULL AND l.jenkins_team IS NULL AND l.jenkins_status NOT IN ('job_deleted', 'not_found')";
   const launchCount = await AppDataSource.getRepository('Launch').createQueryBuilder('l')
     .where(baseWhere).andWhere('l.name ~* :pattern', { pattern }).getCount();
   const nameResult = await AppDataSource.getRepository('Launch').createQueryBuilder('l')
@@ -94,7 +94,7 @@ export const getMatchCountForPattern = async (pattern: string, includeDeleted = 
 export const getMatchingLaunchNames = async (pattern: string, limit = 20, includeDeleted = false): Promise<string[]> => {
   const baseWhere = includeDeleted
     ? 'l.component IS NULL AND l.jenkins_team IS NULL'
-    : "l.component IS NULL AND l.jenkins_team IS NULL AND l.jenkins_status != 'job_deleted'";
+    : "l.component IS NULL AND l.jenkins_team IS NULL AND l.jenkins_status NOT IN ('job_deleted', 'not_found')";
   const rows = await AppDataSource
     .getRepository('Launch')
     .createQueryBuilder('l')
