@@ -60,7 +60,10 @@ router.post('/backfill', requireAdmin, async (_req: Request, res: Response, next
     res.json({ success: true, launches: result.launches.length, lookbackDays, cancelled: wasCancelled });
 
     if (wasCancelled) {
-      log.info({ fetched: result.launches.length }, 'Backfill was cancelled — skipping Jenkins enrichment');
+      log.info({ fetched: result.launches.length }, 'Backfill was cancelled — clearing partial data');
+      await clearAllTestItems();
+      await clearAllLaunches();
+      broadcast('data-updated');
       resumeAutoPoll();
     } else {
       log.info('Phase 2: Jenkins enrichment');
