@@ -62,7 +62,7 @@ export const NotificationSubscriptions: React.FC = () => {
     mutationFn: async () => {
       if (!newRow) throw new Error('No new row');
       setTestingSubId('new');
-      const temp = await createSubscriptionApi({ name: newRow.name || 'Test', components: [], slackWebhook: newRow.slackWebhook || null, emailRecipients: newRow.emailRecipients ? newRow.emailRecipients.split(',').map(addr => addr.trim()).filter(Boolean) : [], schedule: newRow.schedule || '0 7 * * *', timezone: 'Asia/Jerusalem', enabled: false, reminderEnabled: false, reminderTime: '10:00', reminderDays: '1,2,3,4,5' });
+      const temp = await createSubscriptionApi({ name: newRow.name || 'Test', components: newRow.components, slackWebhook: newRow.slackWebhook || null, emailRecipients: newRow.emailRecipients ? newRow.emailRecipients.split(',').map(addr => addr.trim()).filter(Boolean) : [], schedule: newRow.schedule || '0 7 * * *', timezone: 'Asia/Jerusalem', enabled: false, reminderEnabled: false, reminderTime: '10:00', reminderDays: '1,2,3,4,5' });
       const result = await testSubscriptionApi(temp.id);
       await deleteSubscriptionApi(temp.id);
       return result;
