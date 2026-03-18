@@ -105,6 +105,7 @@ export const pollReportPortal = async (lookbackHours: number, fetchDetails: bool
         rpId: rpLaunch.id,
         needsDetails: fetchDetails && (launch.failed > 0 || launch.status === 'FAILED'),
       });
+      emitProgress('poll-progress', 'fetching', allLaunches.length, totalElements, `Fetched ${allLaunches.length} of ${totalElements} launches`);
     }
 
     const needDetails = pageLaunches.filter(p => p.needsDetails);
@@ -123,8 +124,6 @@ export const pollReportPortal = async (lookbackHours: number, fetchDetails: bool
         if (items.length > 0) allFailedItems.set(rpId, items);
       }
     }
-
-    emitProgress('poll-progress', 'fetching', allLaunches.length, totalElements, `Fetched ${allLaunches.length} of ${totalElements} launches`);
     page++;
   }
 
