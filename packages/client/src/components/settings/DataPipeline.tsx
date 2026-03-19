@@ -4,9 +4,9 @@ import {
   Progress, ProgressSize, ProgressMeasureLocation,
   Tooltip, ExpandableSection,
 } from '@patternfly/react-core';
-import { TimesIcon, CheckCircleIcon, ExclamationTriangleIcon, SyncAltIcon, BanIcon, ClockIcon } from '@patternfly/react-icons';
+import { TimesIcon, CheckCircleIcon, ExclamationTriangleIcon, SyncAltIcon, BanIcon, ClockIcon, RedoIcon } from '@patternfly/react-icons';
 import { useQuery } from '@tanstack/react-query';
-import { fetchPollStatus, cancelPipeline, type PhaseState, type PipelineState, type PipelineLogEntry } from '../../api/poll';
+import { fetchPollStatus, cancelPipeline, resumePhase, type PhaseState, type PipelineState, type PipelineLogEntry } from '../../api/poll';
 import { useAuth } from '../../context/AuthContext';
 
 const PHASE_LABELS: Record<string, string> = {
@@ -36,7 +36,9 @@ const PipelinePhaseRow: React.FC<{
   state: PhaseState;
   onCancel?: () => void;
   cancelling?: boolean;
-}> = ({ name, state, onCancel, cancelling }) => {
+  onRetry?: () => void;
+  retrying?: boolean;
+}> = ({ name, state, onCancel, cancelling, onRetry, retrying }) => {
   const [errorsExpanded, setErrorsExpanded] = useState(false);
   const label = PHASE_LABELS[name] || name;
   const pct = state.total > 0 ? Math.round((state.succeeded / state.total) * 100) : 0;
@@ -51,11 +53,44 @@ const PipelinePhaseRow: React.FC<{
         <FlexItem>
           <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
             <FlexItem><span className="app-font-13 app-font-bold">{label}</span></FlexItem>
-            {state.status === 'idle' && <FlexItem><Label color="grey" isCompact icon={<ClockIcon />}>Waiting</Label></FlexItem>}
+            {state.status === 'idle' && !onRetry && <FlexItem><Label color="grey" isCompact icon={<ClockIcon />}>Waiting</Label></FlexItem>}
             {state.status === 'running' && <FlexItem><Label color="blue" isCompact>Fetching</Label></FlexItem>}
             {state.status === 'retrying' && <FlexItem><Label color="orange" isCompact icon={<SyncAltIcon />}>Retrying {retryableErrors.length} (round {state.retryRound})</Label></FlexItem>}
-            {state.status === 'complete' && <FlexItem><Label color="green" isCompact icon={<CheckCircleIcon />}>{state.succeeded.toLocaleString()}</Label></FlexItem>}
-            {state.status === 'cancelled' && <FlexItem><Label color="grey" isCompact icon={<BanIcon />}>Cancelled</Label></FlexItem>}
+            {state.status === 'complete' && (
+              <FlexItem>
+                <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
+                  <FlexItem><Label color="green" isCompact icon={<CheckCircleIcon />}>{state.succeeded.toLocaleString()}</Label></FlexItem>
+                  {onRetry && (
+                    <FlexItem>
+                      <Button variant="link" size="sm" icon={<RedoIcon />} isDisabled={retrying} isLoading={retrying} onClick={onRetry}>
+                        Retry
+                      </Button>
+                    </FlexItem>
+                  )}
+                </Flex>
+              </FlexItem>
+            )}
+            {state.status === 'cancelled' && (
+              <FlexItem>
+                <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
+                  <FlexItem><Label color="grey" isCompact icon={<BanIcon />}>Cancelled</Label></FlexItem>
+                  {onRetry && (
+                    <FlexItem>
+                      <Button variant="link" size="sm" icon={<RedoIcon />} isDisabled={retrying} isLoading={retrying} onClick={onRetry}>
+                        Retry
+                      </Button>
+                    </FlexItem>
+                  )}
+                </Flex>
+              </FlexItem>
+            )}
+            {state.status === 'idle' && onRetry && (
+              <FlexItem>
+                <Button variant="link" size="sm" icon={<RedoIcon />} isDisabled={retrying} isLoading={retrying} onClick={onRetry}>
+                  Run
+                </Button>
+              </FlexItem>
+            )}
             {state.status === 'skipped' && <FlexItem><Label color="grey" isCompact>Skipped</Label></FlexItem>}
             {state.failed > 0 && (
               <FlexItem>
@@ -126,9 +161,12 @@ const PipelineLog: React.FC<{ log: PipelineLogEntry[] }> = ({ log }) => {
   );
 };
 
+const RESUMABLE_PHASES = new Set(['items', 'jenkins']);
+
 export const DataPipeline: React.FC = () => {
   const { isAdmin } = useAuth();
   const [cancelling, setCancelling] = useState(false);
+  const [resuming, setResuming] = useState<string | null>(null);
 
   const { data: pollStatus } = useQuery({
     queryKey: ['pollStatus'],
@@ -143,6 +181,19 @@ export const DataPipeline: React.FC = () => {
     setCancelling(true);
     try { await cancelPipeline(); } catch {}
     setCancelling(false);
+  };
+
+  const handleResume = async (phaseName: string) => {
+    setResuming(phaseName);
+    try { await resumePhase(phaseName); } catch {}
+    setResuming(null);
+  };
+
+  const canResumePhase = (name: string, phase: PhaseState): boolean => {
+    if (!isAdmin || pipeline.active || !RESUMABLE_PHASES.has(name)) return false;
+    if (phase.status === 'cancelled' || phase.status === 'idle') return true;
+    if (phase.status === 'complete' && (phase.total === 0 || phase.failed > 0)) return true;
+    return false;
   };
 
   return (
@@ -182,6 +233,8 @@ export const DataPipeline: React.FC = () => {
           state={phase}
           onCancel={isAdmin && (phase.status === 'running' || phase.status === 'retrying') ? handleCancel : undefined}
           cancelling={cancelling}
+          onRetry={canResumePhase(name, phase) ? () => handleResume(name) : undefined}
+          retrying={resuming === name}
         />
       ))}
 

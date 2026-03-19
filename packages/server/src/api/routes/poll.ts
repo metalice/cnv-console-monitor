@@ -73,6 +73,25 @@ router.post('/cancel', requireAdmin, (_req: Request, res: Response) => {
   res.json({ success: true });
 });
 
+router.post('/resume-phase/:phaseName', requireAdmin, async (req: Request, res: Response) => {
+  const manager = getPipelineManager();
+  const phaseName = req.params.phaseName as string;
+
+  if (manager.isActive()) {
+    res.status(409).json({ error: 'Pipeline already running' });
+    return;
+  }
+
+  try {
+    res.json({ success: true, phase: phaseName });
+    manager.resumePhase(phaseName)
+      .then(() => { broadcast('data-updated'); })
+      .catch(err => log.error({ err, phase: phaseName }, 'Phase resume failed'));
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : 'Resume failed' });
+  }
+});
+
 router.post('/health-check', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const manager = getPipelineManager();

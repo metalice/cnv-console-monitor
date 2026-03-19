@@ -21,6 +21,9 @@ export class PipelineManager {
   private phaseOrder: string[] = [];
   private state: PipelineState;
   private rateLimiters = new Map<string, RateLimiter>();
+  private emitThrottleTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastEmitTime = 0;
+  private static readonly EMIT_THROTTLE_MS = 500;
 
   constructor() {
     this.state = {
@@ -150,6 +153,51 @@ export class PipelineManager {
     this.emit();
   }
 
+  async resumePhase(phaseName: string): Promise<void> {
+    if (this.state.active) throw new Error('Pipeline already running');
+
+    const phase = this.phases.get(phaseName);
+    const phaseState = this.state.phases[phaseName];
+    if (!phase) throw new Error(`Unknown phase: ${phaseName}`);
+    if (!phaseState) throw new Error(`No state for phase: ${phaseName}`);
+    if (phaseState.status === 'running' || phaseState.status === 'retrying') {
+      throw new Error(`Phase ${phaseName} is ${phaseState.status}, cannot resume`);
+    }
+
+    this.state.active = true;
+    this.state.cancelled = false;
+    this.state.completedAt = null;
+    this.state.durationMs = null;
+
+    phaseState.status = 'idle';
+    phaseState.succeeded = 0;
+    phaseState.failed = 0;
+    phaseState.permanentFailures = 0;
+    phaseState.errors = [];
+    phaseState.startedAt = null;
+    phaseState.completedAt = null;
+    phaseState.retryRound = 0;
+
+    const concurrency = this.getConfiguredConcurrency(phaseName);
+    phaseState.currentConcurrency = concurrency;
+    this.rateLimiters.set(phaseName, new RateLimiter(concurrency));
+
+    this.addLog('pipeline', 'info', `Resuming phase: ${phase.displayName}`);
+    this.emit();
+
+    try {
+      await this.runPhase(phaseName);
+    } catch (err) {
+      this.addLog(phaseName, 'error', `Resume error: ${err instanceof Error ? err.message : 'Unknown'}`);
+    }
+
+    this.state.active = false;
+    this.state.completedAt = Date.now();
+    this.addLog('pipeline', 'info', `Phase resume ${this.state.cancelled ? 'cancelled' : 'completed'}`);
+    this.emit();
+    await this.persist();
+  }
+
   async healthCheck(): Promise<HealthReport> {
     const services: HealthReport['services'] = [];
 
@@ -273,6 +321,8 @@ export class PipelineManager {
             error.permanent = true;
             phaseState.permanentFailures++;
             this.addLog(name, 'warn', `Permanent failure: ${error.name} — ${error.reason}`);
+          } else {
+            this.addLog(name, 'error', `Retry failed: ${error.name} — ${error.reason} (attempt ${error.attempts})`);
           }
 
           if (httpStatus === 429) rateLimiter.onRateLimit();
@@ -285,7 +335,10 @@ export class PipelineManager {
       if (retriedSuccessfully === 0 && retryable.every(e => e.permanent)) break;
       if (retriedSuccessfully === 0) {
         const wait = Math.min(30000, 2000 * phaseState.retryRound);
-        this.addLog(name, 'info', `No progress in retry round ${phaseState.retryRound}, waiting ${Math.round(wait / 1000)}s`);
+        const reasons = new Map<string, number>();
+        for (const e of retryable) reasons.set(e.reason, (reasons.get(e.reason) ?? 0) + 1);
+        const breakdown = [...reasons.entries()].map(([r, c]) => `${r} (${c})`).join(', ');
+        this.addLog(name, 'info', `No progress in retry round ${phaseState.retryRound}, waiting ${Math.round(wait / 1000)}s — ${breakdown}`);
         await new Promise(r => setTimeout(r, wait));
       }
     }
@@ -298,7 +351,7 @@ export class PipelineManager {
       getConcurrency: () => rateLimiter.getConcurrency(),
       setConcurrency: (n: number) => { phaseState.currentConcurrency = n; },
       isCancelled: () => this.state.cancelled,
-      addSuccess: (count = 1) => { phaseState.succeeded += count; this.emit(); },
+      addSuccess: (count = 1) => { phaseState.succeeded += count; this.emitThrottled(); },
       addError: (itemId: number, name: string, error: unknown) => {
         const httpStatus = this.getHttpStatus(error);
         const reason = this.getErrorReason(error);
@@ -338,6 +391,23 @@ export class PipelineManager {
 
   private emit(): void {
     broadcast('pipeline-state', this.state);
+    this.lastEmitTime = Date.now();
+    if (this.emitThrottleTimer) {
+      clearTimeout(this.emitThrottleTimer);
+      this.emitThrottleTimer = null;
+    }
+  }
+
+  private emitThrottled(): void {
+    const elapsed = Date.now() - this.lastEmitTime;
+    if (elapsed >= PipelineManager.EMIT_THROTTLE_MS) {
+      this.emit();
+    } else if (!this.emitThrottleTimer) {
+      this.emitThrottleTimer = setTimeout(() => {
+        this.emitThrottleTimer = null;
+        this.emit();
+      }, PipelineManager.EMIT_THROTTLE_MS - elapsed);
+    }
   }
 
   private async persist(): Promise<void> {

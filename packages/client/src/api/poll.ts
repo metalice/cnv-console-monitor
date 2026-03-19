@@ -94,6 +94,9 @@ export const startPipeline = (mode: 'incremental' | 'full', lookbackDays?: numbe
 export const cancelPipeline = (): Promise<{ success: boolean }> =>
   apiPost('/poll/cancel', {});
 
+export const resumePhase = (phaseName: string): Promise<{ success: boolean }> =>
+  apiPost(`/poll/resume-phase/${phaseName}`, {});
+
 export const runHealthCheck = (): Promise<HealthReport> =>
   apiPost('/poll/health-check', {});
 
