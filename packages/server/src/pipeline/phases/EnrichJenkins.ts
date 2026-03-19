@@ -9,7 +9,7 @@ import type { PipelinePhase, PhaseContext, PhaseEstimate } from '../types';
 const jenkinsHttpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 const buildJenkinsRequestConfig = (): AxiosRequestConfig => {
-  const requestConfig: AxiosRequestConfig = { httpsAgent: jenkinsHttpsAgent, timeout: 15000 };
+  const requestConfig: AxiosRequestConfig = { httpsAgent: jenkinsHttpsAgent, timeout: 8000 };
   if (config.jenkins.user && config.jenkins.token) {
     requestConfig.auth = { username: config.jenkins.user, password: config.jenkins.token };
   }
@@ -28,6 +28,7 @@ export class EnrichJenkinsPhase implements PipelinePhase {
   readonly displayName = 'Jenkins Enrichment';
 
   private launches: LaunchRecord[] = [];
+  private prunedJobCache = new Set<string>();
 
   setLaunches(launches: LaunchRecord[]): void {
     this.launches = launches;
@@ -67,12 +68,16 @@ export class EnrichJenkinsPhase implements PipelinePhase {
   }
 
   async run(ctx: PhaseContext): Promise<void> {
+    if (this.launches.length === 0) {
+      ctx.log('info', 'Loading launches needing enrichment from database');
+      this.launches = await this.loadUnenrichedLaunches();
+      ctx.log('info', `Found ${this.launches.length} launches needing enrichment`);
+    }
     const withArtifacts = this.launches.filter(l => l.artifacts_url);
     const withoutArtifacts = this.launches.filter(l => !l.artifacts_url);
 
-    for (const launch of withoutArtifacts) {
-      launch.jenkins_status = 'no_url';
-      await upsertLaunch(launch);
+    if (withoutArtifacts.length > 0) {
+      await Promise.all(withoutArtifacts.map(l => { l.jenkins_status = 'no_url'; return upsertLaunch(l); }));
     }
 
     ctx.setTotal(withArtifacts.length);
@@ -102,18 +107,13 @@ export class EnrichJenkinsPhase implements PipelinePhase {
     const launch = this.launches.find(l => l.rp_id === itemId);
     if (!launch?.artifacts_url) return false;
 
-    try {
-      await this.enrichLaunch(launch);
-      await upsertLaunch(launch);
-      return launch.jenkins_status === 'success' || launch.jenkins_status === 'build_pruned';
-    } catch {
-      return false;
-    }
+    await this.enrichLaunch(launch);
+    await upsertLaunch(launch);
+    return launch.jenkins_status === 'success' || launch.jenkins_status === 'build_pruned';
   }
 
-  isPermanentError(error: unknown): boolean {
-    const status = getHttpStatus(error);
-    return status === 404 || status === 410;
+  isPermanentError(_error: unknown): boolean {
+    return false;
   }
 
   private async enrichLaunch(launch: LaunchRecord): Promise<void> {
@@ -130,7 +130,7 @@ export class EnrichJenkinsPhase implements PipelinePhase {
         () => axios.get(buildApiUrl, requestConfig),
         `jenkins(${launch.rp_id})`,
         {
-          maxRetries: 2, baseDelayMs: 2000, maxDelayMs: 10000,
+          maxRetries: 2, baseDelayMs: 1000, maxDelayMs: 5000,
           retryableCheck: (err) => {
             const s = getHttpStatus(err);
             if (s === 403 || s === 404 || s === 410) return false;
@@ -175,17 +175,50 @@ export class EnrichJenkinsPhase implements PipelinePhase {
       const httpStatus = getHttpStatus(error);
       if (httpStatus === 403) {
         launch.jenkins_status = 'auth_required';
-        throw error;
+        return;
       }
       if (httpStatus === 404 || httpStatus === 410) {
+        const jobPath = this.extractJobPath(launch.artifacts_url);
+        if (jobPath && this.prunedJobCache.has(jobPath)) {
+          launch.jenkins_status = 'build_pruned';
+          return;
+        }
         const jobExists = await this.checkJobExists(launch.artifacts_url);
         launch.jenkins_status = jobExists ? 'build_pruned' : 'not_found';
-        if (!jobExists) throw error;
+        if (jobExists && jobPath) this.prunedJobCache.add(jobPath);
         return;
       }
       launch.jenkins_status = 'failed';
       throw error;
     }
+  }
+
+  private async loadUnenrichedLaunches(): Promise<LaunchRecord[]> {
+    const { AppDataSource } = await import('../../db/data-source');
+    const { Launch } = await import('../../db/entities/Launch');
+    const repo = AppDataSource.getRepository(Launch);
+    const rows = await repo
+      .createQueryBuilder('l')
+      .where('l.jenkins_status IN (:...statuses)', { statuses: ['pending', 'failed', 'auth_required'] })
+      .orderBy('l.start_time', 'DESC')
+      .getMany();
+
+    return rows.map(r => ({
+      rp_id: r.rp_id, uuid: r.uuid, name: r.name, number: r.number,
+      status: r.status, cnv_version: r.cnv_version ?? undefined,
+      bundle: r.bundle ?? undefined, ocp_version: r.ocp_version ?? undefined,
+      tier: r.tier ?? undefined, cluster_name: r.cluster_name ?? undefined,
+      total: r.total, passed: r.passed, failed: r.failed, skipped: r.skipped,
+      start_time: Number(r.start_time), end_time: r.end_time ? Number(r.end_time) : undefined,
+      duration: r.duration ?? undefined, artifacts_url: r.artifacts_url ?? undefined,
+      component: r.component ?? undefined, jenkins_team: r.jenkins_team ?? undefined,
+      jenkins_metadata: r.jenkins_metadata ?? undefined, jenkins_status: r.jenkins_status ?? undefined,
+    }));
+  }
+
+  private extractJobPath(artifactsUrl: string): string | null {
+    const match = artifactsUrl.match(/\/job\/([^/]+)\//);
+    return match ? match[1] : null;
   }
 
   private async checkJobExists(artifactsUrl: string): Promise<boolean> {

@@ -1,5 +1,5 @@
 import { fetchTestItems, fetchTestItemLogs, type RPTestItem } from '../../clients/reportportal';
-import { upsertTestItem, type LaunchRecord, type TestItemRecord } from '../../db/store';
+import { upsertTestItem, getLaunchesSince, type LaunchRecord, type TestItemRecord } from '../../db/store';
 import { config } from '../../config';
 import type { PipelinePhase, PhaseContext, PhaseEstimate } from '../types';
 
@@ -55,6 +55,11 @@ export class FetchItemsPhase implements PipelinePhase {
   }
 
   async run(ctx: PhaseContext): Promise<void> {
+    if (this.launches.length === 0) {
+      ctx.log('info', 'Loading launches from database');
+      this.launches = await getLaunchesSince(0);
+      ctx.log('info', `Loaded ${this.launches.length} launches (${this.getLaunchesWithFailures().length} with failures)`);
+    }
     const withFailures = this.getLaunchesWithFailures();
     if (withFailures.length === 0) return;
 
