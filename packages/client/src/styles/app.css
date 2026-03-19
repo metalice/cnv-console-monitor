@@ -877,6 +877,12 @@
 .app-poll-summary-row { padding: var(--pf-t--global--spacer--xs) 0; }
 .app-poll-summary-row + .app-poll-summary-row { border-top: 1px solid var(--pf-t--global--border--color--default); margin-top: var(--pf-t--global--spacer--xs); padding-top: var(--pf-t--global--spacer--sm); }
 
+.app-pipeline-header {
+  padding-bottom: var(--pf-t--global--spacer--sm);
+  margin-bottom: var(--pf-t--global--spacer--xs);
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+}
+
 .app-pipeline-phase + .app-pipeline-phase {
   border-top: 1px solid var(--pf-t--global--border--color--default);
   margin-top: var(--pf-t--global--spacer--xs);

@@ -1,69 +1,55 @@
 import React from 'react';
 import {
   Form, FormGroup, Content, TextInput, ExpandableSection,
-  Flex, FlexItem, Label, Button,
+  Flex, FlexItem, Label,
 } from '@patternfly/react-core';
-import { SyncAltIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@patternfly/react-icons';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { CheckCircleIcon, ExclamationTriangleIcon, BanIcon } from '@patternfly/react-icons';
+import { useQuery } from '@tanstack/react-query';
 import { SearchableSelect } from '../common/SearchableSelect';
 import { HelpLabel } from '../common/HelpLabel';
 import type { SettingsSectionProps } from './types';
 import { POLL_INTERVAL_OPTIONS, LOOKBACK_OPTIONS } from './types';
-import { fetchPollStatus, triggerJenkinsEnrichment, retryFailedItems, type PollPhaseSummaryData } from '../../api/poll';
-import { useToast } from '../../context/ToastContext';
+import { fetchPipelineHistory, type PipelineRunRecord } from '../../api/poll';
 
-const formatDuration = (ms: number): string => {
+const formatDuration = (ms: number | null): string => {
+  if (!ms) return '';
   const s = Math.round(ms / 1000);
   if (s < 60) return `${s}s`;
   const m = Math.floor(s / 60);
   return s % 60 > 0 ? `${m}m ${s % 60}s` : `${m}m`;
 };
 
-const PhaseRow: React.FC<{ label: string; data: PollPhaseSummaryData; extra?: string; onRetry?: () => void; retrying?: boolean }> = ({ label, data, extra, onRetry, retrying }) => {
-  const hasErrors = data.failed > 0;
-  const errorEntries = Object.entries(data.errors);
+const RunRow: React.FC<{ run: PipelineRunRecord }> = ({ run }) => {
+  const date = new Date(run.started_at);
+  const hasErrors = Object.values(run.phases).some(p => p.failed > 0);
+
   return (
     <div className="app-poll-summary-row">
       <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }}>
         <FlexItem>
           <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
-            <FlexItem><span className="app-font-13">{label}</span></FlexItem>
-            <FlexItem><Label color="green" isCompact icon={<CheckCircleIcon />}>{data.succeeded.toLocaleString()}</Label></FlexItem>
-            {hasErrors && <FlexItem><Label color="red" isCompact icon={<ExclamationTriangleIcon />}>{data.failed.toLocaleString()} failed</Label></FlexItem>}
-            {extra && <FlexItem><Label color="grey" isCompact>{extra}</Label></FlexItem>}
+            <FlexItem className="app-text-sm">{date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</FlexItem>
+            <FlexItem><Label isCompact color={run.trigger === 'backfill' ? 'blue' : 'grey'}>{run.trigger === 'backfill' ? 'Full' : run.trigger === 'scheduled' ? 'Auto' : 'Manual'}</Label></FlexItem>
+            {run.duration_ms && <FlexItem className="app-text-xs app-text-muted">{formatDuration(run.duration_ms)}</FlexItem>}
           </Flex>
         </FlexItem>
-        {hasErrors && onRetry && (
-          <FlexItem>
-            <Button variant="link" size="sm" icon={<SyncAltIcon />} onClick={onRetry} isLoading={retrying}>Retry {data.failed}</Button>
-          </FlexItem>
-        )}
+        <FlexItem>
+          {run.cancelled ? (
+            <Label color="grey" isCompact icon={<BanIcon />}>Cancelled</Label>
+          ) : hasErrors ? (
+            <Label color="orange" isCompact icon={<ExclamationTriangleIcon />}>Errors</Label>
+          ) : (
+            <Label color="green" isCompact icon={<CheckCircleIcon />}>Complete</Label>
+          )}
+        </FlexItem>
       </Flex>
-      {errorEntries.length > 0 && (
-        <div className="app-text-xs app-text-muted app-mt-xs">
-          {errorEntries.map(([reason, count]) => <span key={reason} className="app-mr-sm">{reason}: {count}</span>)}
-        </div>
-      )}
+      {run.summary && <div className="app-text-xs app-text-muted app-mt-xs">{run.summary}</div>}
     </div>
   );
 };
 
 export const PollingSettings: React.FC<SettingsSectionProps> = ({ val, set, adminOnly }) => {
-  const { addToast } = useToast();
-  const queryClient = useQueryClient();
-  const { data: pollStatus } = useQuery({ queryKey: ['pollStatus'], queryFn: fetchPollStatus, refetchInterval: 10_000 });
-  const summary = pollStatus?.lastPollSummary;
-
-  const retryItemsMutation = useMutation({
-    mutationFn: retryFailedItems,
-    onSuccess: (r) => { addToast('success', `Retried: ${r.succeeded} succeeded, ${r.stillFailed} failed`); queryClient.invalidateQueries({ queryKey: ['pollStatus'] }); },
-    onError: () => addToast('danger', 'Retry failed'),
-  });
-  const retryJenkinsMutation = useMutation({
-    mutationFn: triggerJenkinsEnrichment,
-    onSuccess: () => { addToast('success', 'Jenkins retry started'); queryClient.invalidateQueries({ queryKey: ['pollStatus'] }); },
-    onError: () => addToast('danger', 'Retry failed'),
-  });
+  const { data: history } = useQuery({ queryKey: ['pipelineHistory'], queryFn: () => fetchPipelineHistory(10), staleTime: 30_000 });
 
   return (
     <>
@@ -87,21 +73,10 @@ export const PollingSettings: React.FC<SettingsSectionProps> = ({ val, set, admi
         </FormGroup>
       </Form>
 
-      {summary && (
-        <ExpandableSection toggleText={`Last Poll — ${new Date(summary.timestamp).toLocaleString()} (${formatDuration(summary.durationMs)})${summary.cancelled ? ' — Cancelled' : ''}`} className="app-mt-md">
+      {history && history.length > 0 && (
+        <ExpandableSection toggleText={`Run History (${history.length})`} className="app-mt-md">
           <div className="app-enrichment-card">
-            <PhaseRow label="Launches" data={summary.launches} />
-            <PhaseRow label="Test Items" data={summary.testItems} onRetry={() => retryItemsMutation.mutate()} retrying={retryItemsMutation.isPending} />
-            <PhaseRow
-              label="Jenkins"
-              data={summary.jenkins}
-              extra={[
-                summary.jenkins.authRequired > 0 ? `${summary.jenkins.authRequired} auth` : '',
-                summary.jenkins.deleted > 0 ? `${summary.jenkins.deleted} deleted` : '',
-              ].filter(Boolean).join(', ') || undefined}
-              onRetry={() => retryJenkinsMutation.mutate()}
-              retrying={retryJenkinsMutation.isPending}
-            />
+            {history.map(run => <RunRow key={run.id} run={run} />)}
           </div>
         </ExpandableSection>
       )}
@@ -113,7 +88,7 @@ export const PollingSettings: React.FC<SettingsSectionProps> = ({ val, set, admi
           </Content>
           <Form>
             <FormGroup
-              label={<HelpLabel label="RP Page Size" help="Number of launches fetched per API call to ReportPortal. Each page is a single request that returns launch metadata (not test items). Larger pages = fewer requests, smoother progress. Range: 10–1000." />}
+              label={<HelpLabel label="RP Page Size" help="Number of launches fetched per API call to ReportPortal. Larger pages = fewer requests, smoother progress. Range: 10–1000." />}
               fieldId="rp-page-size"
             >
               <div className="app-max-w-120">
@@ -122,7 +97,7 @@ export const PollingSettings: React.FC<SettingsSectionProps> = ({ val, set, admi
               </div>
             </FormGroup>
             <FormGroup
-              label={<HelpLabel label="RP Concurrency" help="Number of parallel requests to ReportPortal when fetching test items and logs. Higher values speed up polling but may cause 429 rate limit errors. Range: 1–100." />}
+              label={<HelpLabel label="RP Concurrency" help="Number of parallel requests to ReportPortal when fetching test items and logs. Range: 1–100." />}
               fieldId="rp-concurrency"
             >
               <div className="app-max-w-120">
@@ -131,7 +106,7 @@ export const PollingSettings: React.FC<SettingsSectionProps> = ({ val, set, admi
               </div>
             </FormGroup>
             <FormGroup
-              label={<HelpLabel label="Jenkins Concurrency" help="Number of parallel requests to Jenkins when enriching launches with build metadata. Higher values speed up enrichment but may overload Jenkins. Range: 1–100." />}
+              label={<HelpLabel label="Jenkins Concurrency" help="Number of parallel requests to Jenkins when enriching launches. Range: 1–100." />}
               fieldId="jenkins-concurrency"
             >
               <div className="app-max-w-120">

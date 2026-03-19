@@ -16,6 +16,14 @@ export const initWebSocket = (server: Server): void => {
     (ws as WebSocket & { isAlive: boolean }).isAlive = true;
     log.info({ clients: wss.clients.size }, 'Client connected');
 
+    try {
+      const { getPipelineManager } = require('./pipeline');
+      const state = getPipelineManager().getState();
+      if (state.active) {
+        ws.send(JSON.stringify({ event: 'pipeline-state', ...state }));
+      }
+    } catch { /* pipeline not initialized yet */ }
+
     ws.on('pong', () => {
       (ws as WebSocket & { isAlive: boolean }).isAlive = true;
     });

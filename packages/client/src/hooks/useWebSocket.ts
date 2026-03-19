@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { PollStatus } from '../api/poll';
+import type { PollStatusLegacy } from '../api/poll';
 
 const RECONNECT_INTERVAL_MS = 3000;
 const SHOW_DISCONNECTED_AFTER_MS = 5000;
@@ -13,8 +13,8 @@ type ProgressListener = (progress: ProgressInfo) => void;
 const pollListeners = new Set<ProgressListener>();
 const jenkinsListeners = new Set<ProgressListener>();
 
-export const usePollProgress = (): PollStatus | null => {
-  const [progress, setProgress] = useState<PollStatus | null>(null);
+export const usePollProgress = (): PollStatusLegacy | null => {
+  const [progress, setProgress] = useState<PollStatusLegacy | null>(null);
 
   useEffect(() => {
     const handler: ProgressListener = (info) =>
@@ -62,6 +62,12 @@ export const useWebSocket = (): WebSocketStatus => {
       if (data.event === 'jenkins-progress') {
         const info: ProgressInfo = { phase: data.phase, current: data.current, total: data.total, message: data.message };
         for (const listener of jenkinsListeners) listener(info);
+      }
+      if (data.event === 'pipeline-state') {
+        queryClient.setQueryData(['pollStatus'], (old: unknown) => {
+          if (old && typeof old === 'object') return { ...(old as Record<string, unknown>), pipeline: data };
+          return { pipeline: data };
+        });
       }
     } catch {
       // ignore malformed messages
