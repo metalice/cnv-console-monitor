@@ -28,10 +28,14 @@ router.get('/stats', async (req: Request, res: Response, next: NextFunction) => 
     const stats = await getApproverStats(days);
     const history = await getAckHistory(days);
 
-    const dateMap = new Map<string, string[]>();
+    const dateMap = new Map<string, { reviewers: string[]; firstAckAt: string | null }>();
     for (const entry of history) {
-      if (!dateMap.has(entry.date)) dateMap.set(entry.date, []);
-      dateMap.get(entry.date)!.push(entry.reviewer);
+      if (!dateMap.has(entry.date)) dateMap.set(entry.date, { reviewers: [], firstAckAt: null });
+      const day = dateMap.get(entry.date)!;
+      day.reviewers.push(entry.reviewer);
+      if (entry.acknowledged_at && (!day.firstAckAt || entry.acknowledged_at < day.firstAckAt)) {
+        day.firstAckAt = entry.acknowledged_at;
+      }
     }
 
     const reviewerDates = new Map<string, string[]>();
@@ -47,10 +51,11 @@ router.get('/stats', async (req: Request, res: Response, next: NextFunction) => 
         lastReviewDate: stat.lastReviewDate,
         reviewedDates: reviewerDates.get(stat.reviewer) ?? [],
       })),
-      history: Array.from(dateMap.entries()).map(([date, reviewers]) => ({
+      history: Array.from(dateMap.entries()).map(([date, { reviewers, firstAckAt }]) => ({
         date,
         acknowledged: reviewers.length > 0,
         reviewers,
+        firstAckAt,
       })),
     });
   } catch (err) {

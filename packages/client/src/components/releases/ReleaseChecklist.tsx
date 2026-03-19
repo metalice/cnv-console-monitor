@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Card, CardBody, CardTitle, Content, MenuToggle, Pagination, Select, SelectList, SelectOption, Spinner, ToggleGroup, ToggleGroupItem, ToolbarItem } from '@patternfly/react-core';
+import { Alert, Card, CardBody, CardTitle, Content, MenuToggle, Pagination, Select, SelectList, SelectOption, Spinner, ToggleGroup, ToggleGroupItem, ToolbarItem, Tooltip } from '@patternfly/react-core';
+import { OutlinedQuestionCircleIcon } from '@patternfly/react-icons';
 import { Table, Thead, Tbody, SortByDirection } from '@patternfly/react-table';
 import { useTableSort } from '../../hooks/useTableSort';
 import { useColumnManagement, type ColumnDef } from '../../hooks/useColumnManagement';
@@ -75,7 +76,7 @@ export const ReleaseChecklist: React.FC<ReleaseChecklistProps> = ({
   const [versionFilterOpen, setVersionFilterOpen] = useState(false);
   const [modalKey, setModalKey] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(100);
+  const [perPage, setPerPage] = useState(10);
   const colMgmt = useColumnManagement('releaseChecklist', CHECKLIST_COLUMNS);
 
   const availableVersions = useMemo(() => {
@@ -117,7 +118,12 @@ export const ReleaseChecklist: React.FC<ReleaseChecklistProps> = ({
 
   return (
     <Card>
-      <CardTitle>Release Checklist</CardTitle>
+      <CardTitle>
+        Release Checklist{' '}
+        <Tooltip content="Jira tasks labeled CNV-Release-Checklist. Shows tasks that need to be completed before a release can ship. Due dates are computed from the release schedule.">
+          <OutlinedQuestionCircleIcon className="app-help-icon" />
+        </Tooltip>
+      </CardTitle>
       <CardBody>
         <TableToolbar searchValue={search} onSearchChange={setSearch} searchPlaceholder="Search by key, summary, assignee, version..."
           resultCount={sorted.length} totalCount={(checklist || []).length} columns={CHECKLIST_COLUMNS}
@@ -165,7 +171,7 @@ export const ReleaseChecklist: React.FC<ReleaseChecklistProps> = ({
               page={page}
               onSetPage={(_e, p) => setPage(p)}
               onPerPageSelect={(_e, pp) => { setPerPage(pp); setPage(1); }}
-              perPageOptions={[{ title: '50', value: 50 }, { title: '100', value: 100 }, { title: '200', value: 200 }, { title: '500', value: 500 }]}
+              perPageOptions={[{ title: '10', value: 10 }, { title: '20', value: 20 }, { title: '50', value: 50 }, { title: '100', value: 100 }]}
               variant="bottom"
             />
           </>

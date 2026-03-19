@@ -9,6 +9,12 @@ export const UserSchema = z.object({
 
 export type User = z.infer<typeof UserSchema>;
 
+export type ActivityFilterPreset = {
+  name: string;
+  filters: Record<string, string | undefined>;
+  dateRange: string;
+};
+
 export type UserPreferences = {
   dashboardComponents?: string[];
   dashboardVersion?: string;
@@ -18,4 +24,6 @@ export type UserPreferences = {
   theme?: 'light' | 'dark' | 'auto';
   sidebarCollapsed?: boolean;
   tableColumns?: Record<string, string[]>;
+  activityPresets?: ActivityFilterPreset[];
+  lastActivityViewedAt?: number;
 };

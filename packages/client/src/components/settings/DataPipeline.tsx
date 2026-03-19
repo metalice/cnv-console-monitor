@@ -145,13 +145,13 @@ const PipelineLog: React.FC<{ log: PipelineLogEntry[] }> = ({ log }) => {
   const [expanded, setExpanded] = useState(false);
   if (log.length === 0) return null;
 
-  const recent = log.slice(-50).reverse();
+  const all = [...log].reverse();
   const levelColor = (level: string) => level === 'error' ? 'app-text-danger' : level === 'warn' ? '' : 'app-text-muted';
 
   return (
     <ExpandableSection toggleText={`Activity Log (${log.length})`} isExpanded={expanded} onToggle={(_e, v) => setExpanded(v)} className="app-mt-sm">
       <div className="app-max-h-300 app-text-xs app-mono-sm">
-        {recent.map((entry, i) => (
+        {all.map((entry, i) => (
           <div key={i} className={levelColor(entry.level)}>
             {new Date(entry.timestamp).toLocaleTimeString()} [{entry.phase}] {entry.message}
           </div>

@@ -1,6 +1,6 @@
 import { AppDataSource } from '../data-source';
 import { TriageLog } from '../entities/TriageLog';
-import type { TriageLogRecord, ActivityLogEntry } from './types';
+import type { TriageLogRecord, ActivityLogEntry, ActivityFilters } from './types';
 
 const triageLogs = () => AppDataSource.getRepository(TriageLog);
 
@@ -15,45 +15,132 @@ export const addTriageLog = async (log: TriageLogRecord): Promise<void> => {
   });
 }
 
-export const getActivityLog = async (limit = 50, offset = 0, component?: string): Promise<ActivityLogEntry[]> => {
-  const compFilter = component ? `WHERE component = '${component.replace(/'/g, "''")}'` : '';
-  const compFilterTl = component ? `AND tl.component = '${component.replace(/'/g, "''")}'` : '';
+export const getActivityLog = async (
+  limit = 50,
+  offset = 0,
+  filters: ActivityFilters = {},
+): Promise<{ entries: ActivityLogEntry[]; total: number }> => {
+  const params: unknown[] = [];
+  let paramIdx = 1;
+  const p = () => `$${paramIdx++}`;
 
-  const rows = await AppDataSource.query(`
-    (
-      SELECT
-        tl.id,
-        tl.test_item_rp_id,
-        tl.action,
-        tl.old_value,
-        tl.new_value,
-        tl.performed_by,
-        tl.performed_at,
-        ti.name as test_name,
-        tl.component,
-        NULL as notes
-      FROM triage_log tl
-      LEFT JOIN test_items ti ON tl.test_item_rp_id = ti.rp_id
-      WHERE 1=1 ${compFilterTl}
-    )
-    UNION ALL
-    (
-      SELECT
-        a.id + 1000000 as id,
-        NULL as test_item_rp_id,
-        'acknowledge' as action,
-        NULL as old_value,
-        a.component as new_value,
-        a.reviewer as performed_by,
-        a.acknowledged_at as performed_at,
-        NULL as test_name,
-        a.component,
-        a.notes
-      FROM acknowledgments a
-      ${compFilter}
-    )
+  const triageWhere: string[] = ['1=1'];
+  const ackWhere: string[] = ['1=1'];
+
+  if (filters.component) {
+    const cp = p();
+    triageWhere.push(`tl.component = ${cp}`);
+    ackWhere.push(`a.component = ${cp}`);
+    params.push(filters.component);
+  }
+  if (filters.user) {
+    const up = p();
+    triageWhere.push(`tl.performed_by = ${up}`);
+    ackWhere.push(`a.reviewer = ${up}`);
+    params.push(filters.user);
+  }
+  if (filters.since) {
+    const sp = p();
+    triageWhere.push(`tl.performed_at >= ${sp}::timestamptz`);
+    ackWhere.push(`a.acknowledged_at >= ${sp}::timestamptz`);
+    params.push(filters.since);
+  }
+  if (filters.until) {
+    const up = p();
+    triageWhere.push(`tl.performed_at <= ${up}::timestamptz`);
+    ackWhere.push(`a.acknowledged_at <= ${up}::timestamptz`);
+    params.push(filters.until);
+  }
+  if (filters.action) {
+    const actions = filters.action.split(',').map(a => a.trim()).filter(Boolean);
+    const hasAck = actions.includes('acknowledge');
+    const triageActions = actions.filter(a => a !== 'acknowledge');
+    if (triageActions.length > 0) {
+      triageWhere.push(`tl.action IN (${triageActions.map(() => p()).join(', ')})`);
+      params.push(...triageActions);
+    } else {
+      triageWhere.push('FALSE');
+    }
+    if (!hasAck) ackWhere.push('FALSE');
+  }
+  if (filters.search) {
+    const sp = p();
+    triageWhere.push(`(ti.name ILIKE ${sp} OR tl.new_value ILIKE ${sp} OR tl.performed_by ILIKE ${sp})`);
+    ackWhere.push(`(a.reviewer ILIKE ${sp} OR a.notes ILIKE ${sp} OR a.component ILIKE ${sp})`);
+    params.push(`%${filters.search}%`);
+  }
+
+  const limitP = p();
+  const offsetP = p();
+  params.push(limit, offset);
+
+  const query = `
+    SELECT * FROM (
+      (
+        SELECT
+          tl.id,
+          tl.test_item_rp_id,
+          ti.launch_rp_id,
+          tl.action,
+          tl.old_value,
+          tl.new_value,
+          tl.performed_by,
+          tl.performed_at,
+          ti.name as test_name,
+          tl.component,
+          NULL as notes,
+          tl.pinned,
+          tl.pin_note
+        FROM triage_log tl
+        LEFT JOIN test_items ti ON tl.test_item_rp_id = ti.rp_id
+        WHERE ${triageWhere.join(' AND ')}
+      )
+      UNION ALL
+      (
+        SELECT
+          a.id + 1000000 as id,
+          NULL as test_item_rp_id,
+          NULL as launch_rp_id,
+          'acknowledge' as action,
+          NULL as old_value,
+          a.component as new_value,
+          a.reviewer as performed_by,
+          a.acknowledged_at as performed_at,
+          NULL as test_name,
+          a.component,
+          a.notes,
+          FALSE as pinned,
+          NULL as pin_note
+        FROM acknowledgments a
+        WHERE ${ackWhere.join(' AND ')}
+      )
+    ) combined
     ORDER BY performed_at DESC
-    LIMIT $1 OFFSET $2
-  `, [limit, offset]);
-  return rows;
+    LIMIT ${limitP} OFFSET ${offsetP}
+  `;
+
+  const countParams = params.slice(0, -2);
+  const countQuery = `
+    SELECT COUNT(*) as total FROM (
+      (
+        SELECT tl.id
+        FROM triage_log tl
+        LEFT JOIN test_items ti ON tl.test_item_rp_id = ti.rp_id
+        WHERE ${triageWhere.join(' AND ')}
+      )
+      UNION ALL
+      (
+        SELECT a.id + 1000000 as id
+        FROM acknowledgments a
+        WHERE ${ackWhere.join(' AND ')}
+      )
+    ) combined
+  `;
+
+  const [rows, countResult] = await Promise.all([
+    AppDataSource.query(query, params),
+    AppDataSource.query(countQuery, countParams),
+  ]);
+
+  return { entries: rows, total: parseInt(countResult[0]?.total ?? '0', 10) };
 }

@@ -11,6 +11,12 @@ const PreferencesSchema = z.object({
   theme: z.enum(['light', 'dark', 'auto']).optional(),
   sidebarCollapsed: z.boolean().optional(),
   tableColumns: z.record(z.array(z.string())).optional(),
+  activityPresets: z.array(z.object({
+    name: z.string(),
+    filters: z.record(z.string().optional()),
+    dateRange: z.string(),
+  })).optional(),
+  lastActivityViewedAt: z.number().optional(),
 }).passthrough();
 
 const DEPRECATED_KEYS = ['dashboardComponent'];

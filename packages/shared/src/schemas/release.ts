@@ -1,7 +1,11 @@
+export type MilestoneType = 'ga' | 'batch' | 'feature_freeze' | 'code_freeze' | 'blockers_only' | 'custom';
+
 export type ReleaseMilestone = {
   name: string;
   date: string;
   isPast: boolean;
+  type: MilestoneType;
+  source: 'pp' | 'manual';
 };
 
 export type ReleaseInfo = {
@@ -15,6 +19,8 @@ export type ReleaseInfo = {
   daysUntilNext: number | null;
   daysSinceLastRelease: number | null;
   milestones: ReleaseMilestone[];
+  startDate: string | null;
+  endDate: string | null;
 };
 
 export type ChecklistTask = {

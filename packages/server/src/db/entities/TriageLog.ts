@@ -25,4 +25,10 @@ export class TriageLog {
 
   @CreateDateColumn()
   performed_at!: Date;
+
+  @Column({ type: 'boolean', default: false })
+  pinned!: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  pin_note!: string | null;
 }

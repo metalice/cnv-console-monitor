@@ -101,6 +101,7 @@ export type FailureStreakInfo = {
 export type ActivityLogEntry = {
   id: number;
   test_item_rp_id: number | null;
+  launch_rp_id: number | null;
   action: string;
   old_value: string | null;
   new_value: string | null;
@@ -109,4 +110,15 @@ export type ActivityLogEntry = {
   test_name: string | null;
   component: string | null;
   notes: string | null;
+  pinned: boolean | null;
+  pin_note: string | null;
+};
+
+export type ActivityFilters = {
+  component?: string;
+  action?: string;
+  user?: string;
+  since?: string;
+  until?: string;
+  search?: string;
 };

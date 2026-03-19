@@ -446,6 +446,256 @@
 
 .app-date-col { width: 100px; }
 
+.app-text-ellipsis {
+  display: inline-block;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.app-diff-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.app-diff-arrow {
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+/* ─── Review Calendar Heatmap ─── */
+
+.app-cal-container {
+  overflow-x: auto;
+}
+
+.app-cal-months {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 2px;
+}
+
+.app-cal-month-spacer {
+  width: 28px;
+  flex-shrink: 0;
+}
+
+.app-cal-month-label {
+  width: 16px;
+  font-size: 10px;
+  color: var(--pf-t--global--text--color--subtle);
+  text-align: center;
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.app-cal-grid {
+  display: flex;
+  gap: 4px;
+}
+
+.app-cal-labels {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+  width: 24px;
+}
+
+.app-cal-label {
+  height: 14px;
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--pf-t--global--text--color--subtle);
+  text-align: right;
+}
+
+.app-cal-weeks {
+  display: flex;
+  gap: 2px;
+}
+
+.app-cal-week {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.app-cal-cell {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+}
+
+.app-cal-legend {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.app-cal-none { background: transparent; }
+.app-cal-weekend { background: var(--pf-t--global--border--color--default); opacity: 0.3; }
+.app-cal-empty { background: var(--pf-t--global--border--color--default); }
+.app-cal-l1 { background: var(--pf-t--global--color--status--success--default); opacity: 0.5; }
+.app-cal-l2 { background: var(--pf-t--global--color--status--success--default); opacity: 0.75; }
+.app-cal-l3 { background: var(--pf-t--global--color--status--success--default); }
+.app-cal-today { outline: 2px solid var(--pf-t--global--color--brand--default); outline-offset: -1px; }
+
+.app-cursor-help { cursor: help; }
+
+/* ─── User Avatar ─── */
+
+.app-user-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--pf-t--global--color--brand--default);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: default;
+}
+
+/* ─── Pinned Row ─── */
+
+.app-pinned-row {
+  background: var(--pf-t--global--background--color--primary--hover) !important;
+}
+
+.app-pin-icon {
+  font-size: 10px;
+  margin-right: 4px;
+  color: var(--pf-t--global--color--brand--default);
+}
+
+.app-text-brand { color: var(--pf-t--global--color--brand--default); }
+
+.app-selected-row {
+  background: var(--pf-t--global--background--color--primary--hover) !important;
+  box-shadow: inset 3px 0 0 var(--pf-t--global--color--brand--default);
+}
+
+/* ─── Digest Card ─── */
+
+.app-digest-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--pf-t--global--spacer--md);
+  text-align: center;
+}
+
+.app-digest-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.app-digest-value {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+/* ─── Sparkline ─── */
+
+.app-sparkline {
+  vertical-align: middle;
+}
+
+/* ─── Component Chart ─── */
+
+.app-comp-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.app-comp-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-comp-clickable {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+}
+
+.app-comp-clickable:hover {
+  background: var(--pf-t--global--background--color--primary--hover);
+}
+
+.app-comp-label {
+  width: 120px;
+  flex-shrink: 0;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-comp-bar-track {
+  flex: 1;
+  height: 12px;
+  background: var(--pf-t--global--border--color--default);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.app-comp-bar {
+  height: 100%;
+  background: var(--pf-t--global--color--brand--default);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.app-comp-count {
+  width: 30px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ─── Comparison View ─── */
+
+.app-cmp-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--pf-t--global--spacer--md);
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .app-cmp-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.app-cmp-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+}
+
+.app-text-success { color: var(--pf-t--global--color--status--success--default); }
+
+/* ─── Nav Badge ─── */
+
+.app-nav-badge {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pf-t--global--color--brand--default);
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
 /* ─── Cluster progress bar ─── */
 
 .app-cluster-bar-track {
@@ -533,6 +783,337 @@
 /* ─── Release history dropdown ─── */
 
 .app-release-history { font-size: 12px; max-height: 200px; overflow: auto; }
+
+.app-expand-icon {
+  display: inline-block;
+  width: 16px;
+  margin-right: 4px;
+  vertical-align: middle;
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.app-release-history-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--pf-t--global--spacer--lg);
+  padding: var(--pf-t--global--spacer--sm) 0;
+}
+
+@media (max-width: 768px) {
+  .app-release-history-grid { grid-template-columns: 1fr; }
+}
+
+.app-rh-section {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.app-rh-heading {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--pf-t--global--text--color--subtle);
+  display: block;
+  margin-bottom: var(--pf-t--global--spacer--xs);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+}
+
+.app-rh-item {
+  padding: 3px 0;
+}
+
+.app-rh-past {
+  opacity: 0.7;
+}
+
+.app-rh-past:hover {
+  opacity: 1;
+}
+
+/* ─── Gantt Chart ─── */
+
+.app-gantt-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: 4px;
+}
+
+.app-gantt-svg {
+  display: block;
+  cursor: default;
+}
+
+.app-gantt-month-line {
+  stroke: var(--pf-t--global--border--color--default);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.app-gantt-month-text {
+  font-size: 11px;
+  fill: var(--pf-t--global--text--color--regular);
+  font-weight: 600;
+}
+
+.app-gantt-day-tick {
+  stroke: var(--pf-t--global--border--color--default);
+  stroke-width: 1;
+}
+
+.app-gantt-day-text {
+  font-size: 9px;
+  fill: var(--pf-t--global--text--color--subtle);
+}
+
+.app-gantt-today-line {
+  stroke: var(--pf-t--global--color--status--danger--default);
+  stroke-width: 2;
+  stroke-dasharray: 6 3;
+}
+
+.app-gantt-today-text {
+  font-size: 11px;
+  fill: var(--pf-t--global--color--status--danger--default);
+  font-weight: 700;
+}
+
+.app-gantt-row { cursor: pointer; }
+
+.app-gantt-row-bg {
+  fill: transparent;
+  transition: fill 0.15s;
+}
+
+.app-gantt-row:hover .app-gantt-row-bg {
+  fill: var(--pf-t--global--background--color--primary--hover);
+}
+
+.app-gantt-row-selected {
+  fill: var(--pf-t--global--background--color--primary--hover) !important;
+}
+
+.app-gantt-version-label {
+  font-size: 13px;
+  font-weight: 700;
+  fill: var(--pf-t--global--text--color--regular);
+}
+
+.app-gantt-bar {
+  transition: opacity 0.15s;
+}
+
+.app-gantt-row:hover .app-gantt-bar {
+  opacity: 1 !important;
+}
+
+.app-gantt-milestone {
+  cursor: pointer;
+  transition: font-size 0.1s;
+}
+
+.app-gantt-milestone:hover {
+  font-size: 18px !important;
+}
+
+.app-gantt-date-label-group {
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+
+.app-gantt-row:hover .app-gantt-date-label-group,
+.app-gantt-row-selected ~ .app-gantt-date-label-group {
+  opacity: 1;
+}
+
+.app-gantt-date-label {
+  cursor: default;
+}
+
+.app-gantt-date-ver {
+  font-size: 11px;
+  font-weight: 700;
+  fill: var(--pf-t--global--text--color--regular);
+}
+
+.app-gantt-date-day {
+  font-size: 10px;
+  font-weight: 600;
+  fill: var(--pf-t--global--text--color--subtle);
+}
+
+/* ─── Traffic Light ─── */
+
+.app-traffic-light {
+  display: inline-block;
+  border-radius: 50%;
+  vertical-align: middle;
+  cursor: help;
+}
+
+/* ─── Readiness Gauge ─── */
+
+.app-readiness-gauge {
+  display: inline-block;
+}
+
+/* ─── Milestone Horizontal Strip ─── */
+
+.app-ms-strip-scroll {
+  overflow-x: auto;
+  padding: 8px 0;
+}
+
+.app-ms-strip {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  position: relative;
+  min-width: max-content;
+  padding: 32px 12px 32px;
+}
+
+.app-ms-line {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--pf-t--global--border--color--default);
+  transform: translateY(-50%);
+}
+
+.app-ms-point {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  min-width: 60px;
+  cursor: default;
+}
+
+.app-ms-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--pf-t--global--background--color--primary--default);
+  z-index: 1;
+  transition: transform 0.15s;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.app-ms-point:hover .app-ms-dot {
+  transform: translateY(-50%) scale(1.4);
+}
+
+
+.app-ms-past {
+  opacity: 0.5;
+}
+
+.app-ms-past:hover {
+  opacity: 1;
+}
+
+.app-ms-label-top {
+  font-size: 11px;
+  font-weight: 700;
+  position: absolute;
+  top: -26px;
+  white-space: nowrap;
+}
+
+.app-ms-label-bot {
+  font-size: 10px;
+  color: var(--pf-t--global--text--color--subtle);
+  position: absolute;
+  bottom: -24px;
+  white-space: nowrap;
+}
+
+.app-ms-dot-more {
+  background: var(--pf-t--global--border--color--default) !important;
+  border-style: dashed !important;
+}
+
+/* ─── Trend Chart ─── */
+
+.app-trend-chart {
+  width: 100%;
+  max-height: 40px;
+}
+
+/* ─── Release Calendar ─── */
+
+.app-rel-cal {
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.app-rel-cal-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+}
+
+.app-rel-cal-hcell {
+  padding: 6px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.app-rel-cal-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.app-rel-cal-cell {
+  min-height: 80px;
+  padding: 4px;
+  border-right: 1px solid var(--pf-t--global--border--color--default);
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+}
+
+.app-rel-cal-cell:nth-child(7n) { border-right: none; }
+
+.app-rel-cal-empty {
+  background: var(--pf-t--global--background--color--secondary--default);
+}
+
+.app-rel-cal-today {
+  background: var(--pf-t--global--background--color--primary--hover);
+}
+
+.app-rel-cal-day {
+  font-size: 12px;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.app-blocker-old {
+  background: color-mix(in srgb, var(--pf-t--global--color--status--danger--default) 8%, transparent) !important;
+}
+
+.app-rel-cal-event {
+  font-size: 10px;
+  padding: 1px 4px;
+  margin-bottom: 1px;
+  border-left: 3px solid;
+  border-radius: 2px;
+  background: var(--pf-t--global--background--color--secondary--default);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: default;
+}
 
 /* ─── Tooltip content ─── */
 
