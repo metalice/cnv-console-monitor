@@ -1,22 +1,26 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  PageSection,
-  Content,
-  Card,
-  CardBody,
-  CardTitle,
-  Flex,
-  FlexItem,
-  Label,
+  PageSection, Content, Grid, GridItem,
+  Tabs, Tab, TabTitleText,
 } from '@patternfly/react-core';
 import { fetchReleases, fetchChecklist } from '../api/releases';
 import { useComponentFilter } from '../context/ComponentFilterContext';
-import { ReleaseTimeline } from '../components/releases/ReleaseTimeline';
+import { ReleaseGantt } from '../components/releases/ReleaseGantt';
+import { DeadlineBanner } from '../components/releases/DeadlineBanner';
+import { VersionDashboard } from '../components/releases/VersionDashboard';
 import { ReleaseChecklist } from '../components/releases/ReleaseChecklist';
+import { ReleaseTimeline } from '../components/releases/ReleaseTimeline';
+import { ReleaseCalendar } from '../components/releases/ReleaseCalendar';
+import { VelocityChart } from '../components/releases/VelocityChart';
 import type { ReleaseInfo } from '@cnv-monitor/shared';
 
+type ViewMode = 'gantt' | 'calendar' | 'table';
+
 export const ReleasePage: React.FC = () => {
+  const [viewMode, setViewMode] = useState<ViewMode>('gantt');
+  const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
+
   useEffect(() => { document.title = 'Releases | CNV Console Monitor'; }, []);
 
   const { data: releases, isLoading: relLoading } = useQuery({
@@ -28,58 +32,80 @@ export const ReleasePage: React.FC = () => {
   const { selectedComponent: checklistComponent } = useComponentFilter();
   const [checklistStatus, setChecklistStatus] = useState<'open' | 'all'>('open');
 
+  const checklistVersion = useMemo(() => {
+    if (!selectedVersion) return undefined;
+    return selectedVersion.replace('cnv-', '');
+  }, [selectedVersion]);
+
   const { data: checklist, isLoading: clLoading, isFetching: clFetching, error: clError } = useQuery({
-    queryKey: ['checklist', checklistComponent, checklistStatus],
-    queryFn: () => fetchChecklist(checklistComponent, checklistStatus),
+    queryKey: ['checklist', checklistComponent, checklistStatus, checklistVersion],
+    queryFn: () => fetchChecklist(checklistComponent, checklistStatus, checklistVersion),
     staleTime: 60 * 1000,
     retry: 1,
-    placeholderData: undefined,
   });
 
-  const upcomingReleases = useMemo(() => {
-    if (!releases) return [];
-    return releases
-      .filter((release: ReleaseInfo) => release.daysUntilNext !== null && release.daysUntilNext <= 14)
-      .sort((releaseA: ReleaseInfo, releaseB: ReleaseInfo) => (releaseA.daysUntilNext ?? Infinity) - (releaseB.daysUntilNext ?? Infinity));
-  }, [releases]);
+  const selectedRelease = useMemo(() => {
+    if (!selectedVersion || !releases) return null;
+    return releases.find(r => r.shortname === selectedVersion) ?? null;
+  }, [selectedVersion, releases]);
 
   return (
     <>
       <PageSection>
-        <Content component="h1">Release Schedule</Content>
-        <Content component="small">CNV version lifecycle, z-stream schedule, and release checklist tasks</Content>
+        <Content component="h1">Release Management</Content>
+        <Content component="small">CNV version lifecycle, release schedule, and checklist tracking</Content>
       </PageSection>
 
-      {upcomingReleases.length > 0 && (
-        <PageSection>
-          <Card>
-            <CardTitle>Upcoming Releases (next 14 days)</CardTitle>
-            <CardBody>
-              <Flex spaceItems={{ default: 'spaceItemsMd' }} flexWrap={{ default: 'wrap' }}>
-                {upcomingReleases.map(release => (
-                  <FlexItem key={release.shortname}>
-                    <Label color={release.daysUntilNext! <= 3 ? 'red' : release.daysUntilNext! <= 7 ? 'orange' : 'yellow'}>
-                      {release.shortname} &mdash; {release.nextRelease?.name} &mdash; {release.nextRelease?.date} ({release.daysUntilNext}d)
-                    </Label>
-                  </FlexItem>
-                ))}
-              </Flex>
-            </CardBody>
-          </Card>
+      {releases && releases.length > 0 && (
+        <PageSection style={{ paddingTop: 0 }}>
+          <DeadlineBanner releases={releases} />
         </PageSection>
       )}
 
-      <PageSection><ReleaseTimeline releases={releases} isLoading={relLoading} /></PageSection>
-
       <PageSection>
-        <ReleaseChecklist
-          checklist={checklist}
-          isLoading={clLoading || clFetching}
-          error={clError as Error | null}
-          checklistStatus={checklistStatus}
-          onStatusChange={setChecklistStatus}
-          releases={releases}
-        />
+        <Grid hasGutter>
+          <GridItem span={12}>
+            <Tabs activeKey={viewMode} onSelect={(_e, key) => setViewMode(key as ViewMode)}>
+              <Tab eventKey="gantt" title={<TabTitleText>Timeline</TabTitleText>} />
+              <Tab eventKey="calendar" title={<TabTitleText>Calendar</TabTitleText>} />
+              <Tab eventKey="table" title={<TabTitleText>Table</TabTitleText>} />
+            </Tabs>
+          </GridItem>
+
+          <GridItem span={12}>
+            {viewMode === 'gantt' && (
+              <ReleaseGantt
+                releases={releases}
+                isLoading={relLoading}
+                selectedVersion={selectedVersion}
+                onSelectVersion={setSelectedVersion}
+              />
+            )}
+            {viewMode === 'calendar' && releases && <ReleaseCalendar releases={releases} />}
+            {viewMode === 'table' && <ReleaseTimeline releases={releases} isLoading={relLoading} />}
+          </GridItem>
+
+          {selectedRelease && (
+            <GridItem span={12}>
+              <VersionDashboard release={selectedRelease} checklist={checklist} />
+            </GridItem>
+          )}
+
+          <GridItem span={12}>
+            <ReleaseChecklist
+              checklist={checklist}
+              isLoading={clLoading || clFetching}
+              error={clError as Error | null}
+              checklistStatus={checklistStatus}
+              onStatusChange={setChecklistStatus}
+              releases={releases}
+            />
+          </GridItem>
+
+          <GridItem span={12}>
+            <VelocityChart />
+          </GridItem>
+        </Grid>
       </PageSection>
     </>
   );

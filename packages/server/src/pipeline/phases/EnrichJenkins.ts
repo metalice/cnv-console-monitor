@@ -9,7 +9,7 @@ import type { PipelinePhase, PhaseContext, PhaseEstimate } from '../types';
 const jenkinsHttpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 const buildJenkinsRequestConfig = (): AxiosRequestConfig => {
-  const requestConfig: AxiosRequestConfig = { httpsAgent: jenkinsHttpsAgent, timeout: 8000 };
+  const requestConfig: AxiosRequestConfig = { httpsAgent: jenkinsHttpsAgent, timeout: 15000 };
   if (config.jenkins.user && config.jenkins.token) {
     requestConfig.auth = { username: config.jenkins.user, password: config.jenkins.token };
   }
@@ -135,7 +135,10 @@ export class EnrichJenkinsPhase implements PipelinePhase {
             const s = getHttpStatus(err);
             if (s === 403 || s === 404 || s === 410) return false;
             const code = (err as Record<string, unknown>)?.code as string | undefined;
-            if (code === 'ECONNRESET' || code === 'ETIMEDOUT' || code === 'ENOTFOUND') return true;
+            if (code === 'ECONNRESET' || code === 'ETIMEDOUT' || code === 'ENOTFOUND'
+              || code === 'ECONNABORTED' || code === 'ERR_STREAM_PREMATURE_CLOSE' || code === 'ABORT_ERR' || code === 'ERR_CANCELED') return true;
+            const msg = ((err as Record<string, unknown>)?.message as string || '').toLowerCase();
+            if (msg.includes('aborted') || msg.includes('socket hang up')) return true;
             return s === 429 || s === 500 || s === 502 || s === 503 || s === 504;
           },
         },

@@ -25,7 +25,12 @@ const isRetryableError = (error: unknown): boolean => {
   if (error && typeof error === 'object') {
     const err = error as Record<string, unknown>;
     const code = err.code as string | undefined;
-    if (code === 'ECONNRESET' || code === 'ECONNREFUSED' || code === 'ETIMEDOUT' || code === 'ENOTFOUND' || code === 'EAI_AGAIN') {
+    if (code === 'ECONNRESET' || code === 'ECONNREFUSED' || code === 'ETIMEDOUT' || code === 'ENOTFOUND' || code === 'EAI_AGAIN'
+      || code === 'ECONNABORTED' || code === 'ERR_STREAM_PREMATURE_CLOSE' || code === 'ABORT_ERR' || code === 'ERR_CANCELED') {
+      return true;
+    }
+    const message = (err.message as string || '').toLowerCase();
+    if (message.includes('stream has been aborted') || message.includes('socket hang up') || message.includes('aborted')) {
       return true;
     }
     const status = (err.response as Record<string, unknown> | undefined)?.status as number | undefined;

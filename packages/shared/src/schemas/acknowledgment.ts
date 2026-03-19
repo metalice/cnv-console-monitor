@@ -30,6 +30,7 @@ export const AckHistoryEntrySchema = z.object({
   date: z.string(),
   acknowledged: z.boolean(),
   reviewers: z.array(z.string()),
+  firstAckAt: z.string().nullish(),
 });
 
 export type AckHistoryEntry = z.infer<typeof AckHistoryEntrySchema>;

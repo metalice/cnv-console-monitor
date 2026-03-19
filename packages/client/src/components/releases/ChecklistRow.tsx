@@ -1,8 +1,9 @@
 import React from 'react';
 import { Button, Label, Tooltip, Truncate } from '@patternfly/react-core';
-import { Tr, Th, Td, type ThProps } from '@patternfly/react-table';
+import { Tr, Td, type ThProps } from '@patternfly/react-table';
 import { ExternalLinkAltIcon, EditAltIcon } from '@patternfly/react-icons';
 import type { ChecklistTask } from '@cnv-monitor/shared';
+import { ThWithHelp } from '../common/ThWithHelp';
 
 const toMajorMinor = (v: string): string => {
   const stripped = v.replace(/^cnv[\s\-_]*v?/i, '').trim().toLowerCase();
@@ -72,17 +73,17 @@ type ChecklistHeaderProps = ColumnVisibility & {
 
 export const ChecklistHeader: React.FC<ChecklistHeaderProps> = ({ isColumnVisible, showComponentCol, getSortParams }) => (
   <Tr>
-    {isColumnVisible('dueDate') && <Th sort={getSortParams(0)}>Due Date</Th>}
-    {isColumnVisible('version') && <Th sort={getSortParams(1)}>Version</Th>}
-    {isColumnVisible('key') && <Th sort={getSortParams(2)}>Key</Th>}
-    {isColumnVisible('summary') && <Th sort={getSortParams(3)}>Summary</Th>}
-    {isColumnVisible('status') && <Th sort={getSortParams(4)}>Status</Th>}
-    {showComponentCol && <Th sort={getSortParams(5)}>Component</Th>}
-    {isColumnVisible('assignee') && <Th sort={getSortParams(6)}>Assignee</Th>}
-    {isColumnVisible('priority') && <Th sort={getSortParams(7)}>Priority</Th>}
-    {isColumnVisible('subtasks') && <Th sort={getSortParams(8)}>Subtasks</Th>}
-    {isColumnVisible('updated') && <Th sort={getSortParams(9)}>Updated</Th>}
-    {isColumnVisible('actions') && <Th>Actions</Th>}
+    {isColumnVisible('dueDate') && <ThWithHelp label="Due Date" help="Computed from the next release date for this version. Color-coded by urgency." sort={getSortParams(0)} />}
+    {isColumnVisible('version') && <ThWithHelp label="Version" help="The CNV fix version this task targets." sort={getSortParams(1)} />}
+    {isColumnVisible('key') && <ThWithHelp label="Key" help="Jira issue key. Click to open in Jira." sort={getSortParams(2)} />}
+    {isColumnVisible('summary') && <ThWithHelp label="Summary" help="Jira issue title." sort={getSortParams(3)} />}
+    {isColumnVisible('status') && <ThWithHelp label="Status" help="Current Jira workflow status." sort={getSortParams(4)} />}
+    {showComponentCol && <ThWithHelp label="Component" help="Jira component this task belongs to." sort={getSortParams(5)} />}
+    {isColumnVisible('assignee') && <ThWithHelp label="Assignee" help="Person responsible for this task." sort={getSortParams(6)} />}
+    {isColumnVisible('priority') && <ThWithHelp label="Priority" help="Jira priority level." sort={getSortParams(7)} />}
+    {isColumnVisible('subtasks') && <ThWithHelp label="Subtasks" help="Progress of sub-tasks. Green bar when all done." sort={getSortParams(8)} />}
+    {isColumnVisible('updated') && <ThWithHelp label="Updated" help="When this issue was last modified in Jira." sort={getSortParams(9)} />}
+    {isColumnVisible('actions') && <ThWithHelp label="Actions" help="Update status, add comments, or reassign." />}
   </Tr>
 );
 

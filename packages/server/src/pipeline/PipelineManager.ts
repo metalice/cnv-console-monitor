@@ -14,7 +14,7 @@ import type {
 
 const log = logger.child({ module: 'Pipeline' });
 const STATE_KEY = '_pipelineState';
-const MAX_LOG_ENTRIES = 500;
+const MAX_LOG_ENTRIES = 2000;
 
 export class PipelineManager {
   private phases = new Map<string, PipelinePhase>();
@@ -56,6 +56,8 @@ export class PipelineManager {
   async start(options: PipelineOptions): Promise<void> {
     if (this.state.active) throw new Error('Pipeline already running');
 
+    const previousLog = this.buildPreviousRunSummary();
+
     this.state = {
       runId: uuidv4(),
       active: true,
@@ -65,7 +67,7 @@ export class PipelineManager {
       durationMs: null,
       trigger: options.clearData ? 'backfill' : options.lookbackHours <= 24 ? 'scheduled' : 'manual',
       phases: {},
-      log: [],
+      log: previousLog,
     };
 
     for (const name of this.phaseOrder) {
@@ -501,6 +503,33 @@ export class PipelineManager {
       if (code) return code;
     }
     return error instanceof Error ? error.message : 'Unknown error';
+  }
+
+  private buildPreviousRunSummary(): PipelineLogEntry[] {
+    if (!this.state.completedAt && !this.state.cancelled) return [];
+
+    const hadFailures = Object.values(this.state.phases).some(p => p.failed > 0 || p.status === 'cancelled');
+    if (!hadFailures) return [];
+
+    const now = Date.now();
+    const separator: PipelineLogEntry = {
+      timestamp: now,
+      phase: 'pipeline',
+      level: 'info',
+      message: `── Previous run (${this.state.completedAt ? new Date(this.state.completedAt).toLocaleString() : 'unknown'}) ──`,
+    };
+
+    const kept = this.state.log.filter(e => e.level === 'error' || e.level === 'warn');
+    if (kept.length === 0) return [];
+
+    const summary: PipelineLogEntry = {
+      timestamp: now,
+      phase: 'pipeline',
+      level: 'warn',
+      message: `Previous run ${this.state.cancelled ? 'was cancelled' : 'had failures'}: ${this.buildSummary()}`,
+    };
+
+    return [separator, summary, ...kept];
   }
 
   private getConfiguredConcurrency(phaseName: string): number {

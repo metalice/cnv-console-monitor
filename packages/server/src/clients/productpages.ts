@@ -34,6 +34,14 @@ const getToken = async (): Promise<string> => {
   return cachedToken!;
 }
 
+export type PPTask = {
+  main: boolean;
+  name: string;
+  slug: string;
+  date_start: string;
+  date_finish: string;
+};
+
 export type PPRelease = {
   id: number;
   shortname: string;
@@ -41,13 +49,8 @@ export type PPRelease = {
   ga_date: string | null;
   phase_display: string;
   canceled: boolean;
-  all_ga_tasks: Array<{
-    main: boolean;
-    name: string;
-    slug: string;
-    date_start: string;
-    date_finish: string;
-  }>;
+  all_ga_tasks: PPTask[];
+  major_milestones: PPTask[];
 };
 
 export const fetchCnvReleases = async (): Promise<PPRelease[]> => {
@@ -63,7 +66,7 @@ export const fetchCnvReleases = async (): Promise<PPRelease[]> => {
         params: {
           'product__shortname': 'cnv',
           ordering: '-ga_date',
-          fields: 'id,shortname,name,ga_date,phase_display,all_ga_tasks,canceled',
+          fields: 'id,shortname,name,ga_date,phase_display,all_ga_tasks,major_milestones,canceled',
         },
         headers: { Authorization: `Bearer ${token}` },
         timeout: 15000,

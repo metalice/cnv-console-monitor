@@ -1,5 +1,6 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   Nav,
   NavItem,
@@ -70,6 +71,23 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     setPreference('sidebarCollapsed', !next);
   };
 
+  const { data: activitySummary } = useQuery({
+    queryKey: ['activitySummary', 'badge'],
+    queryFn: async () => {
+      const { fetchActivitySummary } = await import('../../api/activity');
+      return fetchActivitySummary();
+    },
+    staleTime: 60 * 1000,
+    refetchInterval: 60 * 1000,
+  });
+
+  const hasNewActivity = React.useMemo(() => {
+    const lastViewed = preferences.lastActivityViewedAt as number | undefined;
+    const latest = activitySummary?.latestActivityAt;
+    if (!lastViewed || !latest) return false;
+    return latest > lastViewed;
+  }, [preferences.lastActivityViewedAt, activitySummary?.latestActivityAt]);
+
   const sidebar = (
     <PageSidebar isSidebarOpen={isSidebarOpen}>
       <PageSidebarBody>
@@ -87,6 +105,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                 icon={item.icon}
               >
                 {item.label}
+                {item.path === '/activity' && hasNewActivity && location.pathname !== '/activity' && (
+                  <span className="app-nav-badge" />
+                )}
               </NavItem>
             ))}
           </NavList>
