@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Modal,
@@ -9,11 +9,13 @@ import {
   Button,
   Content,
   Alert,
+  ExpandableSection,
 } from '@patternfly/react-core';
-import { ExternalLinkAltIcon } from '@patternfly/react-icons';
+import { ExternalLinkAltIcon, MagicIcon } from '@patternfly/react-icons';
 import type { PublicConfig } from '@cnv-monitor/shared';
 import { apiFetch } from '../../api/client';
 import { createJiraBug } from '../../api/jira';
+import { generateBugReport, type BugReport } from '../../api/ai';
 
 type JiraCreateModalProps = {
   isOpen: boolean;
@@ -21,6 +23,9 @@ type JiraCreateModalProps = {
   testItemId: number;
   testName: string;
   polarionId?: string | null;
+  errorMessage?: string;
+  component?: string;
+  version?: string;
 };
 
 export const JiraCreateModal: React.FC<JiraCreateModalProps> = ({
@@ -29,8 +34,13 @@ export const JiraCreateModal: React.FC<JiraCreateModalProps> = ({
   testItemId,
   testName,
   polarionId,
+  errorMessage,
+  component,
+  version,
 }) => {
   const queryClient = useQueryClient();
+  const [aiReport, setAiReport] = useState<BugReport | null>(null);
+  const [reportExpanded, setReportExpanded] = useState(false);
 
   const { data: config } = useQuery({
     queryKey: ['config'],
@@ -39,6 +49,11 @@ export const JiraCreateModal: React.FC<JiraCreateModalProps> = ({
   });
 
   const jiraBrowseUrl = config?.jiraUrl ? `${config.jiraUrl}/browse` : null;
+
+  const aiGenMutation = useMutation({
+    mutationFn: () => generateBugReport({ testName, component, errorMessage: errorMessage ?? '', version }),
+    onSuccess: (data) => { setAiReport(data); setReportExpanded(true); },
+  });
 
   const mutation = useMutation({
     mutationFn: () => createJiraBug({ testItemId }),
@@ -70,6 +85,30 @@ export const JiraCreateModal: React.FC<JiraCreateModalProps> = ({
             </>
           )}
         </Content>
+        {errorMessage && (
+          <div className="app-mt-md">
+            <Button variant="secondary" icon={<MagicIcon />} size="sm"
+              onClick={() => aiGenMutation.mutate()}
+              isLoading={aiGenMutation.isPending}
+              isDisabled={aiGenMutation.isPending}
+            >
+              Generate with AI
+            </Button>
+            {aiReport && (
+              <ExpandableSection toggleText="AI-Generated Bug Report" isExpanded={reportExpanded} onToggle={(_e, v) => setReportExpanded(v)} className="app-mt-sm">
+                <div className="app-text-xs">
+                  {aiReport.report.title && <div><strong>Title:</strong> {aiReport.report.title}</div>}
+                  {aiReport.report.description && <div className="app-mt-xs"><strong>Description:</strong> {aiReport.report.description}</div>}
+                  {aiReport.report.stepsToReproduce && <div className="app-mt-xs"><strong>Steps:</strong> {aiReport.report.stepsToReproduce}</div>}
+                  {aiReport.report.expectedResult && <div className="app-mt-xs"><strong>Expected:</strong> {aiReport.report.expectedResult}</div>}
+                  {aiReport.report.actualResult && <div className="app-mt-xs"><strong>Actual:</strong> {aiReport.report.actualResult}</div>}
+                  <div className="app-text-muted app-mt-xs">{aiReport.model}{aiReport.cached ? ' (cached)' : ''}</div>
+                </div>
+              </ExpandableSection>
+            )}
+          </div>
+        )}
+
         <Content component="p" className="app-mt-md app-text-muted">
           If a matching issue already exists, it will be linked instead of creating a duplicate.
         </Content>

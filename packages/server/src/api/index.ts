@@ -28,6 +28,7 @@ import compareRouter from './routes/compare';
 import readinessRouter from './routes/readiness';
 import myWorkRouter from './routes/myWork';
 import componentMappingsRouter from './routes/component-mappings';
+import aiRouter from './routes/ai';
 import { errorHandler } from './middleware/errorHandler';
 
 export const createApp = (): express.Application => {
@@ -73,6 +74,7 @@ export const createApp = (): express.Application => {
   app.use('/api/readiness', extractUser, readinessRouter);
   app.use('/api/my-work', extractUser, myWorkRouter);
   app.use('/api/component-mappings', extractUser, componentMappingsRouter);
+  app.use('/api/ai', extractUser, aiRouter);
 
   app.get('{*path}', (_req, res) => {
     res.sendFile(path.join(clientDistPath, 'index.html'));

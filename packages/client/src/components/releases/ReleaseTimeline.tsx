@@ -49,9 +49,14 @@ const extractVersion = (name: string): string => {
   return match ? match[1] : name.replace(/^Batch\s+/, '').replace(/GA.*$/, '').trim();
 };
 
-type ReleaseTimelineProps = { releases: ReleaseInfo[] | undefined; isLoading: boolean };
+type ReleaseTimelineProps = {
+  releases: ReleaseInfo[] | undefined;
+  isLoading: boolean;
+  selectedVersion?: string | null;
+  onSelectVersion?: (shortname: string) => void;
+};
 
-export const ReleaseTimeline: React.FC<ReleaseTimelineProps> = ({ releases, isLoading }) => {
+export const ReleaseTimeline: React.FC<ReleaseTimelineProps> = ({ releases, isLoading, selectedVersion, onSelectVersion }) => {
   const [search, setSearch] = useState('');
   const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set());
   const colMgmt = useColumnManagement('releaseTimeline', TIMELINE_COLUMNS);
@@ -65,12 +70,13 @@ export const ReleaseTimeline: React.FC<ReleaseTimelineProps> = ({ releases, isLo
 
   const { sorted, getSortParams } = useTableSort(filtered, SORT_ACCESSORS, { index: 0, direction: SortByDirection.desc });
 
-  const toggleExpand = (shortname: string) => {
+  const handleRowClick = (shortname: string) => {
     setExpandedVersions(prev => {
       const next = new Set(prev);
       if (next.has(shortname)) next.delete(shortname); else next.add(shortname);
       return next;
     });
+    if (onSelectVersion) onSelectVersion(shortname);
   };
 
   const colCount = TIMELINE_COLUMNS.filter(c => colMgmt.isColumnVisible(c.id)).length;
@@ -108,7 +114,7 @@ export const ReleaseTimeline: React.FC<ReleaseTimelineProps> = ({ releases, isLo
 
                   return (
                     <React.Fragment key={release.shortname}>
-                      <Tr isClickable onRowClick={() => toggleExpand(release.shortname)}>
+                      <Tr isClickable onRowClick={() => handleRowClick(release.shortname)} className={selectedVersion === release.shortname ? 'app-selected-row' : undefined}>
                         {colMgmt.isColumnVisible('version') && (
                           <Td className="app-cell-nowrap">
                             <span className="app-expand-icon">{isExpanded ? <AngleDownIcon /> : <AngleRightIcon />}</span>

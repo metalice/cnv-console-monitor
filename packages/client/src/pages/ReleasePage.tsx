@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   PageSection, Content, Grid, GridItem,
@@ -18,8 +19,22 @@ import type { ReleaseInfo } from '@cnv-monitor/shared';
 type ViewMode = 'gantt' | 'calendar' | 'table';
 
 export const ReleasePage: React.FC = () => {
-  const [viewMode, setViewMode] = useState<ViewMode>('gantt');
-  const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const v = searchParams.get('view');
+    return (v === 'gantt' || v === 'calendar' || v === 'table') ? v : 'gantt';
+  });
+  const [selectedVersion, setSelectedVersionRaw] = useState<string | null>(() => searchParams.get('version'));
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams);
+    if (viewMode !== 'gantt') params.set('view', viewMode); else params.delete('view');
+    if (selectedVersion) params.set('version', selectedVersion); else params.delete('version');
+    setSearchParams(params, { replace: true });
+  }, [viewMode, selectedVersion, searchParams, setSearchParams]);
+
+  const toggleVersion = (shortname: string) => setSelectedVersionRaw(prev => prev === shortname ? null : shortname);
 
   useEffect(() => { document.title = 'Releases | CNV Console Monitor'; }, []);
 
@@ -78,16 +93,25 @@ export const ReleasePage: React.FC = () => {
                 releases={releases}
                 isLoading={relLoading}
                 selectedVersion={selectedVersion}
-                onSelectVersion={setSelectedVersion}
+                onSelectVersion={toggleVersion}
               />
             )}
-            {viewMode === 'calendar' && releases && <ReleaseCalendar releases={releases} />}
-            {viewMode === 'table' && <ReleaseTimeline releases={releases} isLoading={relLoading} />}
+            {viewMode === 'calendar' && releases && (
+              <ReleaseCalendar releases={releases} onSelectVersion={toggleVersion} />
+            )}
+            {viewMode === 'table' && (
+              <ReleaseTimeline
+                releases={releases}
+                isLoading={relLoading}
+                selectedVersion={selectedVersion}
+                onSelectVersion={toggleVersion}
+              />
+            )}
           </GridItem>
 
           {selectedRelease && (
             <GridItem span={12}>
-              <VersionDashboard release={selectedRelease} checklist={checklist} />
+              <VersionDashboard release={selectedRelease} checklist={checklist} onClose={() => setSelectedVersionRaw(null)} />
             </GridItem>
           )}
 
@@ -99,6 +123,7 @@ export const ReleasePage: React.FC = () => {
               checklistStatus={checklistStatus}
               onStatusChange={setChecklistStatus}
               releases={releases}
+              activeVersion={selectedVersion}
             />
           </GridItem>
 

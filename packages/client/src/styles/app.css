@@ -332,6 +332,33 @@
 .app-masthead-user { display: flex; align-items: center; gap: 8px; color: var(--pf-t--global--color--nonstatus--gray--text--on-filled--default); }
 .app-masthead-admin-badge { font-size: 10px; opacity: 0.7; }
 
+.app-ai-indicator {
+  color: var(--pf-t--global--color--brand--default);
+  font-size: 14px;
+  cursor: default;
+}
+
+.app-masthead-search {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.app-search-input {
+  padding: 4px 8px;
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: 4px;
+  font-size: 13px;
+  background: transparent;
+  color: inherit;
+  width: 280px;
+}
+
+.app-search-input:focus {
+  outline: none;
+  border-color: var(--pf-t--global--color--brand--default);
+}
+
 .pf-v6-c-menu-toggle.app-masthead-select,
 .pf-v6-c-menu-toggle.app-masthead-select.pf-m-plain {
   font-size: var(--pf-t--global--font--size--sm);
@@ -898,6 +925,7 @@
   font-size: 13px;
   font-weight: 700;
   fill: var(--pf-t--global--text--color--regular);
+  dominant-baseline: central;
 }
 
 .app-gantt-bar {
@@ -1047,6 +1075,115 @@
   max-height: 40px;
 }
 
+/* ─── Changelog ─── */
+
+.app-changelog-summary {
+  padding: var(--pf-t--global--spacer--md);
+  background: var(--pf-t--global--background--color--secondary--default);
+  border-radius: 6px;
+  border-left: 4px solid var(--pf-t--global--color--brand--default);
+}
+
+.app-changelog-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.app-changelog-section {
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+  padding-bottom: var(--pf-t--global--spacer--sm);
+}
+
+.app-changelog-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: var(--pf-t--global--spacer--sm);
+}
+
+.app-changelog-item {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 3px 0;
+  font-size: 13px;
+}
+
+.app-changelog-key {
+  font-weight: 600;
+  font-size: 12px;
+  min-width: 90px;
+  flex-shrink: 0;
+}
+
+.app-changelog-title {
+  flex: 1;
+}
+
+/* ─── Release Report ─── */
+
+.app-report-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--pf-t--global--spacer--md);
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .app-report-metrics { grid-template-columns: repeat(2, 1fr); }
+}
+
+.app-report-metric {
+  padding: var(--pf-t--global--spacer--md);
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: 8px;
+}
+
+.app-report-metric-value {
+  font-size: 28px;
+  font-weight: 700;
+  display: block;
+  line-height: 1.2;
+}
+
+.app-report-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 13px;
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+}
+
+.app-report-key {
+  font-weight: 600;
+  font-size: 12px;
+  min-width: 90px;
+  flex-shrink: 0;
+}
+
+.app-report-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-report-workload {
+  max-width: 500px;
+}
+
+.app-changelog-raw {
+  padding: var(--pf-t--global--spacer--md);
+  background: var(--pf-t--global--background--color--secondary--default);
+  border-radius: 4px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
 /* ─── Release Calendar ─── */
 
 .app-rel-cal {
@@ -1113,6 +1250,14 @@
   white-space: nowrap;
   text-overflow: ellipsis;
   cursor: default;
+}
+
+.app-rel-cal-event-clickable {
+  cursor: pointer;
+}
+
+.app-rel-cal-event-clickable:hover {
+  background: var(--pf-t--global--background--color--primary--hover);
 }
 
 /* ─── Tooltip content ─── */

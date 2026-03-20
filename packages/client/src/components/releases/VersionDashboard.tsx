@@ -1,20 +1,24 @@
-import React, { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useMemo, useState as useLocalState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import {
-  Card, CardBody, CardTitle,
+  Alert, Button, Card, CardBody, CardTitle,
   Tabs, Tab, TabTitleText,
   Flex, FlexItem, Grid, GridItem,
   Label, Tooltip, Content, Spinner, Bullseye,
   DescriptionList, DescriptionListGroup, DescriptionListTerm, DescriptionListDescription,
+  Select, SelectOption, SelectList, MenuToggle, type MenuToggleElement,
+  ExpandableSection, Divider,
+  Progress, ProgressSize, ProgressMeasureLocation,
 } from '@patternfly/react-core';
-import { OutlinedQuestionCircleIcon } from '@patternfly/react-icons';
+import { OutlinedQuestionCircleIcon, DownloadIcon, CopyIcon, ExternalLinkAltIcon } from '@patternfly/react-icons';
 import type { ReleaseInfo, ChecklistTask } from '@cnv-monitor/shared';
-import { fetchVersionReadiness } from '../../api/releases';
+import { fetchVersionReadiness, fetchSubVersions } from '../../api/releases';
 import { TrafficLight, computeHealth } from './TrafficLight';
 import { HelpLabel } from '../common/HelpLabel';
 import { RiskFlags } from './RiskFlags';
 import { ReleaseReport } from './ReleaseReport';
 import { BlockerWall } from './BlockerWall';
+import { startChangelogJob, pollChangelogJob, assessRisk, type ChangelogResult, type ChangelogItem, type RiskAssessment } from '../../api/ai';
 
 const ReadinessGauge: React.FC<{ score: number }> = ({ score }) => {
   const color = score >= 80 ? 'var(--pf-t--global--color--status--success--default)'
@@ -110,9 +114,10 @@ const WorkloadChart: React.FC<{ tasks: ChecklistTask[] }> = ({ tasks }) => {
 type VersionDashboardProps = {
   release: ReleaseInfo;
   checklist?: ChecklistTask[];
+  onClose?: () => void;
 };
 
-export const VersionDashboard: React.FC<VersionDashboardProps> = ({ release, checklist }) => {
+export const VersionDashboard: React.FC<VersionDashboardProps> = ({ release, checklist, onClose }) => {
   const [activeTab, setActiveTab] = React.useState(0);
   const version = release.shortname;
 
@@ -141,10 +146,19 @@ export const VersionDashboard: React.FC<VersionDashboardProps> = ({ release, che
   return (
     <Card>
       <CardTitle>
-        <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsMd' }}>
-          <FlexItem><TrafficLight status={health.status} reason={health.reason} size={16} /></FlexItem>
-          <FlexItem>{release.shortname.replace('cnv-', 'CNV ')} Dashboard</FlexItem>
-          <FlexItem><Label color={release.phase.includes('Maintenance') ? 'green' : release.phase.includes('Development') ? 'blue' : 'purple'} isCompact>{release.phase}</Label></FlexItem>
+        <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }}>
+          <FlexItem>
+            <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsMd' }}>
+              <FlexItem><TrafficLight status={health.status} reason={health.reason} size={16} /></FlexItem>
+              <FlexItem>{release.shortname.replace('cnv-', 'CNV ')} Dashboard</FlexItem>
+              <FlexItem><Label color={release.phase.includes('Maintenance') ? 'green' : release.phase.includes('Development') ? 'blue' : 'purple'} isCompact>{release.phase}</Label></FlexItem>
+            </Flex>
+          </FlexItem>
+          {onClose && (
+            <FlexItem>
+              <Button variant="plain" onClick={onClose} aria-label="Close dashboard">&times;</Button>
+            </FlexItem>
+          )}
         </Flex>
       </CardTitle>
       <CardBody>
@@ -230,8 +244,341 @@ export const VersionDashboard: React.FC<VersionDashboardProps> = ({ release, che
               <BlockerWall version={version} />
             </div>
           </Tab>
+          <Tab eventKey={3} title={<TabTitleText>AI Changelog</TabTitleText>}>
+            <ChangelogTab version={version} />
+          </Tab>
+          <Tab eventKey={4} title={<TabTitleText>AI Risk</TabTitleText>}>
+            <RiskTab version={version} release={release} checklist={checklist} readiness={readiness} />
+          </Tab>
         </Tabs>
       </CardBody>
     </Card>
+  );
+};
+
+const CATEGORY_LABELS: Record<string, { label: string; color: 'green' | 'blue' | 'purple' | 'orange' | 'grey' }> = {
+  features: { label: 'Features', color: 'green' },
+  bugFixes: { label: 'Bug Fixes', color: 'red' as 'orange' },
+  improvements: { label: 'Improvements', color: 'blue' },
+  infrastructure: { label: 'Infrastructure', color: 'purple' },
+  documentation: { label: 'Documentation', color: 'grey' },
+};
+
+const ChangelogTab: React.FC<{ version: string }> = ({ version }) => {
+  const [result, setResult] = useLocalState<ChangelogResult | null>(null);
+  const [targetVer, setTargetVer] = useLocalState('');
+  const [compareFrom, setCompareFrom] = useLocalState('');
+  const [targetOpen, setTargetOpen] = useLocalState(false);
+  const [compareOpen, setCompareOpen] = useLocalState(false);
+  const [componentFilter, setComponentFilter] = useLocalState('');
+  const reportRef = React.useRef<HTMLDivElement>(null);
+
+  const { data: subVersions } = useQuery({
+    queryKey: ['subVersions', version],
+    queryFn: () => fetchSubVersions(version),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  React.useEffect(() => {
+    if (subVersions?.length && !targetVer) {
+      const latest = subVersions[subVersions.length - 1];
+      setTargetVer(latest.name);
+      if (subVersions.length > 1) setCompareFrom(subVersions[subVersions.length - 2].name);
+    }
+  }, [subVersions, targetVer, setTargetVer, setCompareFrom]);
+
+  const [jobProgress, setJobProgress] = useLocalState('');
+  const [isGenerating, setIsGenerating] = useLocalState(false);
+
+  const startGeneration = async () => {
+    setIsGenerating(true);
+    setResult(null);
+    setJobProgress('Starting...');
+    try {
+      const { jobId } = await startChangelogJob(version, targetVer, compareFrom || undefined);
+      const poll = async () => {
+        const status = await pollChangelogJob(jobId);
+        setJobProgress(status.progress);
+        if (status.status === 'done' && status.result) {
+          setResult(status.result);
+          setIsGenerating(false);
+        } else if (status.status === 'error') {
+          setJobProgress(`Error: ${status.error}`);
+          setIsGenerating(false);
+        } else {
+          setTimeout(poll, 2000);
+        }
+      };
+      setTimeout(poll, 1000);
+    } catch (err) {
+      setJobProgress(err instanceof Error ? err.message : 'Failed to start');
+      setIsGenerating(false);
+    }
+  };
+
+  const mutation = { isPending: isGenerating, isError: false, error: null, mutate: startGeneration };
+
+  const cl = result?.changelog;
+  const hasCategories = cl?.categories && Object.values(cl.categories).some(items => items && items.length > 0);
+  const totalItems = cl?.categories ? Object.values(cl.categories).reduce((sum, items) => sum + (items?.length ?? 0), 0) : 0;
+
+  const filterItems = (items: ChangelogItem[]): ChangelogItem[] => {
+    if (!componentFilter) return items;
+    return items.filter(item => item.component?.toLowerCase().includes(componentFilter.toLowerCase()));
+  };
+
+  const buildSlackText = (): string => {
+    if (!result || !cl) return '';
+    const lines: string[] = [];
+    lines.push(`:rocket: *${result.meta.label} Changelog*`);
+    if (cl.summary) lines.push(`> ${cl.summary}`);
+    if (cl.categories) {
+      for (const [cat, items] of Object.entries(cl.categories)) {
+        if (!items?.length) continue;
+        const label = CATEGORY_LABELS[cat]?.label ?? cat;
+        lines.push(`\n*${label} (${items.length}):*`);
+        items.slice(0, 15).forEach(item => {
+          lines.push(`• ${item.key ? `<https://issues.redhat.com/browse/${item.key}|${item.key}>` : ''} ${item.title || ''}`);
+        });
+        if (items.length > 15) lines.push(`_...and ${items.length - 15} more_`);
+      }
+    }
+    return lines.join('\n');
+  };
+
+  const handlePdf = () => {
+    if (!reportRef.current) return;
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(`<html><head><title>${result?.meta.label ?? ''} Changelog</title>
+      <style>body{font-family:RedHatText,-apple-system,sans-serif;padding:40px;max-width:800px;margin:0 auto;color:#151515}h1{font-size:22px;border-bottom:2px solid #06c;padding-bottom:8px}h2{font-size:16px;color:#06c;margin-top:20px}.item{padding:3px 0;border-bottom:1px solid #eee;font-size:13px}.key{font-weight:600;min-width:90px;display:inline-block}.badge{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600}.summary{padding:12px;background:#f0f0f0;border-left:4px solid #06c;border-radius:4px;margin:12px 0}.footer{margin-top:24px;font-size:10px;color:#6a6e73;border-top:1px solid #d2d2d2;padding-top:8px}</style></head>
+      <body><h1>${result?.meta.label ?? ''} Changelog</h1><p>Generated: ${new Date().toLocaleString()}</p>${reportRef.current.innerHTML}<div class="footer">Generated by CNV Console Monitor</div></body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 500);
+  };
+
+  return (
+    <div className="app-mt-md">
+      <Flex spaceItems={{ default: 'spaceItemsMd' }} alignItems={{ default: 'alignItemsFlexEnd' }} className="app-mb-md" flexWrap={{ default: 'wrap' }}>
+        <FlexItem>
+          <Content component="small" className="app-text-muted app-mb-xs">Target Version</Content>
+          <Select isOpen={targetOpen} onOpenChange={setTargetOpen}
+            toggle={(ref: React.Ref<MenuToggleElement>) => (
+              <MenuToggle ref={ref} onClick={() => setTargetOpen(o => !o)} isExpanded={targetOpen} className="app-max-w-250">
+                {targetVer || 'Select version'}
+              </MenuToggle>
+            )}
+            onSelect={(_e, val) => { setTargetVer(val as string); setTargetOpen(false); setResult(null); }}
+          >
+            <SelectList>
+              {(subVersions ?? []).map(v => <SelectOption key={v.name} value={v.name}>{v.name} {v.released ? '' : '(unreleased)'}</SelectOption>)}
+            </SelectList>
+          </Select>
+        </FlexItem>
+        <FlexItem>
+          <Content component="small" className="app-text-muted app-mb-xs">Compare From (optional)</Content>
+          <Select isOpen={compareOpen} onOpenChange={setCompareOpen}
+            toggle={(ref: React.Ref<MenuToggleElement>) => (
+              <MenuToggle ref={ref} onClick={() => setCompareOpen(o => !o)} isExpanded={compareOpen} className="app-max-w-250">
+                {compareFrom || 'All issues (no comparison)'}
+              </MenuToggle>
+            )}
+            onSelect={(_e, val) => { setCompareFrom(val as string); setCompareOpen(false); setResult(null); }}
+          >
+            <SelectList>
+              <SelectOption value="">All issues (no comparison)</SelectOption>
+              {(subVersions ?? []).filter(v => v.name !== targetVer).map(v => <SelectOption key={v.name} value={v.name}>{v.name}</SelectOption>)}
+            </SelectList>
+          </Select>
+        </FlexItem>
+        <FlexItem>
+          <Button variant="primary" onClick={() => mutation.mutate()} isLoading={mutation.isPending} isDisabled={!targetVer || mutation.isPending}>
+            {mutation.isPending ? 'Generating...' : 'Generate Changelog'}
+          </Button>
+        </FlexItem>
+      </Flex>
+
+      {mutation.isPending && jobProgress && (
+        <Alert variant="info" isInline isPlain title={jobProgress} className="app-mb-md" />
+      )}
+
+      {result && (
+        <div ref={reportRef}>
+          <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }} className="app-mb-md">
+            <FlexItem>
+              <Label color="blue" isCompact className="app-mr-sm">{result.meta.label}</Label>
+              <span className="app-text-xs app-text-muted">
+                {result.meta.issueCount} issues
+                {result.meta.batches > 1 ? ` (${result.meta.batches} batches)` : ''}
+                {' · '}{result.meta.tokensUsed} tokens
+                {result.meta.cached ? ' · cached' : ''}
+                {' · '}{result.meta.model}
+              </span>
+            </FlexItem>
+            <FlexItem>
+              <Flex spaceItems={{ default: 'spaceItemsSm' }}>
+                <FlexItem><Button variant="plain" icon={<DownloadIcon />} onClick={handlePdf} size="sm" aria-label="Download PDF" /></FlexItem>
+                <FlexItem><Button variant="plain" icon={<CopyIcon />} onClick={() => navigator.clipboard.writeText(buildSlackText())} size="sm" aria-label="Copy Slack" /></FlexItem>
+                <FlexItem><Button variant="link" size="sm" onClick={() => { setResult(null); mutation.mutate(); }}>Regenerate</Button></FlexItem>
+              </Flex>
+            </FlexItem>
+          </Flex>
+
+          {cl?.summary && (
+            <div className="app-changelog-summary app-mb-md">
+              <Content component="p">{typeof cl.summary === 'string' ? cl.summary : JSON.stringify(cl.summary)}</Content>
+            </div>
+          )}
+
+          {cl?.highlights && (
+            <Alert variant="info" isInline isPlain title={typeof cl.highlights === 'string' ? cl.highlights : JSON.stringify(cl.highlights)} className="app-mb-md" />
+          )}
+
+          {cl?.breakingChanges && cl.breakingChanges.length > 0 && (
+            <Alert variant="danger" isInline title={`${cl.breakingChanges.length} Breaking Changes`} className="app-mb-md">
+              <ul className="app-text-xs">{cl.breakingChanges.map((bc, i) => (
+                <li key={i}>{typeof bc === 'string' ? bc : (bc as Record<string, unknown>).title ? `${(bc as Record<string, unknown>).key || ''} — ${(bc as Record<string, unknown>).title}` : JSON.stringify(bc)}</li>
+              ))}</ul>
+            </Alert>
+          )}
+
+          {hasCategories && (
+            <div className="app-changelog-stats app-mb-md">
+              {Object.entries(cl!.categories!).map(([cat, items]) => {
+                if (!items?.length) return null;
+                const meta = CATEGORY_LABELS[cat] || { label: cat, color: 'grey' as const };
+                return <Label key={cat} color={meta.color} isCompact className="app-mr-sm">{meta.label}: {items.length}</Label>;
+              })}
+              <span className="app-text-xs app-text-muted app-ml-sm">{totalItems} total</span>
+            </div>
+          )}
+
+          {hasCategories && Object.entries(cl!.categories!).map(([cat, items]) => {
+            if (!items?.length) return null;
+            const filtered = filterItems(items);
+            if (filtered.length === 0) return null;
+            const meta = CATEGORY_LABELS[cat] || { label: cat, color: 'grey' as const };
+            return (
+              <ExpandableSection key={cat} toggleText={`${meta.label} (${filtered.length})`} isIndented className="app-mb-sm">
+                <div className="app-changelog-list">
+                  {filtered.map((item, i) => (
+                    <div key={i} className="app-changelog-item">
+                      {item.key && (
+                        <a href={`https://issues.redhat.com/browse/${item.key}`} target="_blank" rel="noreferrer" className="app-changelog-key">
+                          {item.key} <ExternalLinkAltIcon className="app-text-xs" />
+                        </a>
+                      )}
+                      <span className="app-changelog-title">{item.title || ''}</span>
+                      {item.component && <Label color="grey" isCompact className="app-ml-xs">{item.component}</Label>}
+                      {item.prLinks && item.prLinks.length > 0 && item.prLinks.map((pr, pi) => (
+                        <a key={pi} href={typeof pr === 'string' ? pr : '#'} target="_blank" rel="noreferrer" className="app-text-xs app-ml-xs">
+                          PR <ExternalLinkAltIcon />
+                        </a>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </ExpandableSection>
+            );
+          })}
+
+          {result.meta.contributors && result.meta.contributors.length > 0 && (
+            <ExpandableSection toggleText={`Contributors (${result.meta.contributors.length})`} className="app-mt-md">
+              <div className="app-report-workload">
+                {result.meta.contributors.map(c => (
+                  <Flex key={c.name} spaceItems={{ default: 'spaceItemsSm' }} alignItems={{ default: 'alignItemsCenter' }} className="app-mb-xs">
+                    <FlexItem style={{ minWidth: 140 }}><span className="app-text-xs">{c.name}</span></FlexItem>
+                    <FlexItem flex={{ default: 'flex_1' }}>
+                      <Progress value={result.meta.contributors ? (c.count / result.meta.contributors[0].count) * 100 : 0} size={ProgressSize.sm} measureLocation={ProgressMeasureLocation.none} />
+                    </FlexItem>
+                    <FlexItem><span className="app-text-xs app-text-muted">{c.count}</span></FlexItem>
+                  </Flex>
+                ))}
+              </div>
+            </ExpandableSection>
+          )}
+
+          {cl?.raw && !hasCategories && (
+            <div className="app-changelog-raw">
+              {cl.raw.split('\n').map((line, i) => <Content key={i} component="p" className="app-text-xs">{line}</Content>)}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const RiskTab: React.FC<{ version: string; release: ReleaseInfo; checklist?: ChecklistTask[]; readiness?: { passRate: number | null; totalLaunches: number; trend: Array<{ day: string; passRate: number | null }> } | null }> = ({ version, release, checklist, readiness }) => {
+  const [result, setResult] = useLocalState<RiskAssessment | null>(null);
+  const openItems = (checklist ?? []).filter(t => t.status !== 'Closed');
+  const closedItems = (checklist ?? []).filter(t => t.status === 'Closed');
+
+  const mutation = useMutation({
+    mutationFn: () => assessRisk({
+      version: version.replace('cnv-', ''),
+      daysUntilRelease: release.daysUntilNext,
+      checklistDone: closedItems.length,
+      checklistTotal: (checklist ?? []).length,
+      checklistPct: (checklist ?? []).length > 0 ? Math.round((closedItems.length / (checklist ?? []).length) * 100) : 100,
+      passRate: readiness?.passRate ?? 0,
+      totalLaunches: readiness?.totalLaunches ?? 0,
+      openBlockers: 0,
+      trend: readiness?.trend?.slice(-7) ?? [],
+      openItems: openItems.slice(0, 20).map(t => ({ key: t.key, summary: t.summary, assignee: t.assignee, priority: t.priority })),
+    }),
+    onSuccess: setResult,
+  });
+
+  const verdictColor = (v?: string) => v === 'Ship' ? 'green' : v === 'Hold' ? 'red' : 'orange';
+
+  return (
+    <div className="app-mt-md">
+      {!result && (
+        <div className="app-text-block-center app-p-lg">
+          <Content component="p" className="app-text-muted app-mb-md">
+            AI will analyze checklist progress, pass rates, open blockers, and trends to assess release readiness.
+          </Content>
+          <Button variant="primary" onClick={() => mutation.mutate()} isLoading={mutation.isPending}>
+            Assess Release Risk
+          </Button>
+          {mutation.isError && <Alert variant="danger" isInline title={mutation.error instanceof Error ? mutation.error.message : 'Failed'} className="app-mt-md" />}
+        </div>
+      )}
+      {result && (
+        <div>
+          <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} className="app-mb-md">
+            <FlexItem>
+              <Label color={verdictColor(result.assessment.verdict)} className="app-mr-sm">{result.assessment.verdict || 'Unknown'}</Label>
+              <Label color={result.assessment.overallRisk === 'Low' ? 'green' : result.assessment.overallRisk === 'High' || result.assessment.overallRisk === 'Critical' ? 'red' : 'orange'} isCompact>
+                Risk: {result.assessment.overallRisk}
+              </Label>
+              <span className="app-text-xs app-text-muted app-ml-sm">{result.model}{result.cached ? ' (cached)' : ''}</span>
+            </FlexItem>
+            <FlexItem>
+              <Button variant="link" size="sm" onClick={() => { setResult(null); mutation.mutate(); }}>Re-assess</Button>
+            </FlexItem>
+          </Flex>
+          {result.assessment.summary && <Content component="p" className="app-mb-md">{result.assessment.summary}</Content>}
+          {result.assessment.concerns && result.assessment.concerns.length > 0 && (
+            <div className="app-mb-md">
+              <Content component="h5">Concerns</Content>
+              {result.assessment.concerns.map((c, i) => (
+                <Alert key={i} variant={c.severity === 'high' ? 'danger' : 'warning'} isInline isPlain title={`${c.area}: ${c.detail}`} className="app-mb-xs" />
+              ))}
+            </div>
+          )}
+          {result.assessment.recommendations && result.assessment.recommendations.length > 0 && (
+            <div>
+              <Content component="h5">Recommendations</Content>
+              <ul className="app-text-xs">
+                {result.assessment.recommendations.map((r, i) => <li key={i}>{r}</li>)}
+              </ul>
+            </div>
+          )}
+          {result.assessment.raw && !result.assessment.verdict && <pre className="app-ack-notes">{result.assessment.raw}</pre>}
+        </div>
+      )}
+    </div>
   );
 };

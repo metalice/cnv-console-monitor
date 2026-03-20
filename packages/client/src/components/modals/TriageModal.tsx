@@ -12,21 +12,26 @@ import {
   TextArea,
   HelperText,
   HelperTextItem,
+  Label, Alert,
 } from '@patternfly/react-core';
+import { MagicIcon } from '@patternfly/react-icons';
 import { fetchDefectTypes } from '../../api/defectTypes';
 import { classifyDefect, bulkClassifyDefect } from '../../api/triage';
+import { suggestTriage } from '../../api/ai';
 import { SearchableSelect } from '../common/SearchableSelect';
 
 type TriageModalProps = {
   isOpen: boolean;
   onClose: () => void;
   itemIds: number[];
+  testContext?: { testName: string; component?: string; errorMessage?: string; consecutiveFailures?: number };
 };
 
-export const TriageModal: React.FC<TriageModalProps> = ({ isOpen, onClose, itemIds }) => {
+export const TriageModal: React.FC<TriageModalProps> = ({ isOpen, onClose, itemIds, testContext }) => {
   const queryClient = useQueryClient();
   const [defectType, setDefectType] = useState('');
   const [comment, setComment] = useState('');
+  const [aiSuggestion, setAiSuggestion] = useState<{ suggestedType?: string; suggestedLabel?: string; confidence?: string; reasoning?: string } | null>(null);
 
   const { data: defectTypes } = useQuery({
     queryKey: ['defectTypes'],
@@ -68,6 +73,23 @@ export const TriageModal: React.FC<TriageModalProps> = ({ isOpen, onClose, itemI
 
   const isBulk = itemIds.length > 1;
 
+  const aiMutation = useMutation({
+    mutationFn: () => suggestTriage({
+      testName: testContext?.testName ?? '',
+      component: testContext?.component,
+      errorMessage: testContext?.errorMessage ?? '',
+      consecutiveFailures: testContext?.consecutiveFailures,
+    }),
+    onSuccess: (data) => {
+      setAiSuggestion(data.suggestion);
+      if (data.suggestion.suggestedType) {
+        const match = options.find(o => o.value === data.suggestion.suggestedType || o.label.toLowerCase().includes((data.suggestion.suggestedLabel ?? '').toLowerCase()));
+        if (match) setDefectType(match.value);
+      }
+      if (data.suggestion.reasoning) setComment(data.suggestion.reasoning);
+    },
+  });
+
   return (
     <Modal
       variant={ModalVariant.medium}
@@ -77,6 +99,18 @@ export const TriageModal: React.FC<TriageModalProps> = ({ isOpen, onClose, itemI
       <ModalHeader title={isBulk ? `Classify ${itemIds.length} Items` : 'Classify Defect'} />
       <ModalBody>
         <Form>
+          {testContext && !isBulk && (
+            <FormGroup>
+              <Button variant="secondary" icon={<MagicIcon />} onClick={() => aiMutation.mutate()} isLoading={aiMutation.isPending} isDisabled={aiMutation.isPending} size="sm">
+                AI Suggest
+              </Button>
+              {aiSuggestion && (
+                <Alert variant="info" isInline isPlain className="app-mt-sm"
+                  title={`AI suggests: ${aiSuggestion.suggestedLabel ?? aiSuggestion.suggestedType} (${aiSuggestion.confidence} confidence)`}
+                />
+              )}
+            </FormGroup>
+          )}
           <FormGroup label="Defect Type" isRequired>
             <SearchableSelect
               id="defect-type"
