@@ -117,24 +117,21 @@ export const fetchAIStatus = (): Promise<AIStatus> => apiFetch('/ai/status');
 export const fetchAIModels = (): Promise<AIModel[]> => apiFetch('/ai/models');
 export const fetchAIUsage = (): Promise<AIUsage> => apiFetch('/ai/usage');
 
-export const startChangelogJob = (version: string, targetVersion: string, compareFrom?: string): Promise<{ jobId: string }> =>
+export const startChangelogJob = (version: string, targetVersion: string, compareFrom?: string): Promise<{ status: string }> =>
   apiPost(`/releases/${version}/changelog`, { targetVersion, compareFrom });
 
-export type ChangelogJobStatus = {
-  id: string;
-  status: 'running' | 'done' | 'error';
-  progress: string;
-  result?: ChangelogResult;
+export type ChangelogStatus = {
+  status: 'none' | 'running' | 'done' | 'error';
+  progress?: string;
   error?: string;
+  changelog?: ChangelogResult['changelog'];
+  meta?: ChangelogResult['meta'];
 };
 
-export const pollChangelogJob = (jobId: string): Promise<ChangelogJobStatus> =>
-  apiFetch(`/releases/changelog-job/${jobId}`);
-
-export const fetchCachedChangelog = (targetVersion: string, compareFrom?: string): Promise<ChangelogResult & { cached: boolean }> => {
+export const fetchChangelogStatus = (targetVersion: string, compareFrom?: string): Promise<ChangelogStatus> => {
   const params = new URLSearchParams({ targetVersion });
   if (compareFrom) params.set('compareFrom', compareFrom);
-  return apiFetch(`/releases/changelog-cached?${params.toString()}`);
+  return apiFetch(`/releases/changelog-status?${params.toString()}`);
 };
 
 export const analyzeFailure = (data: { testName: string; component?: string; errorMessage: string; recentRuns?: Array<{ date: string; status: string }>; triageHistory?: Array<{ testName: string; defectType: string; comment: string }> }): Promise<FailureAnalysis> =>

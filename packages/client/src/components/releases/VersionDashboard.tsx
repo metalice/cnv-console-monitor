@@ -18,7 +18,7 @@ import { HelpLabel } from '../common/HelpLabel';
 import { RiskFlags } from './RiskFlags';
 import { ReleaseReport } from './ReleaseReport';
 import { BlockerWall } from './BlockerWall';
-import { startChangelogJob, pollChangelogJob, fetchCachedChangelog, assessRisk, type ChangelogResult, type ChangelogItem, type RiskAssessment } from '../../api/ai';
+import { startChangelogJob, fetchChangelogStatus, assessRisk, type ChangelogResult, type ChangelogItem, type RiskAssessment } from '../../api/ai';
 
 const ReadinessGauge: React.FC<{ score: number }> = ({ score }) => {
   const color = score >= 80 ? 'var(--pf-t--global--color--status--success--default)'
@@ -287,36 +287,43 @@ const ChangelogTab: React.FC<{ version: string }> = ({ version }) => {
     }
   }, [subVersions, targetVer, setTargetVer, setCompareFrom]);
 
-  React.useEffect(() => {
-    if (!targetVer) return;
-    fetchCachedChangelog(targetVer, compareFrom || undefined)
-      .then(data => { if (data.cached && data.changelog) setResult(data as unknown as ChangelogResult); })
-      .catch(() => {});
-  }, [targetVer, compareFrom, setResult]);
-
   const [jobProgress, setJobProgress] = useLocalState('');
   const [isGenerating, setIsGenerating] = useLocalState(false);
+  const pollRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const pollForResult = React.useCallback(() => {
+    if (!targetVer) return;
+    fetchChangelogStatus(targetVer, compareFrom || undefined)
+      .then(status => {
+        if (status.status === 'done' && status.changelog) {
+          setResult({ changelog: status.changelog, meta: status.meta! } as ChangelogResult);
+          setIsGenerating(false);
+          setJobProgress('');
+        } else if (status.status === 'running') {
+          setIsGenerating(true);
+          setJobProgress(status.progress || 'Processing...');
+          pollRef.current = setTimeout(pollForResult, 2000);
+        } else if (status.status === 'error') {
+          setJobProgress(`Error: ${status.error}`);
+          setIsGenerating(false);
+        }
+      })
+      .catch(() => {});
+  }, [targetVer, compareFrom, setResult, setIsGenerating, setJobProgress]);
+
+  React.useEffect(() => {
+    if (!targetVer) return;
+    pollForResult();
+    return () => { if (pollRef.current) clearTimeout(pollRef.current); };
+  }, [targetVer, compareFrom, pollForResult]);
 
   const startGeneration = async () => {
     setIsGenerating(true);
     setResult(null);
     setJobProgress('Starting...');
     try {
-      const { jobId } = await startChangelogJob(version, targetVer, compareFrom || undefined);
-      const poll = async () => {
-        const status = await pollChangelogJob(jobId);
-        setJobProgress(status.progress);
-        if (status.status === 'done' && status.result) {
-          setResult(status.result);
-          setIsGenerating(false);
-        } else if (status.status === 'error') {
-          setJobProgress(`Error: ${status.error}`);
-          setIsGenerating(false);
-        } else {
-          setTimeout(poll, 2000);
-        }
-      };
-      setTimeout(poll, 1000);
+      await startChangelogJob(version, targetVer, compareFrom || undefined);
+      pollRef.current = setTimeout(pollForResult, 1000);
     } catch (err) {
       setJobProgress(err instanceof Error ? err.message : 'Failed to start');
       setIsGenerating(false);

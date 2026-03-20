@@ -282,7 +282,6 @@ router.get('/:version/sub-versions', async (req: Request, res: Response, next: N
 
 // Changelog job store + DB persistence
 type ChangelogJob = {
-  id: string;
   status: 'running' | 'done' | 'error';
   progress: string;
   result?: Record<string, unknown>;
@@ -320,27 +319,38 @@ const loadChangelogFromDb = async (target: string, from?: string): Promise<Recor
   } catch { return null; }
 };
 
-router.get('/changelog-cached', async (req: Request, res: Response) => {
+router.get('/changelog-status', async (req: Request, res: Response) => {
   const target = req.query.targetVersion as string;
   const from = (req.query.compareFrom as string) || undefined;
-  if (!target) { res.json({ cached: false }); return; }
-  const result = await loadChangelogFromDb(target, from);
-  if (result) {
-    res.json({ cached: true, ...result });
-  } else {
-    res.json({ cached: false });
-  }
-});
+  if (!target) { res.json({ status: 'none' }); return; }
 
-router.get('/changelog-job/:jobId', (_req: Request, res: Response) => {
-  const job = changelogJobs.get(_req.params.jobId as string);
-  if (!job) { res.status(404).json({ error: 'Job not found' }); return; }
-  res.json(job);
+  const jobKey = changelogCacheKey(target, from);
+  const activeJob = changelogJobs.get(jobKey);
+  if (activeJob && activeJob.status === 'running') {
+    res.json({ status: 'running', progress: activeJob.progress });
+    return;
+  }
+  if (activeJob && activeJob.status === 'done' && activeJob.result) {
+    res.json({ status: 'done', ...activeJob.result });
+    return;
+  }
+  if (activeJob && activeJob.status === 'error') {
+    res.json({ status: 'error', error: activeJob.error });
+    return;
+  }
+
+  const dbResult = await loadChangelogFromDb(target, from);
+  if (dbResult) {
+    res.json({ status: 'done', ...dbResult });
+    return;
+  }
+
+  res.json({ status: 'none' });
 });
 
 // Changelog generation (version-to-version, background job)
-const runChangelogJob = async (jobId: string, targetVersion: string, compareFrom: string | undefined) => {
-  const job = changelogJobs.get(jobId)!;
+const runChangelogJob = async (jobKey: string, targetVersion: string, compareFrom: string | undefined) => {
+  const job = changelogJobs.get(jobKey)!;
   try {
     const { getAIService } = await import('../../ai');
     const ai = getAIService();
@@ -482,13 +492,19 @@ router.post('/:version/changelog', async (req: Request, res: Response) => {
   const { targetVersion, compareFrom } = req.body;
   if (!targetVersion) { res.status(400).json({ error: 'targetVersion required' }); return; }
 
-  const jobId = `cl-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-  const job: ChangelogJob = { id: jobId, status: 'running', progress: 'Fetching Jira issues...', startedAt: Date.now() };
-  changelogJobs.set(jobId, job);
+  const jobKey = changelogCacheKey(targetVersion, compareFrom);
+  const existing = changelogJobs.get(jobKey);
+  if (existing && existing.status === 'running') {
+    res.json({ status: 'already_running' });
+    return;
+  }
 
-  runChangelogJob(jobId, targetVersion, compareFrom).catch(() => {});
+  const job: ChangelogJob = { status: 'running', progress: 'Fetching Jira issues...', startedAt: Date.now() };
+  changelogJobs.set(jobKey, job);
 
-  res.json({ jobId });
+  runChangelogJob(jobKey, targetVersion, compareFrom).catch(() => {});
+
+  res.json({ status: 'started' });
 });
 
 // Manual milestones CRUD
