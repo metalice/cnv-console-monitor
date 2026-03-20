@@ -131,6 +131,12 @@ export type ChangelogJobStatus = {
 export const pollChangelogJob = (jobId: string): Promise<ChangelogJobStatus> =>
   apiFetch(`/releases/changelog-job/${jobId}`);
 
+export const fetchCachedChangelog = (targetVersion: string, compareFrom?: string): Promise<ChangelogResult & { cached: boolean }> => {
+  const params = new URLSearchParams({ targetVersion });
+  if (compareFrom) params.set('compareFrom', compareFrom);
+  return apiFetch(`/releases/changelog-cached?${params.toString()}`);
+};
+
 export const analyzeFailure = (data: { testName: string; component?: string; errorMessage: string; recentRuns?: Array<{ date: string; status: string }>; triageHistory?: Array<{ testName: string; defectType: string; comment: string }> }): Promise<FailureAnalysis> =>
   apiPost('/ai/analyze-failure', data);
 

@@ -18,7 +18,7 @@ import { HelpLabel } from '../common/HelpLabel';
 import { RiskFlags } from './RiskFlags';
 import { ReleaseReport } from './ReleaseReport';
 import { BlockerWall } from './BlockerWall';
-import { startChangelogJob, pollChangelogJob, assessRisk, type ChangelogResult, type ChangelogItem, type RiskAssessment } from '../../api/ai';
+import { startChangelogJob, pollChangelogJob, fetchCachedChangelog, assessRisk, type ChangelogResult, type ChangelogItem, type RiskAssessment } from '../../api/ai';
 
 const ReadinessGauge: React.FC<{ score: number }> = ({ score }) => {
   const color = score >= 80 ? 'var(--pf-t--global--color--status--success--default)'
@@ -286,6 +286,13 @@ const ChangelogTab: React.FC<{ version: string }> = ({ version }) => {
       if (subVersions.length > 1) setCompareFrom(subVersions[subVersions.length - 2].name);
     }
   }, [subVersions, targetVer, setTargetVer, setCompareFrom]);
+
+  React.useEffect(() => {
+    if (!targetVer) return;
+    fetchCachedChangelog(targetVer, compareFrom || undefined)
+      .then(data => { if (data.cached && data.changelog) setResult(data as unknown as ChangelogResult); })
+      .catch(() => {});
+  }, [targetVer, compareFrom, setResult]);
 
   const [jobProgress, setJobProgress] = useLocalState('');
   const [isGenerating, setIsGenerating] = useLocalState(false);

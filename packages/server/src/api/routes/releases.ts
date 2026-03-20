@@ -280,7 +280,7 @@ router.get('/:version/sub-versions', async (req: Request, res: Response, next: N
   } catch (err) { next(err); }
 });
 
-// Changelog job store
+// Changelog job store + DB persistence
 type ChangelogJob = {
   id: string;
   status: 'running' | 'done' | 'error';
@@ -290,6 +290,47 @@ type ChangelogJob = {
   startedAt: number;
 };
 const changelogJobs = new Map<string, ChangelogJob>();
+
+const changelogCacheKey = (target: string, from?: string) => `changelog:${target}:${from || 'all'}`;
+
+const saveChangelogToDb = async (target: string, from: string | undefined, result: Record<string, unknown>) => {
+  try {
+    const { AppDataSource } = await import('../../db/data-source');
+    const { AICache } = await import('../../db/entities/AICache');
+    const key = changelogCacheKey(target, from);
+    await AppDataSource.getRepository(AICache).upsert({
+      prompt_hash: key,
+      model: 'changelog',
+      provider: 'changelog',
+      response: JSON.stringify(result),
+      tokens_used: 0,
+      expires_at: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    }, { conflictPaths: ['prompt_hash'] });
+  } catch { /* non-critical */ }
+};
+
+const loadChangelogFromDb = async (target: string, from?: string): Promise<Record<string, unknown> | null> => {
+  try {
+    const { AppDataSource } = await import('../../db/data-source');
+    const { AICache } = await import('../../db/entities/AICache');
+    const key = changelogCacheKey(target, from);
+    const row = await AppDataSource.getRepository(AICache).findOneBy({ prompt_hash: key });
+    if (!row || Number(row.expires_at) < Date.now()) return null;
+    return JSON.parse(row.response);
+  } catch { return null; }
+};
+
+router.get('/changelog-cached', async (req: Request, res: Response) => {
+  const target = req.query.targetVersion as string;
+  const from = (req.query.compareFrom as string) || undefined;
+  if (!target) { res.json({ cached: false }); return; }
+  const result = await loadChangelogFromDb(target, from);
+  if (result) {
+    res.json({ cached: true, ...result });
+  } else {
+    res.json({ cached: false });
+  }
+});
 
 router.get('/changelog-job/:jobId', (_req: Request, res: Response) => {
   const job = changelogJobs.get(_req.params.jobId as string);
@@ -394,6 +435,7 @@ const runChangelogJob = async (jobId: string, targetVersion: string, compareFrom
           changelog: parsed,
           meta: { targetVersion, compareFrom: compareFrom || null, label, issueCount: issues.length, analyzedCount: batch.length, batches: 1, model: modelUsed, tokensUsed: totalTokens, durationMs: response.durationMs, cached: response.cached, contributors: contribs.map(([name, count]) => ({ name, count })) },
         };
+        saveChangelogToDb(targetVersion, compareFrom, job.result).catch(() => {});
         return;
       }
     }
@@ -423,6 +465,7 @@ const runChangelogJob = async (jobId: string, targetVersion: string, compareFrom
       changelog: finalSummary,
       meta: { targetVersion, compareFrom: compareFrom || null, label, issueCount: issues.length, analyzedCount: issues.length, batches: batches.length, model: modelUsed, tokensUsed: totalTokens, durationMs: Date.now() - job.startedAt, cached: false, contributors: contribs.map(([name, count]) => ({ name, count })) },
     };
+    saveChangelogToDb(targetVersion, compareFrom, job.result).catch(() => {});
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Changelog generation failed';
     log.error({ err }, msg);
