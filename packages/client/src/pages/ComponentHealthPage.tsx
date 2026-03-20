@@ -7,11 +7,14 @@ import {
   Spinner,
   EmptyState,
   EmptyStateBody,
+  Flex, FlexItem,
 } from '@patternfly/react-core';
 import { CubesIcon } from '@patternfly/react-icons';
 import { fetchComponentHealth } from '../api/componentHealth';
+import { generateHealthNarrative, generateStandupSummary } from '../api/ai';
 import { useDate } from '../context/DateContext';
 import { ComponentHealthCard } from '../components/common/ComponentHealthCard';
+import { AIActionButton } from '../components/ai/AIActionButton';
 
 export const ComponentHealthPage: React.FC = () => {
   const navigate = useNavigate();
@@ -43,8 +46,47 @@ export const ComponentHealthPage: React.FC = () => {
   return (
     <>
       <PageSection>
-        <Content component="h1">Component Health</Content>
-        <Content component="small">Health overview per component ({displayLabel}). Trend compares to the previous equivalent period.</Content>
+        <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }}>
+          <FlexItem>
+            <Content component="h1">Component Health</Content>
+            <Content component="small">Health overview per component ({displayLabel}). Trend compares to the previous equivalent period.</Content>
+          </FlexItem>
+          <FlexItem>
+            <Flex spaceItems={{ default: 'spaceItemsSm' }}>
+              <FlexItem>
+                <AIActionButton
+                  label="AI Health Summary"
+                  description="AI is analyzing component health data..."
+                  apiCall={() => generateHealthNarrative({
+                    components: components?.map(c => ({
+                      name: c.component,
+                      passRate: c.passRate,
+                      launches: c.totalLaunches,
+                      failedTests: c.failedLaunches,
+                    })) ?? [],
+                    days: Math.round((until - since) / (24 * 60 * 60 * 1000)),
+                  })}
+                />
+              </FlexItem>
+              <FlexItem>
+                <AIActionButton
+                  label="Standup Summary"
+                  description="AI is generating a standup summary..."
+                  apiCall={() => generateStandupSummary({
+                    date: new Date().toLocaleDateString(),
+                    passRate: components ? Math.round(components.reduce((s, c) => s + c.passRate, 0) / components.length) : 0,
+                    totalLaunches: components?.reduce((s, c) => s + c.totalLaunches, 0) ?? 0,
+                    passRateDelta: 0,
+                    components: components?.map(c => ({ name: c.component, passRate: c.passRate, launches: c.totalLaunches, failed: c.failedLaunches })) ?? [],
+                    classifications: 0, jiraCreated: 0, acks: 0,
+                    upcoming: [],
+                    recentFailures: [],
+                  })}
+                />
+              </FlexItem>
+            </Flex>
+          </FlexItem>
+        </Flex>
       </PageSection>
 
       <PageSection>

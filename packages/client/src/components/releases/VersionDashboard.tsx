@@ -419,6 +419,23 @@ const ChangelogTab: React.FC<{ version: string }> = ({ version }) => {
               <Flex spaceItems={{ default: 'spaceItemsSm' }}>
                 <FlexItem><Button variant="plain" icon={<DownloadIcon />} onClick={handlePdf} size="sm" aria-label="Download PDF" /></FlexItem>
                 <FlexItem><Button variant="plain" icon={<CopyIcon />} onClick={() => navigator.clipboard.writeText(buildSlackText())} size="sm" aria-label="Copy Slack" /></FlexItem>
+                <FlexItem>
+                  <Tooltip content="Open Jira filter for this version">
+                    <Button variant="plain" icon={<ExternalLinkAltIcon />} size="sm" aria-label="Jira filter"
+                      onClick={() => window.open(`https://issues.redhat.com/issues/?jql=project%3DCNV%20AND%20fixVersion%3D%22${encodeURIComponent(result.meta.targetVersion)}%22`, '_blank')} />
+                  </Tooltip>
+                </FlexItem>
+                <FlexItem>
+                  <Tooltip content="Copy shareable link">
+                    <Button variant="plain" icon={<CopyIcon />} size="sm" aria-label="Copy link"
+                      onClick={() => {
+                        const url = new URL(window.location.href);
+                        url.searchParams.set('clTarget', result.meta.targetVersion);
+                        if (result.meta.compareFrom) url.searchParams.set('clFrom', result.meta.compareFrom);
+                        navigator.clipboard.writeText(url.toString());
+                      }} />
+                  </Tooltip>
+                </FlexItem>
                 <FlexItem><Button variant="link" size="sm" onClick={() => { setResult(null); mutation.mutate(); }}>Regenerate</Button></FlexItem>
               </Flex>
             </FlexItem>
@@ -443,14 +460,29 @@ const ChangelogTab: React.FC<{ version: string }> = ({ version }) => {
           )}
 
           {hasCategories && (
-            <div className="app-changelog-stats app-mb-md">
-              {Object.entries(cl!.categories!).map(([cat, items]) => {
-                if (!items?.length) return null;
-                const meta = CATEGORY_LABELS[cat] || { label: cat, color: 'grey' as const };
-                return <Label key={cat} color={meta.color} isCompact className="app-mr-sm">{meta.label}: {items.length}</Label>;
-              })}
-              <span className="app-text-xs app-text-muted app-ml-sm">{totalItems} total</span>
-            </div>
+            <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }} className="app-mb-md">
+              <FlexItem>
+                {Object.entries(cl!.categories!).map(([cat, items]) => {
+                  if (!items?.length) return null;
+                  const meta = CATEGORY_LABELS[cat] || { label: cat, color: 'grey' as const };
+                  return <Label key={cat} color={meta.color} isCompact className="app-mr-sm">{meta.label}: {items.length}</Label>;
+                })}
+                <span className="app-text-xs app-text-muted app-ml-sm">{totalItems} total</span>
+              </FlexItem>
+              <FlexItem>
+                <input
+                  type="text"
+                  value={componentFilter}
+                  onChange={e => setComponentFilter(e.target.value)}
+                  placeholder="Filter by component..."
+                  className="app-search-input"
+                  style={{ width: 180 }}
+                />
+                {componentFilter && (
+                  <Button variant="plain" size="sm" onClick={() => setComponentFilter('')} aria-label="Clear filter">&times;</Button>
+                )}
+              </FlexItem>
+            </Flex>
           )}
 
           {hasCategories && Object.entries(cl!.categories!).map(([cat, items]) => {
@@ -470,6 +502,16 @@ const ChangelogTab: React.FC<{ version: string }> = ({ version }) => {
                       )}
                       <span className="app-changelog-title">{item.title || ''}</span>
                       {item.component && <Label color="grey" isCompact className="app-ml-xs">{item.component}</Label>}
+                      {item.impactScore && (
+                        <Tooltip content={`Impact: ${item.impactScore}/5`}>
+                          <Label color={item.impactScore >= 4 ? 'red' : item.impactScore >= 3 ? 'orange' : 'grey'} isCompact className="app-ml-xs">
+                            {'★'.repeat(item.impactScore)}
+                          </Label>
+                        </Tooltip>
+                      )}
+                      {item.risk && item.risk !== 'low' && (
+                        <Label color={item.risk === 'high' ? 'red' : 'orange'} isCompact className="app-ml-xs">{item.risk} risk</Label>
+                      )}
                       {item.prLinks && item.prLinks.length > 0 && item.prLinks.map((pr, pi) => (
                         <a key={pi} href={typeof pr === 'string' ? pr : '#'} target="_blank" rel="noreferrer" className="app-text-xs app-ml-xs">
                           PR <ExternalLinkAltIcon />

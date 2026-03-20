@@ -6,19 +6,22 @@ Classify each item as one of: Feature, Bug Fix, Improvement, Infrastructure, Doc
 Group items by component.
 Write a brief executive summary at the top.
 For each item include the Jira key and/or PR number.
+For each item, assign an impact score from 1-5 (5 = highest user impact).
+For each item, assign a risk level: low, medium, or high (likelihood of regression).
+Flag any breaking changes explicitly.
 
 Output as JSON with this structure:
 {
   "summary": "Brief executive summary of the release",
   "categories": {
-    "features": [{ "key": "...", "title": "...", "component": "...", "prs": [] }],
+    "features": [{ "key": "...", "title": "...", "component": "...", "prs": [], "impactScore": 3, "risk": "low" }],
     "bugFixes": [...],
     "improvements": [...],
     "infrastructure": [...],
     "documentation": [...]
   },
   "highlights": "Top 3 most important changes",
-  "breakingChanges": [],
+  "breakingChanges": [{ "key": "...", "title": "...", "reason": "Why this is breaking" }],
   "testImpact": { "newlyPassing": 0, "newlyFailing": 0, "details": [] }
 }
 
@@ -28,7 +31,7 @@ Generate release notes for CNV from version {{fromVersion}} to {{toVersion}}.
 
 Jira Issues:
 {{#each issues}}
-- {{this.key}}: {{this.summary}} (type: {{this.type}}, priority: {{this.priority}}, components: {{this.components}}, status: {{this.status}})
+- {{this.key}}: {{this.summary}} (type: {{this.type}}, priority: {{this.priority}}, components: {{this.components}}, assignee: {{this.assignee}})
 {{/each}}
 
 {{#each prs}}
