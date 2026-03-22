@@ -26,6 +26,8 @@ import {
   SignOutAltIcon,
   ShieldAltIcon,
   SyncAltIcon,
+  SearchIcon,
+  MagicIcon,
 } from '@patternfly/react-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DateToolbar } from '../common/DateToolbar';
@@ -161,6 +163,63 @@ const PollIndicator: React.FC = () => {
   );
 };
 
+const AISearchIndicator: React.FC = () => {
+  const navigate = useNavigate();
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const [searchValue, setSearchValue] = React.useState('');
+  const [aiStatus, setAiStatus] = React.useState<{ enabled: boolean } | null>(null);
+
+  React.useEffect(() => {
+    fetch('/api/ai/status').then(r => r.json()).then(setAiStatus).catch(() => {});
+  }, []);
+
+  const handleSearch = async () => {
+    if (!searchValue.trim()) return;
+    try {
+      const res = await fetch('/api/ai/nl-search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: searchValue }) });
+      const data = await res.json();
+      if (data.result?.page) {
+        const params = new URLSearchParams(data.result.filters || {});
+        navigate(`/${data.result.page}?${params.toString()}`);
+        setSearchOpen(false);
+        setSearchValue('');
+      }
+    } catch { /* ignore */ }
+  };
+
+  return (
+    <>
+      {aiStatus?.enabled && (
+        <ToolbarItem>
+          <Tooltip content="AI features are enabled. Use natural language search, smart triage suggestions, changelog generation, and more.">
+            <span className="app-ai-indicator"><MagicIcon /></span>
+          </Tooltip>
+        </ToolbarItem>
+      )}
+      <ToolbarItem>
+        {searchOpen ? (
+          <span className="app-masthead-search">
+            <input
+              type="text"
+              value={searchValue}
+              onChange={e => setSearchValue(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSearch(); if (e.key === 'Escape') setSearchOpen(false); }}
+              placeholder="Ask AI: 'storage failures last week'..."
+              className="app-search-input"
+              autoFocus
+            />
+            <Button variant="plain" size="sm" onClick={() => setSearchOpen(false)} aria-label="Close search">&times;</Button>
+          </span>
+        ) : (
+          <Tooltip content="AI natural language search. Ask questions like 'storage failures last week' and AI will navigate to the right page with filters applied.">
+            <Button variant="plain" icon={<SearchIcon />} onClick={() => setSearchOpen(true)} aria-label="AI Search" />
+          </Tooltip>
+        )}
+      </ToolbarItem>
+    </>
+  );
+};
+
 export const AppMasthead: React.FC<AppMastheadProps> = ({ isSidebarOpen, onSidebarToggle, userName, isAdmin }) => {
   const navigate = useNavigate();
 
@@ -188,6 +247,7 @@ export const AppMasthead: React.FC<AppMastheadProps> = ({ isSidebarOpen, onSideb
             <DateToolbar />
             <ComponentToolbar />
             <ToolbarGroup align={{ default: 'alignEnd' }}>
+              <AISearchIndicator />
               <PollIndicator />
               <ToolbarItem>
                 <span className="app-masthead-user">

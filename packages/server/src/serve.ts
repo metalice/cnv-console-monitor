@@ -77,6 +77,10 @@ const main = async (): Promise<void> => {
   registerDefaultPhases();
   log.info('Pipeline manager initialized');
 
+  const { initAIService } = await import('./ai');
+  await initAIService();
+  log.info('AI service initialized');
+
   const app = createApp();
   const server = http.createServer(app);
 

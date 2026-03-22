@@ -8,13 +8,14 @@ const DAY_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const toDateStr = (d: Date): string => d.toISOString().split('T')[0];
 
-type CalendarEvent = { version: string; milestone: string; color: string };
+type CalendarEvent = { version: string; shortname: string; milestone: string; color: string };
 
 type ReleaseCalendarProps = {
   releases: ReleaseInfo[];
+  onSelectVersion?: (shortname: string) => void;
 };
 
-export const ReleaseCalendar: React.FC<ReleaseCalendarProps> = ({ releases }) => {
+export const ReleaseCalendar: React.FC<ReleaseCalendarProps> = ({ releases, onSelectVersion }) => {
   const [monthOffset, setMonthOffset] = useState(0);
 
   const { year, month, weeks, events, monthLabel } = useMemo(() => {
@@ -34,6 +35,7 @@ export const ReleaseCalendar: React.FC<ReleaseCalendarProps> = ({ releases }) =>
         if (!evtMap.has(key)) evtMap.set(key, []);
         evtMap.get(key)!.push({
           version: r.shortname.replace('cnv-', ''),
+          shortname: r.shortname,
           milestone: ms.name.replace(/^Batch\s+/, '').replace(/GA Stable Release|GA Release/g, 'GA').trim(),
           color,
         });
@@ -95,7 +97,11 @@ export const ReleaseCalendar: React.FC<ReleaseCalendarProps> = ({ releases }) =>
                     <span className="app-rel-cal-day">{cell.day}</span>
                     {dayEvents.slice(0, 3).map((evt, ei) => (
                       <Tooltip key={ei} content={`${evt.version}: ${evt.milestone}`}>
-                        <div className="app-rel-cal-event" style={{ borderLeftColor: evt.color }}>
+                        <div
+                          className={`app-rel-cal-event ${onSelectVersion ? 'app-rel-cal-event-clickable' : ''}`}
+                          style={{ borderLeftColor: evt.color }}
+                          onClick={(e) => { e.stopPropagation(); if (onSelectVersion) onSelectVersion(evt.shortname); }}
+                        >
                           <span className="app-text-xs">{evt.version} {evt.milestone.substring(0, 12)}</span>
                         </div>
                       </Tooltip>

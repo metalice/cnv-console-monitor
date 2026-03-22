@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Card, CardBody, CardTitle, Content, MenuToggle, Pagination, Select, SelectList, SelectOption, Spinner, ToggleGroup, ToggleGroupItem, ToolbarItem, Tooltip } from '@patternfly/react-core';
 import { OutlinedQuestionCircleIcon } from '@patternfly/react-icons';
 import { Table, Thead, Tbody, SortByDirection } from '@patternfly/react-table';
@@ -65,14 +65,27 @@ type ReleaseChecklistProps = {
   checklistStatus: 'open' | 'all';
   onStatusChange: (status: 'open' | 'all') => void;
   releases: ReleaseInfo[] | undefined;
+  activeVersion?: string | null;
 };
 
 export const ReleaseChecklist: React.FC<ReleaseChecklistProps> = ({
-  checklist, isLoading, error, checklistStatus, onStatusChange, releases,
+  checklist, isLoading, error, checklistStatus, onStatusChange, releases, activeVersion,
 }) => {
   const { selectedComponents } = useComponentFilter();
   const [search, setSearch] = useState('');
   const [selectedVersions, setSelectedVersions] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!activeVersion || !checklist) {
+      setSelectedVersions(new Set());
+      return;
+    }
+    const ver = activeVersion.replace('cnv-', '');
+    const matching = checklist
+      .flatMap(t => t.fixVersions)
+      .filter(fv => fv.toLowerCase().includes(ver.toLowerCase()));
+    setSelectedVersions(new Set(matching));
+  }, [activeVersion, checklist]);
   const [versionFilterOpen, setVersionFilterOpen] = useState(false);
   const [modalKey, setModalKey] = useState<string | null>(null);
   const [page, setPage] = useState(1);

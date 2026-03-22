@@ -21,6 +21,7 @@ export type NewRowState = {
   enabled: boolean;
   reminderEnabled: boolean;
   reminderTime: string;
+  aiDigest?: boolean;
 };
 
 type NewSubscriptionFormProps = {
@@ -141,6 +142,12 @@ export const NewSubscriptionForm: React.FC<NewSubscriptionFormProps> = ({
                   </FlexItem>
                 )}
               </Flex>
+            </DescriptionListDescription>
+          </DescriptionListGroup>
+          <DescriptionListGroup>
+            <DescriptionListTerm><HelpLabel label="AI Digest" help="When enabled, notifications will include an AI-generated natural language summary of the daily test results. Requires AI to be configured in Settings." /></DescriptionListTerm>
+            <DescriptionListDescription>
+              <Switch id="new-sub-ai-digest" isChecked={!!newRow.aiDigest} onChange={(_e, checked) => updateField('aiDigest', checked)} label={newRow.aiDigest ? 'AI summary enabled' : 'AI summary disabled'} />
             </DescriptionListDescription>
           </DescriptionListGroup>
         </DescriptionList>

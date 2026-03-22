@@ -46,6 +46,11 @@ export type ManualMilestone = {
 export const fetchManualMilestones = (): Promise<ManualMilestone[]> =>
   apiFetch('/releases/milestones');
 
+export type SubVersion = { name: string; released: boolean };
+
+export const fetchSubVersions = (version: string): Promise<SubVersion[]> =>
+  apiFetch(`/releases/${version}/sub-versions`);
+
 export type BlockerIssue = {
   key: string;
   summary: string;

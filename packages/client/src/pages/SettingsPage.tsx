@@ -38,6 +38,7 @@ import { JiraSettings } from '../components/settings/JiraSettings';
 import { EmailServerSettings } from '../components/settings/EmailServerSettings';
 import { PollingSettings } from '../components/settings/PollingSettings';
 import { LinksSettings } from '../components/settings/LinksSettings';
+import { AISettings } from '../components/settings/AISettings';
 import { JenkinsSettings } from '../components/settings/JenkinsSettings';
 import { NotificationSubscriptions } from '../components/settings/NotificationSubscriptions';
 import { ComponentMappings } from '../components/settings/ComponentMappings';
@@ -327,6 +328,7 @@ export const SettingsPage: React.FC = () => {
                   { key: 'email', label: 'Email', enabled: emailEnabled },
                   { key: 'polling', label: 'Polling', enabled: true },
                   { key: 'links', label: 'Links', enabled: true },
+                  { key: 'ai', label: 'AI', enabled: true },
                 ] as const).map(({ key, label, enabled }) => (
                   <button
                     key={key}
@@ -364,6 +366,7 @@ export const SettingsPage: React.FC = () => {
                 {activeTab === 'email' && <EmailServerSettings {...sectionProps} emailEnabled={emailEnabled} />}
                 {activeTab === 'polling' && <PollingSettings {...sectionProps} />}
                 {activeTab === 'links' && <LinksSettings {...sectionProps} />}
+                {activeTab === 'ai' && <AISettings />}
               </div>
             </div>
           </CardBody>

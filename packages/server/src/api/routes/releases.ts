@@ -261,6 +261,253 @@ router.get('/velocity', async (_req: Request, res: Response, next: NextFunction)
   } catch (err) { next(err); }
 });
 
+// Sub-versions for changelog dropdowns
+router.get('/:version/sub-versions', async (req: Request, res: Response, next: NextFunction) => {
+  if (!config.jira.enabled) { res.json([]); return; }
+  try {
+    const version = (req.params.version as string).replace('cnv-', '');
+    const client = createJiraClient();
+    const versionsRes = await client.get(`/project/${config.jira.projectKey}/versions`);
+    const allVersions: Array<{ name: string; released: boolean }> = versionsRes.data || [];
+    const matching = allVersions
+      .filter(v => {
+        const name = v.name;
+        const pattern = new RegExp(`^CNV\\s+v?${version.replace('.', '\\.')}`, 'i');
+        return pattern.test(name);
+      })
+      .map(v => ({ name: v.name, released: v.released }))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    res.json(matching);
+  } catch (err) { next(err); }
+});
+
+// Changelog job store + DB persistence
+type ChangelogJob = {
+  status: 'running' | 'done' | 'error';
+  progress: string;
+  result?: Record<string, unknown>;
+  error?: string;
+  startedAt: number;
+};
+const changelogJobs = new Map<string, ChangelogJob>();
+
+const changelogCacheKey = (target: string, from?: string) => `changelog:${target}:${from || 'all'}`;
+
+const saveChangelogToDb = async (target: string, from: string | undefined, result: Record<string, unknown>) => {
+  try {
+    const { AppDataSource } = await import('../../db/data-source');
+    const { AICache } = await import('../../db/entities/AICache');
+    const key = changelogCacheKey(target, from);
+    await AppDataSource.getRepository(AICache).upsert({
+      prompt_hash: key,
+      model: 'changelog',
+      provider: 'changelog',
+      response: JSON.stringify(result),
+      tokens_used: 0,
+      expires_at: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    }, { conflictPaths: ['prompt_hash'] });
+  } catch { /* non-critical */ }
+};
+
+const loadChangelogFromDb = async (target: string, from?: string): Promise<Record<string, unknown> | null> => {
+  try {
+    const { AppDataSource } = await import('../../db/data-source');
+    const { AICache } = await import('../../db/entities/AICache');
+    const key = changelogCacheKey(target, from);
+    const row = await AppDataSource.getRepository(AICache).findOneBy({ prompt_hash: key });
+    if (!row || Number(row.expires_at) < Date.now()) return null;
+    return JSON.parse(row.response);
+  } catch { return null; }
+};
+
+router.get('/changelog-status', async (req: Request, res: Response) => {
+  const target = req.query.targetVersion as string;
+  const from = (req.query.compareFrom as string) || undefined;
+  if (!target) { res.json({ status: 'none' }); return; }
+
+  const jobKey = changelogCacheKey(target, from);
+  const activeJob = changelogJobs.get(jobKey);
+  if (activeJob && activeJob.status === 'running') {
+    res.json({ status: 'running', progress: activeJob.progress });
+    return;
+  }
+  if (activeJob && activeJob.status === 'done' && activeJob.result) {
+    res.json({ status: 'done', ...activeJob.result });
+    return;
+  }
+  if (activeJob && activeJob.status === 'error') {
+    res.json({ status: 'error', error: activeJob.error });
+    return;
+  }
+
+  const dbResult = await loadChangelogFromDb(target, from);
+  if (dbResult) {
+    res.json({ status: 'done', ...dbResult });
+    return;
+  }
+
+  res.json({ status: 'none' });
+});
+
+// Changelog generation (version-to-version, background job)
+const runChangelogJob = async (jobKey: string, targetVersion: string, compareFrom: string | undefined) => {
+  const job = changelogJobs.get(jobKey)!;
+  try {
+    const { getAIService } = await import('../../ai');
+    const ai = getAIService();
+
+    let issues: Array<Record<string, unknown>> = [];
+    const contributors = new Map<string, number>();
+    if (config.jira.enabled) {
+      try {
+        const client = createJiraClient();
+        const jql = `project = ${config.jira.projectKey} AND fixVersion = "${sanitizeJql(targetVersion)}" ORDER BY priority ASC, updated DESC`;
+        let startAt = 0;
+        const pageSize = 100;
+        while (true) {
+          const response = await jiraSearch(client, jql, ['summary', 'issuetype', 'priority', 'components', 'status', 'fixVersions', 'assignee', 'description'], pageSize, startAt);
+          const batch = (response.data.issues || []).map((issue: Record<string, unknown>) => {
+            const f = issue.fields as Record<string, unknown>;
+            const assignee = (f.assignee as { displayName: string })?.displayName || null;
+            if (assignee) contributors.set(assignee, (contributors.get(assignee) ?? 0) + 1);
+            const desc = (f.description as string) || '';
+            const prLinks = desc.match(/https?:\/\/github\.com\/[^\s/]+\/[^\s/]+\/pull\/\d+/g) || [];
+            return {
+              key: issue.key,
+              summary: (f.summary as string) || '',
+              type: (f.issuetype as { name: string })?.name || '',
+              priority: (f.priority as { name: string })?.name || '',
+              components: ((f.components || []) as Array<{ name: string }>).map(c => c.name).join(', '),
+              status: (f.status as { name: string })?.name || '',
+              assignee,
+              prLinks,
+            };
+          });
+          issues.push(...batch);
+          if (batch.length < pageSize || issues.length >= response.data.total) break;
+          startAt += pageSize;
+        }
+      } catch (err) {
+        log.warn({ err }, 'Failed to fetch Jira issues for changelog');
+      }
+    }
+
+    job.progress = `Fetched ${issues.length} issues. Preparing AI analysis...`;
+
+    const BATCH_SIZE = 60;
+    const batches: Array<Array<Record<string, unknown>>> = [];
+    for (let i = 0; i < issues.length; i += BATCH_SIZE) {
+      batches.push(issues.slice(i, i + BATCH_SIZE).map(issue => ({
+        key: issue.key,
+        summary: (issue.summary as string)?.substring(0, 150),
+        type: issue.type,
+        priority: issue.priority,
+        components: issue.components,
+        assignee: issue.assignee,
+        prLinks: (issue.prLinks as string[])?.slice(0, 3),
+      })));
+    }
+
+    const label = compareFrom ? `${compareFrom} -> ${targetVersion}` : targetVersion;
+    let mergedCategories: Record<string, Array<Record<string, unknown>>> = {};
+    let totalTokens = 0;
+    let modelUsed = '';
+
+    for (let bi = 0; bi < batches.length; bi++) {
+      job.progress = `AI analyzing batch ${bi + 1}/${batches.length}...`;
+      const batch = batches[bi];
+      const response = await ai.runPrompt('changelog', {
+        fromVersion: compareFrom || 'initial release',
+        toVersion: label,
+        issues: batch,
+        prs: [],
+        newlyPassing: 0,
+        newlyFailing: 0,
+      }, { json: true, cacheTtlMs: 24 * 60 * 60 * 1000, useCache: batches.length === 1 });
+
+      totalTokens += response.tokensUsed;
+      modelUsed = response.model;
+
+      let parsed: Record<string, unknown>;
+      let content = response.content.trim();
+      content = content.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+      try { parsed = JSON.parse(content); } catch { parsed = {}; }
+
+      const cats = (parsed.categories || {}) as Record<string, Array<Record<string, unknown>>>;
+      for (const [cat, items] of Object.entries(cats)) {
+        if (!mergedCategories[cat]) mergedCategories[cat] = [];
+        if (Array.isArray(items)) mergedCategories[cat].push(...items);
+      }
+
+      if (batches.length === 1 && parsed.summary) {
+        const contribs = [...contributors.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+        job.status = 'done';
+        job.result = {
+          changelog: parsed,
+          meta: { targetVersion, compareFrom: compareFrom || null, label, issueCount: issues.length, analyzedCount: batch.length, batches: 1, model: modelUsed, tokensUsed: totalTokens, durationMs: response.durationMs, cached: response.cached, contributors: contribs.map(([name, count]) => ({ name, count })) },
+        };
+        saveChangelogToDb(targetVersion, compareFrom, job.result).catch(() => {});
+        return;
+      }
+    }
+
+    job.progress = 'Generating summary...';
+    let finalSummary: Record<string, unknown> = { categories: mergedCategories };
+    if (batches.length > 1) {
+      const summaryData: Record<string, number> = {};
+      for (const [cat, items] of Object.entries(mergedCategories)) summaryData[cat] = items.length;
+      try {
+        const summaryResponse = await ai.chat([
+          { role: 'system', content: 'You are a release notes writer. Given categorized changes, write a brief summary and highlights. Output JSON: { "summary": "...", "highlights": "...", "breakingChanges": [] }' },
+          { role: 'user', content: `Release ${label} has these changes: ${JSON.stringify(summaryData)}. Total: ${issues.length} issues. Write a summary.` },
+        ], { json: true });
+        totalTokens += summaryResponse.tokensUsed;
+        let content = summaryResponse.content.trim().replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+        try {
+          const summaryParsed = JSON.parse(content);
+          finalSummary = { ...summaryParsed, categories: mergedCategories };
+        } catch { /* keep mergedCategories only */ }
+      } catch { /* summary generation failed */ }
+    }
+
+    const contribs = [...contributors.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+    job.status = 'done';
+    job.result = {
+      changelog: finalSummary,
+      meta: { targetVersion, compareFrom: compareFrom || null, label, issueCount: issues.length, analyzedCount: issues.length, batches: batches.length, model: modelUsed, tokensUsed: totalTokens, durationMs: Date.now() - job.startedAt, cached: false, contributors: contribs.map(([name, count]) => ({ name, count })) },
+    };
+    saveChangelogToDb(targetVersion, compareFrom, job.result).catch(() => {});
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Changelog generation failed';
+    log.error({ err }, msg);
+    job.status = 'error';
+    job.error = msg;
+  }
+};
+
+router.post('/:version/changelog', async (req: Request, res: Response) => {
+  const { getAIService } = await import('../../ai');
+  const ai = getAIService();
+  if (!ai.isEnabled()) { res.status(400).json({ error: 'AI is not enabled' }); return; }
+
+  const { targetVersion, compareFrom } = req.body;
+  if (!targetVersion) { res.status(400).json({ error: 'targetVersion required' }); return; }
+
+  const jobKey = changelogCacheKey(targetVersion, compareFrom);
+  const existing = changelogJobs.get(jobKey);
+  if (existing && existing.status === 'running') {
+    res.json({ status: 'already_running' });
+    return;
+  }
+
+  const job: ChangelogJob = { status: 'running', progress: 'Fetching Jira issues...', startedAt: Date.now() };
+  changelogJobs.set(jobKey, job);
+
+  runChangelogJob(jobKey, targetVersion, compareFrom).catch(() => {});
+
+  res.json({ status: 'started' });
+});
+
 // Manual milestones CRUD
 router.get('/milestones', async (_req: Request, res: Response, next: NextFunction) => {
   try {
