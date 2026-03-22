@@ -268,6 +268,7 @@ const ChangelogTab: React.FC<{ version: string }> = ({ version }) => {
   const [result, setResult] = useLocalState<ChangelogResult | null>(null);
   const [targetVer, setTargetVer] = useLocalState('');
   const [compareFrom, setCompareFrom] = useLocalState('');
+  const [compareEnabled, setCompareEnabled] = useLocalState(false);
   const [targetOpen, setTargetOpen] = useLocalState(false);
   const [compareOpen, setCompareOpen] = useLocalState(false);
   const [componentFilter, setComponentFilter] = useLocalState('');
@@ -283,9 +284,8 @@ const ChangelogTab: React.FC<{ version: string }> = ({ version }) => {
     if (subVersions?.length && !targetVer) {
       const latest = subVersions[subVersions.length - 1];
       setTargetVer(latest.name);
-      if (subVersions.length > 1) setCompareFrom(subVersions[subVersions.length - 2].name);
     }
-  }, [subVersions, targetVer, setTargetVer, setCompareFrom]);
+  }, [subVersions, targetVer, setTargetVer]);
 
   const [jobProgress, setJobProgress] = useLocalState('');
   const [isGenerating, setIsGenerating] = useLocalState(false);
@@ -293,7 +293,7 @@ const ChangelogTab: React.FC<{ version: string }> = ({ version }) => {
 
   const pollForResult = React.useCallback(() => {
     if (!targetVer) return;
-    fetchChangelogStatus(targetVer, compareFrom || undefined)
+    fetchChangelogStatus(targetVer, compareEnabled && compareFrom ? compareFrom : undefined)
       .then(status => {
         if (status.status === 'done' && status.changelog) {
           setResult({ changelog: status.changelog, meta: status.meta! } as ChangelogResult);
@@ -322,7 +322,7 @@ const ChangelogTab: React.FC<{ version: string }> = ({ version }) => {
     setResult(null);
     setJobProgress('Starting...');
     try {
-      await startChangelogJob(version, targetVer, compareFrom || undefined);
+      await startChangelogJob(version, targetVer, compareEnabled && compareFrom ? compareFrom : undefined);
       pollRef.current = setTimeout(pollForResult, 1000);
     } catch (err) {
       setJobProgress(err instanceof Error ? err.message : 'Failed to start');
@@ -390,20 +390,30 @@ const ChangelogTab: React.FC<{ version: string }> = ({ version }) => {
           </Select>
         </FlexItem>
         <FlexItem>
-          <Content component="small" className="app-text-muted app-mb-xs">Compare From (optional)</Content>
-          <Select isOpen={compareOpen} onOpenChange={setCompareOpen}
-            toggle={(ref: React.Ref<MenuToggleElement>) => (
-              <MenuToggle ref={ref} onClick={() => setCompareOpen(o => !o)} isExpanded={compareOpen} className="app-max-w-250">
-                {compareFrom || 'All issues (no comparison)'}
-              </MenuToggle>
-            )}
-            onSelect={(_e, val) => { setCompareFrom(val as string); setCompareOpen(false); setResult(null); }}
-          >
-            <SelectList>
-              <SelectOption value="">All issues (no comparison)</SelectOption>
-              {(subVersions ?? []).filter(v => v.name !== targetVer).map(v => <SelectOption key={v.name} value={v.name}>{v.name}</SelectOption>)}
-            </SelectList>
-          </Select>
+          <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }} className="app-mb-xs">
+            <FlexItem>
+              <input type="checkbox" id="compare-enable" checked={compareEnabled} onChange={e => { setCompareEnabled(e.target.checked); if (!e.target.checked) { setCompareFrom(''); setResult(null); } }} />
+            </FlexItem>
+            <FlexItem>
+              <Tooltip content="Enable to compare changes between two sub-versions. Shows only what's new in the target version compared to the selected base version.">
+                <label htmlFor="compare-enable" className="app-text-xs" style={{ cursor: 'pointer' }}>Compare with previous version</label>
+              </Tooltip>
+            </FlexItem>
+          </Flex>
+          {compareEnabled && (
+            <Select isOpen={compareOpen} onOpenChange={setCompareOpen}
+              toggle={(ref: React.Ref<MenuToggleElement>) => (
+                <MenuToggle ref={ref} onClick={() => setCompareOpen(o => !o)} isExpanded={compareOpen} className="app-max-w-250">
+                  {compareFrom || 'Select base version'}
+                </MenuToggle>
+              )}
+              onSelect={(_e, val) => { setCompareFrom(val as string); setCompareOpen(false); setResult(null); }}
+            >
+              <SelectList>
+                {(subVersions ?? []).filter(v => v.name !== targetVer).map(v => <SelectOption key={v.name} value={v.name}>{v.name}</SelectOption>)}
+              </SelectList>
+            </Select>
+          )}
         </FlexItem>
         <FlexItem>
           <Button variant="primary" onClick={() => mutation.mutate()} isLoading={mutation.isPending} isDisabled={!targetVer || mutation.isPending}>

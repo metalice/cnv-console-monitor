@@ -159,9 +159,27 @@ export const AISettings: React.FC = () => {
         <TextInput value={vertexRegion} onChange={(_e, v) => setVertexRegion(v)} placeholder="us-east5" className="app-max-w-350" />
       </FormGroup>
 
-      <FormGroup label={<HelpLabel label="Access Token" help="GCP access token. Get via: gcloud auth print-access-token. Tokens expire after 1 hour." />} className="app-mb-md">
+      <FormGroup label={<HelpLabel label="Access Token" help="GCP access token. Get via: gcloud auth print-access-token. Tokens expire after 1 hour." />} className="app-mb-sm">
         <TextInput type="password" value={vertexAccessToken} onChange={(_e, v) => setVertexAccessToken(v)} placeholder="ya29...." className="app-max-w-350" />
       </FormGroup>
+      {status?.vertexTokenInfo && (
+        <div className="app-mb-md">
+          <Content component="small" className="app-text-muted">
+            {status.vertexTokenInfo.expiresIn === null ? (
+              <Label color="grey" isCompact>No token set</Label>
+            ) : status.vertexTokenInfo.expiresIn <= 0 ? (
+              <Label color="red" isCompact>Token expired</Label>
+            ) : (
+              <>
+                <Label color={status.vertexTokenInfo.expiresIn < 300 ? 'orange' : 'green'} isCompact>
+                  Expires in {Math.floor(status.vertexTokenInfo.expiresIn / 60)}m {status.vertexTokenInfo.expiresIn % 60}s
+                </Label>
+                {status.vertexTokenInfo.email && <span> · {status.vertexTokenInfo.email}</span>}
+              </>
+            )}
+          </Content>
+        </div>
+      )}
 
       <Flex spaceItems={{ default: 'spaceItemsSm' }} className="app-mb-md">
         <FlexItem>

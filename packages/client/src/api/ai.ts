@@ -14,6 +14,11 @@ export type AIStatus = {
   providers: string[];
   models: AIModel[];
   prompts: string[];
+  vertexTokenInfo?: {
+    expiresIn: number | null;
+    expiresAt: string | null;
+    email: string | null;
+  };
 };
 
 export type AIUsage = {

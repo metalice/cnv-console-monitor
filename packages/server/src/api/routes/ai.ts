@@ -17,6 +17,24 @@ router.get('/status', async (_req: Request, res: Response) => {
   const ai = getAIService();
   const defaultModel = (await getSetting('ai.defaultModel')) || 'gemini';
   const defaultModelId = (await getSetting('ai.defaultModelId')) || '';
+
+  let vertexTokenInfo: { expiresIn: number | null; expiresAt: string | null; email: string | null } = { expiresIn: null, expiresAt: null, email: null };
+  const vertexToken = await getSetting('ai.vertexAccessToken');
+  if (vertexToken) {
+    try {
+      const axios = (await import('axios')).default;
+      const resp = await axios.get(`https://oauth2.googleapis.com/tokeninfo?access_token=${vertexToken}`, { timeout: 5000 });
+      const expiresIn = parseInt(resp.data.expires_in, 10);
+      vertexTokenInfo = {
+        expiresIn: isNaN(expiresIn) ? null : expiresIn,
+        expiresAt: isNaN(expiresIn) ? null : new Date(Date.now() + expiresIn * 1000).toISOString(),
+        email: resp.data.email || null,
+      };
+    } catch {
+      vertexTokenInfo = { expiresIn: 0, expiresAt: null, email: null };
+    }
+  }
+
   res.json({
     enabled: ai.isEnabled(),
     defaultModel,
@@ -24,6 +42,7 @@ router.get('/status', async (_req: Request, res: Response) => {
     providers: ai.getAvailableProviders(),
     models: ai.getAvailableModels(),
     prompts: ai.listPromptTemplates(),
+    vertexTokenInfo,
   });
 });
 
