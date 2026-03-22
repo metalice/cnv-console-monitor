@@ -6,7 +6,7 @@ import { fetchFailedItemsForLaunch } from './poller-backfill';
 import { updatePollProgress, isPollCancelled, addFailedItemLaunch, setLastPollSummary, getFailedItemLaunches, isJenkinsCancelled, resetJenkinsCancelled, type PollSummary, type PollPhaseSummary } from './pollLock';
 import { broadcast } from './ws';
 import { getErrorInfo, setGlobalRetryCounter } from './utils/retry';
-export { backfillTestItems, refreshLaunchTestItems } from './poller-backfill';
+export { backfillTestItems, refreshLaunchTestItems, fetchAllItemsForLaunch } from './poller-backfill';
 
 import { config } from './config';
 

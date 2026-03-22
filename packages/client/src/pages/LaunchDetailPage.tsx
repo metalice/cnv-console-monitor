@@ -15,6 +15,8 @@ import {
   Toolbar,
   ToolbarContent,
   ToolbarItem,
+  EmptyState,
+  EmptyStateBody,
 } from '@patternfly/react-core';
 import { SearchIcon, WrenchIcon, ExternalLinkAltIcon } from '@patternfly/react-icons';
 import type { TestItem, PublicConfig } from '@cnv-monitor/shared';
@@ -67,10 +69,13 @@ export const LaunchDetailPage: React.FC = () => {
   const passedItems = useMemo(() => items?.filter((item) => item.status === 'PASSED') ?? [], [items]);
   const skippedItems = useMemo(() => items?.filter((item) => item.status === 'SKIPPED') ?? [], [items]);
 
+  const showAllItems = failedItems.length === 0 && (items?.length ?? 0) > 0;
+
   const displayItems = useMemo(() => {
-    if (isGroupMode) return aggregateTestItems(failedItems);
-    return failedItems.map(item => ({ representative: item, allRpIds: [item.rp_id], occurrences: 1 }));
-  }, [isGroupMode, failedItems]);
+    const source = showAllItems ? (items ?? []) : failedItems;
+    if (isGroupMode) return aggregateTestItems(source);
+    return source.map(item => ({ representative: item, allRpIds: [item.rp_id], occurrences: 1 }));
+  }, [isGroupMode, failedItems, showAllItems, items]);
 
   return (
     <>
@@ -113,6 +118,28 @@ export const LaunchDetailPage: React.FC = () => {
 
       {isLoading ? (
         <PageSection isFilled><div className="app-page-spinner"><Spinner aria-label="Loading test items" /></div></PageSection>
+      ) : displayItems.length === 0 && items ? (
+        <PageSection>
+          <Card>
+            <CardBody>
+              <EmptyState variant="lg">
+                <EmptyStateBody>
+                  No failed test items found.
+                  {items.length > 0
+                    ? ` All ${items.length} test items passed or were skipped. The launch status is FAILED due to an infrastructure or setup issue, not individual test failures.`
+                    : ' This launch may have failed at the infrastructure level (setup/teardown) before any tests ran.'}
+                  {config && !isGroupMode && (
+                    <div className="app-mt-md">
+                      <Button variant="link" component="a" href={`${config.rpLaunchBaseUrl}/${launchRpId}`} target="_blank" rel="noreferrer" icon={<ExternalLinkAltIcon />}>
+                        View in ReportPortal
+                      </Button>
+                    </div>
+                  )}
+                </EmptyStateBody>
+              </EmptyState>
+            </CardBody>
+          </Card>
+        </PageSection>
       ) : (
         <PageSection>
           <Card>

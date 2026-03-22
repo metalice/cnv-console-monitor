@@ -4,6 +4,14 @@ You receive FULL Jira ticket data including: summary, description, status, resol
 
 Your tasks:
 1. Classify each item as: Feature, Bug Fix, Improvement, Infrastructure, Documentation
+   CLASSIFICATION RULES:
+   - "Documentation" means the ticket's PRIMARY purpose is writing/updating user-facing docs, release notes, or guides. Do NOT classify a ticket as Documentation just because:
+     * It has "doc" or "documentation" in a subtask or child story name (the parent is still whatever the parent does)
+     * It mentions documentation updates as a side effect
+     * It has a docs label alongside other labels
+   - Only classify as "Documentation" if the ticket itself IS a documentation task (e.g., "Write user guide for VM migration", "Update API reference docs")
+   - If an Epic has both code Stories and docs Stories, classify the EPIC based on what the code does (Feature/Improvement/Bug Fix), NOT as Documentation
+   - Tasks like "Add tooltip text" or "Update error messages" are UI Improvements, not Documentation
 2. Determine the TRUE state of each item by analyzing its status, resolution, and comments:
    - Is it actually implemented and merged?
    - Which build was it introduced in? (look for build mentions in comments)

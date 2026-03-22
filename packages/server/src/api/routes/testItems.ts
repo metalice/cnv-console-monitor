@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { getFailedTestItems, getFailedTestItemsForLaunches, getAllTestItems, getUntriagedItems, getTestItemHistory, getTestFailureStreak } from '../../db/store';
 import { fetchTestItemLogs } from '../../clients/reportportal';
 import { parseIntParam, clampInt } from '../middleware/validate';
-import { refreshLaunchTestItems } from '../../poller';
+import { refreshLaunchTestItems, fetchAllItemsForLaunch } from '../../poller';
 
 const router = Router();
 
@@ -17,10 +17,13 @@ router.get('/launch/:launchId', async (req: Request, res: Response, next: NextFu
       : await getAllTestItems(launchId);
 
     if (items.length === 0) {
-      await refreshLaunchTestItems(launchId);
-      items = status === 'FAILED'
-        ? await getFailedTestItems(launchId)
-        : await getAllTestItems(launchId);
+      if (status === 'FAILED') {
+        await refreshLaunchTestItems(launchId);
+        items = await getFailedTestItems(launchId);
+      } else {
+        await fetchAllItemsForLaunch(launchId);
+        items = await getAllTestItems(launchId);
+      }
     }
 
     res.json(items);

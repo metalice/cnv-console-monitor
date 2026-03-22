@@ -122,7 +122,7 @@ export class EnrichJenkinsPhase implements PipelinePhase {
       return;
     }
 
-    const buildApiUrl = launch.artifacts_url.replace(/\/artifact\/?$/, '/api/json?tree=actions[parameters[name,value]]');
+    const buildApiUrl = launch.artifacts_url.replace(/\/artifact\/?$/, '/api/json?tree=result,actions[parameters[name,value]]');
     const requestConfig = buildJenkinsRequestConfig();
 
     try {
@@ -163,6 +163,7 @@ export class EnrichJenkinsPhase implements PipelinePhase {
       }
 
       launch.jenkins_status = 'success';
+      const jenkinsResult = response.data?.result as string | undefined;
       if (team) {
         launch.jenkins_team = team;
         launch.component = team;
@@ -171,6 +172,12 @@ export class EnrichJenkinsPhase implements PipelinePhase {
         if (fromRegex) launch.component = fromRegex;
       }
       if (metadata) launch.jenkins_metadata = metadata;
+      if (jenkinsResult) {
+        launch.jenkins_metadata = { ...launch.jenkins_metadata, buildResult: jenkinsResult };
+        if (jenkinsResult === 'SUCCESS' && launch.status === 'FAILED' && launch.failed === 0) {
+          launch.status = 'PASSED';
+        }
+      }
       const tier = (metadata?.tier != null ? `TIER-${metadata.tier}` : null) || params.DATA_TIER_NAME || params.CNV_TIER_NAME || null;
       if (tier && (!launch.tier || launch.tier === '-')) launch.tier = tier;
 

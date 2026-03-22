@@ -1,0 +1,15 @@
+[book]
+title = "RFC: Test Explorer"
+authors = ["Matan Schatzman"]
+language = "en"
+multilingual = false
+src = "src"
+
+[output.html]
+default-theme = "navy"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/cnv-qe/cnv-console-monitor"
+edit-url-template = "https://github.com/cnv-qe/cnv-console-monitor/edit/main/docs/book/src/{path}"
+
+[output.html.search]
+enable = true
