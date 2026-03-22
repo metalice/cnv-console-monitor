@@ -378,41 +378,121 @@ const runChangelogJob = async (jobKey: string, targetVersion: string, compareFro
     const { getAIService } = await import('../../ai');
     const ai = getAIService();
 
+    const FULL_FIELDS = [
+      'summary', 'issuetype', 'priority', 'components', 'status', 'resolution',
+      'fixVersions', 'assignee', 'description', 'comment', 'issuelinks',
+      'parent', 'subtasks', 'labels', 'created', 'updated', 'resolutiondate',
+    ];
+
     let issues: Array<Record<string, unknown>> = [];
     const contributors = new Map<string, number>();
+    const epicKeys = new Set<string>();
+
     if (config.jira.enabled) {
       try {
         const client = createJiraClient();
-        jobLog(job, `Querying Jira for issues with fixVersion = "${targetVersion}"`);
+        jobLog(job, `Querying Jira for issues with fixVersion = "${targetVersion}" (full depth: comments, links, subtasks)`);
         const jql = `project = ${config.jira.projectKey} AND fixVersion = "${sanitizeJql(targetVersion)}" ORDER BY priority ASC, updated DESC`;
         let startAt = 0;
-        const pageSize = 100;
+        const pageSize = 50;
         while (true) {
-          const response = await jiraSearch(client, jql, ['summary', 'issuetype', 'priority', 'components', 'status', 'fixVersions', 'assignee', 'description'], pageSize, startAt);
+          const response = await jiraSearch(client, jql, FULL_FIELDS, pageSize, startAt);
           jobLog(job, `Fetched page ${Math.floor(startAt / pageSize) + 1}: ${response.data.issues?.length ?? 0} issues (${issues.length + (response.data.issues?.length ?? 0)} total)`);
           const batch = (response.data.issues || []).map((issue: Record<string, unknown>) => {
             const f = issue.fields as Record<string, unknown>;
             const assignee = (f.assignee as { displayName: string })?.displayName || null;
             if (assignee) contributors.set(assignee, (contributors.get(assignee) ?? 0) + 1);
+
             const desc = (f.description as string) || '';
             const prLinks = desc.match(/https?:\/\/github\.com\/[^\s/]+\/[^\s/]+\/pull\/\d+/g) || [];
+
+            const comments = ((f.comment as { comments?: Array<{ body: string; author: { displayName: string }; created: string }> })?.comments ?? [])
+              .slice(-5)
+              .map(c => ({ author: c.author?.displayName, text: c.body?.substring(0, 500), date: c.created }));
+
+            const buildMentions = comments.map(c => c.text).join(' ').match(/build[:\s#-]*[\w.-]+/gi) || [];
+
+            const links = ((f.issuelinks || []) as Array<Record<string, unknown>>).map(link => {
+              const inward = link.inwardIssue as Record<string, unknown> | undefined;
+              const outward = link.outwardIssue as Record<string, unknown> | undefined;
+              const linkType = (link.type as Record<string, unknown>)?.name as string || '';
+              const linked = inward || outward;
+              return linked ? {
+                type: linkType,
+                direction: inward ? 'inward' : 'outward',
+                key: (linked as Record<string, unknown>).key,
+                summary: ((linked as Record<string, unknown>).fields as Record<string, unknown>)?.summary,
+                status: (((linked as Record<string, unknown>).fields as Record<string, unknown>)?.status as Record<string, unknown>)?.name,
+              } : null;
+            }).filter(Boolean);
+
+            const parent = f.parent as Record<string, unknown> | undefined;
+            const parentInfo = parent ? {
+              key: parent.key,
+              summary: (parent.fields as Record<string, unknown>)?.summary,
+              type: ((parent.fields as Record<string, unknown>)?.issuetype as Record<string, unknown>)?.name,
+            } : null;
+
+            if (parentInfo && (parentInfo.type as string)?.toLowerCase() === 'epic') epicKeys.add(parentInfo.key as string);
+
+            const subtasks = ((f.subtasks || []) as Array<Record<string, unknown>>).map(st => ({
+              key: st.key,
+              summary: (st.fields as Record<string, unknown>)?.summary,
+              status: ((st.fields as Record<string, unknown>)?.status as Record<string, unknown>)?.name,
+            }));
+
+            const issueType = (f.issuetype as { name: string })?.name || '';
+            if (issueType.toLowerCase() === 'epic') epicKeys.add(issue.key as string);
+
             return {
               key: issue.key,
               summary: (f.summary as string) || '',
-              type: (f.issuetype as { name: string })?.name || '',
+              description: desc.substring(0, 2000),
+              type: issueType,
               priority: (f.priority as { name: string })?.name || '',
               components: ((f.components || []) as Array<{ name: string }>).map(c => c.name).join(', '),
               status: (f.status as { name: string })?.name || '',
+              resolution: (f.resolution as { name: string })?.name || null,
               assignee,
+              labels: (f.labels || []) as string[],
               prLinks,
+              buildMentions,
+              comments: comments.length > 0 ? comments : undefined,
+              links: links.length > 0 ? links : undefined,
+              parent: parentInfo,
+              subtasks: subtasks.length > 0 ? subtasks : undefined,
+              created: f.created,
+              updated: f.updated,
+              resolved: f.resolutiondate || null,
             };
           });
           issues.push(...batch);
           if (batch.length < pageSize || issues.length >= response.data.total) break;
           startAt += pageSize;
         }
+
+        if (epicKeys.size > 0) {
+          jobLog(job, `Found ${epicKeys.size} epics — fetching child issues to verify completeness...`);
+          for (const epicKey of epicKeys) {
+            try {
+              const epicJql = `"Epic Link" = ${epicKey} ORDER BY issuetype ASC`;
+              const epicResponse = await jiraSearch(client, epicJql, ['summary', 'issuetype', 'status', 'resolution'], 200, 0);
+              const children = (epicResponse.data.issues || []).map((ch: Record<string, unknown>) => {
+                const cf = ch.fields as Record<string, unknown>;
+                return { key: ch.key, summary: (cf.summary as string) || '', type: (cf.issuetype as { name: string })?.name, status: (cf.status as { name: string })?.name, resolution: (cf.resolution as { name: string })?.name };
+              });
+              const epicIssue = issues.find(i => i.key === epicKey);
+              if (epicIssue) {
+                (epicIssue as Record<string, unknown>).epicChildren = children;
+                const done = children.filter((c: Record<string, unknown>) => c.status === 'Closed' || c.status === 'Done').length;
+                jobLog(job, `Epic ${epicKey}: ${done}/${children.length} children completed`);
+              }
+            } catch { /* skip epic on error */ }
+          }
+        }
       } catch (err) {
         log.warn({ err }, 'Failed to fetch Jira issues for changelog');
+        jobLog(job, `Jira fetch error: ${err instanceof Error ? err.message : 'Unknown'}`, 'error');
       }
     }
 
@@ -421,21 +501,24 @@ const runChangelogJob = async (jobKey: string, targetVersion: string, compareFro
     const typeCounts = new Map<string, number>();
     issues.forEach(i => typeCounts.set(i.type as string, (typeCounts.get(i.type as string) ?? 0) + 1));
     const typeBreakdown = [...typeCounts.entries()].map(([t, c]) => `${c} ${t}`).join(', ');
-    jobLog(job, `Fetched ${issues.length} issues (${typeBreakdown})`, 'success');
-    jobLog(job, `${contributors.size} unique contributors found`);
+    jobLog(job, `Fetched ${issues.length} issues with full context (${typeBreakdown})`, 'success');
+    jobLog(job, `${contributors.size} contributors, ${epicKeys.size} epics traversed`);
 
-    const BATCH_SIZE = 60;
-    const batches: Array<Array<Record<string, unknown>>> = [];
-    for (let i = 0; i < issues.length; i += BATCH_SIZE) {
-      batches.push(issues.slice(i, i + BATCH_SIZE).map(issue => ({
-        key: issue.key,
-        summary: (issue.summary as string)?.substring(0, 150),
-        type: issue.type,
-        priority: issue.priority,
-        components: issue.components,
-        assignee: issue.assignee,
-        prLinks: (issue.prLinks as string[])?.slice(0, 3),
-      })));
+    const estimatedTokens = JSON.stringify(issues).length / 4;
+    jobLog(job, `Estimated ~${Math.round(estimatedTokens / 1000)}K tokens for all issues`);
+
+    let batches: Array<Array<Record<string, unknown>>> = [];
+    const MAX_TOKENS_PER_BATCH = 150000;
+    if (estimatedTokens <= MAX_TOKENS_PER_BATCH) {
+      batches = [issues];
+      jobLog(job, 'All issues fit in a single AI call');
+    } else {
+      const tokensPerIssue = estimatedTokens / issues.length;
+      const issuesPerBatch = Math.floor(MAX_TOKENS_PER_BATCH / tokensPerIssue);
+      for (let i = 0; i < issues.length; i += issuesPerBatch) {
+        batches.push(issues.slice(i, i + issuesPerBatch));
+      }
+      jobLog(job, `Split into ${batches.length} batches (~${issuesPerBatch} issues each, ~${Math.round(tokensPerIssue * issuesPerBatch / 1000)}K tokens per batch)`);
     }
 
     const label = compareFrom ? `${compareFrom} -> ${targetVersion}` : targetVersion;
@@ -444,7 +527,7 @@ const runChangelogJob = async (jobKey: string, targetVersion: string, compareFro
     let modelUsed = '';
 
     job.totalBatches = batches.length;
-    jobLog(job, `Split into ${batches.length} batch${batches.length > 1 ? 'es' : ''} of ${BATCH_SIZE} issues for AI analysis`);
+    jobLog(job, `Split into ${batches.length} batch${batches.length > 1 ? 'es' : ''} for AI analysis`);
 
     for (let bi = 0; bi < batches.length; bi++) {
       job.currentBatch = bi + 1;

@@ -31,7 +31,7 @@ export type AIUsage = {
   totalTokens: number;
 };
 
-export type ChangelogItem = { key?: string; title?: string; component?: string; prs?: string[]; prLinks?: string[]; assignee?: string; impactScore?: number; risk?: string };
+export type ChangelogItem = { key?: string; title?: string; component?: string; prs?: string[]; prLinks?: string[]; assignee?: string; impactScore?: number; risk?: string; status?: string; buildInfo?: string };
 
 export type ChangelogResult = {
   changelog: {
@@ -39,6 +39,8 @@ export type ChangelogResult = {
     categories?: Record<string, ChangelogItem[]>;
     highlights?: string;
     breakingChanges?: Array<string | Record<string, unknown>>;
+    epicStatus?: Array<{ key: string; title: string; childrenDone: number; childrenTotal: number; status: string }>;
+    concerns?: string[];
     testImpact?: { newlyPassing: number; newlyFailing: number };
     raw?: string;
   };

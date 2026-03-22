@@ -611,6 +611,28 @@ const ChangelogTab: React.FC<{ version: string; milestones: Array<{ name: string
             </ExpandableSection>
           )}
 
+          {cl?.epicStatus && cl.epicStatus.length > 0 && (
+            <ExpandableSection toggleText={`Epic Status (${cl.epicStatus.length})`} className="app-mb-sm">
+              {cl.epicStatus.map((epic, i) => (
+                <div key={i} className="app-changelog-item">
+                  <a href={`https://issues.redhat.com/browse/${epic.key}`} target="_blank" rel="noreferrer" className="app-changelog-key">{epic.key}</a>
+                  <span className="app-changelog-title">{epic.title}</span>
+                  <Label color={epic.status === 'complete' ? 'green' : epic.status === 'blocked' ? 'red' : 'orange'} isCompact className="app-ml-xs">
+                    {epic.childrenDone}/{epic.childrenTotal} done
+                  </Label>
+                </div>
+              ))}
+            </ExpandableSection>
+          )}
+
+          {cl?.concerns && cl.concerns.length > 0 && (
+            <Alert variant="warning" isInline title={`${cl.concerns.length} Concerns`} className="app-mb-md">
+              <ul className="app-text-xs">
+                {cl.concerns.map((c, i) => <li key={i}>{typeof c === 'string' ? c : JSON.stringify(c)}</li>)}
+              </ul>
+            </Alert>
+          )}
+
           {cl?.raw && !hasCategories && (
             <div className="app-changelog-raw">
               {cl.raw.split('\n').map((line, i) => <Content key={i} component="p" className="app-text-xs">{line}</Content>)}
