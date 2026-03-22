@@ -1,42 +1,95 @@
-import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState, useEffect, useRef } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   PageSection,
   Content,
-  Split,
-  SplitItem,
   Button,
   Toolbar,
   ToolbarContent,
   ToolbarItem,
+  ToolbarGroup,
   Spinner,
   EmptyState,
   EmptyStateBody,
-  ExpandableSection,
+  Card,
+  CardBody,
+  Gallery,
+  GalleryItem,
+  Flex,
+  FlexItem,
+  Label,
+  Alert,
+  Divider,
 } from '@patternfly/react-core';
-import { SyncAltIcon, LightbulbIcon } from '@patternfly/react-icons';
+import {
+  SyncAltIcon,
+  LightbulbIcon,
+  RepositoryIcon,
+  OutlinedFileAltIcon,
+  CodeIcon,
+  LinkIcon,
+  ShieldAltIcon,
+  SearchIcon,
+  CogIcon,
+} from '@patternfly/react-icons';
+import { useNavigate } from 'react-router-dom';
 import type { TreeNode } from '@cnv-monitor/shared';
-import { fetchTree, syncAllRepos } from '../api/testExplorer';
+import { fetchTree, fetchExplorerStats, syncAllRepos } from '../api/testExplorer';
 import { useComponentFilter } from '../context/ComponentFilterContext';
+import { usePreferences } from '../context/PreferencesContext';
 import { FileTree } from '../components/test-explorer/FileTree';
 import { FileDetail } from '../components/test-explorer/FileDetail';
 import { QuarantineDashboard } from '../components/test-explorer/QuarantineDashboard';
 import { CreateQuarantineModal } from '../components/test-explorer/QuarantineModal';
 import { AIInsightsDrawer } from '../components/test-explorer/AIInsightsDrawer';
+import { StatCard } from '../components/common/StatCard';
+import { TimeAgo } from '../components/common/TimeAgo';
+
+const STATUS_SUCCESS = 'var(--pf-t--global--color--status--success--default)';
+const STATUS_DANGER = 'var(--pf-t--global--color--status--danger--default)';
+const STATUS_WARNING = 'var(--pf-t--global--color--status--warning--default)';
+const STATUS_INFO = 'var(--pf-t--global--color--status--info--default)';
 
 export const TestExplorerPage: React.FC = () => {
   useEffect(() => { document.title = 'Test Explorer | CNV Console Monitor'; }, []);
 
+  const navigate = useNavigate();
   const { selectedComponent: activeComponent } = useComponentFilter();
+  const { preferences, setPreference } = usePreferences();
+  const prevSidebarState = useRef<boolean | undefined>(undefined);
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
+  const [highlightInfo, setHighlightInfo] = useState<{ lines: number[]; scrollTo: number } | null>(null);
   const [insightsOpen, setInsightsOpen] = useState(false);
   const [quarantineTarget, setQuarantineTarget] = useState<TreeNode | null>(null);
   const [quarantineOpen, setQuarantineOpen] = useState(false);
 
-  const { data: tree, isLoading, refetch } = useQuery({
+  useEffect(() => {
+    if (prevSidebarState.current === undefined) {
+      prevSidebarState.current = preferences.sidebarCollapsed !== true;
+    }
+    setPreference('sidebarCollapsed', true);
+    return () => {
+      if (prevSidebarState.current !== undefined) {
+        setPreference('sidebarCollapsed', !prevSidebarState.current);
+      }
+    };
+  }, []);
+
+  const { data: tree, isLoading, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['testExplorerTree', activeComponent],
     queryFn: () => fetchTree(activeComponent || undefined),
     staleTime: 60_000,
+  });
+
+  const { data: stats } = useQuery({
+    queryKey: ['testExplorerStats', activeComponent],
+    queryFn: () => fetchExplorerStats(activeComponent || undefined),
+    staleTime: 60_000,
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: () => syncAllRepos(),
+    onSuccess: () => refetch(),
   });
 
   const handleQuarantine = (node: TreeNode) => {
@@ -44,82 +97,200 @@ export const TestExplorerPage: React.FC = () => {
     setQuarantineOpen(true);
   };
 
+  const statsData = stats as Record<string, unknown> | undefined;
+  const quarantineStats = statsData?.quarantine as Record<string, number> | undefined;
+
   const content = (
     <>
       <PageSection>
-        <Content component="h1">Test Explorer</Content>
-        <Toolbar>
-          <ToolbarContent>
-            <ToolbarItem>
-              <Button variant="secondary" icon={<SyncAltIcon />} onClick={() => { syncAllRepos(); refetch(); }}>Sync Repos</Button>
-            </ToolbarItem>
-            <ToolbarItem>
-              <Button variant="secondary" icon={<LightbulbIcon />} onClick={() => setInsightsOpen(!insightsOpen)}>
-                AI Insights
-              </Button>
-            </ToolbarItem>
-          </ToolbarContent>
-        </Toolbar>
+        <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }}>
+          <FlexItem>
+            <Content component="h1">Test Explorer</Content>
+            <Content component="small" className="app-text-muted">
+              Documentation tree, test coverage gaps, and quarantine management
+            </Content>
+          </FlexItem>
+          <FlexItem>
+            <Toolbar>
+              <ToolbarContent>
+                <ToolbarGroup>
+                  {dataUpdatedAt > 0 && (
+                    <ToolbarItem>
+                      <Label variant="outline" className="app-text-muted app-text-xs">
+                        Last synced: <TimeAgo timestamp={dataUpdatedAt} />
+                      </Label>
+                    </ToolbarItem>
+                  )}
+                  <ToolbarItem>
+                    <Button
+                      variant="secondary"
+                      icon={<SyncAltIcon />}
+                      onClick={() => syncMutation.mutate()}
+                      isLoading={syncMutation.isPending}
+                      isDisabled={syncMutation.isPending}
+                    >
+                      {syncMutation.isPending ? 'Syncing...' : 'Sync Repos'}
+                    </Button>
+                  </ToolbarItem>
+                  <ToolbarItem>
+                    <Button
+                      variant={insightsOpen ? 'primary' : 'secondary'}
+                      icon={<LightbulbIcon />}
+                      onClick={() => setInsightsOpen(!insightsOpen)}
+                    >
+                      AI Insights
+                    </Button>
+                  </ToolbarItem>
+                  <ToolbarItem>
+                    <Button variant="plain" icon={<CogIcon />} onClick={() => navigate('/settings')} />
+                  </ToolbarItem>
+                </ToolbarGroup>
+              </ToolbarContent>
+            </Toolbar>
+          </FlexItem>
+        </Flex>
       </PageSection>
 
+      {syncMutation.isError && (
+        <PageSection>
+          <Alert variant="danger" isInline title="Sync failed">
+            {String((syncMutation.error as Error)?.message || 'Unknown error')}
+          </Alert>
+        </PageSection>
+      )}
+
+      {statsData && (
+        <PageSection>
+          <Gallery hasGutter minWidths={{ default: '140px' }}>
+            <GalleryItem>
+              <StatCard
+                value={Number(statsData.repositories ?? 0)}
+                label="Repositories"
+                color={STATUS_INFO}
+                help="Number of registered and enabled repositories"
+              />
+            </GalleryItem>
+            <GalleryItem>
+              <StatCard
+                value={Number(statsData.docs ?? 0)}
+                label="Doc Files"
+                help="Total markdown documentation files found across all repos"
+              />
+            </GalleryItem>
+            <GalleryItem>
+              <StatCard
+                value={Number(statsData.tests ?? 0)}
+                label="Test Files"
+                help="Total test files found across all repos"
+              />
+            </GalleryItem>
+            <GalleryItem>
+              <StatCard
+                value={Number(statsData.matched ?? 0)}
+                label="Matched Pairs"
+                color={STATUS_SUCCESS}
+                help="Doc-test file pairs that have been matched"
+              />
+            </GalleryItem>
+            <GalleryItem>
+              <StatCard
+                value={Number(statsData.docCoverage ?? 0)}
+                label="Coverage %"
+                color={
+                  Number(statsData.docCoverage ?? 0) >= 80 ? STATUS_SUCCESS
+                    : Number(statsData.docCoverage ?? 0) >= 50 ? STATUS_WARNING
+                    : STATUS_DANGER
+                }
+                help="Percentage of test files that have matching documentation"
+              />
+            </GalleryItem>
+            <GalleryItem>
+              <StatCard
+                value={quarantineStats?.active ?? 0}
+                label="Quarantined"
+                color={(quarantineStats?.active ?? 0) > 0 ? STATUS_WARNING : STATUS_SUCCESS}
+                help="Tests currently quarantined (active + overdue)"
+              />
+            </GalleryItem>
+          </Gallery>
+        </PageSection>
+      )}
+
+      <Divider />
+
       {isLoading ? (
-        <PageSection isFilled><div className="app-page-spinner"><Spinner aria-label="Loading tree" /></div></PageSection>
+        <PageSection isFilled>
+          <div className="app-page-spinner"><Spinner aria-label="Loading tree" /></div>
+        </PageSection>
       ) : !tree || tree.length === 0 ? (
         <PageSection>
-          <EmptyState variant="lg">
+          <EmptyState variant="lg" icon={RepositoryIcon}>
+            <Content component="h2">No repositories configured</Content>
             <EmptyStateBody>
-              No repositories configured. Go to Settings &gt; Repository Mapping to add repositories.
+              Add a repository in Settings to start exploring test documentation, coverage gaps, and quarantine management.
             </EmptyStateBody>
+            <Button variant="primary" icon={<CogIcon />} onClick={() => navigate('/settings')}>
+              Go to Settings
+            </Button>
           </EmptyState>
         </PageSection>
       ) : (
         <PageSection isFilled>
-          <Split hasGutter>
-            <SplitItem style={{ width: '40%', minWidth: 300, maxHeight: 'calc(100vh - 250px)', overflow: 'auto' }}>
-              <FileTree
-                tree={tree}
-                onSelect={setSelectedNode}
-                selectedPath={selectedNode?.path}
-              />
-            </SplitItem>
-            <SplitItem isFilled style={{ maxHeight: 'calc(100vh - 250px)', overflow: 'auto' }}>
+          <div className="app-explorer-layout">
+            <div className="app-explorer-tree-panel">
+              <FileTree tree={tree} onSelect={(n) => { setSelectedNode(n); setHighlightInfo(null); }} selectedPath={selectedNode?.path} />
+            </div>
+            <div className="app-explorer-detail-panel">
               {selectedNode ? (
-                <FileDetail node={selectedNode} onQuarantine={handleQuarantine} />
+                <FileDetail node={selectedNode} onQuarantine={handleQuarantine} highlightInfo={highlightInfo} onNavigate={(path, highlight) => {
+                  if (!tree) return;
+                  const findNode = (nodes: TreeNode[], target: string): TreeNode | undefined => {
+                    for (const n of nodes) {
+                      if (n.path === target) return n;
+                      if (n.children) { const found = findNode(n.children, target); if (found) return found; }
+                    }
+                    return undefined;
+                  };
+                  const target = findNode(tree, path);
+                  if (target) {
+                    setSelectedNode(target);
+                    setHighlightInfo(highlight || null);
+                  }
+                }} />
               ) : (
-                <EmptyState variant="sm">
-                  <EmptyStateBody>Select a file from the tree to view details.</EmptyStateBody>
-                </EmptyState>
+                <div className="app-explorer-empty">
+                  <EmptyState variant="sm" icon={SearchIcon}>
+                    <Content component="h4">Select a file</Content>
+                    <EmptyStateBody>
+                      Click a file in the tree to view its details, metadata, and content.
+                    </EmptyStateBody>
+                  </EmptyState>
+                </div>
               )}
-            </SplitItem>
-          </Split>
+            </div>
+          </div>
         </PageSection>
       )}
 
       <PageSection>
-        <ExpandableSection toggleText="Quarantine Dashboard" isExpanded>
-          <QuarantineDashboard />
-        </ExpandableSection>
+        <QuarantineDashboard />
       </PageSection>
 
       {quarantineTarget && (
         <CreateQuarantineModal
           isOpen={quarantineOpen}
           onClose={() => { setQuarantineOpen(false); setQuarantineTarget(null); }}
-          testName={quarantineTarget.path || quarantineTarget.name}
+          testName={quarantineTarget.name}
           testFilePath={quarantineTarget.path}
           repoId={quarantineTarget.repoId}
-          component={undefined}
+          component={activeComponent || undefined}
         />
       )}
     </>
   );
 
   return (
-    <AIInsightsDrawer
-      isOpen={insightsOpen}
-      onClose={() => setInsightsOpen(false)}
-      component={activeComponent || undefined}
-    >
+    <AIInsightsDrawer isOpen={insightsOpen} onClose={() => setInsightsOpen(false)} component={activeComponent || undefined}>
       {content}
     </AIInsightsDrawer>
   );

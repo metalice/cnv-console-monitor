@@ -41,6 +41,7 @@ import { PollingSettings } from '../components/settings/PollingSettings';
 import { LinksSettings } from '../components/settings/LinksSettings';
 import { AISettings } from '../components/settings/AISettings';
 import { JenkinsSettings } from '../components/settings/JenkinsSettings';
+import { GitSettings } from '../components/settings/GitSettings';
 import { NotificationSubscriptions } from '../components/settings/NotificationSubscriptions';
 import { ComponentMappings } from '../components/settings/ComponentMappings';
 import { UserManagement, BootstrapAdmin } from '../components/settings/UserManagement';
@@ -340,6 +341,7 @@ export const SettingsPage: React.FC = () => {
                   { key: 'reportportal', label: 'ReportPortal', enabled: rpEnabled },
                   { key: 'jira', label: 'Jira', enabled: jiraEnabled },
                   { key: 'jenkins', label: 'Jenkins', enabled: jenkinsEnabled },
+                  { key: 'git', label: 'Git', enabled: !!(val('gitlab.token') || val('github.token')) },
                   { key: 'email', label: 'Email', enabled: emailEnabled },
                   { key: 'polling', label: 'Polling', enabled: true },
                   { key: 'links', label: 'Links', enabled: true },
@@ -378,6 +380,7 @@ export const SettingsPage: React.FC = () => {
                   />
                 )}
                 {activeTab === 'jenkins' && <JenkinsSettings {...sectionProps} {...tokenHandlers} />}
+                {activeTab === 'git' && <GitSettings {...sectionProps} {...tokenHandlers} />}
                 {activeTab === 'email' && <EmailServerSettings {...sectionProps} emailEnabled={emailEnabled} />}
                 {activeTab === 'polling' && <PollingSettings {...sectionProps} />}
                 {activeTab === 'links' && <LinksSettings {...sectionProps} />}

@@ -27,6 +27,15 @@ router.post('/', requireAdmin, async (req: Request, res: Response, next: NextFun
     const parsed = CreateRepositorySchema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.issues }); return; }
 
+    const inlineToken = (req.body as Record<string, unknown>).token as string | undefined;
+    const tokenKey = parsed.data.globalTokenKey || `${parsed.data.provider}.token`;
+
+    if (inlineToken) {
+      const { setSetting } = await import('../../db/store');
+      await setSetting(tokenKey, inlineToken, req.user?.email || 'system');
+      log.info({ tokenKey }, 'Saved inline token to settings during repo creation');
+    }
+
     const repo = await createRepository({
       name: parsed.data.name,
       provider: parsed.data.provider,
@@ -34,7 +43,7 @@ router.post('/', requireAdmin, async (req: Request, res: Response, next: NextFun
       api_base_url: parsed.data.apiBaseUrl,
       project_id: parsed.data.projectId,
       branches: parsed.data.branches as unknown as string,
-      global_token_key: parsed.data.globalTokenKey,
+      global_token_key: tokenKey,
       doc_paths: parsed.data.docPaths as unknown as string,
       test_paths: parsed.data.testPaths as unknown as string,
       frontmatter_schema: (parsed.data.frontmatterSchema || null) as unknown as string,
@@ -44,6 +53,20 @@ router.post('/', requireAdmin, async (req: Request, res: Response, next: NextFun
       skip_annotations: (parsed.data.skipAnnotations || []) as unknown as string,
       enabled: parsed.data.enabled ?? true,
     });
+
+    const { applySettingsOverrides } = await import('../../config');
+    const { getAllSettings } = await import('../../db/store');
+    const dbSettings = await getAllSettings();
+    applySettingsOverrides(dbSettings);
+
+    if (repo.enabled) {
+      const { syncRepository } = await import('../../services/RepoSyncService');
+      const { broadcast } = await import('../../ws');
+      syncRepository(repo)
+        .then(() => broadcast('data-updated'))
+        .catch(err => log.error({ err, repoId: repo.id }, 'Auto-sync after repo creation failed'));
+    }
+
     res.status(201).json(repo);
   } catch (err) { next(err); }
 });
@@ -100,6 +123,108 @@ router.post('/:id/test', requireAdmin, async (req: Request, res: Response, next:
 
     res.json({ success: true, branch, fileCount: tree.length });
   } catch (err) { next(err); }
+});
+
+router.post('/resolve-project', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { repoUrl, apiBaseUrl, provider, token } = req.body as { repoUrl: string; apiBaseUrl: string; provider: string; token?: string };
+    if (!repoUrl || !apiBaseUrl || provider !== 'gitlab') {
+      res.status(400).json({ error: 'repoUrl, apiBaseUrl, and provider=gitlab are required' });
+      return;
+    }
+
+    const resolvedToken = token || await (async () => {
+      const { getSetting } = await import('../../db/store');
+      return getSetting('gitlab.token');
+    })();
+
+    if (!resolvedToken) {
+      res.status(400).json({ error: 'No GitLab token available. Configure gitlab.token in settings first.' });
+      return;
+    }
+
+    let cleanUrl = repoUrl;
+    const sepIdx = cleanUrl.indexOf('/-/');
+    if (sepIdx !== -1) cleanUrl = cleanUrl.slice(0, sepIdx);
+    const parsed = new URL(cleanUrl);
+    const pathEncoded = encodeURIComponent(parsed.pathname.replace(/^\//, '').replace(/\.git$/, ''));
+
+    const axios = (await import('axios')).default;
+    const apiRes = await axios.get(`${apiBaseUrl}/projects/${pathEncoded}`, {
+      headers: { 'Private-Token': resolvedToken },
+      timeout: 10000,
+    });
+
+    const project = apiRes.data as { id: number; name: string; path_with_namespace: string; default_branch: string };
+    res.json({
+      projectId: String(project.id),
+      name: project.path_with_namespace,
+      defaultBranch: project.default_branch || 'main',
+    });
+  } catch (err) {
+    const status = (err as { response?: { status?: number } })?.response?.status;
+    if (status === 404) {
+      res.status(404).json({ error: 'Repository not found. Check the URL and ensure the token has access.' });
+    } else {
+      next(err);
+    }
+  }
+});
+
+router.post('/resolve-branches', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { apiBaseUrl, projectId, provider, token: bodyToken } = req.body as { apiBaseUrl: string; projectId: string; provider: string; token?: string };
+    if (!apiBaseUrl || !projectId || !provider) {
+      res.status(400).json({ error: 'apiBaseUrl, projectId, and provider are required' });
+      return;
+    }
+
+    const { getSetting } = await import('../../db/store');
+    const token = bodyToken || await getSetting(`${provider}.token`);
+    if (!token) {
+      res.status(400).json({ error: `No ${provider} access token available. Provide one in the form below.` });
+      return;
+    }
+
+    const axios = (await import('axios')).default;
+    const branches: string[] = [];
+
+    if (provider === 'gitlab') {
+      const encodedId = encodeURIComponent(projectId);
+      let page = 1;
+      while (true) {
+        const apiRes = await axios.get(`${apiBaseUrl}/projects/${encodedId}/repository/branches`, {
+          headers: { 'Private-Token': token },
+          params: { per_page: 100, page },
+          timeout: 10000,
+        });
+        const items = apiRes.data as Array<{ name: string }>;
+        if (items.length === 0) break;
+        branches.push(...items.map(b => b.name));
+        if (items.length < 100) break;
+        page++;
+      }
+    } else if (provider === 'github') {
+      const [owner, repo] = projectId.split('/');
+      let page = 1;
+      while (true) {
+        const apiRes = await axios.get(`${apiBaseUrl}/repos/${owner}/${repo}/branches`, {
+          headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github.v3+json' },
+          params: { per_page: 100, page },
+          timeout: 10000,
+        });
+        const items = apiRes.data as Array<{ name: string }>;
+        if (items.length === 0) break;
+        branches.push(...items.map(b => b.name));
+        if (items.length < 100) break;
+        page++;
+      }
+    }
+
+    res.json({ branches });
+  } catch (err) {
+    next(err);
+  }
 });
 
 export default router;

@@ -15,15 +15,18 @@ router.get('/tree', async (req: Request, res: Response, next: NextFunction) => {
   } catch (err) { next(err); }
 });
 
-router.get('/file/:repoId/*', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/file/:repoId/{*filePath}', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const repoId = req.params.repoId as string;
-    const filePath = (req.params[0] || '') as string;
+    const rawFilePath = req.params.filePath;
+    const filePath = (Array.isArray(rawFilePath) ? rawFilePath.join('/') : rawFilePath || '') as string;
     const branch = (req.query.branch as string) || 'main';
 
+    log.debug({ repoId, filePath, branch, rawParams: req.params }, 'File detail request');
+
     const { getFileByPath } = await import('../../db/store');
-    const file = await getFileByPath(repoId as string, branch, filePath as string);
-    if (!file) { res.status(404).json({ error: 'File not found' }); return; }
+    const file = await getFileByPath(repoId, branch, filePath);
+    if (!file) { res.status(404).json({ error: 'File not found', repoId, branch, filePath }); return; }
 
     const repo = await getRepositoryById(repoId);
     let content: string | null = null;
@@ -42,7 +45,71 @@ router.get('/file/:repoId/*', async (req: Request, res: Response, next: NextFunc
       }
     }
 
-    res.json({ ...file, content });
+    let counterpartTestBlocks: Array<{ name: string; line: number; type: string }> | null = null;
+    if (file.file_type === 'doc' && file.counterpart_id) {
+      const { getFileByPath: getFile } = await import('../../db/store');
+      const { AppDataSource } = await import('../../db/data-source');
+      const counterpartRows = await AppDataSource.query(
+        `SELECT frontmatter FROM repo_files WHERE id = $1`,
+        [file.counterpart_id],
+      );
+      if (counterpartRows.length > 0) {
+        const cfm = counterpartRows[0].frontmatter as Record<string, unknown> | null;
+        if (cfm?.testBlocks) {
+          counterpartTestBlocks = cfm.testBlocks as Array<{ name: string; line: number; type: string }>;
+        }
+      }
+    }
+
+    const testBlocks = (file.frontmatter as unknown as Record<string, unknown>)?.testBlocks as Array<{ name: string; line: number; type: string }> | undefined;
+
+    let testCaseLinks: Array<{ caseId: string; caseTitle: string; testName: string; line: number }> | null = null;
+    if (content && file.file_type === 'doc' && counterpartTestBlocks && counterpartTestBlocks.length > 0) {
+      try {
+        const caseHeadings: Array<{ id: string; title: string }> = [];
+        const headingRegex = /###\s+`?(\d{3}[a-z]?)`?\s*[:：]\s*(.+)/gi;
+        let hm;
+        while ((hm = headingRegex.exec(content)) !== null) {
+          caseHeadings.push({ id: hm[1], title: hm[2].trim() });
+        }
+
+        if (caseHeadings.length > 0) {
+          const { getAIService } = await import('../../ai');
+          const ai = getAIService();
+
+          if (ai.isEnabled()) {
+            const prompt = `Map each test case from the documentation to the matching test function in the test file.
+
+Documentation test cases:
+${caseHeadings.map(h => `- Case ${h.id}: "${h.title}"`).join('\n')}
+
+Test functions in the spec file:
+${counterpartTestBlocks.filter(b => b.type === 'test' || b.type === 'it').map(b => `- Line ${b.line}: "${b.name}"`).join('\n')}
+
+Return a JSON array mapping each doc case to its test. Only include cases that have a clear match.
+Output ONLY valid JSON, no markdown:
+[{"caseId": "001", "caseTitle": "...", "testName": "...", "line": 18}]`;
+
+            const response = await ai.chat(
+              [{ role: 'user', content: prompt }],
+              { json: true, maxTokens: 1000, cacheTtlMs: 24 * 60 * 60 * 1000 },
+            );
+
+            try {
+              let cleaned = response.content.trim();
+              cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+              testCaseLinks = JSON.parse(cleaned);
+            } catch {
+              log.debug('Failed to parse AI test case mapping response');
+            }
+          }
+        }
+      } catch (err) {
+        log.debug({ err }, 'AI test case linking failed, falling back to regex');
+      }
+    }
+
+    res.json({ ...file, content, testBlocks: testBlocks || null, counterpartTestBlocks, testCaseLinks });
   } catch (err) { next(err); }
 });
 

@@ -23,9 +23,9 @@ import type { UserTokenInfo } from '@cnv-monitor/shared';
 import { fetchUserTokens, saveUserTokenApi, deleteUserTokenApi, testUserTokenApi } from '../../api/userTokens';
 
 const providerLabels: Record<string, string> = {
-  gitlab: 'GitLab PAT',
-  github: 'GitHub PAT',
-  jira: 'Jira PAT',
+  gitlab: 'GitLab Access Token',
+  github: 'GitHub Access Token',
+  jira: 'Jira API Token',
 };
 
 export const PersonalTokensSection: React.FC = () => {

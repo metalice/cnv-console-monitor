@@ -18,3 +18,9 @@ export const deleteRepositoryApi = (id: string): Promise<{ success: boolean }> =
 
 export const testRepositoryConnection = (id: string): Promise<{ success: boolean; fileCount: number }> =>
   apiFetch(`/repositories/${id}/test`, { method: 'POST' });
+
+export const resolveGitLabProject = (repoUrl: string, apiBaseUrl: string): Promise<{ projectId: string; name: string; defaultBranch: string }> =>
+  apiFetch('/repositories/resolve-project', { method: 'POST', body: JSON.stringify({ repoUrl, apiBaseUrl, provider: 'gitlab' }) });
+
+export const fetchRepoBranches = (apiBaseUrl: string, projectId: string, provider: string): Promise<{ branches: string[] }> =>
+  apiFetch('/repositories/resolve-branches', { method: 'POST', body: JSON.stringify({ apiBaseUrl, projectId, provider }) });

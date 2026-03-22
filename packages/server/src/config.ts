@@ -102,6 +102,8 @@ const SETTINGS_MAP: Record<string, (settingValue: string) => void> = {
   'slack.jiraWebhookUrl': (settingValue) => { config.slack.jiraWebhookUrl = settingValue; },
   'jenkins.user': (settingValue) => { config.jenkins.user = settingValue; },
   'jenkins.token': (settingValue) => { config.jenkins.token = settingValue; },
+  'gitlab.token': () => {},
+  'github.token': () => {},
   'schedule.reminderTime': (settingValue) => { config.schedule.reminderTime = settingValue; },
   'schedule.reminderDays': (settingValue) => { config.schedule.reminderDays = settingValue; },
   'schedule.rpConcurrency': (settingValue) => { config.schedule.rpConcurrency = Math.max(1, Math.min(100, parseInt(settingValue, 10) || 20)); },

@@ -18,8 +18,9 @@ import {
   DescriptionListDescription,
   Split,
   SplitItem,
+  Content,
 } from '@patternfly/react-core';
-import { PlusCircleIcon, TrashIcon, SyncAltIcon } from '@patternfly/react-icons';
+import { PlusCircleIcon, TrashIcon, SyncAltIcon, CheckCircleIcon, TimesCircleIcon } from '@patternfly/react-icons';
 import type { Repository } from '@cnv-monitor/shared';
 import { fetchRepositories, deleteRepositoryApi, testRepositoryConnection } from '../../api/repositories';
 import { RepositoryModal } from './RepositoryModal';
@@ -63,6 +64,10 @@ export const RepositoryMappingSection: React.FC = () => {
           </Split>
         </CardTitle>
         <CardBody>
+          <Content component="small" className="app-text-muted app-mb-md">
+            Connect Git repositories for test documentation and quarantine management. Configure access tokens in the Git tab above.
+          </Content>
+
           {isLoading ? (
             <Spinner />
           ) : repos && repos.length > 0 ? (
