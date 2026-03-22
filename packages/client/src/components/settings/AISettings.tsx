@@ -164,23 +164,41 @@ export const AISettings: React.FC = () => {
       </FormGroup>
       {status?.vertexTokenInfo && (
         <div className="app-mb-md">
-          <Content component="small" className="app-text-muted">
-            {status.vertexTokenInfo.authMode === 'adc' && (
-              <><Label color="green" isCompact>Auto-refresh (ADC)</Label>{' '}</>
-            )}
-            {status.vertexTokenInfo.expiresIn === null && status.vertexTokenInfo.authMode !== 'adc' ? (
-              <Label color="grey" isCompact>No token set</Label>
-            ) : status.vertexTokenInfo.expiresIn !== null && status.vertexTokenInfo.expiresIn <= 0 && status.vertexTokenInfo.authMode !== 'adc' ? (
-              <Label color="red" isCompact>Token expired</Label>
-            ) : status.vertexTokenInfo.expiresIn !== null && status.vertexTokenInfo.expiresIn > 0 ? (
-              <>
-                <Label color={status.vertexTokenInfo.expiresIn < 300 ? 'orange' : 'green'} isCompact>
-                  Expires in {Math.floor(status.vertexTokenInfo.expiresIn / 60)}m {status.vertexTokenInfo.expiresIn % 60}s
+          <Flex spaceItems={{ default: 'spaceItemsSm' }} alignItems={{ default: 'alignItemsCenter' }} flexWrap={{ default: 'wrap' }}>
+            <FlexItem>
+              <Content component="small" className="app-text-muted">
+                ADC:{' '}
+                {status.vertexTokenInfo.adcAvailable
+                  ? <Label color="green" isCompact>Available (auto-refresh)</Label>
+                  : <Label color="grey" isCompact>Not found</Label>}
+              </Content>
+            </FlexItem>
+            <FlexItem>
+              <Content component="small" className="app-text-muted">
+                Token:{' '}
+                {!status.vertexTokenInfo.hasManualToken ? (
+                  <Label color="grey" isCompact>Not set</Label>
+                ) : status.vertexTokenInfo.expiresIn !== null && status.vertexTokenInfo.expiresIn <= 0 ? (
+                  <Label color="red" isCompact>Expired</Label>
+                ) : status.vertexTokenInfo.expiresIn !== null && status.vertexTokenInfo.expiresIn > 0 ? (
+                  <Label color={status.vertexTokenInfo.expiresIn < 300 ? 'orange' : 'green'} isCompact>
+                    {Math.floor(status.vertexTokenInfo.expiresIn / 60)}m {status.vertexTokenInfo.expiresIn % 60}s
+                  </Label>
+                ) : <Label color="grey" isCompact>Unknown</Label>}
+              </Content>
+            </FlexItem>
+            <FlexItem>
+              <Content component="small" className="app-text-muted">
+                Active:{' '}
+                <Label color={status.vertexTokenInfo.authMode === 'none' ? 'red' : 'blue'} isCompact>
+                  {status.vertexTokenInfo.authMode === 'adc' ? 'ADC' : status.vertexTokenInfo.authMode === 'manual' ? 'Manual token' : 'None'}
                 </Label>
-              </>
-            ) : null}
-            {status.vertexTokenInfo.email && <span> · {status.vertexTokenInfo.email}</span>}
-          </Content>
+              </Content>
+            </FlexItem>
+            {status.vertexTokenInfo.email && (
+              <FlexItem><Content component="small" className="app-text-muted">{status.vertexTokenInfo.email}</Content></FlexItem>
+            )}
+          </Flex>
         </div>
       )}
 

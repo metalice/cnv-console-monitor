@@ -18,19 +18,32 @@ export class VertexClaudeProvider implements ModelProvider {
     this.projectId = opts.projectId || '';
     this.manualToken = opts.accessToken || '';
     this.googleAuth = new GoogleAuth({ scopes: 'https://www.googleapis.com/auth/cloud-platform' });
+    if (this.projectId) this.probeAdc();
   }
 
   isAvailable(): boolean {
     return !!this.projectId && (!!this.manualToken || this.adcAvailable === true);
   }
 
-  async getAuthMode(): Promise<'manual' | 'adc' | 'none'> {
-    if (this.manualToken) return 'manual';
-    if (await this.checkAdc()) return 'adc';
-    return 'none';
+  async getAuthInfo(): Promise<{ adcAvailable: boolean; hasManualToken: boolean; activeMode: 'adc' | 'manual' | 'none' }> {
+    const adc = await this.probeAdc();
+    const hasManual = !!this.manualToken;
+    let activeMode: 'adc' | 'manual' | 'none' = 'none';
+    if (hasManual) {
+      try {
+        const resp = await axios.get(`https://oauth2.googleapis.com/tokeninfo?access_token=${this.manualToken}`, { timeout: 3000 });
+        const expiresIn = parseInt(resp.data.expires_in, 10);
+        activeMode = expiresIn > 30 ? 'manual' : (adc ? 'adc' : 'none');
+      } catch {
+        activeMode = adc ? 'adc' : 'none';
+      }
+    } else {
+      activeMode = adc ? 'adc' : 'none';
+    }
+    return { adcAvailable: adc, hasManualToken: hasManual, activeMode };
   }
 
-  private async checkAdc(): Promise<boolean> {
+  private async probeAdc(): Promise<boolean> {
     if (this.adcAvailable !== null) return this.adcAvailable;
     try {
       await this.googleAuth.getAccessToken();
