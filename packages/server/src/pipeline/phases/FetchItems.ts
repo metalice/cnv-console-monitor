@@ -103,7 +103,7 @@ export class FetchItemsPhase implements PipelinePhase {
   }
 
   private getLaunchesWithFailures(): LaunchRecord[] {
-    return this.launches.filter(l => l.failed > 0);
+    return this.launches.filter(l => l.failed > 0 || l.status === 'FAILED');
   }
 
   private async fetchItemsForLaunch(launchId: number): Promise<TestItemRecord[]> {

@@ -100,3 +100,32 @@ export const backfillTestItems = async (launches: LaunchRecord[], onBatch?: () =
 export const refreshLaunchTestItems = async (launchId: number): Promise<TestItemRecord[]> => {
   return fetchFailedItemsForLaunch(launchId);
 }
+
+export const fetchAllItemsForLaunch = async (launchId: number): Promise<TestItemRecord[]> => {
+  const allRpItems: Array<{ item: TestItemRecord; rpItemId: number }> = [];
+  let page = 1;
+  let totalPages = 1;
+
+  while (page <= totalPages) {
+    const result = await fetchTestItems({ launchId, pageSize: 50, page });
+    totalPages = result.page.totalPages;
+    for (const rpItem of result.content) {
+      allRpItems.push({ item: parseTestItemRecord(rpItem, launchId), rpItemId: rpItem.id });
+    }
+    page++;
+  }
+
+  const items: TestItemRecord[] = [];
+  for (const { item, rpItemId } of allRpItems) {
+    if (item.status === 'FAILED') {
+      try {
+        const logs = await fetchTestItemLogs(rpItemId, { level: 'ERROR', pageSize: 1 });
+        if (logs.content.length > 0) item.error_message = logs.content[0].message.substring(0, 2000);
+      } catch { /* non-critical */ }
+    }
+    await upsertTestItem(item);
+    items.push(item);
+  }
+
+  return items;
+}

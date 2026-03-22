@@ -876,12 +876,44 @@ const runChangelogJob = async (jobKey: string, targetVersion: string, compareFro
       }
     }
 
+    const beforeDedup = issues.length;
+    if (epicKeys.size > 0) {
+      const epicChildKeys = new Set<string>();
+      for (const issue of issues) {
+        if (epicKeys.has(issue.key as string) && issue.epicChildren) {
+          const childrenText = issue.epicChildren as string;
+          const childKeyMatches = childrenText.match(/\b(CNV-\d+)\b/g) || [];
+          childKeyMatches.forEach(k => epicChildKeys.add(k));
+        }
+      }
+      if (epicChildKeys.size > 0) {
+        const parentKeys = new Set<string>();
+        for (const issue of issues) {
+          const parent = issue.parent as string;
+          if (parent) {
+            const parentKeyMatch = parent.match(/\b(CNV-\d+)\b/);
+            if (parentKeyMatch && epicKeys.has(parentKeyMatch[1])) {
+              parentKeys.add(issue.key as string);
+            }
+          }
+        }
+        issues = issues.filter(i => {
+          const key = i.key as string;
+          if (parentKeys.has(key) && epicChildKeys.has(key)) return false;
+          return true;
+        });
+        if (issues.length < beforeDedup) {
+          jobLog(job, `Deduplicated: removed ${beforeDedup - issues.length} child issues already represented in their parent Epics`);
+        }
+      }
+    }
+
     job.totalIssues = issues.length;
     job.step = 'preparing';
     const typeCounts = new Map<string, number>();
     issues.forEach(i => typeCounts.set(i.type as string, (typeCounts.get(i.type as string) ?? 0) + 1));
     const typeBreakdown = [...typeCounts.entries()].map(([t, c]) => `${c} ${t}`).join(', ');
-    jobLog(job, `Fetched ${issues.length} issues with full context (${typeBreakdown})`, 'success');
+    jobLog(job, `Fetched ${issues.length} issues with full context (${typeBreakdown})${beforeDedup > issues.length ? ` (${beforeDedup} before dedup)` : ''}`, 'success');
     jobLog(job, `${contributors.size} contributors, ${epicKeys.size} epics, ${issuesWithSubtasks.size} parents with subtasks, ${criticalLinkedKeys.size} critical links traversed`);
 
     const estimatedTokens = JSON.stringify(issues).length / 4;
