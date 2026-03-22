@@ -26,20 +26,9 @@ export class VertexClaudeProvider implements ModelProvider {
   }
 
   async getAuthInfo(): Promise<{ adcAvailable: boolean; hasManualToken: boolean; activeMode: 'adc' | 'manual' | 'none' }> {
-    const adc = await this.probeAdc();
+    const adc = this.adcAvailable ?? await this.probeAdc();
     const hasManual = !!this.manualToken;
-    let activeMode: 'adc' | 'manual' | 'none' = 'none';
-    if (hasManual) {
-      try {
-        const resp = await axios.get(`https://oauth2.googleapis.com/tokeninfo?access_token=${this.manualToken}`, { timeout: 3000 });
-        const expiresIn = parseInt(resp.data.expires_in, 10);
-        activeMode = expiresIn > 30 ? 'manual' : (adc ? 'adc' : 'none');
-      } catch {
-        activeMode = adc ? 'adc' : 'none';
-      }
-    } else {
-      activeMode = adc ? 'adc' : 'none';
-    }
+    const activeMode: 'adc' | 'manual' | 'none' = hasManual ? 'manual' : (adc ? 'adc' : 'none');
     return { adcAvailable: adc, hasManualToken: hasManual, activeMode };
   }
 
@@ -78,11 +67,9 @@ export class VertexClaudeProvider implements ModelProvider {
     ];
   }
 
-  async chat(messages: ChatMessage[], options?: ModelOptions): Promise<AIResponse> {
-    if (!this.projectId) throw new Error('Vertex AI Claude not configured: missing project ID');
+  supportsStreaming(): boolean { return true; }
 
-    const token = await this.getToken();
-    const start = Date.now();
+  private buildRequest(messages: ChatMessage[], options?: ModelOptions) {
     const model = options?.model || DEFAULT_MODEL;
     const url = `https://${this.region}-aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/${this.region}/publishers/anthropic/models/${model}:rawPredict`;
 
@@ -93,10 +80,20 @@ export class VertexClaudeProvider implements ModelProvider {
 
     const body: Record<string, unknown> = {
       anthropic_version: 'vertex-2023-10-16',
-      max_tokens: options?.maxTokens ?? 4096,
+      max_tokens: Math.min(options?.maxTokens ?? 8192, 8192),
       messages: chatMessages,
     };
     if (systemMsg) body.system = systemMsg;
+
+    return { url, body, model };
+  }
+
+  async chat(messages: ChatMessage[], options?: ModelOptions): Promise<AIResponse> {
+    if (!this.projectId) throw new Error('Vertex AI Claude not configured: missing project ID');
+
+    const token = await this.getToken();
+    const start = Date.now();
+    const { url, body, model } = this.buildRequest(messages, options);
 
     const response = await axios.post(url, body, {
       headers: {
@@ -122,5 +119,36 @@ export class VertexClaudeProvider implements ModelProvider {
       cached: false,
       durationMs: Date.now() - start,
     };
+  }
+
+  async *chatStream(messages: ChatMessage[], options?: ModelOptions): AsyncIterable<string> {
+    if (!this.projectId) throw new Error('Vertex AI Claude not configured: missing project ID');
+    const token = await this.getToken();
+    const { url, body, model: _model } = this.buildRequest(messages, options);
+    body.stream = true;
+
+    const response = await axios.post(url, body, {
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      responseType: 'stream',
+      timeout: options?.timeout ?? 120000,
+    });
+
+    let buffer = '';
+    for await (const chunk of response.data) {
+      buffer += chunk.toString();
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const payload = line.slice(6).trim();
+        if (payload === '[DONE]') return;
+        try {
+          const parsed = JSON.parse(payload);
+          if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+            yield parsed.delta.text;
+          }
+        } catch { /* skip malformed SSE lines */ }
+      }
+    }
   }
 }

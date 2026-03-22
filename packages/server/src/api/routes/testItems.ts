@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { getFailedTestItems, getFailedTestItemsForLaunches, getAllTestItems, getUntriagedItems, getTestItemHistory, getTestFailureStreak } from '../../db/store';
 import { fetchTestItemLogs } from '../../clients/reportportal';
-import { parseIntParam } from '../middleware/validate';
+import { parseIntParam, clampInt } from '../middleware/validate';
 import { refreshLaunchTestItems } from '../../poller';
 
 const router = Router();
@@ -50,7 +50,7 @@ router.get('/untriaged', async (req: Request, res: Response, next: NextFunction)
   try {
     const since = req.query.since ? parseInt(req.query.since as string) : undefined;
     const until = req.query.until ? parseInt(req.query.until as string) : undefined;
-    const hours = parseInt(req.query.hours as string) || 24;
+    const hours = clampInt(req.query.hours as string, 24, 1, 720);
     const component = (req.query.component as string) || undefined;
     const sinceMs = since ?? (Date.now() - hours * 60 * 60 * 1000);
     const items = await getUntriagedItems(sinceMs, until, component);
@@ -63,7 +63,7 @@ router.get('/untriaged', async (req: Request, res: Response, next: NextFunction)
 router.get('/history/:uniqueId', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const uniqueId = req.params.uniqueId as string;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const limit = clampInt(req.query.limit as string, 20, 1, 100);
     const history = await getTestItemHistory(uniqueId, limit);
     res.json(history);
   } catch (err) {

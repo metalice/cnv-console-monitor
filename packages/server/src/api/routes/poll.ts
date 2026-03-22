@@ -9,6 +9,9 @@ import { broadcast } from '../../ws';
 const log = logger.child({ module: 'PollAPI' });
 const router = Router();
 
+const MAX_STATUS_ERRORS = 20;
+const MAX_STATUS_LOG = 200;
+
 router.get('/status', async (_req: Request, res: Response) => {
   const manager = getPipelineManager();
   const [enrichment, totalLaunches] = await Promise.all([getEnrichmentStats(), getLaunchCount()]);
@@ -16,8 +19,23 @@ router.get('/status', async (_req: Request, res: Response) => {
   const pipelineState = manager.getState();
   const activePhase = Object.entries(pipelineState.phases).find(([, p]) => p.status === 'running' || p.status === 'retrying');
 
+  const lightPhases: Record<string, unknown> = {};
+  for (const [name, phase] of Object.entries(pipelineState.phases)) {
+    const { errors, ...rest } = phase;
+    lightPhases[name] = {
+      ...rest,
+      errors: errors.slice(0, MAX_STATUS_ERRORS),
+      totalErrors: errors.length,
+    };
+  }
+
   res.json({
-    pipeline: pipelineState,
+    pipeline: {
+      ...pipelineState,
+      phases: lightPhases,
+      log: pipelineState.log.slice(-MAX_STATUS_LOG),
+      totalLogEntries: pipelineState.log.length,
+    },
     lastPollAt: lastPollAt ? Number(lastPollAt) : null,
     pollIntervalMinutes: config.schedule.pollIntervalMinutes,
     enrichment: { ...enrichment, total: totalLaunches },

@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.env
+.env.*
+.git/
+.github/
+*.db
+k8s/secret.yaml
+*.pem
+*.key
+*.crt
+credentials.json
+key.json
+service-account.json
+.DS_Store
+.cursor/
+agent-transcripts/

@@ -24,7 +24,7 @@ router.get('/today', async (req: Request, res: Response, next: NextFunction) => 
 
 router.get('/stats', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const days = parseInt(req.query.days as string) || 30;
+    const days = Math.max(1, Math.min(365, parseInt(req.query.days as string) || 30));
     const stats = await getApproverStats(days);
     const history = await getAckHistory(days);
 

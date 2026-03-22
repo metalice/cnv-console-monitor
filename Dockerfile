@@ -21,18 +21,20 @@ COPY packages/client/ ./packages/client/
 RUN npm run build -w packages/client
 
 FROM node:20-alpine
+RUN addgroup -g 1001 appgroup && adduser -u 1001 -G appgroup -D appuser
 WORKDIR /app
 
 COPY package*.json ./
 COPY packages/shared/package*.json ./packages/shared/
 COPY packages/server/package*.json ./packages/server/
 COPY packages/client/package*.json ./packages/client/
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev && chown -R appuser:appgroup /app
 
 COPY --from=build-shared /app/packages/shared/dist/ ./packages/shared/dist/
 COPY --from=build-server /app/packages/server/dist/ ./packages/server/dist/
 COPY --from=build-client /app/packages/client/dist/ ./packages/client/dist/
 
+USER appuser
 ENV DASHBOARD_PORT=8080
 EXPOSE 8080
 CMD ["node", "packages/server/dist/serve.js"]

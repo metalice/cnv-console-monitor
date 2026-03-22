@@ -1,6 +1,10 @@
 import express from 'express';
 import path from 'path';
+import helmet from 'helmet';
+import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import { httpLogger } from '../logger';
+import { config } from '../config';
 import { AppDataSource } from '../db/data-source';
 import { extractUser } from './middleware/auth';
 import authRouter from './routes/auth';
@@ -34,8 +38,31 @@ import { errorHandler } from './middleware/errorHandler';
 export const createApp = (): express.Application => {
   const app = express();
 
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        connectSrc: ["'self'", 'wss:', 'ws:'],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+  }));
+
+  const allowedOrigins = config.dashboard.url ? [config.dashboard.url] : [];
+  app.use(cors({
+    origin: allowedOrigins.length > 0 ? allowedOrigins : false,
+    credentials: true,
+  }));
+
   app.use(httpLogger);
-  app.use(express.json());
+  app.use(express.json({ limit: '1mb' }));
+
+  const apiLimiter = rateLimit({ windowMs: 60_000, max: 200, standardHeaders: true, legacyHeaders: false });
+  const strictLimiter = rateLimit({ windowMs: 60_000, max: 10, standardHeaders: true, legacyHeaders: false });
+  app.use('/api', apiLimiter);
 
   app.get('/health', async (_req, res) => {
     try {
@@ -68,7 +95,7 @@ export const createApp = (): express.Application => {
   app.use('/api/subscriptions', extractUser, subscriptionsRouter);
   app.use('/api/releases', extractUser, releasesRouter);
   app.use('/api/user', extractUser, userRouter);
-  app.use('/api/admin', extractUser, adminRouter);
+  app.use('/api/admin', strictLimiter, extractUser, adminRouter);
   app.use('/api/component-health', extractUser, componentHealthRouter);
   app.use('/api/compare', extractUser, compareRouter);
   app.use('/api/readiness', extractUser, readinessRouter);

@@ -1103,13 +1103,68 @@
   padding-left: var(--pf-t--global--spacer--sm);
 }
 
+.app-changelog-item-wrap {
+  padding: 5px 0;
+  border-bottom: 1px solid var(--pf-t--global--border--color--nonstatus--default, #d2d2d2);
+}
+
+.app-changelog-item-wrap:last-child {
+  border-bottom: none;
+}
+
 .app-changelog-item {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 4px;
-  padding: 3px 0;
   font-size: 13px;
+}
+
+.app-changelog-ticket-detail {
+  padding-left: 94px;
+  padding-top: 2px;
+}
+
+.app-changelog-ticket-summary {
+  font-size: 11.5px;
+  color: var(--pf-t--global--text--color--subtle);
+  line-height: 1.4;
+}
+
+.app-changelog-ticket-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.app-changelog-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.app-cursor-help {
+  cursor: help;
+}
+
+.app-changelog-highlights {
+  padding: 12px 16px;
+  background: var(--pf-t--global--background--color--secondary--default);
+  border-left: 3px solid var(--pf-t--global--color--brand--default);
+  border-radius: 4px;
+}
+
+.app-changelog-highlights ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.app-changelog-highlights li {
+  margin-bottom: 4px;
 }
 
 .app-changelog-key {
@@ -1121,6 +1176,16 @@
 
 .app-changelog-title {
   flex: 1;
+}
+
+.app-edit-select {
+  font-size: 11px;
+  padding: 1px 4px;
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: 4px;
+  background: var(--pf-t--global--background--color--primary--default);
+  color: var(--pf-t--global--text--color--regular);
+  cursor: pointer;
 }
 
 /* ─── Release Report ─── */
@@ -1175,6 +1240,40 @@
 .app-report-workload {
   max-width: 500px;
 }
+
+.app-changelog-progress {
+  padding: var(--pf-t--global--spacer--md);
+  background: var(--pf-t--global--background--color--secondary--default);
+  border-radius: 6px;
+  border: 1px solid var(--pf-t--global--border--color--default);
+}
+
+.app-changelog-log {
+  max-height: calc(6 * 22px);
+  overflow-y: auto;
+  font-size: 12px;
+  font-family: 'RedHatMono', monospace;
+  border-top: 1px solid var(--pf-t--global--border--color--default);
+  padding-top: var(--pf-t--global--spacer--xs);
+}
+
+.app-changelog-log-entry {
+  padding: 2px 0;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.app-changelog-log-time {
+  color: var(--pf-t--global--text--color--subtle);
+  font-size: 10px;
+  min-width: 70px;
+  flex-shrink: 0;
+}
+
+.app-changelog-log-info { color: var(--pf-t--global--text--color--regular); }
+.app-changelog-log-success { color: var(--pf-t--global--color--status--success--default); }
+.app-changelog-log-error { color: var(--pf-t--global--color--status--danger--default); }
 
 .app-changelog-raw {
   padding: var(--pf-t--global--spacer--md);
@@ -1614,3 +1713,129 @@
   margin-top: var(--pf-t--global--spacer--xs);
   padding-top: var(--pf-t--global--spacer--sm);
 }
+
+/* About page */
+.app-about-hero {
+  background: var(--pf-t--global--background--color--secondary--default);
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+}
+
+.app-about-subtitle {
+  max-width: 600px;
+  color: var(--pf-t--global--text--color--subtle);
+  line-height: 1.6;
+}
+
+.app-about-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--pf-t--global--spacer--sm) var(--pf-t--global--spacer--md);
+}
+
+.app-about-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--pf-t--global--text--color--regular);
+}
+
+.app-about-stat-label {
+  font-size: 0.75rem;
+  color: var(--pf-t--global--text--color--subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.app-about-flow { padding: var(--pf-t--global--spacer--lg) 0; }
+
+.app-about-flow-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--xs);
+  padding: var(--pf-t--global--spacer--md);
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: var(--pf-t--global--border--radius--small);
+  background: var(--pf-t--global--background--color--primary--default);
+  min-width: 120px;
+  text-align: center;
+}
+
+.app-about-flow-icon { font-size: 1.5rem; color: var(--pf-t--global--color--brand--default); }
+.app-about-flow-arrow { color: var(--pf-t--global--text--color--subtle); font-size: 1.2rem; }
+.app-about-flow-arrow-sm { color: var(--pf-t--global--text--color--subtle); font-size: 0.8rem; }
+
+.app-about-flow-pipeline {
+  border: 2px dashed var(--pf-t--global--border--color--default);
+  border-radius: 8px;
+  padding: 12px 16px 16px;
+  position: relative;
+}
+
+.app-about-flow-pipeline-label {
+  position: absolute;
+  top: -10px;
+  left: 12px;
+  background: var(--pf-t--global--background--color--primary--default);
+  padding: 0 6px;
+  font-weight: 600;
+  color: var(--pf-t--global--color--brand--default);
+}
+
+.app-about-flow-phase {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+  min-width: 100px;
+  font-size: 12px;
+}
+
+.app-about-flow-phase-icon {
+  font-size: 1.1rem;
+  color: var(--pf-t--global--color--brand--default);
+}
+
+.app-about-integration-card { min-height: 140px; transition: box-shadow 0.15s; }
+.app-about-integration-card:hover { box-shadow: var(--pf-t--global--box-shadow--md); }
+.app-about-integration-icon { font-size: 1.3rem; color: var(--pf-t--global--color--brand--default); }
+
+.app-about-feature-group { margin-bottom: 0; }
+
+.app-about-feature-item {
+  padding: var(--pf-t--global--spacer--sm) 0;
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+}
+
+.app-about-feature-item:last-child { border-bottom: none; }
+
+.app-about-capability-list { margin-top: var(--pf-t--global--spacer--xs); }
+.app-about-capability-list li::before { content: '·'; margin-right: var(--pf-t--global--spacer--xs); color: var(--pf-t--global--text--color--subtle); }
+
+.app-about-quickstart { margin-bottom: 0; }
+
+.app-about-steps { padding-top: var(--pf-t--global--spacer--sm); }
+
+.app-about-step {
+  padding: var(--pf-t--global--spacer--sm) 0;
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+}
+
+.app-about-step:last-child { border-bottom: none; }
+
+.app-about-step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--pf-t--global--color--brand--default);
+  color: var(--pf-t--global--text--color--on-brand--default, #fff);
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.app-mb-none { margin-bottom: 0 !important; }

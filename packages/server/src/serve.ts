@@ -66,6 +66,12 @@ const main = async (): Promise<void> => {
 
   await refreshMappingCache();
 
+  const { cleanupInternalSettingsLogs, scrubSensitiveSettingsLogs } = await import('./db/store');
+  const cleaned = await cleanupInternalSettingsLogs();
+  if (cleaned > 0) log.info({ cleaned }, 'Removed internal settings log entries');
+  const scrubbed = await scrubSensitiveSettingsLogs();
+  if (scrubbed > 0) log.info({ scrubbed }, 'Scrubbed exposed secrets from settings log');
+
   const lastLaunchTime = await getMostRecentLaunchTime();
   if (lastLaunchTime) setLastPollAt(Number(lastLaunchTime));
 

@@ -10,36 +10,24 @@ const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 const router = Router();
 
 router.get('/health', async (_req: Request, res: Response) => {
-  const checks: Record<string, { status: 'up' | 'down'; message: string }> = {};
-
-  if (config.reportportal.url && config.reportportal.token) {
-    try {
-      const rpRes = await axios.get(`${config.reportportal.url}/api/v1/${config.reportportal.project}/launch`, {
+  const rpCheck = (config.reportportal.url && config.reportportal.token)
+    ? axios.get(`${config.reportportal.url}/api/v1/${config.reportportal.project}/launch`, {
         params: { 'page.size': 1 },
         headers: { Authorization: `Bearer ${config.reportportal.token}` },
-        timeout: 5000, httpsAgent,
-      });
-      checks.reportportal = { status: 'up', message: `${rpRes.data?.page?.totalElements ?? 0} launches` };
-    } catch (err) {
-      checks.reportportal = { status: 'down', message: err instanceof Error ? err.message : 'Unreachable' };
-    }
-  } else {
-    checks.reportportal = { status: 'down', message: 'Not configured' };
-  }
+        timeout: 3000, httpsAgent,
+      }).then(rpRes => ({ status: 'up' as const, message: `${rpRes.data?.page?.totalElements ?? 0} launches` }))
+      .catch(err => ({ status: 'down' as const, message: err instanceof Error ? err.message : 'Unreachable' }))
+    : Promise.resolve({ status: 'down' as const, message: 'Not configured' });
 
-  if (config.jira.url && config.jira.token) {
-    try {
-      const client = createJiraClient();
-      await client.get('/myself');
-      checks.jira = { status: 'up', message: 'Connected' };
-    } catch (err) {
-      checks.jira = { status: 'down', message: err instanceof Error ? err.message : 'Unreachable' };
-    }
-  } else {
-    checks.jira = { status: 'down', message: 'Not configured' };
-  }
+  const jiraCheck = (config.jira.url && config.jira.token)
+    ? createJiraClient().get('/myself')
+      .then(() => ({ status: 'up' as const, message: 'Connected' }))
+      .catch(err => ({ status: 'down' as const, message: err instanceof Error ? err.message : 'Unreachable' }))
+    : Promise.resolve({ status: 'down' as const, message: 'Not configured' });
 
-  res.json({ ...checks, system: { uptime: Math.round((Date.now() - startedAt) / 1000), lastPollAt } });
+  const [reportportal, jira] = await Promise.all([rpCheck, jiraCheck]);
+
+  res.json({ reportportal, jira, system: { uptime: Math.round((Date.now() - startedAt) / 1000), lastPollAt } });
 });
 
 router.get('/rp-projects', async (_req: Request, res: Response) => {

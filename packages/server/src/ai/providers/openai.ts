@@ -26,6 +26,8 @@ export class OpenAIProvider implements ModelProvider {
     ];
   }
 
+  supportsStreaming(): boolean { return true; }
+
   async chat(messages: ChatMessage[], options?: ModelOptions): Promise<AIResponse> {
     if (!this.client) throw new Error('OpenAI not configured');
 
@@ -35,9 +37,9 @@ export class OpenAIProvider implements ModelProvider {
       model: modelId,
       messages: messages.map(m => ({ role: m.role, content: m.content })),
       temperature: options?.temperature ?? 0.3,
-      max_tokens: options?.maxTokens ?? 4096,
+      max_tokens: Math.min(options?.maxTokens ?? 16384, 16384),
       ...(options?.json ? { response_format: { type: 'json_object' as const } } : {}),
-    });
+    }, { timeout: options?.timeout ?? 120000 });
 
     const choice = response.choices[0];
     const tokens = response.usage?.total_tokens ?? 0;
@@ -50,5 +52,21 @@ export class OpenAIProvider implements ModelProvider {
       cached: false,
       durationMs: Date.now() - start,
     };
+  }
+
+  async *chatStream(messages: ChatMessage[], options?: ModelOptions): AsyncIterable<string> {
+    if (!this.client) throw new Error('OpenAI not configured');
+    const modelId = options?.model || DEFAULT_MODEL;
+    const stream = await this.client.chat.completions.create({
+      model: modelId,
+      messages: messages.map(m => ({ role: m.role, content: m.content })),
+      temperature: options?.temperature ?? 0.3,
+      max_tokens: options?.maxTokens ?? 4096,
+      stream: true,
+    });
+    for await (const chunk of stream) {
+      const text = chunk.choices[0]?.delta?.content;
+      if (text) yield text;
+    }
   }
 }

@@ -37,13 +37,13 @@ export const AISettings: React.FC = () => {
   const { data: status, isLoading } = useQuery({
     queryKey: ['aiStatus'],
     queryFn: fetchAIStatus,
-    staleTime: 30 * 1000,
+    staleTime: 2 * 60 * 1000,
   });
 
   const { data: usage } = useQuery({
     queryKey: ['aiUsage'],
     queryFn: fetchAIUsage,
-    staleTime: 30 * 1000,
+    staleTime: 2 * 60 * 1000,
   });
 
   React.useEffect(() => {

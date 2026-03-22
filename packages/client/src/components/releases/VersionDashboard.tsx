@@ -10,7 +10,7 @@ import {
   ExpandableSection, Divider,
   Progress, ProgressSize, ProgressMeasureLocation,
 } from '@patternfly/react-core';
-import { OutlinedQuestionCircleIcon, DownloadIcon, CopyIcon, ExternalLinkAltIcon } from '@patternfly/react-icons';
+import { OutlinedQuestionCircleIcon, DownloadIcon, CopyIcon, ExternalLinkAltIcon, PencilAltIcon, CheckIcon, TimesIcon, UserIcon, InfoCircleIcon, WrenchIcon } from '@patternfly/react-icons';
 import type { ReleaseInfo, ChecklistTask } from '@cnv-monitor/shared';
 import { fetchVersionReadiness, fetchSubVersions } from '../../api/releases';
 import { TrafficLight, computeHealth } from './TrafficLight';
@@ -18,7 +18,7 @@ import { HelpLabel } from '../common/HelpLabel';
 import { RiskFlags } from './RiskFlags';
 import { ReleaseReport } from './ReleaseReport';
 import { BlockerWall } from './BlockerWall';
-import { startChangelogJob, fetchChangelogStatus, assessRisk, type ChangelogResult, type ChangelogItem, type RiskAssessment } from '../../api/ai';
+import { startChangelogJob, fetchChangelogStatus, assessRisk, saveChangelogEdits, type ChangelogResult, type ChangelogItem, type ChangelogStatus, type ChangelogCorrection, type RiskAssessment } from '../../api/ai';
 
 const ReadinessGauge: React.FC<{ score: number }> = ({ score }) => {
   const color = score >= 80 ? 'var(--pf-t--global--color--status--success--default)'
@@ -273,6 +273,21 @@ const isVersionReleased = (versionName: string, milestones: Array<{ name: string
   });
 };
 
+const CATEGORY_KEYS = ['features', 'bugFixes', 'improvements', 'infrastructure', 'documentation'] as const;
+
+const ConfidenceBadge: React.FC<{ confidence?: number; reason?: string }> = ({ confidence, reason }) => {
+  if (confidence === undefined || confidence === null) return null;
+  const pct = Math.round(confidence * 100);
+  const color = pct >= 90 ? 'green' : pct >= 70 ? 'grey' : 'orange';
+  return (
+    <Tooltip content={reason || `Confidence: ${pct}%`}>
+      <Label color={color} isCompact className="app-ml-xs">
+        {pct}%{pct < 70 ? ' ⚠' : ''}
+      </Label>
+    </Tooltip>
+  );
+};
+
 const ChangelogTab: React.FC<{ version: string; milestones: Array<{ name: string; date: string; isPast: boolean }> }> = ({ version, milestones }) => {
   const [result, setResult] = useLocalState<ChangelogResult | null>(null);
   const [targetVer, setTargetVer] = useLocalState('');
@@ -281,7 +296,34 @@ const ChangelogTab: React.FC<{ version: string; milestones: Array<{ name: string
   const [targetOpen, setTargetOpen] = useLocalState(false);
   const [compareOpen, setCompareOpen] = useLocalState(false);
   const [componentFilter, setComponentFilter] = useLocalState('');
+  const [editMode, setEditMode] = useLocalState(false);
+  const [pendingEdits, setPendingEdits] = useLocalState<ChangelogCorrection[]>([]);
+  const [savingEdits, setSavingEdits] = useLocalState(false);
+  const [showLowConfidence, setShowLowConfidence] = useLocalState(false);
   const reportRef = React.useRef<HTMLDivElement>(null);
+
+  const addEdit = (correction: ChangelogCorrection) => {
+    setPendingEdits(prev => {
+      const existing = prev.findIndex(e => e.key === correction.key && e.field === correction.field);
+      if (existing >= 0) { const next = [...prev]; next[existing] = correction; return next; }
+      return [...prev, correction];
+    });
+  };
+
+  const handleSaveEdits = async () => {
+    if (pendingEdits.length === 0) return;
+    setSavingEdits(true);
+    try {
+      await saveChangelogEdits(version, pendingEdits, targetVer, compareEnabled && compareFrom ? compareFrom : undefined);
+      setPendingEdits([]);
+      setEditMode(false);
+      const status = await fetchChangelogStatus(targetVer, compareEnabled && compareFrom ? compareFrom : undefined);
+      if (status.status === 'done' && status.changelog) {
+        setResult({ changelog: status.changelog, meta: status.meta! } as ChangelogResult);
+      }
+    } catch { /* save failed */ }
+    setSavingEdits(false);
+  };
 
   const { data: subVersions } = useQuery({
     queryKey: ['subVersions', version],
@@ -296,7 +338,7 @@ const ChangelogTab: React.FC<{ version: string; milestones: Array<{ name: string
     }
   }, [subVersions, targetVer, setTargetVer]);
 
-  const [jobProgress, setJobProgress] = useLocalState('');
+  const [jobStatus, setJobStatus] = useLocalState<ChangelogStatus | null>(null);
   const [isGenerating, setIsGenerating] = useLocalState(false);
   const pollRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -304,21 +346,19 @@ const ChangelogTab: React.FC<{ version: string; milestones: Array<{ name: string
     if (!targetVer) return;
     fetchChangelogStatus(targetVer, compareEnabled && compareFrom ? compareFrom : undefined)
       .then(status => {
+        setJobStatus(status);
         if (status.status === 'done' && status.changelog) {
           setResult({ changelog: status.changelog, meta: status.meta! } as ChangelogResult);
           setIsGenerating(false);
-          setJobProgress('');
         } else if (status.status === 'running') {
           setIsGenerating(true);
-          setJobProgress(status.progress || 'Processing...');
           pollRef.current = setTimeout(pollForResult, 2000);
         } else if (status.status === 'error') {
-          setJobProgress(`Error: ${status.error}`);
           setIsGenerating(false);
         }
       })
       .catch(() => {});
-  }, [targetVer, compareFrom, setResult, setIsGenerating, setJobProgress]);
+  }, [targetVer, compareFrom, compareEnabled, setResult, setIsGenerating, setJobStatus]);
 
   React.useEffect(() => {
     if (!targetVer) return;
@@ -329,12 +369,12 @@ const ChangelogTab: React.FC<{ version: string; milestones: Array<{ name: string
   const startGeneration = async () => {
     setIsGenerating(true);
     setResult(null);
-    setJobProgress('Starting...');
+    setJobStatus({ status: 'running', progress: 'Starting...', step: 'starting' });
     try {
       await startChangelogJob(version, targetVer, compareEnabled && compareFrom ? compareFrom : undefined);
       pollRef.current = setTimeout(pollForResult, 1000);
     } catch (err) {
-      setJobProgress(err instanceof Error ? err.message : 'Failed to start');
+      setJobStatus({ status: 'error', error: err instanceof Error ? err.message : 'Failed to start' });
       setIsGenerating(false);
     }
   };
@@ -346,8 +386,14 @@ const ChangelogTab: React.FC<{ version: string; milestones: Array<{ name: string
   const totalItems = cl?.categories ? Object.values(cl.categories).reduce((sum, items) => sum + (items?.length ?? 0), 0) : 0;
 
   const filterItems = (items: ChangelogItem[]): ChangelogItem[] => {
-    if (!componentFilter) return items;
-    return items.filter(item => item.component?.toLowerCase().includes(componentFilter.toLowerCase()));
+    let filtered = items;
+    if (componentFilter) {
+      filtered = filtered.filter(item => item.component?.toLowerCase().includes(componentFilter.toLowerCase()));
+    }
+    if (showLowConfidence) {
+      filtered = filtered.filter(item => item.confidence !== undefined && item.confidence < 0.7);
+    }
+    return filtered;
   };
 
   const buildSlackText = (): string => {
@@ -362,6 +408,7 @@ const ChangelogTab: React.FC<{ version: string; milestones: Array<{ name: string
         lines.push(`\n*${label} (${items.length}):*`);
         items.slice(0, 15).forEach(item => {
           lines.push(`• ${item.key ? `<https://issues.redhat.com/browse/${item.key}|${item.key}>` : ''} ${item.title || ''}`);
+          if (item.ticketSummary) lines.push(`  _${item.ticketSummary}_`);
         });
         if (items.length > 15) lines.push(`_...and ${items.length - 15} more_`);
       }
@@ -434,8 +481,45 @@ const ChangelogTab: React.FC<{ version: string; milestones: Array<{ name: string
         </FlexItem>
       </Flex>
 
-      {mutation.isPending && jobProgress && (
-        <Alert variant="info" isInline isPlain title={jobProgress} className="app-mb-md" />
+      {mutation.isPending && jobStatus?.status === 'running' && (
+        <div className="app-changelog-progress app-mb-md">
+          <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }} className="app-mb-xs">
+            <FlexItem>
+              <Content component="small"><strong>{jobStatus.progress}</strong></Content>
+            </FlexItem>
+            <FlexItem>
+              <Content component="small" className="app-text-muted">
+                {jobStatus.totalIssues ? `${jobStatus.totalIssues.toLocaleString()} issues` : ''}
+                {jobStatus.totalBatches ? ` · ${jobStatus.currentBatch}/${jobStatus.totalBatches} batches` : ''}
+                {jobStatus.elapsedSeconds ? ` · ${jobStatus.elapsedSeconds}s` : ''}
+              </Content>
+            </FlexItem>
+          </Flex>
+          {jobStatus.totalBatches && jobStatus.totalBatches > 0 ? (
+            <Progress
+              value={jobStatus.step === 'summarizing' ? 95 : jobStatus.currentBatch && jobStatus.totalBatches ? Math.round((jobStatus.currentBatch / jobStatus.totalBatches) * 90) : 5}
+              size={ProgressSize.sm}
+              measureLocation={ProgressMeasureLocation.outside}
+              aria-label="Changelog generation progress"
+            />
+          ) : (
+            <Progress value={undefined} size={ProgressSize.sm} aria-label="Loading" />
+          )}
+          {jobStatus.log && jobStatus.log.length > 0 && (
+            <div className="app-changelog-log app-mt-sm" ref={(el) => { if (el) el.scrollTop = el.scrollHeight; }}>
+              {jobStatus.log.map((entry, i) => (
+                <div key={i} className={`app-changelog-log-entry app-changelog-log-${entry.type}`}>
+                  <span className="app-changelog-log-time">{new Date(entry.time).toLocaleTimeString()}</span>
+                  <span>{entry.message}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {jobStatus?.status === 'error' && (
+        <Alert variant="danger" isInline title={jobStatus.error || 'Generation failed'} className="app-mb-md" />
       )}
 
       {result && (
@@ -472,10 +556,31 @@ const ChangelogTab: React.FC<{ version: string; milestones: Array<{ name: string
                       }} />
                   </Tooltip>
                 </FlexItem>
-                <FlexItem><Button variant="link" size="sm" onClick={() => { setResult(null); mutation.mutate(); }}>Regenerate</Button></FlexItem>
+                <FlexItem>
+                <Tooltip content={editMode ? 'Exit edit mode' : 'Edit classifications, impact scores, and risk levels'}>
+                  <Button variant={editMode ? 'secondary' : 'plain'} icon={editMode ? <TimesIcon /> : <PencilAltIcon />} size="sm" aria-label="Edit"
+                    onClick={() => { if (editMode && pendingEdits.length > 0) { handleSaveEdits(); } else { setEditMode(!editMode); setPendingEdits([]); } }} />
+                </Tooltip>
+              </FlexItem>
+              <FlexItem><Button variant="link" size="sm" onClick={() => { setResult(null); mutation.mutate(); }}>Regenerate</Button></FlexItem>
               </Flex>
             </FlexItem>
           </Flex>
+
+          {editMode && (
+            <Alert variant="info" isInline isPlain title={`Edit mode: ${pendingEdits.length} pending change${pendingEdits.length !== 1 ? 's' : ''}`} className="app-mb-sm">
+              <Flex spaceItems={{ default: 'spaceItemsSm' }}>
+                <FlexItem>
+                  <Button variant="primary" size="sm" isDisabled={pendingEdits.length === 0} isLoading={savingEdits} onClick={handleSaveEdits}>
+                    <CheckIcon className="app-mr-xs" />Save Edits
+                  </Button>
+                </FlexItem>
+                <FlexItem>
+                  <Button variant="link" size="sm" onClick={() => { setEditMode(false); setPendingEdits([]); }}>Cancel</Button>
+                </FlexItem>
+              </Flex>
+            </Alert>
+          )}
 
           {cl?.summary && (
             <div className="app-changelog-summary app-mb-md">
@@ -484,7 +589,18 @@ const ChangelogTab: React.FC<{ version: string; milestones: Array<{ name: string
           )}
 
           {cl?.highlights && (
-            <Alert variant="info" isInline isPlain title={typeof cl.highlights === 'string' ? cl.highlights : JSON.stringify(cl.highlights)} className="app-mb-md" />
+            <div className="app-changelog-highlights app-mb-md">
+              <Content component="h5" className="app-mb-xs"><InfoCircleIcon className="app-mr-xs" />Key Highlights</Content>
+              {typeof cl.highlights === 'string' ? (
+                cl.highlights.includes('\n') ? (
+                  <ul className="app-text-sm">{cl.highlights.split('\n').filter(l => l.trim()).map((line, i) => <li key={i}>{line.replace(/^[-•*]\s*/, '')}</li>)}</ul>
+                ) : (
+                  <Content component="p" className="app-text-sm">{cl.highlights}</Content>
+                )
+              ) : (
+                <Content component="p" className="app-text-sm">{JSON.stringify(cl.highlights)}</Content>
+              )}
+            </div>
           )}
 
           {cl?.breakingChanges && cl.breakingChanges.length > 0 && (
@@ -506,17 +622,29 @@ const ChangelogTab: React.FC<{ version: string; milestones: Array<{ name: string
                 <span className="app-text-xs app-text-muted app-ml-sm">{totalItems} total</span>
               </FlexItem>
               <FlexItem>
-                <input
-                  type="text"
-                  value={componentFilter}
-                  onChange={e => setComponentFilter(e.target.value)}
-                  placeholder="Filter by component..."
-                  className="app-search-input"
-                  style={{ width: 180 }}
-                />
-                {componentFilter && (
-                  <Button variant="plain" size="sm" onClick={() => setComponentFilter('')} aria-label="Clear filter">&times;</Button>
-                )}
+                <Flex spaceItems={{ default: 'spaceItemsSm' }} alignItems={{ default: 'alignItemsCenter' }}>
+                  <FlexItem>
+                    <input
+                      type="text"
+                      value={componentFilter}
+                      onChange={e => setComponentFilter(e.target.value)}
+                      placeholder="Filter by component..."
+                      className="app-search-input"
+                      style={{ width: 180 }}
+                    />
+                    {componentFilter && (
+                      <Button variant="plain" size="sm" onClick={() => setComponentFilter('')} aria-label="Clear filter">&times;</Button>
+                    )}
+                  </FlexItem>
+                  <FlexItem>
+                    <Tooltip content="Show only items with low AI confidence (<70%) that may need human review">
+                      <Button variant={showLowConfidence ? 'secondary' : 'plain'} size="sm"
+                        onClick={() => setShowLowConfidence(!showLowConfidence)}>
+                        {showLowConfidence ? 'All items' : '⚠ Low confidence'}
+                      </Button>
+                    </Tooltip>
+                  </FlexItem>
+                </Flex>
               </FlexItem>
             </Flex>
           )}
@@ -530,29 +658,122 @@ const ChangelogTab: React.FC<{ version: string; milestones: Array<{ name: string
               <ExpandableSection key={cat} toggleText={`${meta.label} (${filtered.length})`} isIndented className="app-mb-sm">
                 <div className="app-changelog-list">
                   {filtered.map((item, i) => (
-                    <div key={i} className="app-changelog-item">
-                      {item.key && (
-                        <a href={`https://issues.redhat.com/browse/${item.key}`} target="_blank" rel="noreferrer" className="app-changelog-key">
-                          {item.key} <ExternalLinkAltIcon className="app-text-xs" />
-                        </a>
-                      )}
-                      <span className="app-changelog-title">{item.title || ''}</span>
-                      {item.component && <Label color="grey" isCompact className="app-ml-xs">{item.component}</Label>}
-                      {item.impactScore && (
-                        <Tooltip content={`Impact: ${item.impactScore}/5`}>
-                          <Label color={item.impactScore >= 4 ? 'red' : item.impactScore >= 3 ? 'orange' : 'grey'} isCompact className="app-ml-xs">
-                            {'★'.repeat(item.impactScore)}
-                          </Label>
+                    <div key={i} className="app-changelog-item-wrap">
+                      <div className="app-changelog-item">
+                        {item.key && (
+                          <a href={`https://issues.redhat.com/browse/${item.key}`} target="_blank" rel="noreferrer" className="app-changelog-key">
+                            {item.key} <ExternalLinkAltIcon className="app-text-xs" />
+                          </a>
+                        )}
+                        <Tooltip content={item.reasoning || item.title || ''} maxWidth="400px">
+                          <span className="app-changelog-title">{item.title || ''}</span>
                         </Tooltip>
-                      )}
-                      {item.risk && item.risk !== 'low' && (
-                        <Label color={item.risk === 'high' ? 'red' : 'orange'} isCompact className="app-ml-xs">{item.risk} risk</Label>
-                      )}
-                      {item.prLinks && item.prLinks.length > 0 && item.prLinks.map((pr, pi) => (
-                        <a key={pi} href={typeof pr === 'string' ? pr : '#'} target="_blank" rel="noreferrer" className="app-text-xs app-ml-xs">
-                          PR <ExternalLinkAltIcon />
-                        </a>
-                      ))}
+                        {item.component && <Label color="grey" isCompact className="app-ml-xs">{item.component}</Label>}
+                        {editMode && item.key ? (
+                          <>
+                            <select className="app-edit-select app-ml-xs" defaultValue={cat}
+                              onChange={e => addEdit({ key: item.key!, field: 'category', oldValue: cat, newValue: e.target.value, context: item.title })}>
+                              {CATEGORY_KEYS.map(c => <option key={c} value={c}>{CATEGORY_LABELS[c]?.label || c}</option>)}
+                            </select>
+                            <select className="app-edit-select app-ml-xs" defaultValue={String(item.impactScore ?? 3)}
+                              onChange={e => addEdit({ key: item.key!, field: 'impactScore', oldValue: String(item.impactScore ?? 3), newValue: e.target.value, context: item.title })}>
+                              {[1,2,3,4,5].map(n => <option key={n} value={String(n)}>{'★'.repeat(n)}</option>)}
+                            </select>
+                            <select className="app-edit-select app-ml-xs" defaultValue={item.risk || 'low'}
+                              onChange={e => addEdit({ key: item.key!, field: 'risk', oldValue: item.risk || 'low', newValue: e.target.value, context: item.title })}>
+                              <option value="low">low risk</option>
+                              <option value="medium">medium risk</option>
+                              <option value="high">high risk</option>
+                            </select>
+                          </>
+                        ) : (
+                          <>
+                            {item.impactScore && (
+                              <Tooltip content={`Impact: ${item.impactScore}/5`}>
+                                <Label color={item.impactScore >= 4 ? 'red' : item.impactScore >= 3 ? 'orange' : 'grey'} isCompact className="app-ml-xs">
+                                  {'★'.repeat(item.impactScore)}
+                                </Label>
+                              </Tooltip>
+                            )}
+                            {item.risk && item.risk !== 'low' && (
+                              <Label color={item.risk === 'high' ? 'red' : 'orange'} isCompact className="app-ml-xs">{item.risk} risk</Label>
+                            )}
+                          </>
+                        )}
+                        <ConfidenceBadge confidence={item.confidence} reason={item.confidenceReason} />
+                        {item.prLinks && item.prLinks.length > 0 && item.prLinks.map((pr, pi) => (
+                          <a key={pi} href={typeof pr === 'string' ? pr : '#'} target="_blank" rel="noreferrer" className="app-text-xs app-ml-xs">
+                            PR <ExternalLinkAltIcon />
+                          </a>
+                        ))}
+                      </div>
+                      {(item.ticketSummary || item.status || item.assignee || item.availableIn || item.buildInfo || item.blockedBy) && (() => {
+                        const avail = typeof item.availableIn === 'object' && item.availableIn ? item.availableIn : null;
+                        const availStr = typeof item.availableIn === 'string' ? item.availableIn : null;
+                        const availVersion = avail?.version || availStr || null;
+
+                        const availTooltipLines: string[] = [];
+                        if (avail) {
+                          if (avail.evidence) availTooltipLines.push(`📋 ${avail.evidence}`);
+                          if (avail.build) availTooltipLines.push(`🔧 Build: ${avail.build}${avail.buildDate ? ` (${avail.buildDate})` : ''}`);
+                          if (avail.prMergedTo) availTooltipLines.push(`🔀 PR merged to: ${avail.prMergedTo}${avail.prMergedDate ? ` on ${avail.prMergedDate}` : ''}`);
+                          if (item.resolvedDate) availTooltipLines.push(`✅ Resolved: ${item.resolvedDate}`);
+                        } else {
+                          if (item.availableInReason) availTooltipLines.push(item.availableInReason);
+                          else if (item.buildInfo) availTooltipLines.push(`Build info: ${item.buildInfo}`);
+                          if (item.resolvedDate) availTooltipLines.push(`Resolved: ${item.resolvedDate}`);
+                          if (availTooltipLines.length === 0) availTooltipLines.push(`Version determined from Jira fixVersion field. Regenerate the changelog for detailed evidence.`);
+                        }
+                        const availTooltip = availTooltipLines.join('\n');
+
+                        return (
+                        <div className="app-changelog-ticket-detail">
+                          {item.ticketSummary && (
+                            <div className="app-changelog-ticket-summary">{item.ticketSummary}</div>
+                          )}
+                          <div className="app-changelog-ticket-meta">
+                            {item.status && (
+                              <Tooltip content={`Status: ${item.status}${item.resolution ? ` (${item.resolution})` : ''}${item.resolvedDate ? ` — resolved ${item.resolvedDate}` : ''}`}>
+                                <span className="app-changelog-meta-item">
+                                  <Label color={item.status === 'Closed' || item.status === 'Done' ? 'green' : item.status === 'In Progress' ? 'blue' : 'grey'} isCompact variant="outline">
+                                    {item.status}
+                                  </Label>
+                                </span>
+                              </Tooltip>
+                            )}
+                            {item.assignee && (
+                              <Tooltip content={`Assignee: ${item.assignee}`}>
+                                <span className="app-changelog-meta-item"><UserIcon className="app-text-xs" /> {item.assignee}</span>
+                              </Tooltip>
+                            )}
+                            {availVersion && (
+                              <Tooltip content={<div style={{ whiteSpace: 'pre-line' }}>{availTooltip}</div>} maxWidth="450px">
+                                <Label color="blue" isCompact variant="outline" className="app-changelog-meta-item app-cursor-help">
+                                  {availVersion}{avail?.build ? ` (${avail.build})` : ''}
+                                </Label>
+                              </Tooltip>
+                            )}
+                            {avail?.prMergedTo && (
+                              <Tooltip content={`PR merged to branch ${avail.prMergedTo}${avail.prMergedDate ? ` on ${avail.prMergedDate}` : ''}`}>
+                                <span className="app-changelog-meta-item app-text-xs app-text-muted app-cursor-help">
+                                  → {avail.prMergedTo}
+                                </span>
+                              </Tooltip>
+                            )}
+                            {item.buildInfo && !availVersion && (
+                              <Tooltip content={`Build: ${item.buildInfo}`}>
+                                <span className="app-changelog-meta-item"><WrenchIcon className="app-text-xs" /> {item.buildInfo}</span>
+                              </Tooltip>
+                            )}
+                            {item.blockedBy && (
+                              <Label color="red" isCompact variant="outline" className="app-changelog-meta-item">
+                                Blocked: {item.blockedBy}
+                              </Label>
+                            )}
+                          </div>
+                        </div>
+                        );
+                      })()}
                     </div>
                   ))}
                 </div>
@@ -576,10 +797,62 @@ const ChangelogTab: React.FC<{ version: string; milestones: Array<{ name: string
             </ExpandableSection>
           )}
 
-          {cl?.raw && !hasCategories && (
-            <div className="app-changelog-raw">
-              {cl.raw.split('\n').map((line, i) => <Content key={i} component="p" className="app-text-xs">{line}</Content>)}
+          {cl?.epicStatus && cl.epicStatus.length > 0 && (
+            <ExpandableSection toggleText={`Epic Status (${cl.epicStatus.length})`} className="app-mb-sm">
+              {cl.epicStatus.map((epic, i) => (
+                <div key={i} className="app-changelog-item">
+                  <a href={`https://issues.redhat.com/browse/${epic.key}`} target="_blank" rel="noreferrer" className="app-changelog-key">{epic.key}</a>
+                  <span className="app-changelog-title">{epic.title}</span>
+                  <Label color={epic.status === 'complete' ? 'green' : epic.status === 'blocked' ? 'red' : 'orange'} isCompact className="app-ml-xs">
+                    {epic.childrenDone}/{epic.childrenTotal} done
+                  </Label>
+                </div>
+              ))}
+            </ExpandableSection>
+          )}
+
+          {cl?.concerns && cl.concerns.length > 0 && (
+            <Alert variant="warning" isInline title={`${cl.concerns.length} Concerns`} className="app-mb-md">
+              <ul className="app-text-xs">
+                {cl.concerns.map((c, i) => <li key={i}>{typeof c === 'string' ? c : JSON.stringify(c)}</li>)}
+              </ul>
+            </Alert>
+          )}
+
+          {cl?.testImpact && (cl.testImpact.newlyPassing > 0 || cl.testImpact.newlyFailing > 0) && (
+            <div className="app-mb-md">
+              <Content component="h5" className="app-mb-xs">Test Impact</Content>
+              <Flex spaceItems={{ default: 'spaceItemsMd' }}>
+                {cl.testImpact.newlyPassing > 0 && (
+                  <FlexItem><Label color="green" isCompact>{cl.testImpact.newlyPassing} newly passing</Label></FlexItem>
+                )}
+                {cl.testImpact.newlyFailing > 0 && (
+                  <FlexItem><Label color="red" isCompact>{cl.testImpact.newlyFailing} newly failing</Label></FlexItem>
+                )}
+              </Flex>
+              {cl.testImpact.details && cl.testImpact.details.length > 0 && (
+                <ul className="app-text-xs app-mt-xs">
+                  {cl.testImpact.details.map((d, i) => <li key={i}>{d}</li>)}
+                </ul>
+              )}
             </div>
+          )}
+
+          {!hasCategories && !cl?.summary && (
+            <Alert variant="warning" isInline title="AI response could not be parsed into structured categories" className="app-mb-md">
+              <Content component="p" className="app-text-xs">
+                The AI returned a response that could not be parsed as a structured changelog. This usually happens when the AI wraps the response in extra text or the JSON is malformed.
+                Try clicking &quot;Regenerate&quot; above. {cl?.raw ? 'The raw AI output is shown below.' : ''}
+              </Content>
+            </Alert>
+          )}
+
+          {cl?.raw && (
+            <ExpandableSection toggleText="Raw AI Output" className="app-mb-md">
+              <pre style={{ fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 400, overflow: 'auto', padding: 12, background: 'var(--pf-t--global--background--color--secondary--default)', borderRadius: 6, border: '1px solid var(--pf-t--global--border--color--default)' }}>
+                {cl.raw}
+              </pre>
+            </ExpandableSection>
           )}
         </div>
       )}

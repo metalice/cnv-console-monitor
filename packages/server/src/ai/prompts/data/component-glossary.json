@@ -1,0 +1,13 @@
+{
+  "CNV Networking": "VM networking stack: bridge, SR-IOV, OVN, DPDK, secondary NICs, IP allocation, network policies",
+  "CNV Virt": "Core virtualization: libvirt, QEMU/KVM, VM lifecycle, live migration, hotplug, instance types",
+  "CNV Storage": "VM storage: PVCs, DataVolumes, CDI, disk operations, snapshots, cloning, storage profiles",
+  "CNV Console": "Web UI: OpenShift Console plugin for managing VMs, templates, instance types, dashboards",
+  "CNV SSP": "Scheduling, Scale, Performance operator: node placement, CPU topology, NUMA, tuning policies",
+  "CNV HCO": "HyperConverged Operator: top-level operator that manages all CNV sub-operators and their CRDs",
+  "CNV CDI": "Containerized Data Importer: importing VM disk images from URLs, registries, or PVCs",
+  "CNV MTQ": "Managed Tenant Quota: resource quota management across namespaces for VMs",
+  "CNV AAQ": "Application Aware Quota: application-level resource management for virtual machines",
+  "CNV Tests": "E2E test framework, CI infrastructure, test utilities, Polarion integration",
+  "CNV Docs": "Documentation: product docs, release notes, API references, guides"
+}

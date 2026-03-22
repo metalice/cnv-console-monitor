@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import { timingSafeEqual } from 'crypto';
 import { config } from '../../config';
 import { getAllUsers, setUserRole, hasAnyAdmin } from '../../db/store';
 import { requireAdmin } from '../middleware/auth';
@@ -12,7 +13,11 @@ router.post('/bootstrap', async (req: Request, res: Response, next: NextFunction
       res.status(400).json({ error: 'ADMIN_SECRET not configured on the server' });
       return;
     }
-    if (secret !== config.admin.secret) {
+    const expected = config.admin.secret;
+    const secretsMatch =
+      secret.length === expected.length &&
+      timingSafeEqual(Buffer.from(secret), Buffer.from(expected));
+    if (!secretsMatch) {
       res.status(403).json({ error: 'Invalid admin secret' });
       return;
     }

@@ -141,15 +141,16 @@ const PipelinePhaseRow: React.FC<{
   );
 };
 
-const PipelineLog: React.FC<{ log: PipelineLogEntry[] }> = ({ log }) => {
+const PipelineLog: React.FC<{ log: PipelineLogEntry[]; totalEntries?: number }> = ({ log, totalEntries }) => {
   const [expanded, setExpanded] = useState(false);
   if (log.length === 0) return null;
 
   const all = [...log].reverse();
+  const total = totalEntries ?? log.length;
   const levelColor = (level: string) => level === 'error' ? 'app-text-danger' : level === 'warn' ? '' : 'app-text-muted';
 
   return (
-    <ExpandableSection toggleText={`Activity Log (${log.length})`} isExpanded={expanded} onToggle={(_e, v) => setExpanded(v)} className="app-mt-sm">
+    <ExpandableSection toggleText={`Activity Log (${total > log.length ? `${log.length} of ${total}` : log.length})`} isExpanded={expanded} onToggle={(_e, v) => setExpanded(v)} className="app-mt-sm">
       <div className="app-max-h-300 app-text-xs app-mono-sm">
         {all.map((entry, i) => (
           <div key={i} className={levelColor(entry.level)}>
@@ -238,7 +239,7 @@ export const DataPipeline: React.FC = () => {
         />
       ))}
 
-      {pipeline.log.length > 0 && <PipelineLog log={pipeline.log} />}
+      {pipeline.log.length > 0 && <PipelineLog log={pipeline.log} totalEntries={(pipeline as Record<string, unknown>).totalLogEntries as number | undefined} />}
     </div>
   );
 };

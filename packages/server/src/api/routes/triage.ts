@@ -3,11 +3,12 @@ import { TriageRequestSchema, CommentRequestSchema, BulkTriageRequestSchema } fr
 import { getTestItemByRpId, updateTestItemDefect, addTriageLog, getLaunchByRpId } from '../../db/store';
 import { updateDefectType, addTestItemComment } from '../../clients/reportportal';
 import { validateBody, parseIntParam } from '../middleware/validate';
+import { requireAdmin } from '../middleware/auth';
 import { broadcast } from '../../ws';
 
 const router = Router();
 
-router.post('/:itemId', validateBody(TriageRequestSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/:itemId', requireAdmin, validateBody(TriageRequestSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const itemId = parseIntParam(req.params.itemId, 'itemId', res);
     if (itemId === null) return;
@@ -42,7 +43,7 @@ router.post('/:itemId', validateBody(TriageRequestSchema), async (req: Request, 
   }
 });
 
-router.post('/bulk', validateBody(BulkTriageRequestSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/bulk', requireAdmin, validateBody(BulkTriageRequestSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { itemIds, defectType, comment } = req.body;
     const performedBy = req.user?.email || 'unknown';
@@ -70,13 +71,13 @@ router.post('/bulk', validateBody(BulkTriageRequestSchema), async (req: Request,
   }
 });
 
-router.post('/:itemId/comment', validateBody(CommentRequestSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/:itemId/comment', requireAdmin, validateBody(CommentRequestSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const itemId = parseIntParam(req.params.itemId, 'itemId', res);
     if (itemId === null) return;
 
     const { comment } = req.body;
-    const performedBy = req.user?.email || req.body.performedBy || 'unknown';
+    const performedBy = req.user?.email || 'unknown';
 
     const item = await getTestItemByRpId(itemId);
     const launch = item ? await getLaunchByRpId(item.launch_rp_id) : undefined;

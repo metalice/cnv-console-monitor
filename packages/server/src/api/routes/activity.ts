@@ -3,13 +3,14 @@ import { getActivityLog } from '../../db/store';
 import { AppDataSource } from '../../db/data-source';
 import { TriageLog } from '../../db/entities/TriageLog';
 import { requireAdmin } from '../middleware/auth';
+import { clampInt } from '../middleware/validate';
 
 const router = Router();
 
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const limit = parseInt(req.query.limit as string) || 50;
-    const offset = parseInt(req.query.offset as string) || 0;
+    const limit = clampInt(req.query.limit as string, 50, 1, 200);
+    const offset = clampInt(req.query.offset as string, 0, 0, 10000);
     const result = await getActivityLog(limit, offset, {
       component: (req.query.component as string) || undefined,
       action: (req.query.action as string) || undefined,

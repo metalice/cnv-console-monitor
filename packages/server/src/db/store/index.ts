@@ -107,6 +107,8 @@ export {
   setSetting,
   deleteSetting,
   getSettingsLog,
+  cleanupInternalSettingsLogs,
+  scrubSensitiveSettingsLogs,
 } from './settings';
 
 export type { ComponentMappingRecord, UnmappedLaunchEntry } from './componentMappings';

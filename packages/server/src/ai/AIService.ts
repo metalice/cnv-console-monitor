@@ -101,6 +101,29 @@ export class AIService {
     }
   }
 
+  async *chatStream(messages: ChatMessage[], options?: ModelOptions & { provider?: string }): AsyncGenerator<string> {
+    if (!this.enabled) throw new Error('AI is not enabled');
+
+    const providerName = options?.provider || this.defaultProvider;
+    const provider = this.providers.get(providerName);
+    if (!provider) throw new Error(`AI provider '${providerName}' not configured`);
+    if (!provider.isAvailable()) throw new Error(`AI provider '${providerName}' is not available`);
+    if (!provider.supportsStreaming() || !provider.chatStream) {
+      const response = await provider.chat(messages, options);
+      yield response.content;
+      return;
+    }
+
+    const modelOpts = this.defaultModelId && !options?.model ? { ...options, model: this.defaultModelId } : options;
+    yield* provider.chatStream(messages, modelOpts);
+  }
+
+  getStreamableProviders(): string[] {
+    return [...this.providers.entries()]
+      .filter(([, p]) => p.supportsStreaming())
+      .map(([name]) => name);
+  }
+
   async runPrompt(promptName: string, vars: Record<string, unknown>, options?: ModelOptions & { provider?: string; useCache?: boolean; cacheTtlMs?: number }): Promise<AIResponse> {
     const prompt = getPrompt(promptName, vars);
     const messages: ChatMessage[] = [];

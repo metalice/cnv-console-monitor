@@ -10,6 +10,96 @@ import checklistActionsRouter from './releases-actions';
 const log = logger.child({ module: 'Releases' });
 const router = Router();
 
+const repairJson = (text: string): string => {
+  let s = text;
+  // Remove trailing commas before } or ]
+  s = s.replace(/,\s*([}\]])/g, '$1');
+  // Fix unescaped newlines inside JSON string values
+  s = s.replace(/"([^"\\]*(?:\\.[^"\\]*)*)"/g, (match) => {
+    return match.replace(/(?<!\\)\n/g, '\\n').replace(/(?<!\\)\r/g, '\\r').replace(/(?<!\\)\t/g, '\\t');
+  });
+  return s;
+};
+
+const extractJson = (text: string): Record<string, unknown> => {
+  const cleaned = text.trim();
+
+  // 1. Try direct parse
+  try { return JSON.parse(cleaned); } catch { /* continue */ }
+
+  // 2. Strip markdown fences — use greedy match for the LARGEST fenced block
+  const fenceMatch = cleaned.match(/```(?:json)?\s*\n([\s\S]*)\n\s*```/i);
+  if (fenceMatch) {
+    const inner = fenceMatch[1].trim();
+    try { return JSON.parse(inner); } catch { /* try repair */ }
+    try { return JSON.parse(repairJson(inner)); } catch { /* continue */ }
+  }
+
+  // 3. Strip leading/trailing fences only
+  const stripped = cleaned.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?\s*```\s*$/i, '').trim();
+  try { return JSON.parse(stripped); } catch { /* continue */ }
+  try { return JSON.parse(repairJson(stripped)); } catch { /* continue */ }
+
+  // 4. Find first { and last } — extract the JSON object
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    const candidate = cleaned.substring(firstBrace, lastBrace + 1);
+    try { return JSON.parse(candidate); } catch { /* try repair */ }
+    try { return JSON.parse(repairJson(candidate)); } catch { /* continue */ }
+  }
+
+  // 5. Try to salvage truncated JSON by finding the deepest valid parse point
+  if (firstBrace !== -1) {
+    const candidate = cleaned.substring(firstBrace);
+    const repaired = repairJson(candidate);
+
+    // Walk backwards from the end to find a point where closing braces/brackets makes valid JSON
+    for (let end = repaired.length; end > firstBrace + 10; end--) {
+      if (repaired[end - 1] === '}' || repaired[end - 1] === ']') {
+        try { return JSON.parse(repaired.substring(0, end)); } catch { /* continue */ }
+      }
+    }
+
+    // Try force-closing truncated JSON: remove trailing partial values, close all open structures
+    let truncated = repaired;
+    // Remove trailing partial key-value (e.g., `"key": "CNV-74422", "`)
+    truncated = truncated.replace(/,\s*"[^"]*"\s*:\s*"?[^"{}[\]]*$/, '');
+    truncated = truncated.replace(/,\s*"[^"]*"\s*$/, '');
+    truncated = truncated.replace(/,\s*\{[^}]*$/, '');
+    truncated = truncated.replace(/,\s*$/, '');
+
+    // Count open braces/brackets and close them
+    let openBraces = 0;
+    let openBrackets = 0;
+    let inString = false;
+    for (let i = 0; i < truncated.length; i++) {
+      const ch = truncated[i];
+      if (inString) {
+        if (ch === '\\') { i++; continue; }
+        if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') inString = true;
+      else if (ch === '{') openBraces++;
+      else if (ch === '}') openBraces--;
+      else if (ch === '[') openBrackets++;
+      else if (ch === ']') openBrackets--;
+    }
+    // If we're inside an unclosed string, close it
+    if (inString) truncated += '"';
+    // Close arrays then objects
+    for (let i = 0; i < openBrackets; i++) truncated += ']';
+    for (let i = 0; i < openBraces; i++) truncated += '}';
+
+    try { return JSON.parse(truncated); } catch { /* continue */ }
+    try { return JSON.parse(repairJson(truncated)); } catch { /* continue */ }
+  }
+
+  // 6. Give up — return raw text for display
+  return { raw: cleaned };
+};
+
 router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const ppReleases = await fetchCnvReleases();
@@ -282,12 +372,24 @@ router.get('/:version/sub-versions', async (req: Request, res: Response, next: N
 });
 
 // Changelog job store + DB persistence
+type ChangelogLogEntry = { time: number; message: string; type: 'info' | 'success' | 'error' };
+
 type ChangelogJob = {
   status: 'running' | 'done' | 'error';
   progress: string;
+  step: string;
+  currentBatch: number;
+  totalBatches: number;
+  totalIssues: number;
+  log: ChangelogLogEntry[];
   result?: Record<string, unknown>;
   error?: string;
   startedAt: number;
+};
+
+const jobLog = (job: ChangelogJob, message: string, type: ChangelogLogEntry['type'] = 'info') => {
+  job.log.push({ time: Date.now(), message, type });
+  job.progress = message;
 };
 const changelogJobs = new Map<string, ChangelogJob>();
 
@@ -328,7 +430,17 @@ router.get('/changelog-status', async (req: Request, res: Response) => {
   const jobKey = changelogCacheKey(target, from);
   const activeJob = changelogJobs.get(jobKey);
   if (activeJob && activeJob.status === 'running') {
-    res.json({ status: 'running', progress: activeJob.progress });
+    const elapsed = Math.round((Date.now() - activeJob.startedAt) / 1000);
+    res.json({
+      status: 'running',
+      progress: activeJob.progress,
+      step: activeJob.step,
+      currentBatch: activeJob.currentBatch,
+      totalBatches: activeJob.totalBatches,
+      totalIssues: activeJob.totalIssues,
+      elapsedSeconds: elapsed,
+      log: activeJob.log,
+    });
     return;
   }
   if (activeJob && activeJob.status === 'done' && activeJob.result) {
@@ -350,124 +462,710 @@ router.get('/changelog-status', async (req: Request, res: Response) => {
 });
 
 // Changelog generation (version-to-version, background job)
+const loadComponentGlossary = (): string => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const glossaryPath = path.join(__dirname, '../../ai/prompts/data/component-glossary.json');
+    const data = JSON.parse(fs.readFileSync(glossaryPath, 'utf-8'));
+    return Object.entries(data).map(([k, v]) => `- ${k}: ${v}`).join('\n');
+  } catch { return ''; }
+};
+
+const loadCorrections = async (): Promise<string> => {
+  try {
+    const { AppDataSource } = await import('../../db/data-source');
+    const { AICorrection } = await import('../../db/entities/AICorrection');
+    const corrections = await AppDataSource.getRepository(AICorrection).find({
+      order: { created_at: 'DESC' },
+      take: 15,
+    });
+    if (corrections.length === 0) return '';
+    return corrections.map(c =>
+      `- ${c.issue_key}: AI classified as "${c.ai_value}" but correct is "${c.human_value}" (field: ${c.field}) — context: ${c.context || 'N/A'}`
+    ).join('\n');
+  } catch { return ''; }
+};
+
+const applyReviewCorrections = (
+  categories: Record<string, Array<Record<string, unknown>>>,
+  review: Record<string, unknown>,
+) => {
+  const corrections = (review.corrections || []) as Array<{ key: string; fromCategory: string; toCategory: string }>;
+  for (const c of corrections) {
+    const fromArr = categories[c.fromCategory];
+    if (!fromArr) continue;
+    const idx = fromArr.findIndex(item => item.key === c.key);
+    if (idx === -1) continue;
+    const [item] = fromArr.splice(idx, 1);
+    if (!categories[c.toCategory]) categories[c.toCategory] = [];
+    categories[c.toCategory].push(item);
+  }
+
+  const duplicates = (review.duplicates || []) as Array<{ key: string; removeFrom: string }>;
+  for (const d of duplicates) {
+    const arr = categories[d.removeFrom];
+    if (!arr) continue;
+    const idx = arr.findIndex(item => item.key === d.key);
+    if (idx !== -1) arr.splice(idx, 1);
+  }
+
+  const impactAdj = (review.impactAdjustments || []) as Array<{ key: string; to: number }>;
+  for (const adj of impactAdj) {
+    for (const items of Object.values(categories)) {
+      const item = items.find(i => i.key === adj.key);
+      if (item) { item.impactScore = adj.to; break; }
+    }
+  }
+};
+
 const runChangelogJob = async (jobKey: string, targetVersion: string, compareFrom: string | undefined) => {
   const job = changelogJobs.get(jobKey)!;
   try {
+    const { clearTemplateCache } = await import('../../ai/PromptManager');
+    clearTemplateCache();
+
     const { getAIService } = await import('../../ai');
     const ai = getAIService();
 
+    const FULL_FIELDS = [
+      'summary', 'issuetype', 'priority', 'components', 'status', 'resolution',
+      'fixVersions', 'assignee', 'description', 'comment', 'issuelinks',
+      'parent', 'subtasks', 'labels', 'created', 'updated', 'resolutiondate',
+      'customfield_12316142', 'customfield_12317313',
+    ];
+
     let issues: Array<Record<string, unknown>> = [];
     const contributors = new Map<string, number>();
+    const epicKeys = new Set<string>();
+    const issuesWithSubtasks = new Set<string>();
+    const criticalLinkedKeys = new Set<string>();
+
     if (config.jira.enabled) {
       try {
         const client = createJiraClient();
+        jobLog(job, `Querying Jira for issues with fixVersion = "${targetVersion}" (full depth: comments, links, subtasks)`);
         const jql = `project = ${config.jira.projectKey} AND fixVersion = "${sanitizeJql(targetVersion)}" ORDER BY priority ASC, updated DESC`;
         let startAt = 0;
-        const pageSize = 100;
+        const pageSize = 50;
         while (true) {
-          const response = await jiraSearch(client, jql, ['summary', 'issuetype', 'priority', 'components', 'status', 'fixVersions', 'assignee', 'description'], pageSize, startAt);
+          const response = await jiraSearch(client, jql, FULL_FIELDS, pageSize, startAt);
+          jobLog(job, `Fetched page ${Math.floor(startAt / pageSize) + 1}: ${response.data.issues?.length ?? 0} issues (${issues.length + (response.data.issues?.length ?? 0)} total)`);
           const batch = (response.data.issues || []).map((issue: Record<string, unknown>) => {
             const f = issue.fields as Record<string, unknown>;
             const assignee = (f.assignee as { displayName: string })?.displayName || null;
             if (assignee) contributors.set(assignee, (contributors.get(assignee) ?? 0) + 1);
+
             const desc = (f.description as string) || '';
             const prLinks = desc.match(/https?:\/\/github\.com\/[^\s/]+\/[^\s/]+\/pull\/\d+/g) || [];
+
+            const allComments = ((f.comment as { comments?: Array<{ body: string; author: { displayName: string }; created: string }> })?.comments ?? []);
+            const comments = allComments
+              .slice(-10)
+              .map(c => ({ author: c.author?.displayName, text: c.body?.substring(0, 1500), date: c.created }));
+
+            const allCommentText = allComments.map(c => c.body || '').join(' ');
+            const buildMentions = allCommentText.match(/build[:\s#-]*[\w.-]+/gi) || [];
+            const prMentionsInComments = allCommentText.match(/https?:\/\/github\.com\/[^\s/]+\/[^\s/]+\/pull\/\d+/g) || [];
+            const allPrLinks = [...new Set([...prLinks, ...prMentionsInComments])];
+
+            const CRITICAL_LINK_TYPES = ['blocks', 'is blocked by', 'cloners', 'is cloned by', 'duplicate', 'is duplicated by'];
+            const links = ((f.issuelinks || []) as Array<Record<string, unknown>>).map(link => {
+              const inward = link.inwardIssue as Record<string, unknown> | undefined;
+              const outward = link.outwardIssue as Record<string, unknown> | undefined;
+              const linkTypeName = (link.type as Record<string, unknown>)?.name as string || '';
+              const inwardDesc = (link.type as Record<string, unknown>)?.inward as string || '';
+              const outwardDesc = (link.type as Record<string, unknown>)?.outward as string || '';
+              const linked = inward || outward;
+              if (!linked) return null;
+
+              const linkedKey = (linked as Record<string, unknown>).key as string;
+              const relationLabel = inward ? inwardDesc : outwardDesc;
+
+              if (CRITICAL_LINK_TYPES.some(t => relationLabel.toLowerCase().includes(t.toLowerCase()))) {
+                criticalLinkedKeys.add(linkedKey);
+              }
+
+              return {
+                type: linkTypeName,
+                relation: relationLabel,
+                direction: inward ? 'inward' : 'outward',
+                key: linkedKey,
+                summary: ((linked as Record<string, unknown>).fields as Record<string, unknown>)?.summary,
+                status: (((linked as Record<string, unknown>).fields as Record<string, unknown>)?.status as Record<string, unknown>)?.name,
+              };
+            }).filter(Boolean);
+
+            const parent = f.parent as Record<string, unknown> | undefined;
+            const parentInfo = parent ? {
+              key: parent.key,
+              summary: (parent.fields as Record<string, unknown>)?.summary,
+              type: ((parent.fields as Record<string, unknown>)?.issuetype as Record<string, unknown>)?.name,
+            } : null;
+
+            if (parentInfo && (parentInfo.type as string)?.toLowerCase() === 'epic') epicKeys.add(parentInfo.key as string);
+
+            const subtasks = ((f.subtasks || []) as Array<Record<string, unknown>>).map(st => ({
+              key: st.key,
+              summary: (st.fields as Record<string, unknown>)?.summary,
+              status: ((st.fields as Record<string, unknown>)?.status as Record<string, unknown>)?.name,
+            }));
+
+            const issueType = (f.issuetype as { name: string })?.name || '';
+            if (issueType.toLowerCase() === 'epic') epicKeys.add(issue.key as string);
+            if (subtasks.length > 0 && issueType.toLowerCase() !== 'epic') {
+              issuesWithSubtasks.add(issue.key as string);
+            }
+
+            const storyPoints = f.customfield_12316142 as number | null;
+            const releaseNote = (f.customfield_12317313 as string) || null;
+
+            const linksText = links.length > 0
+              ? 'Links:\n' + (links as Array<Record<string, unknown>>).map(l => `  ${l.relation || l.type} → ${l.key} "${l.summary}" [${l.status}]`).join('\n')
+              : '';
+            const commentsText = comments.length > 0
+              ? `Comments (last ${comments.length}):\n` + comments.map(c => `  [${c.date}] ${c.author}: ${c.text}`).join('\n')
+              : '';
+            const parentText = parentInfo
+              ? `Parent: ${parentInfo.key} [${parentInfo.type}] "${parentInfo.summary}"`
+              : '';
+            const subtasksText = subtasks.length > 0
+              ? `Subtasks (${subtasks.length}):\n` + subtasks.map(s => `  ${s.key}: "${s.summary}" [${s.status}]`).join('\n')
+              : '';
+
             return {
               key: issue.key,
               summary: (f.summary as string) || '',
-              type: (f.issuetype as { name: string })?.name || '',
+              description: desc,
+              type: issueType,
               priority: (f.priority as { name: string })?.name || '',
               components: ((f.components || []) as Array<{ name: string }>).map(c => c.name).join(', '),
               status: (f.status as { name: string })?.name || '',
+              resolution: (f.resolution as { name: string })?.name || null,
               assignee,
-              prLinks,
+              labels: ((f.labels || []) as string[]).join(', '),
+              prLinks: allPrLinks.join(', '),
+              buildMentions: buildMentions.join(', '),
+              comments: commentsText,
+              links: linksText,
+              parent: parentText,
+              subtasks: subtasksText,
+              storyPoints: storyPoints ? `Story Points: ${storyPoints}` : '',
+              releaseNote: releaseNote ? `Release Note: ${releaseNote}` : '',
+              created: f.created,
+              updated: f.updated,
+              resolved: f.resolutiondate || null,
+              _rawLinks: links,
             };
           });
           issues.push(...batch);
           if (batch.length < pageSize || issues.length >= response.data.total) break;
           startAt += pageSize;
         }
+
+        const issueKeysInSet = new Set(issues.map(i => i.key as string));
+
+        if (epicKeys.size > 0) {
+          const EPIC_CHILD_FIELDS = ['summary', 'issuetype', 'status', 'resolution', 'subtasks', 'description', 'comment', 'labels', 'resolutiondate', 'fixVersions'];
+          jobLog(job, `Found ${epicKeys.size} epics — fetching child issues with full context (comments, PRs, build info)...`);
+          for (const epicKey of epicKeys) {
+            try {
+              const epicJql = `"Epic Link" = ${epicKey} ORDER BY issuetype ASC`;
+              const epicResponse = await jiraSearch(client, epicJql, EPIC_CHILD_FIELDS, 200, 0);
+              const children = (epicResponse.data.issues || []).map((ch: Record<string, unknown>) => {
+                const cf = ch.fields as Record<string, unknown>;
+
+                const childDesc = (cf.description as string) || '';
+                const childPrLinks = childDesc.match(/https?:\/\/github\.com\/[^\s/]+\/[^\s/]+\/pull\/\d+/g) || [];
+
+                const childAllComments = ((cf.comment as { comments?: Array<{ body: string; author: { displayName: string }; created: string }> })?.comments ?? []);
+                const childComments = childAllComments.slice(-5).map(c => ({ author: c.author?.displayName, text: c.body?.substring(0, 1000), date: c.created }));
+                const childCommentText = childAllComments.map(c => c.body || '').join(' ');
+                const childBuildMentions = childCommentText.match(/build[:\s#-]*[\w.-]+/gi) || [];
+                const childPrFromComments = childCommentText.match(/https?:\/\/github\.com\/[^\s/]+\/[^\s/]+\/pull\/\d+/g) || [];
+
+                const childSubtasks = ((cf.subtasks || []) as Array<Record<string, unknown>>).map(st => ({
+                  key: st.key,
+                  summary: (st.fields as Record<string, unknown>)?.summary,
+                  status: ((st.fields as Record<string, unknown>)?.status as Record<string, unknown>)?.name,
+                }));
+
+                const allChildPrs = [...new Set([...childPrLinks, ...childPrFromComments])];
+                const childFixVersions = ((cf.fixVersions || []) as Array<{ name: string }>).map(v => v.name);
+
+                const childInfo: Record<string, unknown> = {
+                  key: ch.key,
+                  summary: (cf.summary as string) || '',
+                  type: (cf.issuetype as { name: string })?.name,
+                  status: (cf.status as { name: string })?.name,
+                  resolution: (cf.resolution as { name: string })?.name,
+                  resolved: cf.resolutiondate || null,
+                  fixVersions: childFixVersions.length > 0 ? childFixVersions.join(', ') : undefined,
+                };
+                if (allChildPrs.length > 0) childInfo.prLinks = allChildPrs.join(', ');
+                if (childBuildMentions.length > 0) childInfo.buildMentions = childBuildMentions.join(', ');
+                if (childComments.length > 0) {
+                  childInfo.comments = childComments.map(c => `[${c.date}] ${c.author}: ${c.text}`).join(' | ');
+                }
+                if (childSubtasks.length > 0) {
+                  childInfo.subtasks = childSubtasks.map(s => `${s.key} [${s.status}]`).join(', ');
+                }
+                return childInfo;
+              });
+              const epicIssue = issues.find(i => i.key === epicKey);
+              if (epicIssue) {
+                const DOC_KEYWORDS = ['doc', 'documentation', 'release note', 'user guide', 'tech writer'];
+                const QE_KEYWORDS = ['qe', 'test', 'verification', 'automation', 'e2e'];
+
+                const classifyChild = (c: Record<string, unknown>): 'code' | 'docs' | 'qe' | 'other' => {
+                  const summary = ((c.summary as string) || '').toLowerCase();
+                  const type = ((c.type as string) || '').toLowerCase();
+                  const labels = ((c.labels as string) || '').toLowerCase();
+                  const combined = `${summary} ${type} ${labels}`;
+                  if (DOC_KEYWORDS.some(k => combined.includes(k))) return 'docs';
+                  if (QE_KEYWORDS.some(k => combined.includes(k))) return 'qe';
+                  if (c.prLinks || c.buildMentions) return 'code';
+                  if (type === 'story' || type === 'task' || type === 'bug') return 'code';
+                  return 'other';
+                };
+
+                const formatChild = (c: Record<string, unknown>) => {
+                  let line = `  ${c.key} [${c.type}] "${c.summary}" — ${c.status}${c.resolution ? ` (${c.resolution})` : ''}`;
+                  if (c.resolved) line += ` resolved: ${c.resolved}`;
+                  if (c.fixVersions) line += ` fixVersions: ${c.fixVersions}`;
+                  if (c.prLinks) line += `\n    PRs: ${c.prLinks}`;
+                  if (c.buildMentions) line += `\n    Builds: ${c.buildMentions}`;
+                  if (c.comments) line += `\n    Comments: ${c.comments}`;
+                  if (c.subtasks) line += `\n    Subtasks: ${c.subtasks}`;
+                  return line;
+                };
+
+                const codeChildren = children.filter(c => classifyChild(c) === 'code');
+                const docsChildren = children.filter(c => classifyChild(c) === 'docs');
+                const qeChildren = children.filter(c => classifyChild(c) === 'qe');
+                const otherChildren = children.filter(c => { const cls = classifyChild(c); return cls === 'other'; });
+
+                const allBuildMentions = children.flatMap(c => ((c.buildMentions as string) || '').split(', ').filter(Boolean));
+                const allPrLinks = children.flatMap(c => ((c.prLinks as string) || '').split(', ').filter(Boolean));
+                const codeResolvedDates = codeChildren
+                  .map(c => c.resolved as string)
+                  .filter(Boolean)
+                  .sort();
+                const earliestCodeResolved = codeResolvedDates.length > 0 ? codeResolvedDates[0] : null;
+                const codeFixVersions = [...new Set(codeChildren.flatMap(c => ((c.fixVersions as string) || '').split(', ').filter(Boolean)))];
+
+                const done = children.filter(c => c.status === 'Closed' || c.status === 'Done').length;
+                const lines: string[] = [];
+                lines.push(`Epic Children Summary: ${done}/${children.length} done (${codeChildren.length} code, ${docsChildren.length} docs, ${qeChildren.length} QE)`);
+
+                if (allBuildMentions.length > 0 || allPrLinks.length > 0 || earliestCodeResolved) {
+                  lines.push(`>>> EARLIEST CODE EVIDENCE (use this for availableIn, NOT docs/QE dates):`);
+                  if (allBuildMentions.length > 0) lines.push(`  First build mentions: ${allBuildMentions.slice(0, 5).join(', ')}`);
+                  if (allPrLinks.length > 0) lines.push(`  Code PRs: ${allPrLinks.slice(0, 5).join(', ')}`);
+                  if (earliestCodeResolved) lines.push(`  Earliest code child resolved: ${earliestCodeResolved}`);
+                  if (codeFixVersions.length > 0) lines.push(`  Code fixVersions: ${codeFixVersions.join(', ')}`);
+                }
+
+                if (codeChildren.length > 0) {
+                  lines.push(`\nCODE/IMPLEMENTATION children (${codeChildren.length}) — USE THESE for version determination:`);
+                  codeChildren.forEach(c => lines.push(formatChild(c)));
+                }
+                if (docsChildren.length > 0) {
+                  lines.push(`\nDOCS children (${docsChildren.length}) — DO NOT use for version determination:`);
+                  docsChildren.forEach(c => lines.push(formatChild(c)));
+                }
+                if (qeChildren.length > 0) {
+                  lines.push(`\nQE/TEST children (${qeChildren.length}) — DO NOT use for version determination:`);
+                  qeChildren.forEach(c => lines.push(formatChild(c)));
+                }
+                if (otherChildren.length > 0) {
+                  lines.push(`\nOther children (${otherChildren.length}):`);
+                  otherChildren.forEach(c => lines.push(formatChild(c)));
+                }
+
+                (epicIssue as Record<string, unknown>).epicChildren = lines.join('\n');
+                jobLog(job, `Epic ${epicKey}: ${done}/${children.length} (${codeChildren.length} code, ${docsChildren.length} docs, ${qeChildren.length} QE)`, 'success');
+              }
+            } catch { /* skip epic on error */ }
+          }
+        }
+
+        if (issuesWithSubtasks.size > 0) {
+          const nonEpicSubtaskIssues = [...issuesWithSubtasks].filter(k => !epicKeys.has(k));
+          if (nonEpicSubtaskIssues.length > 0) {
+            jobLog(job, `Fetching detailed subtask status for ${nonEpicSubtaskIssues.length} non-epic parent issues...`);
+            for (const parentKey of nonEpicSubtaskIssues) {
+              try {
+                const stJql = `parent = ${parentKey} ORDER BY issuetype ASC`;
+                const stResponse = await jiraSearch(client, stJql, ['summary', 'issuetype', 'status', 'resolution'], 100, 0);
+                const detailedSubtasks = (stResponse.data.issues || []).map((st: Record<string, unknown>) => {
+                  const sf = st.fields as Record<string, unknown>;
+                  return {
+                    key: st.key,
+                    summary: (sf.summary as string) || '',
+                    type: (sf.issuetype as { name: string })?.name,
+                    status: (sf.status as { name: string })?.name,
+                    resolution: (sf.resolution as { name: string })?.name,
+                  };
+                });
+                const parentIssue = issues.find(i => i.key === parentKey);
+                if (parentIssue && detailedSubtasks.length > 0) {
+                  parentIssue.subtasks = detailedSubtasks;
+                  const done = detailedSubtasks.filter((s: Record<string, unknown>) => s.status === 'Closed' || s.status === 'Done').length;
+                  jobLog(job, `${parentKey}: ${done}/${detailedSubtasks.length} subtasks completed`);
+                }
+              } catch { /* skip on error */ }
+            }
+          }
+        }
+
+        const linkedKeysToFetch = [...criticalLinkedKeys].filter(k => !issueKeysInSet.has(k));
+        if (linkedKeysToFetch.length > 0) {
+          const fetchCount = Math.min(linkedKeysToFetch.length, 50);
+          jobLog(job, `Fetching ${fetchCount} critical linked issues (blockers, clones, dependencies)...`);
+          const linkedBatchSize = 25;
+          for (let li = 0; li < fetchCount; li += linkedBatchSize) {
+            const batch = linkedKeysToFetch.slice(li, li + linkedBatchSize);
+            try {
+              const linkedJql = `key in (${batch.join(',')})`;
+              const linkedResponse = await jiraSearch(client, linkedJql, ['summary', 'issuetype', 'status', 'resolution', 'fixVersions', 'assignee'], batch.length, 0);
+              for (const linkedIssue of (linkedResponse.data.issues || [])) {
+                const lf = (linkedIssue as Record<string, unknown>).fields as Record<string, unknown>;
+                const linkedKey = (linkedIssue as Record<string, unknown>).key as string;
+                const linkedInfo = {
+                  key: linkedKey,
+                  summary: (lf.summary as string) || '',
+                  type: (lf.issuetype as { name: string })?.name || '',
+                  status: (lf.status as { name: string })?.name || '',
+                  resolution: (lf.resolution as { name: string })?.name || null,
+                  fixVersions: ((lf.fixVersions || []) as Array<{ name: string }>).map(v => v.name),
+                  assignee: (lf.assignee as { displayName: string })?.displayName || null,
+                };
+
+                for (const issue of issues) {
+                  const rawLinks = issue._rawLinks as Array<Record<string, unknown>> | undefined;
+                  if (!rawLinks) continue;
+                  const match = rawLinks.find(l => l.key === linkedKey);
+                  if (match) {
+                    match.resolvedStatus = linkedInfo.status;
+                    match.resolvedResolution = linkedInfo.resolution;
+                    match.resolvedFixVersions = linkedInfo.fixVersions;
+                    match.resolvedAssignee = linkedInfo.assignee;
+                  }
+                }
+              }
+            } catch { /* skip linked batch on error */ }
+          }
+          for (const issue of issues) {
+            const rawLinks = issue._rawLinks as Array<Record<string, unknown>> | undefined;
+            if (!rawLinks || rawLinks.length === 0) continue;
+            issue.links = 'Links:\n' + rawLinks.map(l => {
+              let line = `  ${l.relation || l.type} → ${l.key} "${l.summary}" [${l.status}]`;
+              if (l.resolvedStatus) line += ` (resolved: ${l.resolvedStatus}${l.resolvedResolution ? ` / ${l.resolvedResolution}` : ''})`;
+              if (l.resolvedFixVersions && (l.resolvedFixVersions as string[]).length > 0) line += ` versions: ${(l.resolvedFixVersions as string[]).join(', ')}`;
+              return line;
+            }).join('\n');
+          }
+          jobLog(job, `Enriched ${fetchCount} linked issue statuses`, 'success');
+        }
+
+        for (const issue of issues) { delete issue._rawLinks; }
       } catch (err) {
         log.warn({ err }, 'Failed to fetch Jira issues for changelog');
+        jobLog(job, `Jira fetch error: ${err instanceof Error ? err.message : 'Unknown'}`, 'error');
       }
     }
 
-    job.progress = `Fetched ${issues.length} issues. Preparing AI analysis...`;
+    job.totalIssues = issues.length;
+    job.step = 'preparing';
+    const typeCounts = new Map<string, number>();
+    issues.forEach(i => typeCounts.set(i.type as string, (typeCounts.get(i.type as string) ?? 0) + 1));
+    const typeBreakdown = [...typeCounts.entries()].map(([t, c]) => `${c} ${t}`).join(', ');
+    jobLog(job, `Fetched ${issues.length} issues with full context (${typeBreakdown})`, 'success');
+    jobLog(job, `${contributors.size} contributors, ${epicKeys.size} epics, ${issuesWithSubtasks.size} parents with subtasks, ${criticalLinkedKeys.size} critical links traversed`);
 
-    const BATCH_SIZE = 60;
-    const batches: Array<Array<Record<string, unknown>>> = [];
-    for (let i = 0; i < issues.length; i += BATCH_SIZE) {
-      batches.push(issues.slice(i, i + BATCH_SIZE).map(issue => ({
-        key: issue.key,
-        summary: (issue.summary as string)?.substring(0, 150),
-        type: issue.type,
-        priority: issue.priority,
-        components: issue.components,
-        assignee: issue.assignee,
-        prLinks: (issue.prLinks as string[])?.slice(0, 3),
-      })));
+    const estimatedTokens = JSON.stringify(issues).length / 4;
+    jobLog(job, `Estimated ~${Math.round(estimatedTokens / 1000)}K tokens for all issues`);
+
+    let batches: Array<Array<Record<string, unknown>>> = [];
+    const MAX_ISSUES_PER_BATCH = 10;
+    const MAX_TOKENS_PER_BATCH = 50000;
+
+    if (issues.length <= MAX_ISSUES_PER_BATCH && estimatedTokens <= MAX_TOKENS_PER_BATCH) {
+      batches = [issues];
+      jobLog(job, `All ${issues.length} issues fit in a single AI call`);
+    } else {
+      const tokensPerIssue = estimatedTokens / issues.length;
+      const issuesByTokens = Math.floor(MAX_TOKENS_PER_BATCH / tokensPerIssue);
+      const issuesPerBatch = Math.min(Math.max(issuesByTokens, 3), MAX_ISSUES_PER_BATCH);
+      for (let i = 0; i < issues.length; i += issuesPerBatch) {
+        batches.push(issues.slice(i, i + issuesPerBatch));
+      }
+      jobLog(job, `Split into ${batches.length} batches (~${issuesPerBatch} issues each, ~${Math.round(tokensPerIssue * issuesPerBatch / 1000)}K input tokens per batch)`);
     }
 
     const label = compareFrom ? `${compareFrom} -> ${targetVersion}` : targetVersion;
     let mergedCategories: Record<string, Array<Record<string, unknown>>> = {};
     let totalTokens = 0;
     let modelUsed = '';
+    let rawFallbackText = '';
 
-    for (let bi = 0; bi < batches.length; bi++) {
-      job.progress = `AI analyzing batch ${bi + 1}/${batches.length}...`;
+    const componentGlossary = loadComponentGlossary();
+    const versionNum = targetVersion.replace(/^CNV\s+v?/i, '');
+    const isGA = /\.0$/.test(versionNum) && !versionNum.toLowerCase().includes('next');
+    const isNext = versionNum.toLowerCase().includes('next');
+    const isZStream = /\.\d+$/.test(versionNum) && !isGA && !isNext;
+
+    let previousVersionSummary = '';
+    let previousVersionHighlights = '';
+    let previousVersion = '';
+    if (compareFrom) {
+      const prevChangelog = await loadChangelogFromDb(compareFrom, undefined);
+      if (prevChangelog) {
+        const prevCl = (prevChangelog as Record<string, unknown>).changelog as Record<string, unknown> | undefined;
+        if (prevCl) {
+          previousVersionSummary = (prevCl.summary as string) || '';
+          previousVersionHighlights = (prevCl.highlights as string) || '';
+          previousVersion = compareFrom;
+        }
+      }
+    }
+
+    const corrections = await loadCorrections();
+    if (corrections) jobLog(job, `Loaded ${corrections.split('\n').length} historical corrections for few-shot learning`);
+
+    job.totalBatches = batches.length;
+    const MAX_PARALLEL = 15;
+    jobLog(job, `Split into ${batches.length} batch${batches.length > 1 ? 'es' : ''} for AI analysis${batches.length > 1 ? ` (up to ${Math.min(batches.length, MAX_PARALLEL)} in parallel)` : ''}`);
+
+    const promptVars = {
+      fromVersion: compareFrom || 'initial release',
+      toVersion: label,
+      prs: [],
+      newlyPassing: 0,
+      newlyFailing: 0,
+      componentGlossary: componentGlossary || undefined,
+      isGA: isGA || undefined,
+      isZStream: isZStream || undefined,
+      isNext: isNext || undefined,
+      previousVersionSummary: previousVersionSummary || undefined,
+      previousVersionHighlights: previousVersionHighlights || undefined,
+      previousVersion: previousVersion || undefined,
+      corrections: corrections || undefined,
+    };
+
+    const normalizeItems = (cats: Record<string, Array<Record<string, unknown>>>) => {
+      for (const items of Object.values(cats)) {
+        if (!Array.isArray(items)) continue;
+        for (const item of items) {
+          if (typeof item.availableIn === 'string') {
+            item.availableIn = {
+              version: item.availableIn,
+              build: (item.buildInfo as string) || null,
+              buildDate: null,
+              evidence: (item.availableInReason as string) || `fixVersion is ${item.availableIn}`,
+              prMergedTo: null,
+              prMergedDate: null,
+            };
+            delete item.availableInReason;
+            delete item.buildInfo;
+          }
+        }
+      }
+    };
+
+    const processBatch = async (bi: number) => {
       const batch = batches[bi];
       const response = await ai.runPrompt('changelog', {
-        fromVersion: compareFrom || 'initial release',
-        toVersion: label,
+        ...promptVars,
         issues: batch,
-        prs: [],
-        newlyPassing: 0,
-        newlyFailing: 0,
-      }, { json: true, cacheTtlMs: 24 * 60 * 60 * 1000, useCache: batches.length === 1 });
+      }, { json: true, useCache: false, maxTokens: 8192, timeout: 300000 });
 
-      totalTokens += response.tokensUsed;
-      modelUsed = response.model;
-
-      let parsed: Record<string, unknown>;
-      let content = response.content.trim();
-      content = content.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
-      try { parsed = JSON.parse(content); } catch { parsed = {}; }
+      const rawContent = response.content.trim();
+      const parsed = extractJson(rawContent);
+      if (parsed.raw) {
+        const first300 = rawContent.substring(0, 300).replace(/\n/g, ' ');
+        const last200 = rawContent.length > 500 ? rawContent.substring(rawContent.length - 200).replace(/\n/g, ' ') : '';
+        jobLog(job, `Warning: Batch ${bi + 1} — could not parse AI JSON (${rawContent.length} chars). Start: "${first300}"${last200 ? ` ... End: "${last200}"` : ''}`, 'error');
+      }
 
       const cats = (parsed.categories || {}) as Record<string, Array<Record<string, unknown>>>;
-      for (const [cat, items] of Object.entries(cats)) {
+      normalizeItems(cats);
+      const batchCounts = Object.entries(cats).filter(([, v]) => Array.isArray(v) && v.length > 0).map(([k, v]) => `${(v as unknown[]).length} ${k}`).join(', ');
+      jobLog(job, `Batch ${bi + 1}/${batches.length} complete: ${batchCounts || 'no categories'} (${response.tokensUsed} tokens, ${Math.round(response.durationMs / 1000)}s)`, 'success');
+
+      return { parsed, cats, tokensUsed: response.tokensUsed, model: response.model, durationMs: response.durationMs, cached: response.cached, raw: parsed.raw ? rawContent : null };
+    };
+
+    job.step = 'analyzing';
+    if (batches.length === 1) {
+      jobLog(job, `Sending single batch to AI (${batches[0].length} issues)...`);
+      const result = await processBatch(0);
+      totalTokens += result.tokensUsed;
+      modelUsed = result.model;
+      if (result.raw) rawFallbackText += result.raw + '\n';
+      for (const [cat, items] of Object.entries(result.cats)) {
         if (!mergedCategories[cat]) mergedCategories[cat] = [];
         if (Array.isArray(items)) mergedCategories[cat].push(...items);
       }
 
-      if (batches.length === 1 && parsed.summary) {
+      job.currentBatch = 1;
+      const parsed = result.parsed;
+      if (parsed.summary && parsed.categories) {
+        const singleBatchParsed = parsed;
+        // Preserve all top-level fields from AI response (summary, highlights, breakingChanges, epicStatus, concerns, testImpact)
+
+        const reviewTotal1 = Object.values(mergedCategories).reduce((s, items) => s + items.length, 0);
+        if (reviewTotal1 > 5) {
+          job.step = 'reviewing';
+          jobLog(job, 'Running AI review pass to verify classifications...');
+          try {
+            const categoryEntries = Object.entries(mergedCategories)
+              .filter(([, items]) => items.length > 0)
+              .map(([category, items]) => ({
+                category, count: items.length,
+                items: items.slice(0, 50).map(i => ({ key: i.key || '', title: i.title || '', impactScore: i.impactScore ?? 'N/A', risk: i.risk || 'unknown', confidence: i.confidence ?? 'N/A' })),
+              }));
+            const reviewResponse = await ai.runPrompt('changelog-review', { version: label, categoryEntries }, { json: true, useCache: false });
+            totalTokens += reviewResponse.tokensUsed;
+            const rp = extractJson(reviewResponse.content);
+            const cc = ((rp.corrections || []) as unknown[]).length;
+            const dc = ((rp.duplicates || []) as unknown[]).length;
+            const ic = ((rp.impactAdjustments || []) as unknown[]).length;
+            if (cc > 0 || dc > 0 || ic > 0) {
+              applyReviewCorrections(mergedCategories, rp);
+              singleBatchParsed.categories = mergedCategories;
+              jobLog(job, `Review pass: ${cc} reclassifications, ${dc} duplicates removed, ${ic} impact adjustments`, 'success');
+            } else {
+              jobLog(job, 'Review pass: no corrections needed', 'success');
+            }
+          } catch (reviewErr) {
+            jobLog(job, `Review pass skipped: ${reviewErr instanceof Error ? reviewErr.message : 'unknown error'}`);
+          }
+        }
+
         const contribs = [...contributors.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
         job.status = 'done';
         job.result = {
-          changelog: parsed,
-          meta: { targetVersion, compareFrom: compareFrom || null, label, issueCount: issues.length, analyzedCount: batch.length, batches: 1, model: modelUsed, tokensUsed: totalTokens, durationMs: response.durationMs, cached: response.cached, contributors: contribs.map(([name, count]) => ({ name, count })) },
+          changelog: singleBatchParsed,
+          meta: { targetVersion, compareFrom: compareFrom || null, label, issueCount: issues.length, analyzedCount: batches[0].length, batches: 1, model: modelUsed, tokensUsed: totalTokens, durationMs: result.durationMs, cached: result.cached, contributors: contribs.map(([name, count]) => ({ name, count })) },
         };
+        const elapsed = Math.round((Date.now() - job.startedAt) / 1000);
+        jobLog(job, `Changelog complete! ${issues.length} issues analyzed, ${totalTokens} tokens used, ${elapsed}s total`, 'success');
         saveChangelogToDb(targetVersion, compareFrom, job.result).catch(() => {});
         return;
       }
+    } else {
+      // Multi-batch: run in parallel with concurrency limit
+      jobLog(job, `Launching ${batches.length} batches in parallel (max ${MAX_PARALLEL} concurrent)...`);
+      const batchIndices = batches.map((_, i) => i);
+      let completedCount = 0;
+
+      const runWithConcurrency = async (indices: number[], limit: number) => {
+        const results: Array<Awaited<ReturnType<typeof processBatch>>> = new Array(indices.length);
+        let nextIdx = 0;
+
+        const runNext = async (): Promise<void> => {
+          while (nextIdx < indices.length) {
+            const idx = nextIdx++;
+            const bi = indices[idx];
+            try {
+              results[idx] = await processBatch(bi);
+              completedCount++;
+              job.currentBatch = completedCount;
+            } catch (batchErr) {
+              jobLog(job, `Batch ${bi + 1} failed: ${batchErr instanceof Error ? batchErr.message : 'unknown'}`, 'error');
+              completedCount++;
+              job.currentBatch = completedCount;
+            }
+          }
+        };
+
+        await Promise.all(Array.from({ length: Math.min(limit, indices.length) }, () => runNext()));
+        return results;
+      };
+
+      const batchResults = await runWithConcurrency(batchIndices, MAX_PARALLEL);
+
+      for (const result of batchResults) {
+        if (!result) continue;
+        totalTokens += result.tokensUsed;
+        modelUsed = result.model;
+        if (result.raw) rawFallbackText += result.raw + '\n';
+        for (const [cat, items] of Object.entries(result.cats)) {
+          if (!mergedCategories[cat]) mergedCategories[cat] = [];
+          if (Array.isArray(items)) mergedCategories[cat].push(...items);
+        }
+      }
     }
 
-    job.progress = 'Generating summary...';
+    job.step = 'summarizing';
+    job.currentBatch = batches.length;
+    const mergedTotal = Object.values(mergedCategories).reduce((s, items) => s + items.length, 0);
+    jobLog(job, `All ${batches.length} batches complete. Merged ${mergedTotal} categorized items.`, 'success');
+    jobLog(job, 'Generating executive summary...');
     let finalSummary: Record<string, unknown> = { categories: mergedCategories };
-    if (batches.length > 1) {
+    if (mergedTotal === 0 && rawFallbackText) {
+      finalSummary.raw = rawFallbackText.trim();
+      jobLog(job, 'No structured categories parsed — raw AI output preserved for display', 'error');
+    }
+
+    const needsSummary = !finalSummary.summary;
+    if (needsSummary && mergedTotal > 0) {
       const summaryData: Record<string, number> = {};
       for (const [cat, items] of Object.entries(mergedCategories)) summaryData[cat] = items.length;
       try {
         const summaryResponse = await ai.chat([
-          { role: 'system', content: 'You are a release notes writer. Given categorized changes, write a brief summary and highlights. Output JSON: { "summary": "...", "highlights": "...", "breakingChanges": [] }' },
-          { role: 'user', content: `Release ${label} has these changes: ${JSON.stringify(summaryData)}. Total: ${issues.length} issues. Write a summary.` },
+          { role: 'system', content: 'You are a release notes writer. Given categorized changes, write a brief executive summary and highlights. Output JSON: { "summary": "...", "highlights": "...", "breakingChanges": [] }' },
+          { role: 'user', content: `Release ${label} has these changes: ${JSON.stringify(summaryData)}. Total: ${issues.length} issues across ${batches.length} batches. Write a concise summary.` },
         ], { json: true });
         totalTokens += summaryResponse.tokensUsed;
-        let content = summaryResponse.content.trim().replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
-        try {
-          const summaryParsed = JSON.parse(content);
+        const summaryParsed = extractJson(summaryResponse.content);
+        if (!summaryParsed.raw) {
           finalSummary = { ...summaryParsed, categories: mergedCategories };
-        } catch { /* keep mergedCategories only */ }
+        }
       } catch { /* summary generation failed */ }
+    }
+
+    const reviewTotal = Object.values(mergedCategories).reduce((s, items) => s + items.length, 0);
+    if (reviewTotal > 5) {
+      job.step = 'reviewing';
+      jobLog(job, 'Running AI review pass to verify classifications...');
+      try {
+        const categoryEntries = Object.entries(mergedCategories)
+          .filter(([, items]) => items.length > 0)
+          .map(([category, items]) => ({
+            category,
+            count: items.length,
+            items: items.slice(0, 50).map(i => ({
+              key: i.key || '',
+              title: i.title || '',
+              impactScore: i.impactScore ?? 'N/A',
+              risk: i.risk || 'unknown',
+              confidence: i.confidence ?? 'N/A',
+            })),
+          }));
+        const reviewResponse = await ai.runPrompt('changelog-review', {
+          version: label,
+          categoryEntries,
+        }, { json: true, useCache: false });
+        totalTokens += reviewResponse.tokensUsed;
+
+        const reviewParsed = extractJson(reviewResponse.content);
+
+        const correctionCount = ((reviewParsed.corrections || []) as unknown[]).length;
+        const dupeCount = ((reviewParsed.duplicates || []) as unknown[]).length;
+        const impactCount = ((reviewParsed.impactAdjustments || []) as unknown[]).length;
+
+        if (correctionCount > 0 || dupeCount > 0 || impactCount > 0) {
+          applyReviewCorrections(mergedCategories, reviewParsed);
+          jobLog(job, `Review pass: ${correctionCount} reclassifications, ${dupeCount} duplicates removed, ${impactCount} impact adjustments`, 'success');
+        } else {
+          jobLog(job, 'Review pass: no corrections needed', 'success');
+        }
+      } catch (reviewErr) {
+        jobLog(job, `Review pass skipped: ${reviewErr instanceof Error ? reviewErr.message : 'unknown error'}`);
+      }
     }
 
     const contribs = [...contributors.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
@@ -476,10 +1174,13 @@ const runChangelogJob = async (jobKey: string, targetVersion: string, compareFro
       changelog: finalSummary,
       meta: { targetVersion, compareFrom: compareFrom || null, label, issueCount: issues.length, analyzedCount: issues.length, batches: batches.length, model: modelUsed, tokensUsed: totalTokens, durationMs: Date.now() - job.startedAt, cached: false, contributors: contribs.map(([name, count]) => ({ name, count })) },
     };
+    const elapsed = Math.round((Date.now() - job.startedAt) / 1000);
+    jobLog(job, `Changelog complete! ${issues.length} issues across ${batches.length} batches, ${totalTokens} tokens, ${elapsed}s total`, 'success');
     saveChangelogToDb(targetVersion, compareFrom, job.result).catch(() => {});
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Changelog generation failed';
     log.error({ err }, msg);
+    jobLog(job, `Error: ${msg}`, 'error');
     job.status = 'error';
     job.error = msg;
   }
@@ -500,7 +1201,15 @@ router.post('/:version/changelog', async (req: Request, res: Response) => {
     return;
   }
 
-  const job: ChangelogJob = { status: 'running', progress: 'Fetching Jira issues...', startedAt: Date.now() };
+  try {
+    const { AppDataSource } = await import('../../db/data-source');
+    const { AICache } = await import('../../db/entities/AICache');
+    const cacheKey = changelogCacheKey(targetVersion, compareFrom);
+    await AppDataSource.getRepository(AICache).delete({ prompt_hash: cacheKey });
+  } catch { /* non-critical */ }
+
+  const job: ChangelogJob = { status: 'running', progress: 'Starting...', step: 'fetching', currentBatch: 0, totalBatches: 0, totalIssues: 0, log: [], startedAt: Date.now() };
+  jobLog(job, `Starting changelog generation for ${targetVersion}${compareFrom ? ` (comparing from ${compareFrom})` : ''}`);
   changelogJobs.set(jobKey, job);
 
   runChangelogJob(jobKey, targetVersion, compareFrom).catch(() => {});
@@ -543,6 +1252,86 @@ router.delete('/milestones/:id', async (req: Request, res: Response, next: NextF
     const { ReleaseMilestoneEntity } = await import('../../db/entities/ReleaseMilestone');
     await AppDataSource.getRepository(ReleaseMilestoneEntity).delete({ id });
     res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+router.post('/:version/changelog-edit', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { corrections } = req.body as { corrections: Array<{ key: string; field: string; oldValue: string; newValue: string; context?: string }> };
+    if (!corrections || !Array.isArray(corrections) || corrections.length === 0) {
+      res.status(400).json({ error: 'corrections array required' });
+      return;
+    }
+
+    const version = req.params.version as string;
+    const performedBy = req.user?.name || req.user?.email || 'unknown';
+
+    const { AppDataSource } = await import('../../db/data-source');
+    const { AICorrection } = await import('../../db/entities/AICorrection');
+    const corrRepo = AppDataSource.getRepository(AICorrection);
+
+    for (const c of corrections) {
+      await corrRepo.save(corrRepo.create({
+        issue_key: c.key,
+        field: c.field,
+        ai_value: c.oldValue,
+        human_value: c.newValue,
+        context: c.context || null,
+        performed_by: performedBy,
+      }));
+    }
+
+    const target = req.query.targetVersion as string || version;
+    const from = (req.query.compareFrom as string) || undefined;
+    const cached = await loadChangelogFromDb(target, from);
+    if (cached) {
+      const result = cached as Record<string, unknown>;
+      const cl = result.changelog as Record<string, unknown>;
+      if (cl?.categories) {
+        const cats = cl.categories as Record<string, Array<Record<string, unknown>>>;
+        for (const c of corrections) {
+          if (c.field === 'category') {
+            for (const [catName, items] of Object.entries(cats)) {
+              const idx = items.findIndex(item => item.key === c.key);
+              if (idx !== -1 && catName === c.oldValue) {
+                const [item] = items.splice(idx, 1);
+                if (!cats[c.newValue]) cats[c.newValue] = [];
+                cats[c.newValue].push(item);
+                break;
+              }
+            }
+          } else {
+            for (const items of Object.values(cats)) {
+              const item = items.find(i => i.key === c.key);
+              if (item) {
+                if (c.field === 'impactScore') item.impactScore = parseInt(c.newValue, 10);
+                else if (c.field === 'risk') item.risk = c.newValue;
+                break;
+              }
+            }
+          }
+        }
+        await saveChangelogToDb(target, from, result);
+      }
+    }
+
+    res.json({ success: true, saved: corrections.length });
+  } catch (err) { next(err); }
+});
+
+router.get('/jira-fields', async (_req: Request, res: Response, next: NextFunction) => {
+  if (!config.jira.enabled) { res.json([]); return; }
+  try {
+    const client = createJiraClient();
+    const response = await client.get('/field');
+    const customs = (response.data || [])
+      .filter((f: Record<string, unknown>) => f.custom)
+      .map((f: Record<string, unknown>) => ({
+        id: f.id,
+        name: f.name,
+        type: (f.schema as Record<string, unknown>)?.type,
+      }));
+    res.json(customs);
   } catch (err) { next(err); }
 });
 

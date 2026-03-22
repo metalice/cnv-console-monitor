@@ -13,6 +13,7 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: 2
+      activeDeadlineSeconds: 600
       template:
         metadata:
           labels:
@@ -20,9 +21,20 @@ spec:
             component: poller
         spec:
           restartPolicy: OnFailure
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: poller
               image: quay.io/mschatzm/cnv-ui-monitor:latest
+              securityContext:
+                runAsUser: 1001
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
               command: ["node", "packages/server/dist/index.js"]
               envFrom:
                 - configMapRef:
