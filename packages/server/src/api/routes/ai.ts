@@ -19,9 +19,16 @@ router.get('/status', async (_req: Request, res: Response) => {
   const defaultModelId = (await getSetting('ai.defaultModelId')) || '';
 
   const vertexProvider = ai.getVertexProvider();
-  let vertexTokenInfo: { expiresIn: number | null; expiresAt: string | null; email: string | null; authMode: 'manual' | 'adc' | 'none' } = { expiresIn: null, expiresAt: null, email: null, authMode: 'none' };
+  let vertexTokenInfo: {
+    expiresIn: number | null; expiresAt: string | null; email: string | null;
+    authMode: 'manual' | 'adc' | 'none'; adcAvailable: boolean; hasManualToken: boolean;
+  } = { expiresIn: null, expiresAt: null, email: null, authMode: 'none', adcAvailable: false, hasManualToken: false };
+
   if (vertexProvider) {
-    vertexTokenInfo.authMode = await vertexProvider.getAuthMode();
+    const authInfo = await vertexProvider.getAuthInfo();
+    vertexTokenInfo.authMode = authInfo.activeMode;
+    vertexTokenInfo.adcAvailable = authInfo.adcAvailable;
+    vertexTokenInfo.hasManualToken = authInfo.hasManualToken;
   }
   const vertexToken = await getSetting('ai.vertexAccessToken');
   if (vertexToken) {
