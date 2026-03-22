@@ -18,6 +18,11 @@ const loadTemplate = (name: string): string => {
 const renderTemplate = (template: string, vars: Record<string, unknown>): string => {
   let result = template;
 
+  result = result.replace(/\{\{#if (\w+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (_match, key, body) => {
+    const val = vars[key];
+    return val ? body : '';
+  });
+
   result = result.replace(/\{\{#each (\w+)\}\}([\s\S]*?)\{\{\/each\}\}/g, (_match, key, body) => {
     const arr = vars[key];
     if (!Array.isArray(arr)) return '';
@@ -52,4 +57,8 @@ export const listPrompts = (): string[] => {
   return fs.readdirSync(PROMPTS_DIR)
     .filter(f => f.endsWith('.md'))
     .map(f => f.replace('.md', ''));
+};
+
+export const clearTemplateCache = (): void => {
+  templateCache.clear();
 };

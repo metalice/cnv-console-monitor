@@ -24,6 +24,8 @@ export class OllamaProvider implements ModelProvider {
     ];
   }
 
+  supportsStreaming(): boolean { return false; }
+
   async chat(messages: ChatMessage[], options?: ModelOptions): Promise<AIResponse> {
     const start = Date.now();
 

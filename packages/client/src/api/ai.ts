@@ -31,7 +31,36 @@ export type AIUsage = {
   totalTokens: number;
 };
 
-export type ChangelogItem = { key?: string; title?: string; component?: string; prs?: string[]; prLinks?: string[]; assignee?: string; impactScore?: number; risk?: string; status?: string; buildInfo?: string };
+export type ChangelogItemAvailability = {
+  version?: string;
+  build?: string;
+  buildDate?: string;
+  evidence?: string;
+  prMergedTo?: string;
+  prMergedDate?: string;
+};
+
+export type ChangelogItem = {
+  key?: string;
+  title?: string;
+  ticketSummary?: string;
+  reasoning?: string;
+  component?: string;
+  assignee?: string;
+  prs?: string[];
+  prLinks?: string[];
+  impactScore?: number;
+  risk?: string;
+  confidence?: number;
+  confidenceReason?: string;
+  status?: string;
+  resolution?: string;
+  resolvedDate?: string;
+  availableIn?: string | ChangelogItemAvailability;
+  availableInReason?: string;
+  buildInfo?: string;
+  blockedBy?: string;
+};
 
 export type ChangelogResult = {
   changelog: {
@@ -41,7 +70,7 @@ export type ChangelogResult = {
     breakingChanges?: Array<string | Record<string, unknown>>;
     epicStatus?: Array<{ key: string; title: string; childrenDone: number; childrenTotal: number; status: string }>;
     concerns?: string[];
-    testImpact?: { newlyPassing: number; newlyFailing: number };
+    testImpact?: { newlyPassing: number; newlyFailing: number; details?: string[] };
     raw?: string;
   };
   meta: {
@@ -226,3 +255,65 @@ export const prioritizeTests = (data: Record<string, unknown>): Promise<AIPrompt
 
 export const chatExplorer = (query: string, context?: string): Promise<{ response: string; model: string; cached: boolean }> =>
   apiPost('/ai/chat-explorer', { query, context });
+
+export type ChangelogCorrection = {
+  key: string;
+  field: 'category' | 'impactScore' | 'risk';
+  oldValue: string;
+  newValue: string;
+  context?: string;
+};
+
+export const saveChangelogEdits = (version: string, corrections: ChangelogCorrection[], targetVersion?: string, compareFrom?: string): Promise<{ success: boolean; saved: number }> => {
+  const params = new URLSearchParams();
+  if (targetVersion) params.set('targetVersion', targetVersion);
+  if (compareFrom) params.set('compareFrom', compareFrom);
+  return apiPost(`/releases/${version}/changelog-edit?${params.toString()}`, { corrections });
+};
+
+export const streamAIChat = (
+  messages: Array<{ role: string; content: string }>,
+  onChunk: (text: string) => void,
+  onDone: (fullContent: string) => void,
+  onError: (error: string) => void,
+  options?: { provider?: string },
+): (() => void) => {
+  const controller = new AbortController();
+
+  fetch('/api/ai/stream', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages, ...options }),
+    signal: controller.signal,
+  }).then(async (response) => {
+    if (!response.ok) {
+      onError(`HTTP ${response.status}`);
+      return;
+    }
+    const reader = response.body?.getReader();
+    if (!reader) { onError('No readable stream'); return; }
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.error) { onError(data.error); return; }
+          if (data.done) { onDone(data.content || ''); return; }
+          if (data.chunk) onChunk(data.chunk);
+        } catch { /* skip */ }
+      }
+    }
+  }).catch(err => {
+    if (err.name !== 'AbortError') onError(err.message || 'Stream failed');
+  });
+
+  return () => controller.abort();
+};

@@ -5,12 +5,13 @@ import { createIssue, findExistingIssue, getIssueStatus, buildBugDescription } f
 import { getTestItemByRpId, updateTestItemJira, addTriageLog, getLaunchByRpId } from '../../db/store';
 import { getReportPortalLaunchUrl, getReportPortalItemUrl } from '../../clients/reportportal';
 import { validateBody } from '../middleware/validate';
+import { requireAdmin } from '../middleware/auth';
 import { broadcast } from '../../ws';
 import { searchJiraIssues, resolveJiraComponent, fireSlackJiraNotification } from './jira-helpers';
 
 const router = Router();
 
-router.post('/create', validateBody(JiraCreateRequestSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/create', requireAdmin, validateBody(JiraCreateRequestSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     if (!config.jira.enabled) {
       res.status(400).json({ error: 'Jira integration is not configured' });
@@ -18,7 +19,7 @@ router.post('/create', validateBody(JiraCreateRequestSchema), async (req: Reques
     }
 
     const { testItemId } = req.body;
-    const performedBy = req.user?.email || req.body.performedBy || 'unknown';
+    const performedBy = req.user?.email || 'unknown';
 
     const item = await getTestItemByRpId(testItemId);
     if (!item) { res.status(404).json({ error: 'Test item not found' }); return; }
@@ -75,10 +76,10 @@ router.post('/create', validateBody(JiraCreateRequestSchema), async (req: Reques
   }
 });
 
-router.post('/link', validateBody(JiraLinkRequestSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/link', requireAdmin, validateBody(JiraLinkRequestSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { testItemId, jiraKey } = req.body;
-    const performedBy = req.user?.email || req.body.performedBy || 'unknown';
+    const performedBy = req.user?.email || 'unknown';
 
     const item = await getTestItemByRpId(testItemId);
     if (!item) { res.status(404).json({ error: 'Test item not found' }); return; }

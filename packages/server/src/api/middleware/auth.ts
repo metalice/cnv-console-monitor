@@ -40,11 +40,16 @@ export const extractUser = async (req: Request, res: Response, next: NextFunctio
     }
 
     const impersonate = req.query.impersonate as string;
-    if (impersonate) {
+    if (impersonate && process.env.NODE_ENV === 'development') {
       try {
         const impUser = await upsertUser(impersonate, impersonate.split('@')[0]);
-        log.debug({ impersonate }, 'Dev mode impersonation active');
-        req.user = { id: impUser.email, email: impUser.email, name: impUser.name, role: impUser.role };
+        log.warn({ impersonate }, 'Dev mode impersonation active');
+        req.user = {
+          id: impUser.email,
+          email: impUser.email,
+          name: impUser.name,
+          role: impUser.role === 'admin' ? 'user' : impUser.role,
+        };
         next();
         return;
       } catch {

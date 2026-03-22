@@ -15,9 +15,19 @@ spec:
         app: cnv-ui-monitor
     spec:
       serviceAccountName: cnv-ui-monitor
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: oauth-proxy
           image: registry.redhat.io/openshift4/ose-oauth-proxy:latest
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           ports:
             - containerPort: 8443
               name: proxy
@@ -50,6 +60,12 @@ spec:
 
         - name: dashboard
           image: quay.io/mschatzm/cnv-ui-monitor:latest
+          securityContext:
+            runAsUser: 1001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           command: ["node", "packages/server/dist/serve.js"]
           ports:
             - containerPort: 8080

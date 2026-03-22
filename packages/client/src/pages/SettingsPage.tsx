@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   PageSection,
   Content,
@@ -118,9 +119,21 @@ export const SettingsPage: React.FC = () => {
 
   const { preferences, setPreference } = usePreferences();
   const { addToast } = useToast();
-  const [activeTab, setActiveTab] = useState<string | number>('reportportal');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTabState] = useState<string | number>(searchParams.get('tab') || 'reportportal');
+  const setActiveTab = (tab: string | number) => {
+    setActiveTabState(tab);
+    setSearchParams({ tab: String(tab) }, { replace: true });
+  };
   const [dangerModal, setDangerModal] = useState<string | null>(null);
   const [dangerConfirm, setDangerConfirm] = useState('');
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (!tab) return;
+    const target = tab === 'notifications' ? 'notifications' : 'integrations';
+    setTimeout(() => document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+  }, [searchParams]);
 
   const { data: pollStatus } = useQuery<PollStatus>({ queryKey: ['pollStatus'], queryFn: fetchPollStatus, refetchInterval: 15_000 });
 
@@ -306,7 +319,7 @@ export const SettingsPage: React.FC = () => {
 
       <PageSection>
         {/* Notification Subscriptions */}
-        <div className="app-mb-lg">
+        <div className="app-mb-lg" id="notifications">
           <NotificationSubscriptions />
         </div>
 
@@ -316,7 +329,7 @@ export const SettingsPage: React.FC = () => {
         </div>
 
         {/* Integrations - vertical tabs */}
-        <Card className="app-mb-lg">
+        <Card className="app-mb-lg" id="integrations">
           <CardTitle>Integrations</CardTitle>
           <CardBody>
             <div className="app-vtabs">

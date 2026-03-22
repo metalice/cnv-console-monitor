@@ -26,16 +26,16 @@ export class GeminiProvider implements ModelProvider {
     ];
   }
 
-  async chat(messages: ChatMessage[], options?: ModelOptions): Promise<AIResponse> {
-    if (!this.client) throw new Error('Gemini not configured');
+  supportsStreaming(): boolean { return true; }
 
-    const start = Date.now();
+  private buildChat(messages: ChatMessage[], options?: ModelOptions) {
+    if (!this.client) throw new Error('Gemini not configured');
     const modelId = options?.model || DEFAULT_MODEL;
     const model = this.client.getGenerativeModel({
       model: modelId,
       generationConfig: {
         temperature: options?.temperature ?? 0.3,
-        maxOutputTokens: options?.maxTokens ?? 4096,
+        maxOutputTokens: Math.min(options?.maxTokens ?? 8192, 8192),
         responseMimeType: options?.json ? 'application/json' : 'text/plain',
       },
     });
@@ -54,9 +54,20 @@ export class GeminiProvider implements ModelProvider {
       chatOptions.systemInstruction = { role: 'user' as const, parts: [{ text: systemMessage }] };
     }
 
-    const chat = model.startChat(chatOptions);
+    return { chat: model.startChat(chatOptions), lastUserMsg, modelId };
+  }
 
-    const result = await chat.sendMessage(lastUserMsg.content);
+  async chat(messages: ChatMessage[], options?: ModelOptions): Promise<AIResponse> {
+    const start = Date.now();
+    const { chat, lastUserMsg, modelId } = this.buildChat(messages, options);
+    const timeoutMs = options?.timeout ?? 120000;
+
+    const resultPromise = chat.sendMessage(lastUserMsg.content);
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`Gemini request timed out after ${Math.round(timeoutMs / 1000)}s`)), timeoutMs),
+    );
+
+    const result = await Promise.race([resultPromise, timeoutPromise]);
     const response = result.response;
     const text = response.text();
     const tokens = response.usageMetadata?.totalTokenCount ?? 0;
@@ -69,5 +80,14 @@ export class GeminiProvider implements ModelProvider {
       cached: false,
       durationMs: Date.now() - start,
     };
+  }
+
+  async *chatStream(messages: ChatMessage[], options?: ModelOptions): AsyncIterable<string> {
+    const { chat, lastUserMsg } = this.buildChat(messages, options);
+    const result = await chat.sendMessageStream(lastUserMsg.content);
+    for await (const chunk of result.stream) {
+      const text = chunk.text();
+      if (text) yield text;
+    }
   }
 }

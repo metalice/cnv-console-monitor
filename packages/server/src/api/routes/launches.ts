@@ -1,8 +1,9 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import axios from 'axios';
 import https from 'https';
-import { getLaunchesSince, getLaunchByRpId, getDistinctComponents } from '../../db/store';
+import { getLaunchesSince, getLaunchByRpId, getDistinctComponents, getLaunchCount } from '../../db/store';
 import { groupLaunches, buildDailyReport } from '../../analyzer';
+import { clampInt } from '../middleware/validate';
 import trendsRouter from './launches-trends';
 
 const router = Router();
@@ -10,7 +11,7 @@ const jenkinsAgent = new https.Agent({ rejectUnauthorized: false });
 
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const hours = parseInt(req.query.hours as string) || 24;
+    const hours = clampInt(req.query.hours as string, 24, 1, 720);
     const sinceMs = Date.now() - hours * 60 * 60 * 1000;
     const launches = await getLaunchesSince(sinceMs);
     const groups = await groupLaunches(launches);
@@ -34,7 +35,7 @@ router.get('/report', async (req: Request, res: Response, next: NextFunction) =>
   try {
     const since = req.query.since ? parseInt(req.query.since as string) : undefined;
     const until = req.query.until ? parseInt(req.query.until as string) : undefined;
-    const hours = parseInt(req.query.hours as string) || 24;
+    const hours = clampInt(req.query.hours as string, 24, 1, 720);
     const componentsParam = req.query.components as string | undefined;
     const components = componentsParam ? componentsParam.split(',').filter(Boolean) : undefined;
 
@@ -55,6 +56,20 @@ router.get('/report', async (req: Request, res: Response, next: NextFunction) =>
   } catch (err) {
     next(err);
   }
+});
+
+router.get('/stats', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { AppDataSource } = await import('../../db/data-source');
+    const [launches, testItems, earliest] = await Promise.all([
+      getLaunchCount(),
+      AppDataSource.query('SELECT COUNT(*) as count FROM test_items'),
+      AppDataSource.query('SELECT MIN(start_time) as min_time FROM launches'),
+    ]);
+    const minTime = earliest[0]?.min_time;
+    const days = minTime ? Math.ceil((Date.now() - Number(minTime)) / (24 * 60 * 60 * 1000)) : 0;
+    res.json({ launches, testItems: parseInt(testItems[0]?.count ?? '0', 10), days });
+  } catch (err) { next(err); }
 });
 
 router.get('/by-name/:name', async (req: Request, res: Response, next: NextFunction) => {

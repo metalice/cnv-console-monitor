@@ -21,6 +21,7 @@ import {
   UserIcon,
   CubesIcon,
   CodeBranchIcon,
+  InfoCircleIcon,
 } from '@patternfly/react-icons';
 import { useAuth } from '../../context/AuthContext';
 import { usePreferences } from '../../context/PreferencesContext';
@@ -38,6 +39,7 @@ const navItems = [
   { path: '/releases', label: 'Releases', icon: <CalendarAltIcon /> },
   { path: '/activity', label: 'Activity', icon: <ListIcon /> },
   { path: '/settings', label: 'Settings', icon: <CogIcon /> },
+  { path: '/about', label: 'About', icon: <InfoCircleIcon /> },
 ];
 
 type AppLayoutProps = {

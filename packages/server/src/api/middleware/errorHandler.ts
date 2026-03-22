@@ -15,22 +15,19 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
       upstream,
     }, 'Upstream API error');
 
-    const errorMsg = `Upstream error: ${err.message}`;
-    setResponseError(res, errorMsg);
+    setResponseError(res, 'An upstream service returned an error');
     res.status(502).json({
-      error: errorMsg,
-      upstream: typeof upstream === 'object' ? upstream : undefined,
+      error: 'An upstream service returned an error',
       status,
       timestamp: new Date().toISOString(),
     });
     return;
   }
 
-  const errorMsg = err.message || 'Internal server error';
-  setResponseError(res, errorMsg);
-  log.error({ err }, errorMsg);
+  log.error({ err }, err.message || 'Internal server error');
+  setResponseError(res, 'Internal server error');
   res.status(500).json({
-    error: errorMsg,
+    error: 'Internal server error',
     timestamp: new Date().toISOString(),
   });
 }

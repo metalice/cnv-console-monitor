@@ -24,27 +24,26 @@ router.get('/status', async (_req: Request, res: Response) => {
     authMode: 'manual' | 'adc' | 'none'; adcAvailable: boolean; hasManualToken: boolean;
   } = { expiresIn: null, expiresAt: null, email: null, authMode: 'none', adcAvailable: false, hasManualToken: false };
 
-  if (vertexProvider) {
-    const authInfo = await vertexProvider.getAuthInfo();
+  const vertexToken = await getSetting('ai.vertexAccessToken');
+  const [authInfo, tokenCheck] = await Promise.all([
+    vertexProvider ? vertexProvider.getAuthInfo() : null,
+    vertexToken
+      ? import('axios').then(({ default: ax }) => ax.get(`https://oauth2.googleapis.com/tokeninfo?access_token=${vertexToken}`, { timeout: 3000 })).catch(() => null)
+      : null,
+  ]);
+
+  if (authInfo) {
     vertexTokenInfo.authMode = authInfo.activeMode;
     vertexTokenInfo.adcAvailable = authInfo.adcAvailable;
     vertexTokenInfo.hasManualToken = authInfo.hasManualToken;
   }
-  const vertexToken = await getSetting('ai.vertexAccessToken');
-  if (vertexToken) {
-    try {
-      const axios = (await import('axios')).default;
-      const resp = await axios.get(`https://oauth2.googleapis.com/tokeninfo?access_token=${vertexToken}`, { timeout: 5000 });
-      const expiresIn = parseInt(resp.data.expires_in, 10);
-      vertexTokenInfo = {
-        ...vertexTokenInfo,
-        expiresIn: isNaN(expiresIn) ? null : expiresIn,
-        expiresAt: isNaN(expiresIn) ? null : new Date(Date.now() + expiresIn * 1000).toISOString(),
-        email: resp.data.email || null,
-      };
-    } catch {
-      vertexTokenInfo = { ...vertexTokenInfo, expiresIn: 0, expiresAt: null, email: null };
-    }
+  if (tokenCheck?.data) {
+    const expiresIn = parseInt(tokenCheck.data.expires_in, 10);
+    vertexTokenInfo.expiresIn = isNaN(expiresIn) ? null : expiresIn;
+    vertexTokenInfo.expiresAt = isNaN(expiresIn) ? null : new Date(Date.now() + expiresIn * 1000).toISOString();
+    vertexTokenInfo.email = tokenCheck.data.email || null;
+  } else if (vertexToken) {
+    vertexTokenInfo.expiresIn = 0;
   }
 
   res.json({
@@ -83,6 +82,33 @@ router.post('/chat', requireAdmin, async (req: Request, res: Response, next: Nex
     log.error({ err }, msg);
     res.status(502).json({ error: msg });
   }
+});
+
+router.post('/stream', requireAdmin, async (req: Request, res: Response) => {
+  const ai = getAIService();
+  if (!ai.isEnabled()) { res.status(400).json({ error: 'AI is not enabled' }); return; }
+
+  const { messages, provider, temperature, maxTokens } = req.body;
+  if (!messages || !Array.isArray(messages)) { res.status(400).json({ error: 'messages array required' }); return; }
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  try {
+    let totalContent = '';
+    for await (const chunk of ai.chatStream(messages, { provider, temperature, maxTokens })) {
+      totalContent += chunk;
+      res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+    }
+    res.write(`data: ${JSON.stringify({ done: true, content: totalContent })}\n\n`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Streaming failed';
+    res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
+  }
+  res.end();
 });
 
 router.post('/prompt/:name', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {

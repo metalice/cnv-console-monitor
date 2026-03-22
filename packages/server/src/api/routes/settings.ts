@@ -10,7 +10,7 @@ const router = Router();
 router.use(settingsTestRouter);
 router.use(settingsMetaRouter);
 
-router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
+router.get('/', requireAdmin, async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const dbSettings = await getAllSettings();
 
@@ -36,7 +36,7 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
       'jira.component': dbSettings['jira.component'] || 'CNV User Interface',
       'jira.email': config.jira.email,
       'jira.token': maskToken(config.jira.token),
-      'slack.jiraWebhookUrl': config.slack.jiraWebhookUrl,
+      'slack.jiraWebhookUrl': maskToken(config.slack.jiraWebhookUrl),
       'jenkins.user': config.jenkins.user,
       'jenkins.token': maskToken(config.jenkins.token),
       'schedule.reminderTime': config.schedule.reminderTime,

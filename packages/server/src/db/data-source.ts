@@ -35,12 +35,14 @@ import { ReleaseMilestoneEntity } from './entities/ReleaseMilestone';
 import { AddReleaseMilestones1709000000020 } from './migrations/1709000000020-AddReleaseMilestones';
 import { AICache } from './entities/AICache';
 import { AddAICache1709000000021 } from './migrations/1709000000021-AddAICache';
+import { AICorrection } from './entities/AICorrection';
+import { AddAICorrections1709000000022 } from './migrations/1709000000022-AddAICorrections';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
   url: config.db.url,
-  entities: [Launch, TestItem, Acknowledgment, TriageLog, Setting, NotificationSubscription, UserEntity, UserPreference, ComponentMapping, SettingsLog, PipelineRun, ReleaseMilestoneEntity, AICache],
-  migrations: [InitialSchema1709000000000, AddArtifactsUrl1709000000001, AddSettings1709000000002, AddComponent1709000000003, AddNotificationSubscriptions1709000000004, AddSubscriptionTimezone1709000000005, AddUsersAndPreferences1709000000006, AddSubscriptionJiraWebhook1709000000007, AddComponentToAckAndTriage1709000000008, AddComponentMappings1709000000009, CleanupAutoMappings1709000000010, AddJenkinsTeamToLaunches1709000000011, CleanSlate1709000000012, AddJenkinsMetadataAndStatus1709000000013, CleanSlateV21709000000014, AddSettingsLog1709000000015, AddSubscriptionReminder1709000000016, AddPipelineRuns1709000000018, AddTriageLogPinning1709000000019, AddReleaseMilestones1709000000020, AddAICache1709000000021],
+  entities: [Launch, TestItem, Acknowledgment, TriageLog, Setting, NotificationSubscription, UserEntity, UserPreference, ComponentMapping, SettingsLog, PipelineRun, ReleaseMilestoneEntity, AICache, AICorrection],
+  migrations: [InitialSchema1709000000000, AddArtifactsUrl1709000000001, AddSettings1709000000002, AddComponent1709000000003, AddNotificationSubscriptions1709000000004, AddSubscriptionTimezone1709000000005, AddUsersAndPreferences1709000000006, AddSubscriptionJiraWebhook1709000000007, AddComponentToAckAndTriage1709000000008, AddComponentMappings1709000000009, CleanupAutoMappings1709000000010, AddJenkinsTeamToLaunches1709000000011, CleanSlate1709000000012, AddJenkinsMetadataAndStatus1709000000013, CleanSlateV21709000000014, AddSettingsLog1709000000015, AddSubscriptionReminder1709000000016, AddPipelineRuns1709000000018, AddTriageLogPinning1709000000019, AddReleaseMilestones1709000000020, AddAICache1709000000021, AddAICorrections1709000000022],
   synchronize: false,
   logging: false,
 });

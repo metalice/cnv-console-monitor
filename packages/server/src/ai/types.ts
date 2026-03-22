@@ -47,6 +47,8 @@ export interface ModelProvider {
   readonly name: string;
   readonly displayName: string;
   chat(messages: ChatMessage[], options?: ModelOptions): Promise<AIResponse>;
+  chatStream?(messages: ChatMessage[], options?: ModelOptions): AsyncIterable<string>;
+  supportsStreaming(): boolean;
   isAvailable(): boolean;
   listModels(): ModelInfo[];
 }

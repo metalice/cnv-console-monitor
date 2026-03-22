@@ -9,6 +9,8 @@ export const PublicConfigSchema = z.object({
   polarionUrl: z.string().optional(),
   rpLaunchBaseUrl: z.string(),
   rpItemBaseUrl: z.string(),
+  emailEnabled: z.boolean().optional(),
+  slackEnabled: z.boolean().optional(),
 });
 
 export type PublicConfig = z.infer<typeof PublicConfigSchema>;

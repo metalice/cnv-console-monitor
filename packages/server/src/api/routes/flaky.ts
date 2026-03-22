@@ -1,12 +1,13 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { getFlakyTests } from '../../db/store';
+import { clampInt } from '../middleware/validate';
 
 const router = Router();
 
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const days = parseInt(req.query.days as string) || 14;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const days = clampInt(req.query.days as string, 14, 1, 365);
+    const limit = clampInt(req.query.limit as string, 20, 1, 100);
     const component = (req.query.component as string) || undefined;
     const results = await getFlakyTests(days, limit, component);
     res.json(results);
