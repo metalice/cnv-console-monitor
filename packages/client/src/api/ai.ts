@@ -132,6 +132,11 @@ export const startChangelogJob = (version: string, targetVersion: string, compar
 export type ChangelogStatus = {
   status: 'none' | 'running' | 'done' | 'error';
   progress?: string;
+  step?: string;
+  currentBatch?: number;
+  totalBatches?: number;
+  totalIssues?: number;
+  elapsedSeconds?: number;
   error?: string;
   changelog?: ChangelogResult['changelog'];
   meta?: ChangelogResult['meta'];

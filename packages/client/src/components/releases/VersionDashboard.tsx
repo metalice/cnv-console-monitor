@@ -18,7 +18,7 @@ import { HelpLabel } from '../common/HelpLabel';
 import { RiskFlags } from './RiskFlags';
 import { ReleaseReport } from './ReleaseReport';
 import { BlockerWall } from './BlockerWall';
-import { startChangelogJob, fetchChangelogStatus, assessRisk, type ChangelogResult, type ChangelogItem, type RiskAssessment } from '../../api/ai';
+import { startChangelogJob, fetchChangelogStatus, assessRisk, type ChangelogResult, type ChangelogItem, type ChangelogStatus, type RiskAssessment } from '../../api/ai';
 
 const ReadinessGauge: React.FC<{ score: number }> = ({ score }) => {
   const color = score >= 80 ? 'var(--pf-t--global--color--status--success--default)'
@@ -296,7 +296,7 @@ const ChangelogTab: React.FC<{ version: string; milestones: Array<{ name: string
     }
   }, [subVersions, targetVer, setTargetVer]);
 
-  const [jobProgress, setJobProgress] = useLocalState('');
+  const [jobStatus, setJobStatus] = useLocalState<ChangelogStatus | null>(null);
   const [isGenerating, setIsGenerating] = useLocalState(false);
   const pollRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -304,21 +304,19 @@ const ChangelogTab: React.FC<{ version: string; milestones: Array<{ name: string
     if (!targetVer) return;
     fetchChangelogStatus(targetVer, compareEnabled && compareFrom ? compareFrom : undefined)
       .then(status => {
+        setJobStatus(status);
         if (status.status === 'done' && status.changelog) {
           setResult({ changelog: status.changelog, meta: status.meta! } as ChangelogResult);
           setIsGenerating(false);
-          setJobProgress('');
         } else if (status.status === 'running') {
           setIsGenerating(true);
-          setJobProgress(status.progress || 'Processing...');
           pollRef.current = setTimeout(pollForResult, 2000);
         } else if (status.status === 'error') {
-          setJobProgress(`Error: ${status.error}`);
           setIsGenerating(false);
         }
       })
       .catch(() => {});
-  }, [targetVer, compareFrom, setResult, setIsGenerating, setJobProgress]);
+  }, [targetVer, compareFrom, compareEnabled, setResult, setIsGenerating, setJobStatus]);
 
   React.useEffect(() => {
     if (!targetVer) return;
@@ -329,12 +327,12 @@ const ChangelogTab: React.FC<{ version: string; milestones: Array<{ name: string
   const startGeneration = async () => {
     setIsGenerating(true);
     setResult(null);
-    setJobProgress('Starting...');
+    setJobStatus({ status: 'running', progress: 'Starting...', step: 'starting' });
     try {
       await startChangelogJob(version, targetVer, compareEnabled && compareFrom ? compareFrom : undefined);
       pollRef.current = setTimeout(pollForResult, 1000);
     } catch (err) {
-      setJobProgress(err instanceof Error ? err.message : 'Failed to start');
+      setJobStatus({ status: 'error', error: err instanceof Error ? err.message : 'Failed to start' });
       setIsGenerating(false);
     }
   };
@@ -434,8 +432,35 @@ const ChangelogTab: React.FC<{ version: string; milestones: Array<{ name: string
         </FlexItem>
       </Flex>
 
-      {mutation.isPending && jobProgress && (
-        <Alert variant="info" isInline isPlain title={jobProgress} className="app-mb-md" />
+      {mutation.isPending && jobStatus?.status === 'running' && (
+        <div className="app-changelog-progress app-mb-md">
+          <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }} className="app-mb-xs">
+            <FlexItem>
+              <Content component="small"><strong>{jobStatus.progress}</strong></Content>
+            </FlexItem>
+            <FlexItem>
+              <Content component="small" className="app-text-muted">
+                {jobStatus.totalIssues ? `${jobStatus.totalIssues} issues` : ''}
+                {jobStatus.elapsedSeconds ? ` · ${jobStatus.elapsedSeconds}s elapsed` : ''}
+              </Content>
+            </FlexItem>
+          </Flex>
+          {jobStatus.totalBatches && jobStatus.totalBatches > 0 && (
+            <Progress
+              value={jobStatus.step === 'summarizing' ? 95 : jobStatus.currentBatch && jobStatus.totalBatches ? Math.round((jobStatus.currentBatch / jobStatus.totalBatches) * 90) : 5}
+              size={ProgressSize.sm}
+              measureLocation={ProgressMeasureLocation.outside}
+              aria-label="Changelog generation progress"
+            />
+          )}
+          {(!jobStatus.totalBatches || jobStatus.totalBatches === 0) && (
+            <Progress value={undefined} size={ProgressSize.sm} aria-label="Loading" />
+          )}
+        </div>
+      )}
+
+      {jobStatus?.status === 'error' && (
+        <Alert variant="danger" isInline title={jobStatus.error || 'Generation failed'} className="app-mb-md" />
       )}
 
       {result && (

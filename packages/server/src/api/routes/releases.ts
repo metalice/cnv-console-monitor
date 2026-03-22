@@ -285,6 +285,10 @@ router.get('/:version/sub-versions', async (req: Request, res: Response, next: N
 type ChangelogJob = {
   status: 'running' | 'done' | 'error';
   progress: string;
+  step: string;
+  currentBatch: number;
+  totalBatches: number;
+  totalIssues: number;
   result?: Record<string, unknown>;
   error?: string;
   startedAt: number;
@@ -328,7 +332,16 @@ router.get('/changelog-status', async (req: Request, res: Response) => {
   const jobKey = changelogCacheKey(target, from);
   const activeJob = changelogJobs.get(jobKey);
   if (activeJob && activeJob.status === 'running') {
-    res.json({ status: 'running', progress: activeJob.progress });
+    const elapsed = Math.round((Date.now() - activeJob.startedAt) / 1000);
+    res.json({
+      status: 'running',
+      progress: activeJob.progress,
+      step: activeJob.step,
+      currentBatch: activeJob.currentBatch,
+      totalBatches: activeJob.totalBatches,
+      totalIssues: activeJob.totalIssues,
+      elapsedSeconds: elapsed,
+    });
     return;
   }
   if (activeJob && activeJob.status === 'done' && activeJob.result) {
@@ -392,6 +405,8 @@ const runChangelogJob = async (jobKey: string, targetVersion: string, compareFro
       }
     }
 
+    job.totalIssues = issues.length;
+    job.step = 'preparing';
     job.progress = `Fetched ${issues.length} issues. Preparing AI analysis...`;
 
     const BATCH_SIZE = 60;
@@ -413,8 +428,12 @@ const runChangelogJob = async (jobKey: string, targetVersion: string, compareFro
     let totalTokens = 0;
     let modelUsed = '';
 
+    job.totalBatches = batches.length;
+
     for (let bi = 0; bi < batches.length; bi++) {
-      job.progress = `AI analyzing batch ${bi + 1}/${batches.length}...`;
+      job.currentBatch = bi + 1;
+      job.step = 'analyzing';
+      job.progress = `AI analyzing batch ${bi + 1} of ${batches.length} (${Math.round(((bi + 1) / batches.length) * 100)}%)`;
       const batch = batches[bi];
       const response = await ai.runPrompt('changelog', {
         fromVersion: compareFrom || 'initial release',
@@ -451,7 +470,9 @@ const runChangelogJob = async (jobKey: string, targetVersion: string, compareFro
       }
     }
 
-    job.progress = 'Generating summary...';
+    job.step = 'summarizing';
+    job.currentBatch = batches.length;
+    job.progress = 'All batches complete. Generating summary...';
     let finalSummary: Record<string, unknown> = { categories: mergedCategories };
     if (batches.length > 1) {
       const summaryData: Record<string, number> = {};
@@ -500,7 +521,7 @@ router.post('/:version/changelog', async (req: Request, res: Response) => {
     return;
   }
 
-  const job: ChangelogJob = { status: 'running', progress: 'Fetching Jira issues...', startedAt: Date.now() };
+  const job: ChangelogJob = { status: 'running', progress: 'Fetching Jira issues...', step: 'fetching', currentBatch: 0, totalBatches: 0, totalIssues: 0, startedAt: Date.now() };
   changelogJobs.set(jobKey, job);
 
   runChangelogJob(jobKey, targetVersion, compareFrom).catch(() => {});

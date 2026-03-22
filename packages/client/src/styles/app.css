@@ -1176,6 +1176,13 @@
   max-width: 500px;
 }
 
+.app-changelog-progress {
+  padding: var(--pf-t--global--spacer--md);
+  background: var(--pf-t--global--background--color--secondary--default);
+  border-radius: 6px;
+  border: 1px solid var(--pf-t--global--border--color--default);
+}
+
 .app-changelog-raw {
   padding: var(--pf-t--global--spacer--md);
   background: var(--pf-t--global--background--color--secondary--default);
