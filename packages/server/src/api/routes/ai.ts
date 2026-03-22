@@ -16,9 +16,11 @@ const parseAIJson = (content: string): Record<string, unknown> => {
 router.get('/status', async (_req: Request, res: Response) => {
   const ai = getAIService();
   const defaultModel = (await getSetting('ai.defaultModel')) || 'gemini';
+  const defaultModelId = (await getSetting('ai.defaultModelId')) || '';
   res.json({
     enabled: ai.isEnabled(),
     defaultModel,
+    defaultModelId,
     providers: ai.getAvailableProviders(),
     models: ai.getAvailableModels(),
     prompts: ai.listPromptTemplates(),
@@ -71,11 +73,12 @@ router.post('/prompt/:name', requireAdmin, async (req: Request, res: Response, n
 
 router.post('/configure', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { enabled, defaultModel, geminiKey, openaiKey, anthropicKey, ollamaUrl, vertexProjectId, vertexRegion, vertexAccessToken } = req.body;
+    const { enabled, defaultModel, defaultModelId, geminiKey, openaiKey, anthropicKey, ollamaUrl, vertexProjectId, vertexRegion, vertexAccessToken } = req.body;
     const by = req.user?.name || 'system';
 
     if (enabled !== undefined) await setSetting('ai.enabled', String(enabled), by);
     if (defaultModel) await setSetting('ai.defaultModel', defaultModel, by);
+    if (defaultModelId !== undefined) await setSetting('ai.defaultModelId', defaultModelId, by);
     if (geminiKey !== undefined) await setSetting('ai.geminiKey', geminiKey, by);
     if (openaiKey !== undefined) await setSetting('ai.openaiKey', openaiKey, by);
     if (anthropicKey !== undefined) await setSetting('ai.anthropicKey', anthropicKey, by);
@@ -90,6 +93,7 @@ router.post('/configure', requireAdmin, async (req: Request, res: Response, next
     ai.configure({
       enabled: enabled ?? ai.isEnabled(),
       defaultModel: defaultModel || await load('ai.defaultModel', 'gemini'),
+      defaultModelId: defaultModelId !== undefined ? defaultModelId : await load('ai.defaultModelId', ''),
       geminiKey: geminiKey !== undefined ? geminiKey : await load('ai.geminiKey', ''),
       openaiKey: openaiKey !== undefined ? openaiKey : await load('ai.openaiKey', ''),
       anthropicKey: anthropicKey !== undefined ? anthropicKey : await load('ai.anthropicKey', ''),

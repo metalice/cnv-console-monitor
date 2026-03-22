@@ -30,8 +30,9 @@ export class GeminiProvider implements ModelProvider {
     if (!this.client) throw new Error('Gemini not configured');
 
     const start = Date.now();
+    const modelId = options?.model || DEFAULT_MODEL;
     const model = this.client.getGenerativeModel({
-      model: DEFAULT_MODEL,
+      model: modelId,
       generationConfig: {
         temperature: options?.temperature ?? 0.3,
         maxOutputTokens: options?.maxTokens ?? 4096,
@@ -62,7 +63,7 @@ export class GeminiProvider implements ModelProvider {
 
     return {
       content: text,
-      model: DEFAULT_MODEL,
+      model: modelId,
       provider: 'gemini',
       tokensUsed: tokens,
       cached: false,

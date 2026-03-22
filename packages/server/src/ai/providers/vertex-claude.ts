@@ -32,7 +32,7 @@ export class VertexClaudeProvider implements ModelProvider {
     if (!this.projectId || !this.accessToken) throw new Error('Vertex AI Claude not configured');
 
     const start = Date.now();
-    const model = DEFAULT_MODEL;
+    const model = options?.model || DEFAULT_MODEL;
     const url = `https://${this.region}-aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/${this.region}/publishers/anthropic/models/${model}:rawPredict`;
 
     const systemMsg = messages.find(m => m.role === 'system')?.content;

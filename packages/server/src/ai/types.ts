@@ -8,6 +8,7 @@ export type ModelOptions = {
   maxTokens?: number;
   json?: boolean;
   timeout?: number;
+  model?: string;
 };
 
 export type AIResponse = {
@@ -53,6 +54,7 @@ export interface ModelProvider {
 export type AIConfig = {
   enabled: boolean;
   defaultModel: string;
+  defaultModelId?: string;
   geminiKey: string;
   openaiKey: string;
   anthropicKey: string;

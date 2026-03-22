@@ -27,8 +27,9 @@ export class OllamaProvider implements ModelProvider {
   async chat(messages: ChatMessage[], options?: ModelOptions): Promise<AIResponse> {
     const start = Date.now();
 
+    const modelId = options?.model || DEFAULT_MODEL;
     const response = await axios.post(`${this.baseUrl}/api/chat`, {
-      model: DEFAULT_MODEL,
+      model: modelId,
       messages: messages.map(m => ({ role: m.role, content: m.content })),
       stream: false,
       options: {
@@ -41,7 +42,7 @@ export class OllamaProvider implements ModelProvider {
 
     return {
       content: data.message?.content ?? '',
-      model: DEFAULT_MODEL,
+      model: modelId,
       provider: 'ollama',
       tokensUsed: (data.prompt_eval_count ?? 0) + (data.eval_count ?? 0),
       cached: false,

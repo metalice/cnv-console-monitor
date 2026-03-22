@@ -34,8 +34,9 @@ export class AnthropicProvider implements ModelProvider {
       .filter(m => m.role !== 'system')
       .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
+    const modelId = options?.model || DEFAULT_MODEL;
     const response = await this.client.messages.create({
-      model: DEFAULT_MODEL,
+      model: modelId,
       max_tokens: options?.maxTokens ?? 4096,
       ...(systemMsg ? { system: systemMsg } : {}),
       messages: chatMessages,
@@ -50,7 +51,7 @@ export class AnthropicProvider implements ModelProvider {
 
     return {
       content: text,
-      model: DEFAULT_MODEL,
+      model: modelId,
       provider: 'anthropic',
       tokensUsed: tokens,
       cached: false,

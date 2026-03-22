@@ -10,6 +10,7 @@ export type AIModel = {
 export type AIStatus = {
   enabled: boolean;
   defaultModel: string;
+  defaultModelId: string;
   providers: string[];
   models: AIModel[];
   prompts: string[];

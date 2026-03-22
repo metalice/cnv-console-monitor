@@ -17,9 +17,12 @@ export class AIService {
   private usageLog: UsageRecord[] = [];
   private cache = new Map<string, { response: AIResponse; expiresAt: number }>();
 
+  private defaultModelId = '';
+
   configure(config: AIConfig): void {
     this.enabled = config.enabled;
     this.defaultProvider = config.defaultModel || 'gemini';
+    this.defaultModelId = config.defaultModelId || '';
     this.providers.clear();
 
     if (config.geminiKey) this.providers.set('gemini', new GeminiProvider(config.geminiKey));
@@ -78,7 +81,8 @@ export class AIService {
 
     const start = Date.now();
     try {
-      const response = await provider.chat(messages, options);
+      const modelOpts = this.defaultModelId && !options?.model ? { ...options, model: this.defaultModelId } : options;
+      const response = await provider.chat(messages, modelOpts);
 
       if (useCache) {
         this.cache.set(cacheKey, { response, expiresAt: Date.now() + cacheTtlMs });
@@ -191,6 +195,7 @@ export const initAIService = async (): Promise<AIService> => {
     const config: AIConfig = {
       enabled: (await getSetting('ai.enabled')) === 'true',
       defaultModel: (await getSetting('ai.defaultModel')) || 'gemini',
+      defaultModelId: (await getSetting('ai.defaultModelId')) || '',
       geminiKey: (await getSetting('ai.geminiKey')) || '',
       openaiKey: (await getSetting('ai.openaiKey')) || '',
       anthropicKey: (await getSetting('ai.anthropicKey')) || '',

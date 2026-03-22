@@ -19,10 +19,12 @@ const PROVIDERS = [
 export const AISettings: React.FC = () => {
   const queryClient = useQueryClient();
   const [modelSelectOpen, setModelSelectOpen] = useState(false);
+  const [modelIdSelectOpen, setModelIdSelectOpen] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; error?: string; model?: string } | null>(null);
 
   const [enabled, setEnabled] = useState(false);
   const [defaultModel, setDefaultModel] = useState('gemini');
+  const [defaultModelId, setDefaultModelId] = useState('');
   const [geminiKey, setGeminiKey] = useState('');
   const [openaiKey, setOpenaiKey] = useState('');
   const [anthropicKey, setAnthropicKey] = useState('');
@@ -48,13 +50,14 @@ export const AISettings: React.FC = () => {
     if (status && !initialized) {
       setEnabled(status.enabled);
       if (status.defaultModel) setDefaultModel(status.defaultModel);
+      if (status.defaultModelId) setDefaultModelId(status.defaultModelId);
       setInitialized(true);
     }
   }, [status, initialized]);
 
   const saveMutation = useMutation({
     mutationFn: () => configureAI({
-      enabled, defaultModel,
+      enabled, defaultModel, defaultModelId: defaultModelId || undefined,
       geminiKey: geminiKey || undefined, openaiKey: openaiKey || undefined,
       anthropicKey: anthropicKey || undefined, ollamaUrl: ollamaUrl || undefined,
       vertexProjectId: vertexProjectId || undefined, vertexRegion: vertexRegion || undefined,
@@ -100,6 +103,30 @@ export const AISettings: React.FC = () => {
             {PROVIDERS.map(p => (
               <SelectOption key={p.value} value={p.value} isSelected={defaultModel === p.value}>{p.label}</SelectOption>
             ))}
+          </SelectList>
+        </Select>
+      </FormGroup>
+
+      <FormGroup label={<HelpLabel label="Model" help="Specific model to use within the selected provider. Each provider offers models with different speed/quality tradeoffs." />} className="app-mb-md">
+        <Select
+          isOpen={modelIdSelectOpen}
+          onOpenChange={setModelIdSelectOpen}
+          toggle={(ref: React.Ref<MenuToggleElement>) => (
+            <MenuToggle ref={ref} onClick={() => setModelIdSelectOpen(o => !o)} isExpanded={modelIdSelectOpen} className="app-max-w-350">
+              {defaultModelId ? (status?.models.find(m => m.id === defaultModelId)?.name || defaultModelId) : 'Provider default'}
+            </MenuToggle>
+          )}
+          onSelect={(_e, val) => { setDefaultModelId(val as string); setModelIdSelectOpen(false); }}
+        >
+          <SelectList>
+            <SelectOption value="" isSelected={!defaultModelId}>Provider default</SelectOption>
+            {(status?.models ?? [])
+              .filter(m => m.provider === defaultModel)
+              .map(m => (
+                <SelectOption key={m.id} value={m.id} isSelected={defaultModelId === m.id}>
+                  {m.name}
+                </SelectOption>
+              ))}
           </SelectList>
         </Select>
       </FormGroup>

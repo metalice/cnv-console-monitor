@@ -30,8 +30,9 @@ export class OpenAIProvider implements ModelProvider {
     if (!this.client) throw new Error('OpenAI not configured');
 
     const start = Date.now();
+    const modelId = options?.model || DEFAULT_MODEL;
     const response = await this.client.chat.completions.create({
-      model: DEFAULT_MODEL,
+      model: modelId,
       messages: messages.map(m => ({ role: m.role, content: m.content })),
       temperature: options?.temperature ?? 0.3,
       max_tokens: options?.maxTokens ?? 4096,
@@ -43,7 +44,7 @@ export class OpenAIProvider implements ModelProvider {
 
     return {
       content: choice?.message?.content ?? '',
-      model: DEFAULT_MODEL,
+      model: modelId,
       provider: 'openai',
       tokensUsed: tokens,
       cached: false,
