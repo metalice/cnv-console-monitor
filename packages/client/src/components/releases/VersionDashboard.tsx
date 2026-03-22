@@ -385,7 +385,7 @@ const ChangelogTab: React.FC<{ version: string }> = ({ version }) => {
             onSelect={(_e, val) => { setTargetVer(val as string); setTargetOpen(false); setResult(null); }}
           >
             <SelectList>
-              {(subVersions ?? []).map(v => <SelectOption key={v.name} value={v.name}>{v.name} {v.released ? '' : '(unreleased)'}</SelectOption>)}
+              {(subVersions ?? []).map(v => <SelectOption key={v.name} value={v.name}>{v.name}</SelectOption>)}
             </SelectList>
           </Select>
         </FlexItem>
