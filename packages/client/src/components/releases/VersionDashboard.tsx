@@ -245,7 +245,7 @@ export const VersionDashboard: React.FC<VersionDashboardProps> = ({ release, che
             </div>
           </Tab>
           <Tab eventKey={3} title={<TabTitleText>AI Changelog <Tooltip content="AI-generated changelog from Jira issues. Select sub-versions to compare what changed between releases."><OutlinedQuestionCircleIcon className="app-help-icon" /></Tooltip></TabTitleText>}>
-            <ChangelogTab version={version} />
+            <ChangelogTab version={version} milestones={release.milestones} />
           </Tab>
           <Tab eventKey={4} title={<TabTitleText>AI Risk <Tooltip content="AI evaluates release readiness based on checklist progress, test pass rates, open blockers, and trends. Returns Ship / Hold / Needs Attention verdict."><OutlinedQuestionCircleIcon className="app-help-icon" /></Tooltip></TabTitleText>}>
             <RiskTab version={version} release={release} checklist={checklist} readiness={readiness} />
@@ -264,7 +264,16 @@ const CATEGORY_LABELS: Record<string, { label: string; color: 'green' | 'blue' |
   documentation: { label: 'Documentation', color: 'grey' },
 };
 
-const ChangelogTab: React.FC<{ version: string }> = ({ version }) => {
+const isVersionReleased = (versionName: string, milestones: Array<{ name: string; date: string; isPast: boolean }>): boolean => {
+  const ver = versionName.match(/(\d+\.\d+\.?\d*)/)?.[1];
+  if (!ver) return false;
+  return milestones.some(m => {
+    const mVer = m.name.match(/(\d+\.\d+\.?\d*)/)?.[1];
+    return mVer === ver && m.isPast;
+  });
+};
+
+const ChangelogTab: React.FC<{ version: string; milestones: Array<{ name: string; date: string; isPast: boolean }> }> = ({ version, milestones }) => {
   const [result, setResult] = useLocalState<ChangelogResult | null>(null);
   const [targetVer, setTargetVer] = useLocalState('');
   const [compareFrom, setCompareFrom] = useLocalState('');
@@ -385,7 +394,10 @@ const ChangelogTab: React.FC<{ version: string }> = ({ version }) => {
             onSelect={(_e, val) => { setTargetVer(val as string); setTargetOpen(false); setResult(null); }}
           >
             <SelectList>
-              {(subVersions ?? []).map(v => <SelectOption key={v.name} value={v.name}>{v.name}</SelectOption>)}
+              {(subVersions ?? []).map(v => {
+                const released = isVersionReleased(v.name, milestones);
+                return <SelectOption key={v.name} value={v.name}>{v.name}{released ? '' : ' (upcoming)'}</SelectOption>;
+              })}
             </SelectList>
           </Select>
         </FlexItem>
