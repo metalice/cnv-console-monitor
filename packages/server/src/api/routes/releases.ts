@@ -271,8 +271,9 @@ router.get('/:version/sub-versions', async (req: Request, res: Response, next: N
     const allVersions: Array<{ name: string; released: boolean }> = versionsRes.data || [];
     const matching = allVersions
       .filter(v => {
-        const name = v.name.toLowerCase();
-        return name.includes(version.toLowerCase()) && !name.includes(`4.14.${version.split('.')[1]}`);
+        const name = v.name;
+        const pattern = new RegExp(`^CNV\\s+v?${version.replace('.', '\\.')}`, 'i');
+        return pattern.test(name);
       })
       .map(v => ({ name: v.name, released: v.released }))
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));

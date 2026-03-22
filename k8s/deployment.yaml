@@ -59,6 +59,13 @@ spec:
                 name: cnv-ui-monitor-config
             - secretRef:
                 name: cnv-ui-monitor-secrets
+          env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /etc/gcp/key.json
+          volumeMounts:
+            - mountPath: /etc/gcp
+              name: gcp-credentials
+              readOnly: true
           resources:
             requests:
               cpu: 100m
@@ -83,3 +90,7 @@ spec:
         - name: proxy-tls
           secret:
             secretName: cnv-ui-monitor-tls
+        - name: gcp-credentials
+          secret:
+            secretName: gcp-credentials
+            optional: true

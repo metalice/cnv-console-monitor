@@ -165,18 +165,21 @@ export const AISettings: React.FC = () => {
       {status?.vertexTokenInfo && (
         <div className="app-mb-md">
           <Content component="small" className="app-text-muted">
-            {status.vertexTokenInfo.expiresIn === null ? (
+            {status.vertexTokenInfo.authMode === 'adc' && (
+              <><Label color="green" isCompact>Auto-refresh (ADC)</Label>{' '}</>
+            )}
+            {status.vertexTokenInfo.expiresIn === null && status.vertexTokenInfo.authMode !== 'adc' ? (
               <Label color="grey" isCompact>No token set</Label>
-            ) : status.vertexTokenInfo.expiresIn <= 0 ? (
+            ) : status.vertexTokenInfo.expiresIn !== null && status.vertexTokenInfo.expiresIn <= 0 && status.vertexTokenInfo.authMode !== 'adc' ? (
               <Label color="red" isCompact>Token expired</Label>
-            ) : (
+            ) : status.vertexTokenInfo.expiresIn !== null && status.vertexTokenInfo.expiresIn > 0 ? (
               <>
                 <Label color={status.vertexTokenInfo.expiresIn < 300 ? 'orange' : 'green'} isCompact>
                   Expires in {Math.floor(status.vertexTokenInfo.expiresIn / 60)}m {status.vertexTokenInfo.expiresIn % 60}s
                 </Label>
-                {status.vertexTokenInfo.email && <span> · {status.vertexTokenInfo.email}</span>}
               </>
-            )}
+            ) : null}
+            {status.vertexTokenInfo.email && <span> · {status.vertexTokenInfo.email}</span>}
           </Content>
         </div>
       )}

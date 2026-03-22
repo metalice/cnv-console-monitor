@@ -52,6 +52,10 @@ export class AIService {
     return [...this.providers.keys()].filter(k => this.providers.get(k)!.isAvailable());
   }
 
+  getVertexProvider(): VertexClaudeProvider | undefined {
+    return this.providers.get('vertex-claude') as VertexClaudeProvider | undefined;
+  }
+
   async chat(messages: ChatMessage[], options?: ModelOptions & { provider?: string; useCache?: boolean; cacheTtlMs?: number }): Promise<AIResponse> {
     if (!this.enabled) throw new Error('AI is not enabled');
 

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { GoogleAuth } from 'google-auth-library';
 import type { ModelProvider, ChatMessage, ModelOptions, AIResponse, ModelInfo } from '../types';
 
 const DEFAULT_MODEL = 'claude-sonnet-4@20250514';
@@ -8,16 +9,52 @@ export class VertexClaudeProvider implements ModelProvider {
   readonly displayName = 'Claude (Vertex AI)';
   private region: string;
   private projectId: string;
-  private accessToken: string;
+  private manualToken: string;
+  private googleAuth: GoogleAuth;
+  private adcAvailable: boolean | null = null;
 
   constructor(opts: { region?: string; projectId?: string; accessToken?: string }) {
     this.region = opts.region || 'us-east5';
     this.projectId = opts.projectId || '';
-    this.accessToken = opts.accessToken || '';
+    this.manualToken = opts.accessToken || '';
+    this.googleAuth = new GoogleAuth({ scopes: 'https://www.googleapis.com/auth/cloud-platform' });
   }
 
   isAvailable(): boolean {
-    return !!this.projectId && !!this.accessToken;
+    return !!this.projectId && (!!this.manualToken || this.adcAvailable === true);
+  }
+
+  async getAuthMode(): Promise<'manual' | 'adc' | 'none'> {
+    if (this.manualToken) return 'manual';
+    if (await this.checkAdc()) return 'adc';
+    return 'none';
+  }
+
+  private async checkAdc(): Promise<boolean> {
+    if (this.adcAvailable !== null) return this.adcAvailable;
+    try {
+      await this.googleAuth.getAccessToken();
+      this.adcAvailable = true;
+    } catch {
+      this.adcAvailable = false;
+    }
+    return this.adcAvailable;
+  }
+
+  private async getToken(): Promise<string> {
+    if (this.manualToken) {
+      try {
+        const resp = await axios.get(`https://oauth2.googleapis.com/tokeninfo?access_token=${this.manualToken}`, { timeout: 3000 });
+        const expiresIn = parseInt(resp.data.expires_in, 10);
+        if (expiresIn > 30) return this.manualToken;
+      } catch { /* token invalid or expired, fall through to ADC */ }
+    }
+
+    const token = await this.googleAuth.getAccessToken();
+    if (token) return token;
+
+    if (this.manualToken) return this.manualToken;
+    throw new Error('No valid Vertex AI credentials available');
   }
 
   listModels(): ModelInfo[] {
@@ -29,8 +66,9 @@ export class VertexClaudeProvider implements ModelProvider {
   }
 
   async chat(messages: ChatMessage[], options?: ModelOptions): Promise<AIResponse> {
-    if (!this.projectId || !this.accessToken) throw new Error('Vertex AI Claude not configured');
+    if (!this.projectId) throw new Error('Vertex AI Claude not configured: missing project ID');
 
+    const token = await this.getToken();
     const start = Date.now();
     const model = options?.model || DEFAULT_MODEL;
     const url = `https://${this.region}-aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/${this.region}/publishers/anthropic/models/${model}:rawPredict`;
@@ -49,7 +87,7 @@ export class VertexClaudeProvider implements ModelProvider {
 
     const response = await axios.post(url, body, {
       headers: {
-        'Authorization': `Bearer ${this.accessToken}`,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       timeout: options?.timeout ?? 120000,

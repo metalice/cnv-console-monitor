@@ -18,6 +18,7 @@ export type AIStatus = {
     expiresIn: number | null;
     expiresAt: string | null;
     email: string | null;
+    authMode: 'manual' | 'adc' | 'none';
   };
 };
 
