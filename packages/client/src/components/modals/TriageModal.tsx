@@ -12,7 +12,7 @@ import {
   TextArea,
   HelperText,
   HelperTextItem,
-  Label, Alert,
+  Label, Alert, Tooltip,
 } from '@patternfly/react-core';
 import { MagicIcon } from '@patternfly/react-icons';
 import { fetchDefectTypes } from '../../api/defectTypes';
@@ -101,9 +101,11 @@ export const TriageModal: React.FC<TriageModalProps> = ({ isOpen, onClose, itemI
         <Form>
           {testContext && !isBulk && (
             <FormGroup>
-              <Button variant="secondary" icon={<MagicIcon />} onClick={() => aiMutation.mutate()} isLoading={aiMutation.isPending} isDisabled={aiMutation.isPending} size="sm">
-                AI Suggest
-              </Button>
+              <Tooltip content="AI analyzes the error message and test context to suggest the most likely defect classification (Product Bug, Automation Bug, System Issue, etc.)">
+                <Button variant="secondary" icon={<MagicIcon />} onClick={() => aiMutation.mutate()} isLoading={aiMutation.isPending} isDisabled={aiMutation.isPending} size="sm">
+                  AI Suggest
+                </Button>
+              </Tooltip>
               {aiSuggestion && (
                 <Alert variant="info" isInline isPlain className="app-mt-sm"
                   title={`AI suggests: ${aiSuggestion.suggestedLabel ?? aiSuggestion.suggestedType} (${aiSuggestion.confidence} confidence)`}

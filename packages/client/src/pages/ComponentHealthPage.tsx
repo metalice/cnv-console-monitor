@@ -57,6 +57,7 @@ export const ComponentHealthPage: React.FC = () => {
                 <AIActionButton
                   label="AI Health Summary"
                   description="AI is analyzing component health data..."
+                  help="AI analyzes pass rates, failure trends, and test counts for each component and writes a concise health narrative."
                   apiCall={() => generateHealthNarrative({
                     components: components?.map(c => ({
                       name: c.component,
@@ -72,6 +73,7 @@ export const ComponentHealthPage: React.FC = () => {
                 <AIActionButton
                   label="Standup Summary"
                   description="AI is generating a standup summary..."
+                  help="AI generates 3-5 bullet points summarizing the last 24 hours — test results, notable failures, upcoming releases — ready for a standup meeting."
                   apiCall={() => generateStandupSummary({
                     date: new Date().toLocaleDateString(),
                     passRate: components ? Math.round(components.reduce((s, c) => s + c.passRate, 0) / components.length) : 0,

@@ -10,6 +10,7 @@ import {
   Content,
   Alert,
   ExpandableSection,
+  Tooltip,
 } from '@patternfly/react-core';
 import { ExternalLinkAltIcon, MagicIcon } from '@patternfly/react-icons';
 import type { PublicConfig } from '@cnv-monitor/shared';
@@ -87,13 +88,15 @@ export const JiraCreateModal: React.FC<JiraCreateModalProps> = ({
         </Content>
         {errorMessage && (
           <div className="app-mt-md">
-            <Button variant="secondary" icon={<MagicIcon />} size="sm"
-              onClick={() => aiGenMutation.mutate()}
-              isLoading={aiGenMutation.isPending}
-              isDisabled={aiGenMutation.isPending}
-            >
-              Generate with AI
-            </Button>
+            <Tooltip content="AI generates a complete bug report from the test name, error message, and version context — including title, description, steps to reproduce, and expected vs actual results.">
+              <Button variant="secondary" icon={<MagicIcon />} size="sm"
+                onClick={() => aiGenMutation.mutate()}
+                isLoading={aiGenMutation.isPending}
+                isDisabled={aiGenMutation.isPending}
+              >
+                Generate with AI
+              </Button>
+            </Tooltip>
             {aiReport && (
               <ExpandableSection toggleText="AI-Generated Bug Report" isExpanded={reportExpanded} onToggle={(_e, v) => setReportExpanded(v)} className="app-mt-sm">
                 <div className="app-text-xs">

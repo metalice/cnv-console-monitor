@@ -191,7 +191,7 @@ const AISearchIndicator: React.FC = () => {
     <>
       {aiStatus?.enabled && (
         <ToolbarItem>
-          <Tooltip content="AI is enabled">
+          <Tooltip content="AI features are enabled. Use natural language search, smart triage suggestions, changelog generation, and more.">
             <span className="app-ai-indicator"><MagicIcon /></span>
           </Tooltip>
         </ToolbarItem>
@@ -211,7 +211,9 @@ const AISearchIndicator: React.FC = () => {
             <Button variant="plain" size="sm" onClick={() => setSearchOpen(false)} aria-label="Close search">&times;</Button>
           </span>
         ) : (
-          <Button variant="plain" icon={<SearchIcon />} onClick={() => setSearchOpen(true)} aria-label="AI Search" />
+          <Tooltip content="AI natural language search. Ask questions like 'storage failures last week' and AI will navigate to the right page with filters applied.">
+            <Button variant="plain" icon={<SearchIcon />} onClick={() => setSearchOpen(true)} aria-label="AI Search" />
+          </Tooltip>
         )}
       </ToolbarItem>
     </>

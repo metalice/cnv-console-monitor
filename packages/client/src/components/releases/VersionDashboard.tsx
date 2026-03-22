@@ -244,10 +244,10 @@ export const VersionDashboard: React.FC<VersionDashboardProps> = ({ release, che
               <BlockerWall version={version} />
             </div>
           </Tab>
-          <Tab eventKey={3} title={<TabTitleText>AI Changelog</TabTitleText>}>
+          <Tab eventKey={3} title={<TabTitleText>AI Changelog <Tooltip content="AI-generated changelog from Jira issues. Select sub-versions to compare what changed between releases."><OutlinedQuestionCircleIcon className="app-help-icon" /></Tooltip></TabTitleText>}>
             <ChangelogTab version={version} />
           </Tab>
-          <Tab eventKey={4} title={<TabTitleText>AI Risk</TabTitleText>}>
+          <Tab eventKey={4} title={<TabTitleText>AI Risk <Tooltip content="AI evaluates release readiness based on checklist progress, test pass rates, open blockers, and trends. Returns Ship / Hold / Needs Attention verdict."><OutlinedQuestionCircleIcon className="app-help-icon" /></Tooltip></TabTitleText>}>
             <RiskTab version={version} release={release} checklist={checklist} readiness={readiness} />
           </Tab>
         </Tabs>

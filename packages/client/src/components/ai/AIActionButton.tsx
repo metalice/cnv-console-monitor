@@ -2,19 +2,20 @@ import React, { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import {
   Button, Modal, ModalVariant, ModalHeader, ModalBody, ModalFooter,
-  Content, Spinner, Bullseye, Alert, Label, Flex, FlexItem,
+  Content, Spinner, Bullseye, Alert, Label, Flex, FlexItem, Tooltip,
 } from '@patternfly/react-core';
 import { MagicIcon, CopyIcon } from '@patternfly/react-icons';
 
 type AIActionButtonProps = {
   label: string;
   description: string;
+  help?: string;
   apiCall: () => Promise<{ result?: Record<string, unknown>; response?: string; model: string; cached: boolean; tokensUsed?: number; durationMs?: number }>;
   variant?: 'primary' | 'secondary' | 'link';
   size?: 'sm' | 'lg';
 };
 
-export const AIActionButton: React.FC<AIActionButtonProps> = ({ label, description, apiCall, variant = 'secondary', size = 'sm' }) => {
+export const AIActionButton: React.FC<AIActionButtonProps> = ({ label, description, help, apiCall, variant = 'secondary', size = 'sm' }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const mutation = useMutation({ mutationFn: apiCall });
@@ -30,9 +31,17 @@ export const AIActionButton: React.FC<AIActionButtonProps> = ({ label, descripti
 
   return (
     <>
-      <Button variant={variant} icon={<MagicIcon />} onClick={handleClick} size={size} isLoading={mutation.isPending}>
-        {label}
-      </Button>
+      {help ? (
+        <Tooltip content={help}>
+          <Button variant={variant} icon={<MagicIcon />} onClick={handleClick} size={size} isLoading={mutation.isPending}>
+            {label}
+          </Button>
+        </Tooltip>
+      ) : (
+        <Button variant={variant} icon={<MagicIcon />} onClick={handleClick} size={size} isLoading={mutation.isPending}>
+          {label}
+        </Button>
+      )}
       <Modal variant={ModalVariant.large} isOpen={isOpen} onClose={() => setIsOpen(false)}>
         <ModalHeader title={label} />
         <ModalBody>
