@@ -1184,10 +1184,12 @@
 }
 
 .app-changelog-log {
-  max-height: 200px;
+  max-height: calc(6 * 22px);
   overflow-y: auto;
   font-size: 12px;
   font-family: 'RedHatMono', monospace;
+  border-top: 1px solid var(--pf-t--global--border--color--default);
+  padding-top: var(--pf-t--global--spacer--xs);
 }
 
 .app-changelog-log-entry {

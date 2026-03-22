@@ -457,7 +457,7 @@ const ChangelogTab: React.FC<{ version: string; milestones: Array<{ name: string
             <Progress value={undefined} size={ProgressSize.sm} aria-label="Loading" />
           )}
           {jobStatus.log && jobStatus.log.length > 0 && (
-            <div className="app-changelog-log app-mt-sm">
+            <div className="app-changelog-log app-mt-sm" ref={(el) => { if (el) el.scrollTop = el.scrollHeight; }}>
               {jobStatus.log.map((entry, i) => (
                 <div key={i} className={`app-changelog-log-entry app-changelog-log-${entry.type}`}>
                   <span className="app-changelog-log-time">{new Date(entry.time).toLocaleTimeString()}</span>
