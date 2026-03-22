@@ -129,6 +129,8 @@ export const fetchAIUsage = (): Promise<AIUsage> => apiFetch('/ai/usage');
 export const startChangelogJob = (version: string, targetVersion: string, compareFrom?: string): Promise<{ status: string }> =>
   apiPost(`/releases/${version}/changelog`, { targetVersion, compareFrom });
 
+export type ChangelogLogEntry = { time: number; message: string; type: 'info' | 'success' | 'error' };
+
 export type ChangelogStatus = {
   status: 'none' | 'running' | 'done' | 'error';
   progress?: string;
@@ -137,6 +139,7 @@ export type ChangelogStatus = {
   totalBatches?: number;
   totalIssues?: number;
   elapsedSeconds?: number;
+  log?: ChangelogLogEntry[];
   error?: string;
   changelog?: ChangelogResult['changelog'];
   meta?: ChangelogResult['meta'];

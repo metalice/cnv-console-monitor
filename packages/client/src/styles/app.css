@@ -1183,6 +1183,31 @@
   border: 1px solid var(--pf-t--global--border--color--default);
 }
 
+.app-changelog-log {
+  max-height: 200px;
+  overflow-y: auto;
+  font-size: 12px;
+  font-family: 'RedHatMono', monospace;
+}
+
+.app-changelog-log-entry {
+  padding: 2px 0;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.app-changelog-log-time {
+  color: var(--pf-t--global--text--color--subtle);
+  font-size: 10px;
+  min-width: 70px;
+  flex-shrink: 0;
+}
+
+.app-changelog-log-info { color: var(--pf-t--global--text--color--regular); }
+.app-changelog-log-success { color: var(--pf-t--global--color--status--success--default); }
+.app-changelog-log-error { color: var(--pf-t--global--color--status--danger--default); }
+
 .app-changelog-raw {
   padding: var(--pf-t--global--spacer--md);
   background: var(--pf-t--global--background--color--secondary--default);

@@ -440,21 +440,31 @@ const ChangelogTab: React.FC<{ version: string; milestones: Array<{ name: string
             </FlexItem>
             <FlexItem>
               <Content component="small" className="app-text-muted">
-                {jobStatus.totalIssues ? `${jobStatus.totalIssues} issues` : ''}
-                {jobStatus.elapsedSeconds ? ` · ${jobStatus.elapsedSeconds}s elapsed` : ''}
+                {jobStatus.totalIssues ? `${jobStatus.totalIssues.toLocaleString()} issues` : ''}
+                {jobStatus.totalBatches ? ` · ${jobStatus.currentBatch}/${jobStatus.totalBatches} batches` : ''}
+                {jobStatus.elapsedSeconds ? ` · ${jobStatus.elapsedSeconds}s` : ''}
               </Content>
             </FlexItem>
           </Flex>
-          {jobStatus.totalBatches && jobStatus.totalBatches > 0 && (
+          {jobStatus.totalBatches && jobStatus.totalBatches > 0 ? (
             <Progress
               value={jobStatus.step === 'summarizing' ? 95 : jobStatus.currentBatch && jobStatus.totalBatches ? Math.round((jobStatus.currentBatch / jobStatus.totalBatches) * 90) : 5}
               size={ProgressSize.sm}
               measureLocation={ProgressMeasureLocation.outside}
               aria-label="Changelog generation progress"
             />
-          )}
-          {(!jobStatus.totalBatches || jobStatus.totalBatches === 0) && (
+          ) : (
             <Progress value={undefined} size={ProgressSize.sm} aria-label="Loading" />
+          )}
+          {jobStatus.log && jobStatus.log.length > 0 && (
+            <div className="app-changelog-log app-mt-sm">
+              {jobStatus.log.map((entry, i) => (
+                <div key={i} className={`app-changelog-log-entry app-changelog-log-${entry.type}`}>
+                  <span className="app-changelog-log-time">{new Date(entry.time).toLocaleTimeString()}</span>
+                  <span>{entry.message}</span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}

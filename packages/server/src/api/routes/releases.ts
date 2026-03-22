@@ -282,6 +282,8 @@ router.get('/:version/sub-versions', async (req: Request, res: Response, next: N
 });
 
 // Changelog job store + DB persistence
+type ChangelogLogEntry = { time: number; message: string; type: 'info' | 'success' | 'error' };
+
 type ChangelogJob = {
   status: 'running' | 'done' | 'error';
   progress: string;
@@ -289,9 +291,15 @@ type ChangelogJob = {
   currentBatch: number;
   totalBatches: number;
   totalIssues: number;
+  log: ChangelogLogEntry[];
   result?: Record<string, unknown>;
   error?: string;
   startedAt: number;
+};
+
+const jobLog = (job: ChangelogJob, message: string, type: ChangelogLogEntry['type'] = 'info') => {
+  job.log.push({ time: Date.now(), message, type });
+  job.progress = message;
 };
 const changelogJobs = new Map<string, ChangelogJob>();
 
@@ -341,6 +349,7 @@ router.get('/changelog-status', async (req: Request, res: Response) => {
       totalBatches: activeJob.totalBatches,
       totalIssues: activeJob.totalIssues,
       elapsedSeconds: elapsed,
+      log: activeJob.log,
     });
     return;
   }
@@ -374,11 +383,13 @@ const runChangelogJob = async (jobKey: string, targetVersion: string, compareFro
     if (config.jira.enabled) {
       try {
         const client = createJiraClient();
+        jobLog(job, `Querying Jira for issues with fixVersion = "${targetVersion}"`);
         const jql = `project = ${config.jira.projectKey} AND fixVersion = "${sanitizeJql(targetVersion)}" ORDER BY priority ASC, updated DESC`;
         let startAt = 0;
         const pageSize = 100;
         while (true) {
           const response = await jiraSearch(client, jql, ['summary', 'issuetype', 'priority', 'components', 'status', 'fixVersions', 'assignee', 'description'], pageSize, startAt);
+          jobLog(job, `Fetched page ${Math.floor(startAt / pageSize) + 1}: ${response.data.issues?.length ?? 0} issues (${issues.length + (response.data.issues?.length ?? 0)} total)`);
           const batch = (response.data.issues || []).map((issue: Record<string, unknown>) => {
             const f = issue.fields as Record<string, unknown>;
             const assignee = (f.assignee as { displayName: string })?.displayName || null;
@@ -407,7 +418,11 @@ const runChangelogJob = async (jobKey: string, targetVersion: string, compareFro
 
     job.totalIssues = issues.length;
     job.step = 'preparing';
-    job.progress = `Fetched ${issues.length} issues. Preparing AI analysis...`;
+    const typeCounts = new Map<string, number>();
+    issues.forEach(i => typeCounts.set(i.type as string, (typeCounts.get(i.type as string) ?? 0) + 1));
+    const typeBreakdown = [...typeCounts.entries()].map(([t, c]) => `${c} ${t}`).join(', ');
+    jobLog(job, `Fetched ${issues.length} issues (${typeBreakdown})`, 'success');
+    jobLog(job, `${contributors.size} unique contributors found`);
 
     const BATCH_SIZE = 60;
     const batches: Array<Array<Record<string, unknown>>> = [];
@@ -429,11 +444,12 @@ const runChangelogJob = async (jobKey: string, targetVersion: string, compareFro
     let modelUsed = '';
 
     job.totalBatches = batches.length;
+    jobLog(job, `Split into ${batches.length} batch${batches.length > 1 ? 'es' : ''} of ${BATCH_SIZE} issues for AI analysis`);
 
     for (let bi = 0; bi < batches.length; bi++) {
       job.currentBatch = bi + 1;
       job.step = 'analyzing';
-      job.progress = `AI analyzing batch ${bi + 1} of ${batches.length} (${Math.round(((bi + 1) / batches.length) * 100)}%)`;
+      jobLog(job, `Sending batch ${bi + 1}/${batches.length} to AI (${batches[bi].length} issues)...`);
       const batch = batches[bi];
       const response = await ai.runPrompt('changelog', {
         fromVersion: compareFrom || 'initial release',
@@ -453,6 +469,8 @@ const runChangelogJob = async (jobKey: string, targetVersion: string, compareFro
       try { parsed = JSON.parse(content); } catch { parsed = {}; }
 
       const cats = (parsed.categories || {}) as Record<string, Array<Record<string, unknown>>>;
+      const batchCounts = Object.entries(cats).filter(([, v]) => Array.isArray(v) && v.length > 0).map(([k, v]) => `${(v as unknown[]).length} ${k}`).join(', ');
+      jobLog(job, `Batch ${bi + 1} complete: ${batchCounts || 'no categories'} (${response.tokensUsed} tokens, ${Math.round(response.durationMs / 1000)}s)`, 'success');
       for (const [cat, items] of Object.entries(cats)) {
         if (!mergedCategories[cat]) mergedCategories[cat] = [];
         if (Array.isArray(items)) mergedCategories[cat].push(...items);
@@ -465,6 +483,8 @@ const runChangelogJob = async (jobKey: string, targetVersion: string, compareFro
           changelog: parsed,
           meta: { targetVersion, compareFrom: compareFrom || null, label, issueCount: issues.length, analyzedCount: batch.length, batches: 1, model: modelUsed, tokensUsed: totalTokens, durationMs: response.durationMs, cached: response.cached, contributors: contribs.map(([name, count]) => ({ name, count })) },
         };
+        const elapsed = Math.round((Date.now() - job.startedAt) / 1000);
+        jobLog(job, `Changelog complete! ${issues.length} issues analyzed, ${totalTokens} tokens used, ${elapsed}s total`, 'success');
         saveChangelogToDb(targetVersion, compareFrom, job.result).catch(() => {});
         return;
       }
@@ -472,7 +492,9 @@ const runChangelogJob = async (jobKey: string, targetVersion: string, compareFro
 
     job.step = 'summarizing';
     job.currentBatch = batches.length;
-    job.progress = 'All batches complete. Generating summary...';
+    const mergedTotal = Object.values(mergedCategories).reduce((s, items) => s + items.length, 0);
+    jobLog(job, `All ${batches.length} batches complete. Merged ${mergedTotal} categorized items.`, 'success');
+    jobLog(job, 'Generating executive summary...');
     let finalSummary: Record<string, unknown> = { categories: mergedCategories };
     if (batches.length > 1) {
       const summaryData: Record<string, number> = {};
@@ -497,10 +519,13 @@ const runChangelogJob = async (jobKey: string, targetVersion: string, compareFro
       changelog: finalSummary,
       meta: { targetVersion, compareFrom: compareFrom || null, label, issueCount: issues.length, analyzedCount: issues.length, batches: batches.length, model: modelUsed, tokensUsed: totalTokens, durationMs: Date.now() - job.startedAt, cached: false, contributors: contribs.map(([name, count]) => ({ name, count })) },
     };
+    const elapsed = Math.round((Date.now() - job.startedAt) / 1000);
+    jobLog(job, `Changelog complete! ${issues.length} issues across ${batches.length} batches, ${totalTokens} tokens, ${elapsed}s total`, 'success');
     saveChangelogToDb(targetVersion, compareFrom, job.result).catch(() => {});
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Changelog generation failed';
     log.error({ err }, msg);
+    jobLog(job, `Error: ${msg}`, 'error');
     job.status = 'error';
     job.error = msg;
   }
@@ -521,7 +546,8 @@ router.post('/:version/changelog', async (req: Request, res: Response) => {
     return;
   }
 
-  const job: ChangelogJob = { status: 'running', progress: 'Fetching Jira issues...', step: 'fetching', currentBatch: 0, totalBatches: 0, totalIssues: 0, startedAt: Date.now() };
+  const job: ChangelogJob = { status: 'running', progress: 'Starting...', step: 'fetching', currentBatch: 0, totalBatches: 0, totalIssues: 0, log: [], startedAt: Date.now() };
+  jobLog(job, `Starting changelog generation for ${targetVersion}${compareFrom ? ` (comparing from ${compareFrom})` : ''}`);
   changelogJobs.set(jobKey, job);
 
   runChangelogJob(jobKey, targetVersion, compareFrom).catch(() => {});
