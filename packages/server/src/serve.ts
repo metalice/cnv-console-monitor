@@ -115,6 +115,20 @@ const main = async (): Promise<void> => {
       }, intervalMs);
     };
     scheduleNextPoll();
+
+    const scheduleQuarantineSLA = () => {
+      const oneHour = 60 * 60 * 1000;
+      setTimeout(async () => {
+        try {
+          const { checkQuarantineSLA } = await import('./services/QuarantineService');
+          await checkQuarantineSLA();
+        } catch (err) {
+          log.error({ err }, 'Quarantine SLA check failed');
+        }
+        scheduleQuarantineSLA();
+      }, oneHour);
+    };
+    scheduleQuarantineSLA();
   });
 };
 

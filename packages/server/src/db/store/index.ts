@@ -120,3 +120,49 @@ export {
   getMatchCountForPattern,
   getMatchingLaunchNames,
 } from './componentMappings';
+
+export {
+  getAllRepositories,
+  getEnabledRepositories,
+  getRepositoryById,
+  getRepositoriesByComponent,
+  createRepository,
+  updateRepository,
+  deleteRepository,
+} from './repositories';
+
+export {
+  getFilesByRepo,
+  getFilesByType,
+  getFileByPath,
+  upsertRepoFile,
+  updateFileCounterpart,
+  clearRepoFiles,
+  getOrphanedDocs,
+  getUndocumentedTests,
+  getRepoFileStats,
+} from './repoFiles';
+
+export {
+  createQuarantine,
+  getQuarantineById,
+  getQuarantines,
+  getActiveQuarantines,
+  getOverdueQuarantines,
+  updateQuarantineStatus,
+  resolveQuarantine,
+  getQuarantineByTestName,
+  addQuarantineLog,
+  getQuarantineLogs,
+  getQuarantineStats,
+  getQuarantineHistory,
+} from './quarantines';
+
+export {
+  getUserTokens,
+  getUserToken,
+  getDecryptedToken,
+  saveUserToken,
+  deleteUserToken,
+  invalidateUserToken,
+} from './userTokens';

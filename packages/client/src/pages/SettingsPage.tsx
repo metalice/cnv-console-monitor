@@ -53,6 +53,8 @@ import { fetchPollStatus, type PollStatus } from '../api/poll';
 import { testRpConnection, testJiraConnection, testJenkinsConnection, fetchSettings, updateSettings } from '../api/settings';
 import { apiFetch } from '../api/client';
 import { SearchableSelect } from '../components/common/SearchableSelect';
+import { RepositoryMappingSection } from '../components/settings/RepositoryMappingSection';
+import { PersonalTokensSection } from '../components/settings/PersonalTokensSection';
 import { fetchSettingsChangelog, type SettingsLogEntry } from '../api/settings';
 
 const SettingsChangelog: React.FC = () => {
@@ -472,6 +474,14 @@ export const SettingsPage: React.FC = () => {
             {isAdmin && <SettingsChangelog />}
           </CardBody>
         </Card>
+      </PageSection>
+
+      <PageSection>
+        <RepositoryMappingSection />
+      </PageSection>
+
+      <PageSection>
+        <PersonalTokensSection />
       </PageSection>
 
       {/* Danger zone confirmation modal */}

@@ -33,6 +33,11 @@ import readinessRouter from './routes/readiness';
 import myWorkRouter from './routes/myWork';
 import componentMappingsRouter from './routes/component-mappings';
 import aiRouter from './routes/ai';
+import repositoriesRouter from './routes/repositories';
+import testExplorerRouter from './routes/test-explorer';
+import quarantineRouter from './routes/quarantine';
+import webhooksRouter from './routes/webhooks';
+import userTokensRouter from './routes/user-tokens';
 import { errorHandler } from './middleware/errorHandler';
 
 export const createApp = (): express.Application => {
@@ -102,6 +107,11 @@ export const createApp = (): express.Application => {
   app.use('/api/my-work', extractUser, myWorkRouter);
   app.use('/api/component-mappings', extractUser, componentMappingsRouter);
   app.use('/api/ai', extractUser, aiRouter);
+  app.use('/api/repositories', extractUser, repositoriesRouter);
+  app.use('/api/test-explorer', extractUser, testExplorerRouter);
+  app.use('/api/quarantine', extractUser, quarantineRouter);
+  app.use('/api/webhooks', webhooksRouter);
+  app.use('/api/user/tokens', extractUser, userTokensRouter);
 
   app.get('{*path}', (_req, res) => {
     res.sendFile(path.join(clientDistPath, 'index.html'));
