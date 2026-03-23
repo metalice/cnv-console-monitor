@@ -157,7 +157,9 @@ export interface SyncResult {
   duration: number;
 }
 
-export const syncRepository = async (repo: Repository, branch?: string): Promise<SyncResult> => {
+export type SyncProgressCallback = (info: { phase: string; repoName: string; current: number; total: number; message: string }) => void;
+
+export const syncRepository = async (repo: Repository, branch?: string, onProgress?: SyncProgressCallback): Promise<SyncResult> => {
   const startTime = Date.now();
   const targetBranch = branch || (repo.branches as unknown as string[])[0] || 'main';
   const docPaths = repo.doc_paths as unknown as string[];
@@ -190,19 +192,34 @@ export const syncRepository = async (repo: Repository, branch?: string): Promise
     throw new Error(`No ${repo.provider} access token found. Save one in Settings (key: ${repo.global_token_key}) or configure a personal ${repo.provider} token.`);
   }
 
+  const repoName = repo.name;
+  const progress = (phase: string, current: number, total: number, message: string) => {
+    onProgress?.({ phase, repoName, current, total, message });
+  };
+
+  progress('connecting', 0, 0, `Connecting to ${repo.provider}...`);
   const provider = createGitProvider(repo.provider as 'gitlab' | 'github', repo.api_base_url, repo.project_id, token);
+
+  progress('fetching-tree', 0, 0, `Fetching file tree from ${targetBranch}...`);
   const tree = await provider.fetchTree(targetBranch);
 
   const relevantFiles = tree.filter(
     (entry: GitTreeEntry) => entry.type === 'blob' && classifyFile(entry.path, docPaths, testPaths) !== 'other',
   );
 
+  progress('processing', 0, relevantFiles.length, `Found ${relevantFiles.length} files to process (${tree.length} total in repo)`);
+
   await clearRepoFiles(repo.id, targetBranch);
 
   const docFiles: Array<{ path: string; baseName: string; relPath: string; id?: string; testRefs?: string[] }> = [];
   const testFiles: Array<{ path: string; baseName: string; relPath: string; id?: string }> = [];
 
+  let fileIndex = 0;
   for (const file of relevantFiles) {
+    fileIndex++;
+    if (fileIndex % 5 === 1 || fileIndex === relevantFiles.length) {
+      progress('processing', fileIndex, relevantFiles.length, `Processing ${file.path.split('/').pop()} (${fileIndex}/${relevantFiles.length})`);
+    }
     const fileType = classifyFile(file.path, docPaths, testPaths);
     const fileName = file.path.split('/').pop() || file.path;
 
@@ -254,6 +271,8 @@ export const syncRepository = async (repo: Repository, branch?: string): Promise
     }
   }
 
+  progress('matching', 0, docFiles.length, `Matching ${docFiles.length} docs to ${testFiles.length} tests...`);
+
   let matchedPairs = 0;
   const schema = repo.frontmatter_schema as Record<string, string> | null;
   const testFileField = schema?.testFileField || 'test_file';
@@ -296,6 +315,8 @@ export const syncRepository = async (repo: Repository, branch?: string): Promise
   }
 
   const duration = Date.now() - startTime;
+  progress('complete', relevantFiles.length, relevantFiles.length, `Sync complete: ${docFiles.length} docs, ${testFiles.length} tests, ${matchedPairs} matched (${Math.round(duration / 1000)}s)`);
+
   log.info({
     repoId: repo.id,
     branch: targetBranch,
@@ -316,7 +337,7 @@ export const syncRepository = async (repo: Repository, branch?: string): Promise
   };
 };
 
-export const syncAllRepositories = async (): Promise<SyncResult[]> => {
+export const syncAllRepositories = async (onProgress?: SyncProgressCallback): Promise<SyncResult[]> => {
   const { getEnabledRepositories } = await import('../db/store');
   const repos = await getEnabledRepositories();
   const results: SyncResult[] = [];
@@ -325,11 +346,12 @@ export const syncAllRepositories = async (): Promise<SyncResult[]> => {
     try {
       const branches = repo.branches as unknown as string[];
       for (const branch of branches) {
-        const result = await syncRepository(repo, branch);
+        const result = await syncRepository(repo, branch, onProgress);
         results.push(result);
       }
     } catch (err) {
       log.error({ err, repoId: repo.id, name: repo.name }, 'Failed to sync repository');
+      onProgress?.({ phase: 'error', repoName: repo.name, current: 0, total: 0, message: `Failed to sync ${repo.name}: ${err instanceof Error ? err.message : 'Unknown error'}` });
     }
   }
 

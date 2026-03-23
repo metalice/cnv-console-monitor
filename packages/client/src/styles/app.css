@@ -2488,3 +2488,45 @@
 .app-context-menu .pf-v6-c-divider {
   margin: var(--pf-t--global--spacer--xs) 0;
 }
+
+/* Sync progress banner */
+.app-sync-banner {
+  padding: var(--pf-t--global--spacer--sm) var(--pf-t--global--spacer--md);
+  background: var(--pf-t--global--background--color--secondary--default);
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: var(--pf-t--global--border--radius--small);
+  margin-bottom: var(--pf-t--global--spacer--md);
+}
+
+.app-sync-log {
+  max-height: 200px;
+  overflow-y: auto;
+  font-family: var(--pf-t--global--font--family--mono);
+  font-size: var(--pf-t--global--font--size--xs);
+  line-height: 1.6;
+  padding: var(--pf-t--global--spacer--sm);
+  background: var(--pf-t--global--background--color--primary--default);
+  border-radius: var(--pf-t--global--border--radius--small);
+}
+
+.app-sync-log-entry {
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.app-sync-log-entry:last-child {
+  color: var(--pf-t--global--text--color--regular);
+  font-weight: var(--pf-t--global--font--weight--heading--default);
+}
+
+.app-text-success {
+  color: var(--pf-t--global--color--status--success--default);
+}
+
+@keyframes app-spin-anim {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.app-spin {
+  animation: app-spin-anim 1s linear infinite;
+}

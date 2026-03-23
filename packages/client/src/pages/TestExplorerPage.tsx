@@ -45,6 +45,7 @@ import { CreateQuarantineModal } from '../components/test-explorer/QuarantineMod
 import { AIInsightsDrawer } from '../components/test-explorer/AIInsightsDrawer';
 import { SubmitDraftsModal } from '../components/test-explorer/SubmitDraftsModal';
 import { EditActivitySection } from '../components/test-explorer/EditActivitySection';
+import { SyncProgressBanner } from '../components/test-explorer/SyncProgressBanner';
 import { StatCard } from '../components/common/StatCard';
 import { TimeAgo } from '../components/common/TimeAgo';
 
@@ -115,7 +116,7 @@ export const TestExplorerPage: React.FC = () => {
       const result = data as Record<string, unknown>;
       const errors = (result.errors as string[]) || [];
       setSyncErrors(errors);
-      refetch();
+      setTimeout(() => refetch(), 5000);
     },
   });
 
@@ -211,6 +212,10 @@ export const TestExplorerPage: React.FC = () => {
             </Toolbar>
           </FlexItem>
         </Flex>
+      </PageSection>
+
+      <PageSection>
+        <SyncProgressBanner />
       </PageSection>
 
       {(syncMutation.isError || syncErrors.length > 0) && (

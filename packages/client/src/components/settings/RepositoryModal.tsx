@@ -121,21 +121,26 @@ export const RepositoryModal: React.FC<RepositoryModalProps> = ({ isOpen, onClos
   useEffect(() => {
     if (!isOpen) return;
     if (existing) {
-      setProvider(existing.provider);
-      setUrl(existing.url);
-      setName(existing.name);
-      setApiBaseUrl(existing.apiBaseUrl);
-      setProjectId(existing.projectId);
-      setSelectedBranches(new Set(existing.branches));
-      setAvailableBranches(existing.branches);
-      setGlobalTokenKey(existing.globalTokenKey);
+      const e = existing as unknown as Record<string, unknown>;
+      setProvider((e.provider || 'gitlab') as 'gitlab' | 'github');
+      setUrl((e.url || '') as string);
+      setName((e.name || '') as string);
+      setApiBaseUrl((e.apiBaseUrl || e.api_base_url || '') as string);
+      setProjectId((e.projectId || e.project_id || '') as string);
+      const branches = (e.branches || []) as string[];
+      setSelectedBranches(new Set(branches));
+      setAvailableBranches(branches);
+      setGlobalTokenKey((e.globalTokenKey || e.global_token_key || '') as string);
       const globToFolder = (g: string) => g.replace(/\/\*\*\/\*\.[^,]+$/, '');
       const uniqueFolders = (globs: string[]) => [...new Set(globs.map(globToFolder))].join(', ');
-      setDocPaths(uniqueFolders(existing.docPaths));
-      setTestPaths(uniqueFolders(existing.testPaths));
-      setSelectedComponent(existing.components[0] || '');
-      setCacheTtlMin(existing.cacheTtlMin);
-      setEnabled(existing.enabled);
+      const docPaths = (e.docPaths || e.doc_paths || []) as string[];
+      const testPaths = (e.testPaths || e.test_paths || []) as string[];
+      setDocPaths(uniqueFolders(docPaths));
+      setTestPaths(uniqueFolders(testPaths));
+      const components = (e.components || []) as string[];
+      setSelectedComponent(components[0] || '');
+      setCacheTtlMin((e.cacheTtlMin || e.cache_ttl_min || 5) as number);
+      setEnabled((e.enabled !== undefined ? e.enabled : true) as boolean);
       setShowAdvanced(false);
     } else {
       setProvider('gitlab');

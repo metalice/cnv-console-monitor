@@ -13,6 +13,20 @@ type ProgressListener = (progress: ProgressInfo) => void;
 const pollListeners = new Set<ProgressListener>();
 const jenkinsListeners = new Set<ProgressListener>();
 
+export type SyncProgressInfo = {
+  active: boolean;
+  phase: string;
+  repoName: string;
+  current: number;
+  total: number;
+  message: string;
+  log: string[];
+};
+
+type SyncListener = (info: SyncProgressInfo) => void;
+const syncListeners = new Set<SyncListener>();
+let syncState: SyncProgressInfo = { active: false, phase: '', repoName: '', current: 0, total: 0, message: '', log: [] };
+
 export const usePollProgress = (): PollStatusLegacy | null => {
   const [progress, setProgress] = useState<PollStatusLegacy | null>(null);
 
@@ -32,6 +46,18 @@ export const useJenkinsProgress = (): ProgressInfo | null => {
   useEffect(() => {
     jenkinsListeners.add(setProgress);
     return () => { jenkinsListeners.delete(setProgress); };
+  }, []);
+
+  return progress;
+};
+
+export const useSyncProgress = (): SyncProgressInfo => {
+  const [progress, setProgress] = useState<SyncProgressInfo>(syncState);
+
+  useEffect(() => {
+    const handler: SyncListener = (info) => setProgress({ ...info });
+    syncListeners.add(handler);
+    return () => { syncListeners.delete(handler); };
   }, []);
 
   return progress;
@@ -58,6 +84,25 @@ export const useWebSocket = (): WebSocketStatus => {
       if (data.event === 'poll-progress') {
         const info: ProgressInfo = { phase: data.phase, current: data.current, total: data.total, message: data.message, startedAt: data.startedAt };
         for (const listener of pollListeners) listener(info);
+      }
+      if (data.event === 'sync-progress') {
+        const isActive = data.phase !== 'complete' && data.phase !== 'error';
+        const logEntry = data.message as string;
+        const lastLog = syncState.log[syncState.log.length - 1];
+        const newLog = logEntry && logEntry !== lastLog
+          ? [...syncState.log.slice(-49), logEntry]
+          : syncState.log;
+
+        syncState = {
+          active: isActive,
+          phase: data.phase,
+          repoName: data.repoName || syncState.repoName,
+          current: data.current || 0,
+          total: data.total || 0,
+          message: logEntry || '',
+          log: newLog,
+        };
+        for (const listener of syncListeners) listener(syncState);
       }
       if (data.event === 'jenkins-progress') {
         const info: ProgressInfo = { phase: data.phase, current: data.current, total: data.total, message: data.message };
