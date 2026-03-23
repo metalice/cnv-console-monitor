@@ -1382,5 +1382,143 @@ All open questions have been resolved. Decisions are recorded here for reference
 
 ---
 
-*This document is ready for team review. All design decisions have been made.*
+## 14. Implementation Notes and Improvements
+
+This section documents changes and improvements made during the actual implementation that differ from or extend the original RFC design.
+
+### 14.1 Simplified Repository Setup (UX)
+
+The original RFC specified 11+ fields for adding a repository. The implemented version reduces the required user input to **3 fields**:
+
+1. **Provider** (GitLab / GitHub dropdown)
+2. **Repository URL** (paste any URL, including subfolder URLs like `https://gitlab.example.com/group/repo/-/tree/main/docs/`)
+3. **Component** (single-select dropdown populated from Jira components)
+
+Everything else is auto-derived:
+- **Project ID**: GitLab numeric ID resolved via API call; GitHub `owner/repo` extracted from URL
+- **Display Name**: extracted from URL path
+- **API Base URL**: derived from repository URL origin
+- **Default Branch**: fetched from the provider API
+- **Branches**: populated as a multi-select dropdown fetched from the provider
+- **Token Key**: defaults to `gitlab.token` or `github.token`
+- **Doc/Test Paths**: moved to advanced options; defaults to scanning all `.md` and `.spec.ts`/`.cy.ts` files
+
+The modal handles the **chicken-and-egg token problem**: if no token is saved in settings, an inline token field appears. The token is saved to settings server-side when the repo is created, eliminating the need to configure tokens separately before adding a repo.
+
+GitLab/GitHub subfolder URLs (e.g., `https://gitlab.example.com/group/repo/-/tree/main/docs/`) are automatically parsed: the repo root is extracted and the subfolder is set as the doc path.
+
+### 14.2 Global Git Tokens in Settings
+
+Git access tokens (GitLab, GitHub) are configured in the **Settings > Integrations > Git** tab, alongside ReportPortal, Jira, Jenkins, and Email. They use the same token input pattern as other integrations. This replaces the original design of a separate "Repository Mapping" token section.
+
+### 14.3 Logical Tree Structure
+
+The original RFC showed a raw file-system mirror tree. The implementation uses a **logical hierarchy** that:
+
+1. Strips common prefixes (`docs/`, `playwright/`, `tests/`, `cypress/`, `e2e/`) from paths
+2. Groups files into nested folders based on remaining path segments
+3. Collapses single-child folders (e.g., `tier2 / networking` instead of `tier2 > networking`)
+4. Groups matched docs and tests into the **same leaf folder** (same base name = same folder)
+
+### 14.4 Documented vs Undocumented Split View
+
+Instead of mixing documented and undocumented tests in one tree, the tree has **two toggle tabs**:
+
+- **Documented** (default): shows only docs and their matched test files
+- **Undocumented**: shows test files with no matching doc, with an orange count badge
+
+This keeps the primary view focused on documented coverage and makes gaps immediately visible via the tab count.
+
+### 14.5 Auto-Discovery of Test Files from Doc Content
+
+Instead of requiring explicit test path configuration, the sync service **extracts test file references from doc content**:
+
+1. Markdown links: `[link text](path/to/test.spec.ts)`
+2. Inline path references: any `.spec.ts`, `.test.ts`, `.cy.ts` path mentioned in the text
+3. Frontmatter `test_file` field
+
+This is the **primary matching strategy**, before name convention or path matching. When `testPaths` is empty (default), test files are auto-detected by extension.
+
+### 14.6 Syntax-Highlighted Code Viewer
+
+Test files are displayed with a **CodeViewer component** using Prism.js:
+
+- TypeScript/JavaScript syntax highlighting with editor-like token colors
+- Line numbers on every line
+- Highlighted lines with blue left border and tinted background
+- Auto-scroll to target line (when navigating from a doc link)
+- Clickable test lines with inline action buttons
+
+### 14.7 AI-Powered Doc-to-Test Linking
+
+When viewing a doc file, the server uses **AI to map test case headings** (`### 001: Title`) to test function blocks. The AI receives:
+- All `### \d+:` headings from the doc
+- All `test('name'` blocks with line numbers from the counterpart test file
+
+The AI returns a mapping array, cached for 24 hours. Each heading gets a **"View test" link** that navigates to the test file with the exact line highlighted.
+
+Quoted test names in the Requirements Traceability Matrix are also linked using regex matching as a fallback.
+
+### 14.8 Inline Test Actions (Quarantine + AI Insight)
+
+Each `test(` / `it(` line in the code viewer shows **two inline action buttons on hover**:
+
+- **Quarantine**: opens the quarantine modal pre-filled with the test name
+- **AI Insight**: sends the test function body to AI for analysis, returning:
+  - What it tests (one-sentence explanation)
+  - Requirements it validates
+  - Key assertions being verified
+  - Risk if quarantined
+  - Related areas/tests
+
+The AI insight panel appears as a sticky bar at the top of the code viewer with rendered markdown.
+
+### 14.9 Quarantine Result View
+
+After creating a quarantine, the modal switches to a **success view** showing:
+- Quarantine status (Active)
+- **Jira ticket link** (clickable, opens in new tab) or "Skipped" reason
+- **Skip PR link** (clickable, opens in new tab) or "Skipped" reason
+- "Done" button to close
+
+### 14.10 Multi-line Test Block Detection
+
+The test block extractor handles both single-line and multi-line patterns:
+
+```typescript
+// Single-line (detected)
+test('Filter volume by OS', async ({ steps }) => {
+
+// Multi-line (also detected - looks ahead up to 3 lines)
+test(
+  'ID(CNV-10151) Test hint in InstanceTypes boot volume',
+  { tag: ['@nonpriv'] },
+  async ({ steps }) => {
+```
+
+### 14.11 Sidebar Auto-Collapse
+
+When navigating to the Test Explorer page, the **sidebar auto-collapses** to maximize space for the tree and content panels. The previous sidebar state is restored when leaving the page.
+
+### 14.12 Fixed Layout (No UI Jumps)
+
+The tree and detail panels have a **fixed height** (`calc(100vh - 320px)`) with CSS flexbox layout. Both panels scroll internally. Selecting a file or loading content never causes layout shifts -- the panels maintain their exact dimensions at all times.
+
+### 14.13 Token Fallback Chain
+
+The repo sync service uses a **3-tier token resolution**:
+
+1. Settings key (e.g., `gitlab.token`)
+2. Alternative keys (`gitlabToken`)
+3. Personal user tokens from `user_tokens` table (any valid token for the provider)
+
+This ensures syncing works even when the global token isn't configured but a user has saved a personal token.
+
+### 14.14 Auto-Sync on Repo Creation
+
+When a new repository is created, the server **automatically triggers a sync** in the background. The client refreshes the tree after 5 seconds. No manual "Sync Repos" click required for the initial sync.
+
+---
+
+*This document is ready for team review. All design decisions have been made. Implementation is complete for the core feature set.*
 

@@ -59,8 +59,8 @@ export const ComponentMultiSelect: React.FC<ComponentMultiSelectProps> = ({
       isOpen={isOpen}
       isScrollable
       maxMenuHeight="280px"
-      onOpenChange={setIsOpen}
-      onSelect={(_e, val) => toggle(val as string)}
+      onOpenChange={(open) => setIsOpen(open)}
+      onSelect={(_e, val) => { toggle(val as string); setIsOpen(true); }}
       toggle={(ref) => (
         <MenuToggle
           ref={ref}

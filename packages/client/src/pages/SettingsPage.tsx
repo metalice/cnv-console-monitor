@@ -41,6 +41,7 @@ import { PollingSettings } from '../components/settings/PollingSettings';
 import { LinksSettings } from '../components/settings/LinksSettings';
 import { AISettings } from '../components/settings/AISettings';
 import { JenkinsSettings } from '../components/settings/JenkinsSettings';
+import { GitSettings } from '../components/settings/GitSettings';
 import { NotificationSubscriptions } from '../components/settings/NotificationSubscriptions';
 import { ComponentMappings } from '../components/settings/ComponentMappings';
 import { UserManagement, BootstrapAdmin } from '../components/settings/UserManagement';
@@ -53,6 +54,8 @@ import { fetchPollStatus, type PollStatus } from '../api/poll';
 import { testRpConnection, testJiraConnection, testJenkinsConnection, fetchSettings, updateSettings } from '../api/settings';
 import { apiFetch } from '../api/client';
 import { SearchableSelect } from '../components/common/SearchableSelect';
+import { RepositoryMappingSection } from '../components/settings/RepositoryMappingSection';
+import { PersonalTokensSection } from '../components/settings/PersonalTokensSection';
 import { fetchSettingsChangelog, type SettingsLogEntry } from '../api/settings';
 
 const SettingsChangelog: React.FC = () => {
@@ -338,6 +341,7 @@ export const SettingsPage: React.FC = () => {
                   { key: 'reportportal', label: 'ReportPortal', enabled: rpEnabled },
                   { key: 'jira', label: 'Jira', enabled: jiraEnabled },
                   { key: 'jenkins', label: 'Jenkins', enabled: jenkinsEnabled },
+                  { key: 'git', label: 'Git', enabled: !!(val('gitlab.token') || val('github.token')) },
                   { key: 'email', label: 'Email', enabled: emailEnabled },
                   { key: 'polling', label: 'Polling', enabled: true },
                   { key: 'links', label: 'Links', enabled: true },
@@ -376,6 +380,7 @@ export const SettingsPage: React.FC = () => {
                   />
                 )}
                 {activeTab === 'jenkins' && <JenkinsSettings {...sectionProps} {...tokenHandlers} />}
+                {activeTab === 'git' && <GitSettings {...sectionProps} {...tokenHandlers} />}
                 {activeTab === 'email' && <EmailServerSettings {...sectionProps} emailEnabled={emailEnabled} />}
                 {activeTab === 'polling' && <PollingSettings {...sectionProps} />}
                 {activeTab === 'links' && <LinksSettings {...sectionProps} />}
@@ -472,6 +477,14 @@ export const SettingsPage: React.FC = () => {
             {isAdmin && <SettingsChangelog />}
           </CardBody>
         </Card>
+      </PageSection>
+
+      <PageSection>
+        <RepositoryMappingSection />
+      </PageSection>
+
+      <PageSection>
+        <PersonalTokensSection />
       </PageSection>
 
       {/* Danger zone confirmation modal */}

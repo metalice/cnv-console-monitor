@@ -17,6 +17,7 @@ const ComponentHealthPage = React.lazy(() => import('./pages/ComponentHealthPage
 const ComparePage = React.lazy(() => import('./pages/ComparePage').then(m => ({ default: m.ComparePage })));
 const ReadinessPage = React.lazy(() => import('./pages/ReadinessPage').then(m => ({ default: m.ReadinessPage })));
 const AboutPage = React.lazy(() => import('./pages/AboutPage').then(m => ({ default: m.AboutPage })));
+const TestExplorerPage = React.lazy(() => import('./pages/TestExplorerPage').then(m => ({ default: m.TestExplorerPage })));
 
 const PageFallback: React.FC = () => (
   <div className="app-page-spinner">
@@ -42,6 +43,7 @@ const App: React.FC = () => (
         <Route path="/readiness" element={<ReadinessPage />} />
         <Route path="/readiness/:version" element={<ReadinessPage />} />
         <Route path="/test/:uniqueId" element={<TestProfilePage />} />
+        <Route path="/test-explorer" element={<TestExplorerPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -187,3 +187,40 @@ export const getIssueStatus = async (key: string): Promise<string> => {
     return 'Unknown';
   }
 }
+
+export const createIssueWithToken = async (personalToken: string, params: {
+  summary: string;
+  description: string;
+  labels?: string[];
+  component?: string;
+}): Promise<JiraIssue> => {
+  const { createJiraClient: makeClient } = await import('./jira-auth');
+  const client = makeClient({ token: personalToken });
+
+  const fields: Record<string, unknown> = {
+    project: { key: config.jira.projectKey },
+    issuetype: { name: config.jira.issueType },
+    summary: params.summary,
+    description: params.description,
+  };
+
+  if (params.labels?.length) fields.labels = params.labels;
+  if (params.component) fields.components = [{ name: params.component }];
+
+  const response = await withRetry(
+    () => client.post('/issue', { fields }),
+    'jira.createIssueWithToken',
+  );
+  const created = response.data as { key: string; id: string; self: string };
+
+  return {
+    ...created,
+    fields: {
+      summary: params.summary,
+      status: { name: 'Open' },
+      created: new Date().toISOString(),
+      updated: new Date().toISOString(),
+      labels: params.labels,
+    },
+  };
+}
