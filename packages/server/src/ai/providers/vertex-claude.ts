@@ -2,7 +2,7 @@ import axios from 'axios';
 import { GoogleAuth } from 'google-auth-library';
 import type { ModelProvider, ChatMessage, ModelOptions, AIResponse, ModelInfo } from '../types';
 
-const DEFAULT_MODEL = 'claude-sonnet-4@20250514';
+const DEFAULT_MODEL = 'claude-opus-4-6';
 
 export class VertexClaudeProvider implements ModelProvider {
   readonly name = 'vertex-claude';
@@ -60,10 +60,12 @@ export class VertexClaudeProvider implements ModelProvider {
   }
 
   listModels(): ModelInfo[] {
+    const a = this.isAvailable();
     return [
-      { id: 'claude-sonnet-4@20250514', name: 'Claude Sonnet 4 (Vertex)', provider: 'vertex-claude', available: this.isAvailable() },
-      { id: 'claude-3-5-sonnet-v2@20241022', name: 'Claude 3.5 Sonnet v2 (Vertex)', provider: 'vertex-claude', available: this.isAvailable() },
-      { id: 'claude-3-5-haiku@20241022', name: 'Claude 3.5 Haiku (Vertex)', provider: 'vertex-claude', available: this.isAvailable() },
+      { id: 'claude-opus-4-6', name: 'Claude Opus 4.6 (1M context)', provider: 'vertex-claude', available: a },
+      { id: 'claude-opus-4-5', name: 'Claude Opus 4.5', provider: 'vertex-claude', available: a },
+      { id: 'claude-sonnet-4@20250514', name: 'Claude Sonnet 4', provider: 'vertex-claude', available: a },
+      { id: 'claude-3-5-haiku@20241022', name: 'Claude 3.5 Haiku (fastest)', provider: 'vertex-claude', available: a },
     ];
   }
 

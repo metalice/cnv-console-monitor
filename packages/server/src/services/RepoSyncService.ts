@@ -60,6 +60,7 @@ export interface TestBlock {
   name: string;
   line: number;
   type: 'test' | 'describe' | 'it';
+  skipped?: boolean;
   endLine?: number;
 }
 
@@ -70,18 +71,18 @@ function extractTestBlocks(content: string): TestBlock[] {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    const testInline = line.match(/\btest\s*\(\s*(['"`])(.*?)\1/);
+    const testInline = line.match(/\btest(?:\.(skip|fixme))?\s*\(\s*(['"`])(.*?)\2/);
     if (testInline) {
-      blocks.push({ name: testInline[2], line: i + 1, type: 'test' });
+      blocks.push({ name: testInline[3], line: i + 1, type: 'test', skipped: testInline[1] === 'skip' || testInline[1] === 'fixme' });
       continue;
     }
 
-    const testMultiline = line.match(/\btest\s*\(\s*$/);
+    const testMultiline = line.match(/\btest(?:\.(skip|fixme))?\s*\(\s*$/);
     if (testMultiline) {
       for (let j = i + 1; j < Math.min(i + 4, lines.length); j++) {
         const nameMatch = lines[j].match(/\s*(['"`])(.*?)\1/);
         if (nameMatch) {
-          blocks.push({ name: nameMatch[2], line: i + 1, type: 'test' });
+          blocks.push({ name: nameMatch[2], line: i + 1, type: 'test', skipped: testMultiline[1] === 'skip' || testMultiline[1] === 'fixme' });
           break;
         }
       }
@@ -109,6 +110,15 @@ function extractTestBlocks(content: string): TestBlock[] {
     const itInline = line.match(/\bit\s*\(\s*(['"`])(.*?)\1/);
     if (itInline) {
       blocks.push({ name: itInline[2], line: i + 1, type: 'it' });
+      continue;
+    }
+
+    const skipInline = line.match(/\btest\.skip\s*\(\s*true\b/);
+    if (skipInline) {
+      const parentTest = blocks.length > 0 ? blocks[blocks.length - 1] : null;
+      if (parentTest && parentTest.type === 'test' && !parentTest.skipped) {
+        parentTest.skipped = true;
+      }
       continue;
     }
 

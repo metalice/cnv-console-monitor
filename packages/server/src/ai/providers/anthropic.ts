@@ -19,9 +19,11 @@ export class AnthropicProvider implements ModelProvider {
   }
 
   listModels(): ModelInfo[] {
+    const a = this.isAvailable();
     return [
-      { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4', provider: 'anthropic', available: this.isAvailable() },
-      { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', provider: 'anthropic', available: this.isAvailable() },
+      { id: 'claude-opus-4-20250514', name: 'Claude Opus 4', provider: 'anthropic', available: a },
+      { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4', provider: 'anthropic', available: a },
+      { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', provider: 'anthropic', available: a },
     ];
   }
 

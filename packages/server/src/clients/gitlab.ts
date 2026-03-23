@@ -1,5 +1,8 @@
+import https from 'https';
 import axios, { AxiosInstance } from 'axios';
 import type { GitProvider, GitTreeEntry, GitFileContent, GitPRResult } from './git-provider';
+
+const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 export class GitLabProvider implements GitProvider {
   private client: AxiosInstance;
@@ -11,6 +14,7 @@ export class GitLabProvider implements GitProvider {
       baseURL: apiBaseUrl,
       headers: { 'Private-Token': token },
       timeout: 30000,
+      httpsAgent,
     });
   }
 

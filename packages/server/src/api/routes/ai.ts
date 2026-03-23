@@ -170,9 +170,10 @@ router.post('/test-connection', requireAdmin, async (req: Request, res: Response
     const { provider } = req.body;
     if (!provider) { res.status(400).json({ error: 'provider required' }); return; }
 
+    const modelId = (await getSetting('ai.defaultModelId')) || undefined;
     const response = await ai.chat(
       [{ role: 'user', content: 'Reply with exactly: "Connection successful"' }],
-      { provider, maxTokens: 50, temperature: 0 },
+      { provider, model: modelId, maxTokens: 50, temperature: 0, useCache: false },
     );
     res.json({ success: true, model: response.model, durationMs: response.durationMs });
   } catch (err) {

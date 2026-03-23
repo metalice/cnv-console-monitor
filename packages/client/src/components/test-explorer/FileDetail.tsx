@@ -1,5 +1,5 @@
-import React, { useMemo, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   Card,
   CardBody,
@@ -19,13 +19,14 @@ import {
   ExpandableSection,
   Breadcrumb,
   BreadcrumbItem,
+  Alert,
 } from '@patternfly/react-core';
-import { ExternalLinkAltIcon, OutlinedFileAltIcon, CodeIcon, FolderIcon, CubesIcon, RepositoryIcon, BanIcon } from '@patternfly/react-icons';
+import { ExternalLinkAltIcon, OutlinedFileAltIcon, CodeIcon, FolderIcon, CubesIcon, RepositoryIcon, BanIcon, PencilAltIcon } from '@patternfly/react-icons';
 import { marked } from 'marked';
 import type { TreeNode } from '@cnv-monitor/shared';
-import { fetchFileDetail } from '../../api/testExplorer';
+import { fetchFileDetail, saveDraftApi, deleteDraftApi, fetchDraftPaths } from '../../api/testExplorer';
 import { GapBadge } from './GapBadge';
-import { CodeViewer } from './CodeViewer';
+const MonacoViewer = React.lazy(() => import('./MonacoViewer').then(m => ({ default: m.MonacoViewer })));
 
 interface TestBlock {
   name: string;
@@ -41,11 +42,28 @@ interface FileDetailProps {
 }
 
 export const FileDetail: React.FC<FileDetailProps> = ({ node, onQuarantine, onNavigate, highlightInfo }) => {
-  const { data: detail, isLoading } = useQuery({
+  const { data: rawDetail, isLoading, isFetching } = useQuery({
     queryKey: ['fileDetail', node.repoId, node.path, node.branch],
     queryFn: () => fetchFileDetail(node.repoId!, node.path!, node.branch),
     enabled: !!node.repoId && !!node.path && (node.type === 'doc' || node.type === 'test'),
   });
+
+  const [prevPath, setPrevPath] = useState(node.path);
+  const [detail, setDetail] = useState(rawDetail);
+
+  if (node.path !== prevPath) {
+    setPrevPath(node.path);
+    setDetail(undefined);
+  }
+
+  useEffect(() => {
+    if (rawDetail && !isFetching) setDetail(rawDetail);
+  }, [rawDetail, isFetching]);
+
+  const [editing, setEditing] = useState(false);
+  const [editorContent, setEditorContent] = useState('');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const typeIcon = node.type === 'doc' ? <OutlinedFileAltIcon />
     : node.type === 'test' ? <CodeIcon />
@@ -136,6 +154,52 @@ export const FileDetail: React.FC<FileDetailProps> = ({ node, onQuarantine, onNa
     }
   }, [onNavigate]);
 
+  const saveMutation = useMutation({
+    mutationFn: () => saveDraftApi(node.repoId!, node.path!, {
+      branch: node.branch || 'main',
+      originalContent: content || '',
+      draftContent: editorContent,
+      baseCommitSha: (detail?.baseCommitSha as string) || '',
+    }),
+    onSuccess: () => setSaveStatus('saved'),
+    onError: () => setSaveStatus('error'),
+  });
+
+  useEffect(() => {
+    if (!editing || !editorContent || editorContent === content) return;
+    setSaveStatus('saving');
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => saveMutation.mutate(), 1500);
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, [editorContent]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's' && editing) {
+        e.preventDefault();
+        saveMutation.mutate();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [editing, editorContent]);
+
+  useEffect(() => { setEditing(false); setSaveStatus('idle'); }, [node.path]);
+
+  const handleDiscard = async () => {
+    if (!confirm('Discard all changes to this file?')) return;
+    await deleteDraftApi(node.repoId!, node.path!, node.branch || 'main');
+    setEditing(false);
+    setEditorContent('');
+    setSaveStatus('idle');
+  };
+
+  const frontmatter = (detail?.frontmatter || (node as unknown as Record<string, unknown>).frontmatter) as Record<string, unknown> | undefined;
+  const content = detail?.content as string | undefined;
+  const contentError = detail?.contentError as string | undefined;
+  const pathParts = (node.path || '').split('/').filter(Boolean);
+  const renderedHtml = useMemo(() => content && node.type === 'doc' ? renderDocContent(content) : '', [content, renderDocContent, node.type]);
+
   if (node.type === 'component' || node.type === 'repo' || node.type === 'folder') {
     return (
       <Card className="app-explorer-card">
@@ -174,10 +238,6 @@ export const FileDetail: React.FC<FileDetailProps> = ({ node, onQuarantine, onNa
     return <Card className="app-explorer-card"><CardBody><div className="app-page-spinner"><Spinner /></div></CardBody></Card>;
   }
 
-  const frontmatter = (detail?.frontmatter || (node as unknown as Record<string, unknown>).frontmatter) as Record<string, unknown> | undefined;
-  const content = detail?.content as string | undefined;
-  const pathParts = (node.path || '').split('/').filter(Boolean);
-
   return (
     <Card className="app-explorer-card">
       <CardHeader>
@@ -192,11 +252,24 @@ export const FileDetail: React.FC<FileDetailProps> = ({ node, onQuarantine, onNa
               </Flex>
             </FlexItem>
             <FlexItem>
-              {node.repoUrl && (
-                <Button variant="link" component="a" href={node.repoUrl} target="_blank" rel="noreferrer" icon={<ExternalLinkAltIcon />} size="sm">
-                  View in repo
-                </Button>
-              )}
+              <Flex spaceItems={{ default: 'spaceItemsSm' }}>
+                {(node.type === 'doc' || node.type === 'test') && content && (
+                  <FlexItem>
+                    <Button variant={editing ? 'primary' : 'secondary'} size="sm" icon={<PencilAltIcon />} onClick={() => {
+                      if (editing) { setEditing(false); } else { setEditorContent((detail?.draftContent as string) || content || ''); setEditing(true); }
+                    }}>
+                      {editing ? 'Preview' : 'Edit'}
+                    </Button>
+                  </FlexItem>
+                )}
+                {node.repoUrl && (
+                  <FlexItem>
+                    <Button variant="link" component="a" href={node.repoUrl} target="_blank" rel="noreferrer" icon={<ExternalLinkAltIcon />} size="sm">
+                      View in repo
+                    </Button>
+                  </FlexItem>
+                )}
+              </Flex>
             </FlexItem>
           </Flex>
           {pathParts.length > 1 && (
@@ -242,25 +315,59 @@ export const FileDetail: React.FC<FileDetailProps> = ({ node, onQuarantine, onNa
           )}
         </Flex>
 
+        {contentError && (
+          <Alert variant="warning" isInline title="Cannot load file content" className="app-mb-md">
+            {contentError}
+          </Alert>
+        )}
+
         {content ? (
           node.type === 'doc' ? (
-            <div className="app-doc-content" onClick={handleDocClick} dangerouslySetInnerHTML={{ __html: renderDocContent(content) }} />
+            editing ? (
+              <div>
+                <div className="app-mb-sm app-text-sm app-text-muted">
+                  {saveStatus === 'saving' && 'Saving...'}
+                  {saveStatus === 'saved' && 'Saved'}
+                  {saveStatus === 'error' && 'Save failed'}
+                </div>
+                <React.Suspense fallback={<div className="app-page-spinner"><Spinner /></div>}>
+                  <MonacoViewer
+                    content={editorContent}
+                    fileName={node.name}
+                    readOnly={false}
+                    onContentChange={setEditorContent}
+                  />
+                </React.Suspense>
+                <div className="app-mt-sm">
+                  <Button variant="danger" size="sm" onClick={handleDiscard}>Discard changes</Button>
+                </div>
+              </div>
+            ) : (
+              <div className="app-doc-content" onClick={handleDocClick} dangerouslySetInnerHTML={{ __html: renderedHtml }} />
+            )
           ) : (
-            <CodeViewer
-              content={content}
-              language={node.name.endsWith('.ts') || node.name.endsWith('.tsx') ? 'typescript' : 'javascript'}
-              highlightLines={highlightInfo?.lines}
-              scrollToLine={highlightInfo?.scrollTo}
-              testBlocks={testBlocks}
-              counterpartDocPath={node.counterpartPath}
-              onQuarantine={(testName) => {
-                const testNode: TreeNode = { type: 'test', name: testName, path: node.path, repoId: node.repoId, branch: node.branch };
-                onQuarantine?.(testNode);
-              }}
-            />
+            <React.Suspense fallback={<div className="app-page-spinner"><Spinner /></div>}>
+              <MonacoViewer
+                content={editing ? editorContent : content}
+                fileName={node.name}
+                readOnly={!editing}
+                highlightLines={highlightInfo?.lines}
+                scrollToLine={highlightInfo?.scrollTo}
+                testBlocks={testBlocks}
+                onContentChange={editing ? setEditorContent : undefined}
+                onQuarantine={(testName) => {
+                  const testNode: TreeNode = { type: 'test', name: testName, path: node.path, repoId: node.repoId, branch: node.branch };
+                  onQuarantine?.(testNode);
+                }}
+              />
+            </React.Suspense>
           )
-        ) : isLoading ? (
+        ) : (isLoading || isFetching || !detail) ? (
           <div className="app-page-spinner"><Spinner /></div>
+        ) : !contentError ? (
+          <Content component="p" className="app-text-muted app-text-center app-mt-lg">
+            No content available. The file may be empty or the access token needs to be refreshed in Settings &gt; Integrations &gt; Git.
+          </Content>
         ) : null}
 
         {frontmatter && Object.keys(frontmatter).length > 0 && !frontmatter.testBlocks && (

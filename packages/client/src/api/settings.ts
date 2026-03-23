@@ -71,6 +71,12 @@ export type JenkinsTestResponse = { success: boolean; message: string };
 export const testJenkinsConnection = (payload?: { user?: string; token?: string }): Promise<JenkinsTestResponse> =>
   apiFetch('/settings/test-jenkins', { method: 'POST', body: JSON.stringify(payload ?? {}) });
 
+export const testGitLabConnection = (payload?: { token?: string }): Promise<{ success: boolean; message: string }> =>
+  apiFetch('/settings/test-gitlab', { method: 'POST', body: JSON.stringify(payload ?? {}) });
+
+export const testGitHubConnection = (payload?: { token?: string }): Promise<{ success: boolean; message: string }> =>
+  apiFetch('/settings/test-github', { method: 'POST', body: JSON.stringify(payload ?? {}) });
+
 export type SettingsLogEntry = {
   id: number;
   key: string;
