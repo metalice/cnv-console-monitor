@@ -88,20 +88,20 @@ export const useWebSocket = (): WebSocketStatus => {
       if (data.event === 'sync-progress') {
         const isActive = data.phase !== 'complete' && data.phase !== 'error';
         const logEntry = data.message as string;
-        if (isActive || data.phase === 'complete') {
-          syncState = {
-            active: isActive,
-            phase: data.phase,
-            repoName: data.repoName || '',
-            current: data.current || 0,
-            total: data.total || 0,
-            message: logEntry || '',
-            log: [...syncState.log.slice(-49), logEntry].filter(Boolean),
-          };
-        }
-        if (data.phase === 'error') {
-          syncState = { ...syncState, log: [...syncState.log.slice(-49), logEntry].filter(Boolean) };
-        }
+        const lastLog = syncState.log[syncState.log.length - 1];
+        const newLog = logEntry && logEntry !== lastLog
+          ? [...syncState.log.slice(-49), logEntry]
+          : syncState.log;
+
+        syncState = {
+          active: isActive,
+          phase: data.phase,
+          repoName: data.repoName || syncState.repoName,
+          current: data.current || 0,
+          total: data.total || 0,
+          message: logEntry || '',
+          log: newLog,
+        };
         for (const listener of syncListeners) listener(syncState);
       }
       if (data.event === 'jenkins-progress') {
