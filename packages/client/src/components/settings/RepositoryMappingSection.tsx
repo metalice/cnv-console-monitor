@@ -87,13 +87,13 @@ export const RepositoryMappingSection: React.FC = () => {
                             <DescriptionListGroup>
                               <DescriptionListTerm>Branches</DescriptionListTerm>
                               <DescriptionListDescription>
-                                <LabelGroup>{repo.branches.map(b => <Label key={b} isCompact>{b}</Label>)}</LabelGroup>
+                                <LabelGroup>{(repo.branches || []).map((b: string) => <Label key={b} isCompact>{b}</Label>)}</LabelGroup>
                               </DescriptionListDescription>
                             </DescriptionListGroup>
                             <DescriptionListGroup>
                               <DescriptionListTerm>Components</DescriptionListTerm>
                               <DescriptionListDescription>
-                                <LabelGroup>{repo.components.map(c => <Label key={c} isCompact color="blue">{c}</Label>)}</LabelGroup>
+                                <LabelGroup>{(repo.components || []).map((c: string) => <Label key={c} isCompact color="blue">{c}</Label>)}</LabelGroup>
                               </DescriptionListDescription>
                             </DescriptionListGroup>
                             <DescriptionListGroup>

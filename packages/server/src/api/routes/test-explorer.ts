@@ -176,27 +176,39 @@ router.post('/sync/:repoId', requireAdmin, async (req: Request, res: Response, n
     const repo = await getRepositoryById(req.params.repoId as string);
     if (!repo) { res.status(404).json({ error: 'Repository not found' }); return; }
 
-    const { syncRepository } = await import('../../services/RepoSyncService');
-    const branch = (req.query.branch as string) || undefined;
-    const result = await syncRepository(repo, branch);
+    res.json({ success: true, message: 'Sync started in background' });
 
-    res.json(result);
+    const { syncRepository } = await import('../../services/RepoSyncService');
+    const { broadcast } = await import('../../ws');
+    const branch = (req.query.branch as string) || undefined;
+    const onProgress = (info: Record<string, unknown>) => broadcast('sync-progress', info);
+    syncRepository(repo, branch, onProgress)
+      .then(() => broadcast('data-updated'))
+      .catch(err => log.error({ err, repoId: repo.id }, 'Background sync failed'));
   } catch (err) { next(err); }
 });
 
 router.post('/sync', requireAdmin, async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const { syncAllRepositories } = await import('../../services/RepoSyncService');
-    const results = await syncAllRepositories();
-
-    const errors: string[] = [];
     const { getEnabledRepositories } = await import('../../db/store');
     const repos = await getEnabledRepositories();
-    if (results.length === 0 && repos.length > 0) {
-      errors.push('All repository syncs failed. Check that your Git access token is valid in Settings > Integrations > Git.');
+
+    if (repos.length === 0) {
+      res.json({ results: [], total: 0, errors: ['No repositories configured.'] });
+      return;
     }
 
-    res.json({ results, total: results.length, errors });
+    res.json({ success: true, message: `Syncing ${repos.length} repositor${repos.length === 1 ? 'y' : 'ies'} in background...` });
+
+    const { syncAllRepositories } = await import('../../services/RepoSyncService');
+    const { broadcast } = await import('../../ws');
+    const onProgress = (info: Record<string, unknown>) => broadcast('sync-progress', info);
+    syncAllRepositories(onProgress)
+      .then((results) => {
+        log.info({ count: results.length }, 'Background sync complete');
+        broadcast('data-updated');
+      })
+      .catch(err => log.error({ err }, 'Background sync-all failed'));
   } catch (err) { next(err); }
 });
 
