@@ -159,4 +159,55 @@ router.post('/test-jenkins', requireAdmin, async (req: Request, res: Response) =
   }
 });
 
+router.post('/test-gitlab', requireAdmin, async (req: Request, res: Response) => {
+  const payload = (req.body || {}) as { token?: string };
+  const dbSettings = await getAllSettings();
+  const token = (payload.token ?? dbSettings['gitlab.token'] ?? '').trim();
+
+  if (!token) {
+    res.status(400).json({ success: false, message: 'GitLab access token is required.' });
+    return;
+  }
+  try {
+    const repos = await (await import('../../db/store')).getAllRepositories();
+    const gitlabRepo = repos.find(r => r.provider === 'gitlab');
+    const baseUrl = gitlabRepo?.api_base_url || '';
+    if (!baseUrl) {
+      res.status(400).json({ success: false, message: 'No GitLab repository configured. Add one first to detect the API URL.' });
+      return;
+    }
+    const apiRes = await axios.get(`${baseUrl}/user`, { headers: { 'Private-Token': token }, httpsAgent, timeout: 10000 });
+    res.json({ success: true, message: `Connected to GitLab as ${apiRes.data.username} (${apiRes.data.email || 'no email'}).` });
+  } catch (err) {
+    const status = (err as Record<string, unknown>).response ? ((err as Record<string, unknown>).response as Record<string, unknown>).status : undefined;
+    let message: string;
+    if (status === 401) message = 'Token is invalid or expired.';
+    else if (status === 403) message = 'Token lacks required permissions (needs read_api scope).';
+    else message = err instanceof Error ? err.message : 'Connection failed';
+    res.status(502).json({ success: false, message: `GitLab connection failed: ${message}` });
+  }
+});
+
+router.post('/test-github', requireAdmin, async (req: Request, res: Response) => {
+  const payload = (req.body || {}) as { token?: string };
+  const dbSettings = await getAllSettings();
+  const token = (payload.token ?? dbSettings['github.token'] ?? '').trim();
+
+  if (!token) {
+    res.status(400).json({ success: false, message: 'GitHub access token is required.' });
+    return;
+  }
+  try {
+    const apiRes = await axios.get('https://api.github.com/user', { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 });
+    res.json({ success: true, message: `Connected to GitHub as ${apiRes.data.login} (${apiRes.data.email || 'no email'}).` });
+  } catch (err) {
+    const status = (err as Record<string, unknown>).response ? ((err as Record<string, unknown>).response as Record<string, unknown>).status : undefined;
+    let message: string;
+    if (status === 401) message = 'Token is invalid or expired.';
+    else if (status === 403) message = 'Token lacks required permissions.';
+    else message = err instanceof Error ? err.message : 'Connection failed';
+    res.status(502).json({ success: false, message: `GitHub connection failed: ${message}` });
+  }
+});
+
 export default router;

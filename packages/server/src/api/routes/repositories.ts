@@ -1,8 +1,11 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import https from 'https';
 import { CreateRepositorySchema, UpdateRepositorySchema } from '@cnv-monitor/shared';
 import { getAllRepositories, getRepositoryById, createRepository, updateRepository, deleteRepository } from '../../db/store';
 import { requireAdmin } from '../middleware/auth';
 import { logger } from '../../logger';
+
+const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 const log = logger.child({ module: 'Repositories' });
 const router = Router();
@@ -153,6 +156,7 @@ router.post('/resolve-project', requireAdmin, async (req: Request, res: Response
     const apiRes = await axios.get(`${apiBaseUrl}/projects/${pathEncoded}`, {
       headers: { 'Private-Token': resolvedToken },
       timeout: 10000,
+      httpsAgent,
     });
 
     const project = apiRes.data as { id: number; name: string; path_with_namespace: string; default_branch: string };
@@ -197,6 +201,7 @@ router.post('/resolve-branches', requireAdmin, async (req: Request, res: Respons
           headers: { 'Private-Token': token },
           params: { per_page: 100, page },
           timeout: 10000,
+          httpsAgent,
         });
         const items = apiRes.data as Array<{ name: string }>;
         if (items.length === 0) break;

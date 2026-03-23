@@ -166,3 +166,21 @@ export {
   deleteUserToken,
   invalidateUserToken,
 } from './userTokens';
+
+export {
+  getDraft,
+  saveDraft,
+  deleteDraft,
+  deleteDraftByPath,
+  getUserDrafts,
+  getUserDraftPaths,
+  getUserDraftCount,
+  markDraftsSubmitting,
+  markDraftsPending,
+  deleteDraftsById,
+} from './fileDrafts';
+
+export {
+  logEditActivity,
+  getEditActivities,
+} from './editActivity';

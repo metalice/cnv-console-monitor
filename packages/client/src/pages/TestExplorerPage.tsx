@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   PageSection,
@@ -34,7 +34,8 @@ import {
 } from '@patternfly/react-icons';
 import { useNavigate } from 'react-router-dom';
 import type { TreeNode } from '@cnv-monitor/shared';
-import { fetchTree, fetchExplorerStats, syncAllRepos } from '../api/testExplorer';
+import { fetchTree, fetchExplorerStats, syncAllRepos, syncRepo, fetchDraftPaths, fetchDraftCount } from '../api/testExplorer';
+import type { ContextMenuAction } from '../components/test-explorer/TreeContextMenu';
 import { useComponentFilter } from '../context/ComponentFilterContext';
 import { usePreferences } from '../context/PreferencesContext';
 import { FileTree } from '../components/test-explorer/FileTree';
@@ -42,6 +43,8 @@ import { FileDetail } from '../components/test-explorer/FileDetail';
 import { QuarantineDashboard } from '../components/test-explorer/QuarantineDashboard';
 import { CreateQuarantineModal } from '../components/test-explorer/QuarantineModal';
 import { AIInsightsDrawer } from '../components/test-explorer/AIInsightsDrawer';
+import { SubmitDraftsModal } from '../components/test-explorer/SubmitDraftsModal';
+import { EditActivitySection } from '../components/test-explorer/EditActivitySection';
 import { StatCard } from '../components/common/StatCard';
 import { TimeAgo } from '../components/common/TimeAgo';
 
@@ -62,6 +65,23 @@ export const TestExplorerPage: React.FC = () => {
   const [insightsOpen, setInsightsOpen] = useState(false);
   const [quarantineTarget, setQuarantineTarget] = useState<TreeNode | null>(null);
   const [quarantineOpen, setQuarantineOpen] = useState(false);
+  const [submitDraftsOpen, setSubmitDraftsOpen] = useState(false);
+
+  const { data: draftPaths } = useQuery({
+    queryKey: ['draftPaths'],
+    queryFn: fetchDraftPaths,
+    staleTime: 10_000,
+    refetchInterval: 30_000,
+  });
+
+  const { data: draftCount } = useQuery({
+    queryKey: ['draftCount'],
+    queryFn: fetchDraftCount,
+    staleTime: 10_000,
+    refetchInterval: 30_000,
+  });
+
+  const draftPathSet = useMemo(() => new Set(draftPaths || []), [draftPaths]);
 
   useEffect(() => {
     if (prevSidebarState.current === undefined) {
@@ -87,15 +107,50 @@ export const TestExplorerPage: React.FC = () => {
     staleTime: 60_000,
   });
 
+  const [syncErrors, setSyncErrors] = useState<string[]>([]);
+
   const syncMutation = useMutation({
     mutationFn: () => syncAllRepos(),
-    onSuccess: () => refetch(),
+    onSuccess: (data) => {
+      const result = data as Record<string, unknown>;
+      const errors = (result.errors as string[]) || [];
+      setSyncErrors(errors);
+      refetch();
+    },
   });
 
   const handleQuarantine = (node: TreeNode) => {
     setQuarantineTarget(node);
     setQuarantineOpen(true);
   };
+
+  const [editTrigger, setEditTrigger] = useState(0);
+
+  const findNodeInTree = useCallback((nodes: TreeNode[], target: string): TreeNode | undefined => {
+    for (const n of nodes) {
+      if (n.path === target) return n;
+      if (n.children) { const found = findNodeInTree(n.children, target); if (found) return found; }
+    }
+    return undefined;
+  }, []);
+
+  const contextActions: ContextMenuAction = useMemo(() => ({
+    onEdit: (node) => { setSelectedNode(node); setHighlightInfo(null); setEditTrigger(prev => prev + 1); },
+    onQuarantine: handleQuarantine,
+    onViewCounterpart: (path) => {
+      if (!tree) return;
+      const target = findNodeInTree(tree, path);
+      if (target) { setSelectedNode(target); setHighlightInfo(null); }
+    },
+    onSyncRepo: (repoId) => { syncRepo(repoId).then(() => refetch()); },
+    onFilterComponent: (component) => {
+      const params = new URLSearchParams(window.location.search);
+      params.set('components', component);
+      window.history.replaceState({}, '', `${window.location.pathname}?${params}`);
+      window.location.reload();
+    },
+    onAiAnalyze: (node) => { setSelectedNode(node); setHighlightInfo(null); },
+  }), [tree, handleQuarantine, findNodeInTree, refetch]);
 
   const statsData = stats as Record<string, unknown> | undefined;
   const quarantineStats = statsData?.quarantine as Record<string, number> | undefined;
@@ -141,6 +196,13 @@ export const TestExplorerPage: React.FC = () => {
                       AI Insights
                     </Button>
                   </ToolbarItem>
+                  {(draftCount?.count ?? 0) > 0 && (
+                    <ToolbarItem>
+                      <Button variant="primary" onClick={() => setSubmitDraftsOpen(true)}>
+                        Submit Changes <Label isCompact className="app-ml-xs">{draftCount?.count}</Label>
+                      </Button>
+                    </ToolbarItem>
+                  )}
                   <ToolbarItem>
                     <Button variant="plain" icon={<CogIcon />} onClick={() => navigate('/settings')} />
                   </ToolbarItem>
@@ -151,10 +213,12 @@ export const TestExplorerPage: React.FC = () => {
         </Flex>
       </PageSection>
 
-      {syncMutation.isError && (
+      {(syncMutation.isError || syncErrors.length > 0) && (
         <PageSection>
           <Alert variant="danger" isInline title="Sync failed">
-            {String((syncMutation.error as Error)?.message || 'Unknown error')}
+            {syncMutation.isError
+              ? String((syncMutation.error as Error)?.message || 'Unknown error')
+              : syncErrors.join(' ')}
           </Alert>
         </PageSection>
       )}
@@ -238,7 +302,7 @@ export const TestExplorerPage: React.FC = () => {
         <PageSection isFilled>
           <div className="app-explorer-layout">
             <div className="app-explorer-tree-panel">
-              <FileTree tree={tree} onSelect={(n) => { setSelectedNode(n); setHighlightInfo(null); }} selectedPath={selectedNode?.path} />
+              <FileTree tree={tree} onSelect={(n) => { setSelectedNode(n); setHighlightInfo(null); }} selectedPath={selectedNode?.path} draftPaths={draftPathSet} contextActions={contextActions} />
             </div>
             <div className="app-explorer-detail-panel">
               {selectedNode ? (
@@ -276,6 +340,10 @@ export const TestExplorerPage: React.FC = () => {
         <QuarantineDashboard />
       </PageSection>
 
+      <PageSection>
+        <EditActivitySection />
+      </PageSection>
+
       {quarantineTarget && (
         <CreateQuarantineModal
           isOpen={quarantineOpen}
@@ -286,6 +354,8 @@ export const TestExplorerPage: React.FC = () => {
           component={activeComponent || undefined}
         />
       )}
+
+      <SubmitDraftsModal isOpen={submitDraftsOpen} onClose={() => setSubmitDraftsOpen(false)} />
     </>
   );
 

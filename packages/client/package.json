@@ -11,15 +11,16 @@
   },
   "dependencies": {
     "@cnv-monitor/shared": "*",
+    "@monaco-editor/react": "^4.7.0",
     "@patternfly/react-charts": "^8.3.1",
     "@patternfly/react-core": "^6.4.0",
     "@patternfly/react-icons": "^6.4.0",
     "@patternfly/react-styles": "^6.4.0",
     "@patternfly/react-table": "^6.4.0",
     "@tanstack/react-query": "^5.60.0",
-    "@types/prismjs": "^1.26.6",
+    "diff": "^8.0.3",
     "marked": "^17.0.5",
-    "prismjs": "^1.30.0",
+    "monaco-editor": "^0.55.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0",
@@ -42,6 +43,7 @@
     "victory-zoom-container": "^37.3.6"
   },
   "devDependencies": {
+    "@types/diff": "^7.0.2",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.0",

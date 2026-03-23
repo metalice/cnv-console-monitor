@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import https from 'https';
 import { SaveUserTokenSchema, TokenProviderEnum } from '@cnv-monitor/shared';
 import { getUserTokens, saveUserToken, deleteUserToken } from '../../db/store';
 import { logger } from '../../logger';
@@ -6,6 +7,7 @@ import axios from 'axios';
 
 const log = logger.child({ module: 'UserTokens' });
 const router = Router();
+const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -47,7 +49,7 @@ router.put('/:provider', async (req: Request, res: Response, next: NextFunction)
           return;
         }
         log.info({ baseUrl }, 'Validating GitLab token');
-        const apiRes = await axios.get(`${baseUrl}/user`, { headers: { 'Private-Token': parsed.data.token }, timeout: 10000 });
+        const apiRes = await axios.get(`${baseUrl}/user`, { headers: { 'Private-Token': parsed.data.token }, timeout: 10000, httpsAgent });
         providerInfo = { username: apiRes.data.username, email: apiRes.data.email };
       } else if (provider === 'github') {
         const apiRes = await axios.get('https://api.github.com/user', { headers: { Authorization: `Bearer ${parsed.data.token}` }, timeout: 10000 });
@@ -118,7 +120,7 @@ router.post('/:provider/test', async (req: Request, res: Response, next: NextFun
       const repos = await getAllRepositories();
       const gitlabRepo = repos.find(r => r.provider === 'gitlab');
       const baseUrl = gitlabRepo?.api_base_url || '';
-      const apiRes = await axios.get(`${baseUrl}/user`, { headers: { 'Private-Token': token }, timeout: 10000 });
+      const apiRes = await axios.get(`${baseUrl}/user`, { headers: { 'Private-Token': token }, timeout: 10000, httpsAgent });
       providerInfo = { username: apiRes.data.username, email: apiRes.data.email };
     } else if (provider === 'github') {
       const apiRes = await axios.get('https://api.github.com/user', { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 });

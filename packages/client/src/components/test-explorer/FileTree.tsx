@@ -23,14 +23,17 @@ import {
 } from '@patternfly/react-icons';
 import type { TreeNode } from '@cnv-monitor/shared';
 import { GapBadge } from './GapBadge';
+import { TreeContextMenu, type ContextMenuAction } from './TreeContextMenu';
 
 interface FileTreeProps {
   tree: TreeNode[];
   onSelect: (node: TreeNode) => void;
   selectedPath?: string;
+  draftPaths?: Set<string>;
+  contextActions?: ContextMenuAction;
 }
 
-const nodeToTreeItem = (node: TreeNode, selectedPath?: string): TreeViewDataItem => {
+const nodeToTreeItem = (node: TreeNode, selectedPath?: string, draftPaths?: Set<string>): TreeViewDataItem => {
   const isSelected = (node.path || node.name) === selectedPath;
   const icon = node.type === 'component' ? <CubesIcon />
     : node.type === 'repo' ? <RepositoryIcon />
@@ -46,6 +49,9 @@ const nodeToTreeItem = (node: TreeNode, selectedPath?: string): TreeViewDataItem
   if (node.quarantine) {
     badges.push(<Badge key="q" screenReaderText="Quarantined"><BanIcon className="app-text-warning" /> Q</Badge>);
   }
+  if (draftPaths && node.path && draftPaths.has(node.path)) {
+    badges.push(<Badge key="draft" screenReaderText="Has draft">✎</Badge>);
+  }
   if (node.type === 'folder' && node.fileCount !== undefined) {
     badges.push(<Badge key="count" isRead>{node.fileCount}</Badge>);
   }
@@ -53,13 +59,13 @@ const nodeToTreeItem = (node: TreeNode, selectedPath?: string): TreeViewDataItem
   return {
     id: node.path || node.name,
     name: (
-      <span className={`app-tree-node${isSelected ? ' app-tree-node--selected' : ''}`}>
+      <span className={`app-tree-node${isSelected ? ' app-tree-node--selected' : ''}`} data-node-id={node.path || node.name}>
         <span className="app-tree-node-name">{node.name}</span>
         {badges.length > 0 && <span className="app-tree-badges">{badges}</span>}
       </span>
     ),
     icon,
-    children: node.children?.map(child => nodeToTreeItem(child, selectedPath)),
+    children: node.children?.map(child => nodeToTreeItem(child, selectedPath, draftPaths)),
     defaultExpanded: node.type === 'component' || node.type === 'repo',
   };
 };
@@ -120,9 +126,10 @@ function countByType(nodes: TreeNode[], type: string): number {
   return count;
 }
 
-export const FileTree: React.FC<FileTreeProps> = ({ tree, onSelect, selectedPath }) => {
+export const FileTree: React.FC<FileTreeProps> = ({ tree, onSelect, selectedPath, draftPaths, contextActions }) => {
   const [filter, setFilter] = useState('');
   const [view, setView] = useState<'documented' | 'undocumented'>('documented');
+  const [contextMenu, setContextMenu] = useState<{ node: TreeNode; x: number; y: number } | null>(null);
 
   const documentedTree = useMemo(
     () => filterTreeByPredicate(tree, (node) => node.type === 'doc' || (node.type === 'test' && !!node.hasCounterpart)),
@@ -154,8 +161,8 @@ export const FileTree: React.FC<FileTreeProps> = ({ tree, onSelect, selectedPath
   }, [activeTree, filter]);
 
   const treeItems = useMemo(
-    () => filteredTree.map(node => nodeToTreeItem(node, selectedPath)),
-    [filteredTree, selectedPath],
+    () => filteredTree.map(node => nodeToTreeItem(node, selectedPath, draftPaths)),
+    [filteredTree, selectedPath, draftPaths],
   );
 
   const totalFiles = useMemo(() => countFiles(activeTree), [activeTree]);
@@ -202,7 +209,26 @@ export const FileTree: React.FC<FileTreeProps> = ({ tree, onSelect, selectedPath
           </ToolbarItem>
         </ToolbarContent>
       </Toolbar>
-      <div className="app-file-tree-content">
+      <div
+        className="app-file-tree-content"
+        onContextMenu={(e) => {
+          const target = e.target as HTMLElement;
+          const nodeEl = target.closest('[data-node-id]');
+          if (!nodeEl) return;
+          e.preventDefault();
+          const nodeId = nodeEl.getAttribute('data-node-id');
+          if (!nodeId) return;
+          const findById = (nodes: TreeNode[], id: string): TreeNode | undefined => {
+            for (const n of nodes) {
+              if ((n.path || n.name) === id) return n;
+              if (n.children) { const found = findById(n.children, id); if (found) return found; }
+            }
+            return undefined;
+          };
+          const found = findById(tree, nodeId);
+          if (found) setContextMenu({ node: found, x: e.clientX, y: e.clientY });
+        }}
+      >
         {treeItems.length > 0 ? (
           <TreeView data={treeItems} onSelect={handleSelect} hasGuides />
         ) : (
@@ -213,6 +239,15 @@ export const FileTree: React.FC<FileTreeProps> = ({ tree, onSelect, selectedPath
           </Content>
         )}
       </div>
+
+      {contextMenu && contextActions && (
+        <TreeContextMenu
+          node={contextMenu.node}
+          position={{ x: contextMenu.x, y: contextMenu.y }}
+          onClose={() => setContextMenu(null)}
+          actions={contextActions}
+        />
+      )}
     </div>
   );
 };
