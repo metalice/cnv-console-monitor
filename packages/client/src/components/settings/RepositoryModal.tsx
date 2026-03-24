@@ -94,8 +94,6 @@ export const RepositoryModal: React.FC<RepositoryModalProps> = ({ isOpen, onClos
   const [availableBranches, setAvailableBranches] = useState<string[]>([]);
   const [branchesLoading, setBranchesLoading] = useState(false);
   const [globalTokenKey, setGlobalTokenKey] = useState('');
-  const [docPaths, setDocPaths] = useState('');
-  const [testPaths, setTestPaths] = useState('');
   const [selectedComponent, setSelectedComponent] = useState('');
   const [cacheTtlMin, setCacheTtlMin] = useState(5);
   const [enabled, setEnabled] = useState(true);
@@ -131,12 +129,6 @@ export const RepositoryModal: React.FC<RepositoryModalProps> = ({ isOpen, onClos
       setSelectedBranches(new Set(branches));
       setAvailableBranches(branches);
       setGlobalTokenKey((e.globalTokenKey || e.global_token_key || '') as string);
-      const globToFolder = (g: string) => g.replace(/\/\*\*\/\*\.[^,]+$/, '');
-      const uniqueFolders = (globs: string[]) => [...new Set(globs.map(globToFolder))].join(', ');
-      const docPaths = (e.docPaths || e.doc_paths || []) as string[];
-      const testPaths = (e.testPaths || e.test_paths || []) as string[];
-      setDocPaths(uniqueFolders(docPaths));
-      setTestPaths(uniqueFolders(testPaths));
       const components = (e.components || []) as string[];
       setSelectedComponent(components[0] || '');
       setCacheTtlMin((e.cacheTtlMin || e.cache_ttl_min || 5) as number);
@@ -151,8 +143,6 @@ export const RepositoryModal: React.FC<RepositoryModalProps> = ({ isOpen, onClos
       setSelectedBranches(new Set(['main']));
       setAvailableBranches([]);
       setGlobalTokenKey('');
-      setDocPaths('');
-      setTestPaths('');
       setSelectedComponent('');
       setCacheTtlMin(5);
       setEnabled(true);
@@ -200,7 +190,6 @@ export const RepositoryModal: React.FC<RepositoryModalProps> = ({ isOpen, onClos
     const { repoRoot, subPath } = cleanRepoUrl(val);
     setUrl(repoRoot);
     setResolveError('');
-    if (subPath && !docPaths) setDocPaths(subPath);
     if (!existing && repoRoot) {
       const derived = deriveApiUrl(provider, repoRoot);
       if (derived) setApiBaseUrl(derived);
@@ -248,12 +237,6 @@ export const RepositoryModal: React.FC<RepositoryModalProps> = ({ isOpen, onClos
 
   const splitComma = (val: string) => val.split(',').map(s => s.trim()).filter(Boolean);
 
-  const toGlobs = (folders: string, extensions: string[]) =>
-    splitComma(folders).flatMap(folder => {
-      const clean = folder.replace(/\/+$/, '');
-      if (clean.includes('*')) return [clean];
-      return extensions.map(ext => `${clean}/**/*${ext}`);
-    });
 
   const canSubmit = useMemo(() => {
     return !!(name || deriveDisplayName(url)) && url && projectId && selectedBranches.size > 0;
@@ -269,8 +252,8 @@ export const RepositoryModal: React.FC<RepositoryModalProps> = ({ isOpen, onClos
         projectId,
         branches: [...selectedBranches],
         globalTokenKey: effectiveTokenKey,
-        docPaths: toGlobs(docPaths, ['.md']),
-        testPaths: toGlobs(testPaths, ['.spec.ts', '.test.ts', '.cy.ts', '.spec.js']),
+        docPaths: [],
+        testPaths: [],
         components: selectedComponent ? [selectedComponent] : [],
         cacheTtlMin,
         enabled,
@@ -437,16 +420,6 @@ export const RepositoryModal: React.FC<RepositoryModalProps> = ({ isOpen, onClos
               <FormGroup label="Access Token Key" fieldId="repo-token">
                 <TextInput id="repo-token" value={globalTokenKey} onChange={(_e, val) => setGlobalTokenKey(val)} placeholder={effectiveTokenKey} />
                 <HelperText><HelperTextItem>The settings key storing the read-only token. Default: {effectiveTokenKey}</HelperTextItem></HelperText>
-              </FormGroup>
-
-              <FormGroup label="Docs Folder" fieldId="repo-docs">
-                <TextInput id="repo-docs" value={docPaths} onChange={(_e, val) => setDocPaths(val)} placeholder="All .md files scanned by default" />
-                <HelperText><HelperTextItem>Restrict doc scanning to a specific folder. Leave empty to scan all markdown files.</HelperTextItem></HelperText>
-              </FormGroup>
-
-              <FormGroup label="Tests Folder" fieldId="repo-tests">
-                <TextInput id="repo-tests" value={testPaths} onChange={(_e, val) => setTestPaths(val)} placeholder="Auto-detected from doc links" />
-                <HelperText><HelperTextItem>Restrict test scanning to a specific folder. Leave empty to auto-detect from doc content.</HelperTextItem></HelperText>
               </FormGroup>
 
               <FormGroup label="Cache Duration" fieldId="repo-cache">

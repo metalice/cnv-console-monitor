@@ -34,6 +34,11 @@ export const updateRepository = async (id: string, data: Partial<Repository>): P
 };
 
 export const deleteRepository = async (id: string): Promise<boolean> => {
+  const { AppDataSource } = await import('../data-source');
+  await AppDataSource.query(`DELETE FROM file_drafts WHERE repo_id = $1`, [id]);
+  await AppDataSource.query(`DELETE FROM quarantine_log WHERE quarantine_id IN (SELECT id FROM quarantines WHERE repo_id = $1)`, [id]);
+  await AppDataSource.query(`DELETE FROM quarantines WHERE repo_id = $1`, [id]);
+  await AppDataSource.query(`DELETE FROM edit_activity WHERE repo_id = $1`, [id]);
   const result = await repos().delete({ id });
   return (result.affected ?? 0) > 0;
 };
