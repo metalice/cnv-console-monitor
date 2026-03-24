@@ -10,9 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  build-and-test:
+  quality:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -30,11 +29,51 @@ jobs:
       - name: Format check
         run: npm run format:check
 
+      - name: Knip (unused code)
+        run: npx knip
+
+  shared:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Build shared
         run: npm run build -w packages/shared
 
-      - name: Knip (unused code)
-        run: npx knip
+      - name: Upload shared dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: shared-dist
+          path: packages/shared/dist/
+          retention-days: 1
+
+  server:
+    needs: shared
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download shared dist
+        uses: actions/download-artifact@v4
+        with:
+          name: shared-dist
+          path: packages/shared/dist/
 
       - name: Typecheck server
         run: npm run typecheck -w packages/server
@@ -45,11 +84,31 @@ jobs:
       - name: Test server
         run: npm run test -w packages/server
 
+  client:
+    needs: shared
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download shared dist
+        uses: actions/download-artifact@v4
+        with:
+          name: shared-dist
+          path: packages/shared/dist/
+
       - name: Build client
         run: npm run build -w packages/client
 
   docker:
-    needs: build-and-test
+    needs: [quality, server, client]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
