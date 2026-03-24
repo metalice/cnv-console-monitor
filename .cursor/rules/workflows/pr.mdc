@@ -106,7 +106,19 @@ NEVER force push to `main` or `master`.
 
 ---
 
-## 7. Open PR
+## 7. Open or Update PR
+
+Before creating a PR, check if one already exists for this branch:
+
+```bash
+gh pr view --json state,url -q '.state + " " + .url' 2>/dev/null
+```
+
+**If a PR already exists:**
+- If state is `OPEN`: push was enough -- the PR auto-updates. Print the existing PR URL.
+- If state is `MERGED` or `CLOSED`: do NOT push. Create a new branch from main and open a fresh PR.
+
+**If no PR exists:** create one:
 
 ```bash
 gh pr create --title "<pr-title>" --body "$(cat <<'EOF'
@@ -134,17 +146,7 @@ EOF
 )"
 ```
 
----
-
-## 8. PR State Check
-
-Before pushing to an existing PR branch:
-
-1. Check if PR is still open: `gh pr view <number> --json state -q '.state'`
-2. If `MERGED` or `CLOSED`: do NOT push. Create a new branch from main.
-3. If `OPEN`: safe to push/amend.
-
-**Never push to a merged PR branch.**
+**Never push to a merged PR branch. Never create duplicate PRs for the same branch.**
 
 ---
 
