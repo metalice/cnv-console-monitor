@@ -1,25 +1,41 @@
-import type { ReleaseInfo, ChecklistTask, ChecklistDetail } from '@cnv-monitor/shared';
+import type { ChecklistDetail, ChecklistTask, ReleaseInfo } from '@cnv-monitor/shared';
+
 import { apiFetch } from './client';
 
-export const fetchReleases = (): Promise<ReleaseInfo[]> =>
-  apiFetch('/releases');
+export const fetchReleases = (): Promise<ReleaseInfo[]> => apiFetch('/releases');
 
-export const fetchChecklist = (component?: string, status = 'open', version?: string): Promise<ChecklistTask[]> => {
+export const fetchChecklist = (
+  component?: string,
+  status = 'open',
+  version?: string,
+): Promise<ChecklistTask[]> => {
   const params = new URLSearchParams();
-  if (component) params.set('component', component);
-  if (status) params.set('status', status);
-  if (version) params.set('version', version);
+  if (component) {
+    params.set('component', component);
+  }
+  if (status) {
+    params.set('status', status);
+  }
+  if (version) {
+    params.set('version', version);
+  }
   return apiFetch(`/releases/checklist?${params.toString()}`);
 };
 
 export const fetchChecklistDetail = (key: string): Promise<ChecklistDetail> =>
   apiFetch(`/releases/checklist/${key}`);
 
-export const transitionChecklistTask = (key: string, data: { transitionId: string; comment?: string; assignee?: string }): Promise<{ success: boolean }> =>
-  apiFetch(`/releases/checklist/${key}/transition`, { method: 'POST', body: JSON.stringify(data) });
+export const transitionChecklistTask = (
+  key: string,
+  data: { transitionId: string; comment?: string; assignee?: string },
+): Promise<{ success: boolean }> =>
+  apiFetch(`/releases/checklist/${key}/transition`, { body: JSON.stringify(data), method: 'POST' });
 
 export const addChecklistComment = (key: string, comment: string): Promise<{ success: boolean }> =>
-  apiFetch(`/releases/checklist/${key}/comment`, { method: 'POST', body: JSON.stringify({ comment }) });
+  apiFetch(`/releases/checklist/${key}/comment`, {
+    body: JSON.stringify({ comment }),
+    method: 'POST',
+  });
 
 export type VersionReadiness = {
   totalLaunches: number;
@@ -28,7 +44,7 @@ export type VersionReadiness = {
   failedTests: number;
   skippedTests: number;
   passRate: number | null;
-  trend: Array<{ day: string; passRate: number | null }>;
+  trend: { day: string; passRate: number | null }[];
 };
 
 export const fetchVersionReadiness = (version: string): Promise<VersionReadiness> =>
@@ -70,5 +86,4 @@ export type VelocityMetric = {
   avgDaysBetweenReleases: number | null;
 };
 
-export const fetchVelocity = (): Promise<VelocityMetric[]> =>
-  apiFetch('/releases/velocity');
+export const fetchVelocity = (): Promise<VelocityMetric[]> => apiFetch('/releases/velocity');

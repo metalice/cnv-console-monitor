@@ -1,14 +1,15 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { type NextFunction, type Request, type Response, Router } from 'express';
+
 import {
-  getPassRateTrend,
-  getPassRateTrendByVersion,
-  getFailureHeatmap,
-  getTopFailingTests,
   getAIPredictionAccuracy,
   getClusterReliability,
-  getErrorPatterns,
   getDefectTypesTrend,
+  getErrorPatterns,
+  getFailureHeatmap,
   getFailuresByHour,
+  getPassRateTrend,
+  getPassRateTrendByVersion,
+  getTopFailingTests,
 } from '../../db/store';
 import { clampInt } from '../middleware/validate';
 
@@ -66,7 +67,9 @@ router.get('/ai-accuracy', async (req: Request, res: Response, next: NextFunctio
     const days = clampInt(req.query.days as string, 30, 1, 365);
     const component = (req.query.component as string) || undefined;
     res.json(await getAIPredictionAccuracy(days, component));
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 router.get('/clusters', async (req: Request, res: Response, next: NextFunction) => {
@@ -74,7 +77,9 @@ router.get('/clusters', async (req: Request, res: Response, next: NextFunction) 
     const days = clampInt(req.query.days as string, 30, 1, 365);
     const component = (req.query.component as string) || undefined;
     res.json(await getClusterReliability(days, component));
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 router.get('/error-patterns', async (req: Request, res: Response, next: NextFunction) => {
@@ -83,7 +88,9 @@ router.get('/error-patterns', async (req: Request, res: Response, next: NextFunc
     const limit = clampInt(req.query.limit as string, 10, 1, 100);
     const component = (req.query.component as string) || undefined;
     res.json(await getErrorPatterns(days, limit, component));
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 router.get('/defect-types', async (req: Request, res: Response, next: NextFunction) => {
@@ -91,7 +98,9 @@ router.get('/defect-types', async (req: Request, res: Response, next: NextFuncti
     const days = clampInt(req.query.days as string, 30, 1, 365);
     const component = (req.query.component as string) || undefined;
     res.json(await getDefectTypesTrend(days, component));
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 router.get('/by-hour', async (req: Request, res: Response, next: NextFunction) => {
@@ -99,7 +108,9 @@ router.get('/by-hour', async (req: Request, res: Response, next: NextFunction) =
     const days = clampInt(req.query.days as string, 30, 1, 365);
     const component = (req.query.component as string) || undefined;
     res.json(await getFailuresByHour(days, component));
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 export default router;

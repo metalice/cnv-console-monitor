@@ -1,6 +1,8 @@
 import https from 'https';
-import axios, { AxiosInstance } from 'axios';
-import type { GitProvider, GitTreeEntry, GitFileContent, GitPRResult } from './git-provider';
+
+import axios, { type AxiosInstance } from 'axios';
+
+import type { GitFileContent, GitProvider, GitPRResult, GitTreeEntry } from './git-provider';
 
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
@@ -13,54 +15,8 @@ export class GitLabProvider implements GitProvider {
     this.client = axios.create({
       baseURL: apiBaseUrl,
       headers: { 'Private-Token': token },
-      timeout: 30000,
       httpsAgent,
-    });
-  }
-
-  async fetchTree(branch: string): Promise<GitTreeEntry[]> {
-    const entries: GitTreeEntry[] = [];
-    let page = 1;
-    const perPage = 100;
-
-    while (true) {
-      const res = await this.client.get(
-        `/projects/${this.projectId}/repository/tree`,
-        { params: { ref: branch, recursive: true, per_page: perPage, page } },
-      );
-      const items = res.data as Array<{ path: string; type: string; name: string }>;
-      if (items.length === 0) break;
-      for (const item of items) {
-        entries.push({
-          path: item.path,
-          type: item.type === 'tree' ? 'tree' : 'blob',
-          name: item.name,
-        });
-      }
-      if (items.length < perPage) break;
-      page++;
-    }
-
-    return entries;
-  }
-
-  async fetchFileContent(path: string, branch: string): Promise<GitFileContent> {
-    const encodedPath = encodeURIComponent(path);
-    const res = await this.client.get(
-      `/projects/${this.projectId}/repository/files/${encodedPath}`,
-      { params: { ref: branch } },
-    );
-    const data = res.data as { content: string; encoding: string; blob_id: string };
-    const content = data.encoding === 'base64'
-      ? Buffer.from(data.content, 'base64').toString('utf-8')
-      : data.content;
-    return { content, encoding: 'utf-8', sha: data.blob_id };
-  }
-
-  async createBranch(name: string, fromBranch: string): Promise<void> {
-    await this.client.post(`/projects/${this.projectId}/repository/branches`, {
-      branch: name,
-      ref: fromBranch,
+      timeout: 30000,
     });
   }
 
@@ -70,15 +26,19 @@ export class GitLabProvider implements GitProvider {
     content: string,
     message: string,
   ): Promise<string> {
-    const res = await this.client.post(
-      `/projects/${this.projectId}/repository/commits`,
-      {
-        branch,
-        commit_message: message,
-        actions: [{ action: 'update', file_path: path, content }],
-      },
-    );
+    const res = await this.client.post(`/projects/${this.projectId}/repository/commits`, {
+      actions: [{ action: 'update', content, file_path: path }],
+      branch,
+      commit_message: message,
+    });
     return (res.data as { id: string }).id;
+  }
+
+  async createBranch(name: string, fromBranch: string): Promise<void> {
+    await this.client.post(`/projects/${this.projectId}/repository/branches`, {
+      branch: name,
+      ref: fromBranch,
+    });
   }
 
   async createPR(params: {
@@ -87,16 +47,56 @@ export class GitLabProvider implements GitProvider {
     title: string;
     description: string;
   }): Promise<GitPRResult> {
-    const res = await this.client.post(
-      `/projects/${this.projectId}/merge_requests`,
-      {
-        source_branch: params.sourceBranch,
-        target_branch: params.targetBranch,
-        title: params.title,
-        description: params.description,
-      },
-    );
+    const res = await this.client.post(`/projects/${this.projectId}/merge_requests`, {
+      description: params.description,
+      source_branch: params.sourceBranch,
+      target_branch: params.targetBranch,
+      title: params.title,
+    });
     const data = res.data as { web_url: string; iid: number; title: string };
-    return { url: data.web_url, number: data.iid, title: data.title };
+    return { number: data.iid, title: data.title, url: data.web_url };
+  }
+
+  async fetchFileContent(path: string, branch: string): Promise<GitFileContent> {
+    const encodedPath = encodeURIComponent(path);
+    const res = await this.client.get(
+      `/projects/${this.projectId}/repository/files/${encodedPath}`,
+      { params: { ref: branch } },
+    );
+    const data = res.data as { content: string; encoding: string; blob_id: string };
+    const content =
+      data.encoding === 'base64'
+        ? Buffer.from(data.content, 'base64').toString('utf-8')
+        : data.content;
+    return { content, encoding: 'utf-8', sha: data.blob_id };
+  }
+
+  async fetchTree(branch: string): Promise<GitTreeEntry[]> {
+    const entries: GitTreeEntry[] = [];
+    let page = 1;
+    const perPage = 100;
+
+    while (true) {
+      const res = await this.client.get(`/projects/${this.projectId}/repository/tree`, {
+        params: { page, per_page: perPage, recursive: true, ref: branch },
+      });
+      const items = res.data as { path: string; type: string; name: string }[];
+      if (items.length === 0) {
+        break;
+      }
+      for (const item of items) {
+        entries.push({
+          name: item.name,
+          path: item.path,
+          type: item.type === 'tree' ? 'tree' : 'blob',
+        });
+      }
+      if (items.length < perPage) {
+        break;
+      }
+      page++;
+    }
+
+    return entries;
   }
 }

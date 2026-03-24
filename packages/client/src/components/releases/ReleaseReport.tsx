@@ -1,14 +1,35 @@
 import React, { useMemo, useRef, useState } from 'react';
+
+import type { ChecklistTask, ReleaseInfo } from '@cnv-monitor/shared';
+
 import {
-  Button, Modal, ModalVariant, ModalHeader, ModalBody, ModalFooter,
-  Tabs, Tab, TabTitleText,
-  Card, CardBody, Content,
-  DescriptionList, DescriptionListGroup, DescriptionListTerm, DescriptionListDescription,
-  Flex, FlexItem, Label, Progress, ProgressSize, ProgressMeasureLocation,
-  Divider, ClipboardCopy, ClipboardCopyVariant, Alert,
+  Alert,
+  Button,
+  ClipboardCopy,
+  ClipboardCopyVariant,
+  Content,
+  DescriptionList,
+  DescriptionListDescription,
+  DescriptionListGroup,
+  DescriptionListTerm,
+  Divider,
+  Flex,
+  FlexItem,
+  Label,
+  Modal,
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
+  ModalVariant,
+  Progress,
+  ProgressMeasureLocation,
+  ProgressSize,
+  Tab,
+  Tabs,
+  TabTitleText,
 } from '@patternfly/react-core';
-import { FileAltIcon, DownloadIcon, CopyIcon, ExternalLinkAltIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@patternfly/react-icons';
-import type { ReleaseInfo, ChecklistTask } from '@cnv-monitor/shared';
+import { CopyIcon, DownloadIcon, FileAltIcon } from '@patternfly/react-icons';
+
 import type { VersionReadiness } from '../../api/releases';
 
 type ReleaseReportProps = {
@@ -17,7 +38,7 @@ type ReleaseReportProps = {
   readiness?: VersionReadiness | null;
 };
 
-export const ReleaseReport: React.FC<ReleaseReportProps> = ({ release, checklist, readiness }) => {
+export const ReleaseReport: React.FC<ReleaseReportProps> = ({ checklist, readiness, release }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const reportRef = useRef<HTMLDivElement>(null);
@@ -34,7 +55,9 @@ export const ReleaseReport: React.FC<ReleaseReportProps> = ({ release, checklist
     const map = new Map<string, typeof openItems>();
     for (const item of openItems) {
       const p = item.priority || 'Unset';
-      if (!map.has(p)) map.set(p, []);
+      if (!map.has(p)) {
+        map.set(p, []);
+      }
       map.get(p)!.push(item);
     }
     return [...map.entries()].sort((a, b) => {
@@ -45,14 +68,20 @@ export const ReleaseReport: React.FC<ReleaseReportProps> = ({ release, checklist
 
   const byAssignee = useMemo(() => {
     const map = new Map<string, number>();
-    for (const item of openItems) map.set(item.assignee || 'Unassigned', (map.get(item.assignee || 'Unassigned') ?? 0) + 1);
+    for (const item of openItems) {
+      map.set(item.assignee || 'Unassigned', (map.get(item.assignee || 'Unassigned') ?? 0) + 1);
+    }
     return [...map.entries()].sort((a, b) => b[1] - a[1]);
   }, [openItems]);
 
   const handleDownloadPdf = () => {
-    if (!reportRef.current) return;
+    if (!reportRef.current) {
+      return;
+    }
     const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    if (!printWindow) {
+      return;
+    }
     printWindow.document.write(`
       <html><head><title>${version} Release Report</title>
       <style>
@@ -79,50 +108,82 @@ export const ReleaseReport: React.FC<ReleaseReportProps> = ({ release, checklist
       </body></html>
     `);
     printWindow.document.close();
-    setTimeout(() => { printWindow.print(); }, 500);
+    setTimeout(() => {
+      printWindow.print();
+    }, 500);
   };
 
   const slackReport = useMemo(() => {
     const lines: string[] = [];
     lines.push(`:rocket: *${version} Release Status*`);
-    if (release.nextRelease) lines.push(`> Next: *${release.nextRelease.name}* — ${new Date(release.nextRelease.date).toLocaleDateString()}${release.daysUntilNext !== null ? ` (${release.daysUntilNext}d)` : ''}`);
+    if (release.nextRelease) {
+      lines.push(
+        `> Next: *${release.nextRelease.name}* — ${new Date(release.nextRelease.date).toLocaleDateString()}${release.daysUntilNext !== null ? ` (${release.daysUntilNext}d)` : ''}`,
+      );
+    }
     lines.push(`*Checklist:* ${closedItems.length}/${totalItems} done (${checklistPct}%)`);
-    if (passRate !== null) lines.push(`*Pass Rate:* ${passRate}%`);
-    lines.push(`*Status:* ${isHealthy ? ':white_check_mark: On Track' : ':warning: Needs Attention'}`);
+    if (passRate !== null) {
+      lines.push(`*Pass Rate:* ${passRate}%`);
+    }
+    lines.push(
+      `*Status:* ${isHealthy ? ':white_check_mark: On Track' : ':warning: Needs Attention'}`,
+    );
     if (openItems.length > 0) {
       lines.push(`\n*Open Items (${openItems.length}):*`);
-      openItems.slice(0, 10).forEach(t => lines.push(`• <https://issues.redhat.com/browse/${t.key}|${t.key}> ${t.summary}`));
-      if (openItems.length > 10) lines.push(`_...and ${openItems.length - 10} more_`);
+      openItems
+        .slice(0, 10)
+        .forEach(t =>
+          lines.push(`• <https://issues.redhat.com/browse/${t.key}|${t.key}> ${t.summary}`),
+        );
+      if (openItems.length > 10) {
+        lines.push(`_...and ${openItems.length - 10} more_`);
+      }
     }
     return lines.join('\n');
   }, [release, version, closedItems, totalItems, checklistPct, passRate, isHealthy, openItems]);
 
   return (
     <>
-      <Button variant="secondary" icon={<FileAltIcon />} onClick={() => setIsOpen(true)} size="sm">
+      <Button icon={<FileAltIcon />} size="sm" variant="secondary" onClick={() => setIsOpen(true)}>
         Generate Report
       </Button>
-      <Modal variant={ModalVariant.large} isOpen={isOpen} onClose={() => setIsOpen(false)}>
+      <Modal isOpen={isOpen} variant={ModalVariant.large} onClose={() => setIsOpen(false)}>
         <ModalHeader title={`${version} Release Report`} />
         <ModalBody>
           <Tabs activeKey={activeTab} onSelect={(_e, k) => setActiveTab(k as number)}>
             <Tab eventKey={0} title={<TabTitleText>Visual Report</TabTitleText>}>
-              <div ref={reportRef} className="app-report app-mt-md">
-                <Alert variant={isHealthy ? 'success' : 'warning'} isInline
-                  title={isHealthy ? 'Release is on track' : 'Release needs attention'}
+              <div className="app-report app-mt-md" ref={reportRef}>
+                <Alert
+                  isInline
                   className="app-mb-md"
+                  title={isHealthy ? 'Release is on track' : 'Release needs attention'}
+                  variant={isHealthy ? 'success' : 'warning'}
                 />
 
                 <div className="app-report-metrics app-mb-md">
                   <div className="app-report-metric">
                     <span className="app-report-metric-value">{checklistPct}%</span>
                     <span className="app-text-xs app-text-muted">Checklist</span>
-                    <Progress value={checklistPct} size={ProgressSize.sm} measureLocation={ProgressMeasureLocation.none} className="app-mt-xs" />
+                    <Progress
+                      className="app-mt-xs"
+                      measureLocation={ProgressMeasureLocation.none}
+                      size={ProgressSize.sm}
+                      value={checklistPct}
+                    />
                   </div>
                   <div className="app-report-metric">
-                    <span className="app-report-metric-value">{passRate !== null ? `${passRate}%` : '--'}</span>
+                    <span className="app-report-metric-value">
+                      {passRate !== null ? `${passRate}%` : '--'}
+                    </span>
                     <span className="app-text-xs app-text-muted">Pass Rate</span>
-                    {passRate !== null && <Progress value={passRate} size={ProgressSize.sm} measureLocation={ProgressMeasureLocation.none} className="app-mt-xs" />}
+                    {passRate !== null && (
+                      <Progress
+                        className="app-mt-xs"
+                        measureLocation={ProgressMeasureLocation.none}
+                        size={ProgressSize.sm}
+                        value={passRate}
+                      />
+                    )}
                   </div>
                   <div className="app-report-metric">
                     <span className="app-report-metric-value">{release.daysUntilNext ?? '--'}</span>
@@ -141,22 +202,31 @@ export const ReleaseReport: React.FC<ReleaseReportProps> = ({ release, checklist
                   </DescriptionListGroup>
                   <DescriptionListGroup>
                     <DescriptionListTerm>Phase</DescriptionListTerm>
-                    <DescriptionListDescription><Label isCompact>{release.phase}</Label></DescriptionListDescription>
+                    <DescriptionListDescription>
+                      <Label isCompact>{release.phase}</Label>
+                    </DescriptionListDescription>
                   </DescriptionListGroup>
                   {release.nextRelease && (
                     <DescriptionListGroup>
                       <DescriptionListTerm>Next Release</DescriptionListTerm>
-                      <DescriptionListDescription>{release.nextRelease.name} — {new Date(release.nextRelease.date).toLocaleDateString()}</DescriptionListDescription>
+                      <DescriptionListDescription>
+                        {release.nextRelease.name} —{' '}
+                        {new Date(release.nextRelease.date).toLocaleDateString()}
+                      </DescriptionListDescription>
                     </DescriptionListGroup>
                   )}
                   <DescriptionListGroup>
                     <DescriptionListTerm>Checklist Progress</DescriptionListTerm>
-                    <DescriptionListDescription>{closedItems.length} / {totalItems} completed</DescriptionListDescription>
+                    <DescriptionListDescription>
+                      {closedItems.length} / {totalItems} completed
+                    </DescriptionListDescription>
                   </DescriptionListGroup>
                   {readiness && (
                     <DescriptionListGroup>
                       <DescriptionListTerm>Test Launches</DescriptionListTerm>
-                      <DescriptionListDescription>{readiness.totalLaunches} (last 14 days)</DescriptionListDescription>
+                      <DescriptionListDescription>
+                        {readiness.totalLaunches} (last 14 days)
+                      </DescriptionListDescription>
                     </DescriptionListGroup>
                   )}
                 </DescriptionList>
@@ -164,33 +234,72 @@ export const ReleaseReport: React.FC<ReleaseReportProps> = ({ release, checklist
                 {openItems.length > 0 && (
                   <>
                     <Divider className="app-mb-md" />
-                    <Content component="h4" className="app-mb-sm">Open Items by Priority</Content>
+                    <Content className="app-mb-sm" component="h4">
+                      Open Items by Priority
+                    </Content>
                     {byPriority.map(([priority, items]) => (
-                      <div key={priority} className="app-mb-sm">
-                        <Content component="h5" className="app-mb-xs">
-                          <Label color={priority === 'Blocker' || priority === 'Critical' ? 'red' : priority === 'Major' ? 'orange' : 'grey'} isCompact>{priority}</Label>
-                          <span className="app-text-xs app-text-muted app-ml-sm">({items.length})</span>
+                      <div className="app-mb-sm" key={priority}>
+                        <Content className="app-mb-xs" component="h5">
+                          <Label
+                            isCompact
+                            color={
+                              priority === 'Blocker' || priority === 'Critical'
+                                ? 'red'
+                                : priority === 'Major'
+                                  ? 'orange'
+                                  : 'grey'
+                            }
+                          >
+                            {priority}
+                          </Label>
+                          <span className="app-text-xs app-text-muted app-ml-sm">
+                            ({items.length})
+                          </span>
                         </Content>
                         {items.map(t => (
-                          <div key={t.key} className="app-report-item">
-                            <a href={`https://issues.redhat.com/browse/${t.key}`} target="_blank" rel="noreferrer" className="app-report-key">{t.key}</a>
+                          <div className="app-report-item" key={t.key}>
+                            <a
+                              className="app-report-key"
+                              href={`https://issues.redhat.com/browse/${t.key}`}
+                              rel="noreferrer"
+                              target="_blank"
+                            >
+                              {t.key}
+                            </a>
                             <span className="app-report-title">{t.summary}</span>
-                            <span className="app-text-xs app-text-muted">{t.assignee || 'Unassigned'}</span>
+                            <span className="app-text-xs app-text-muted">
+                              {t.assignee || 'Unassigned'}
+                            </span>
                           </div>
                         ))}
                       </div>
                     ))}
 
                     <Divider className="app-mb-md app-mt-md" />
-                    <Content component="h4" className="app-mb-sm">Workload Distribution</Content>
+                    <Content className="app-mb-sm" component="h4">
+                      Workload Distribution
+                    </Content>
                     <div className="app-report-workload">
                       {byAssignee.map(([name, count]) => (
-                        <Flex key={name} spaceItems={{ default: 'spaceItemsSm' }} alignItems={{ default: 'alignItemsCenter' }} className="app-mb-xs">
-                          <FlexItem style={{ minWidth: 120 }}><span className="app-text-xs">{name}</span></FlexItem>
-                          <FlexItem flex={{ default: 'flex_1' }}>
-                            <Progress value={(count / openItems.length) * 100} size={ProgressSize.sm} measureLocation={ProgressMeasureLocation.none} />
+                        <Flex
+                          alignItems={{ default: 'alignItemsCenter' }}
+                          className="app-mb-xs"
+                          key={name}
+                          spaceItems={{ default: 'spaceItemsSm' }}
+                        >
+                          <FlexItem style={{ minWidth: 120 }}>
+                            <span className="app-text-xs">{name}</span>
                           </FlexItem>
-                          <FlexItem><span className="app-text-xs app-text-muted">{count}</span></FlexItem>
+                          <FlexItem flex={{ default: 'flex_1' }}>
+                            <Progress
+                              measureLocation={ProgressMeasureLocation.none}
+                              size={ProgressSize.sm}
+                              value={(count / openItems.length) * 100}
+                            />
+                          </FlexItem>
+                          <FlexItem>
+                            <span className="app-text-xs app-text-muted">{count}</span>
+                          </FlexItem>
                         </Flex>
                       ))}
                     </div>
@@ -199,20 +308,26 @@ export const ReleaseReport: React.FC<ReleaseReportProps> = ({ release, checklist
               </div>
             </Tab>
             <Tab eventKey={1} title={<TabTitleText>Slack Format</TabTitleText>}>
-              <ClipboardCopy isBlock variant={ClipboardCopyVariant.expansion} className="app-mt-md">
+              <ClipboardCopy isBlock className="app-mt-md" variant={ClipboardCopyVariant.expansion}>
                 {slackReport}
               </ClipboardCopy>
             </Tab>
           </Tabs>
         </ModalBody>
         <ModalFooter>
-          <Button variant="primary" icon={<DownloadIcon />} onClick={handleDownloadPdf}>
+          <Button icon={<DownloadIcon />} variant="primary" onClick={handleDownloadPdf}>
             Download PDF
           </Button>
-          <Button variant="secondary" icon={<CopyIcon />} onClick={() => navigator.clipboard.writeText(slackReport)}>
+          <Button
+            icon={<CopyIcon />}
+            variant="secondary"
+            onClick={() => navigator.clipboard.writeText(slackReport)}
+          >
             Copy Slack
           </Button>
-          <Button variant="link" onClick={() => setIsOpen(false)}>Close</Button>
+          <Button variant="link" onClick={() => setIsOpen(false)}>
+            Close
+          </Button>
         </ModalFooter>
       </Modal>
     </>

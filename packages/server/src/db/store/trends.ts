@@ -7,7 +7,7 @@ export const getPassRateTrend = async (
   launchName: string,
   days: number,
   component?: string,
-): Promise<Array<{ date: string; total: number; passed: number; rate: number }>> => {
+): Promise<{ date: string; total: number; passed: number; rate: number }[]> => {
   const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
   const queryBuilder = launches()
     .createQueryBuilder('l')
@@ -28,49 +28,70 @@ export const getPassRateTrend = async (
     .groupBy("TO_CHAR(TO_TIMESTAMP(l.start_time / 1000), 'YYYY-MM-DD')")
     .orderBy('date', 'ASC')
     .getRawMany();
-  return rows.map((row) => ({ date: row.date, total: Number(row.total), passed: Number(row.passed), rate: Number(row.rate) }));
-}
+  return rows.map(row => ({
+    date: row.date,
+    passed: Number(row.passed),
+    rate: Number(row.rate),
+    total: Number(row.total),
+  }));
+};
 
 export const getPassRateTrendByVersion = async (
   days: number,
   component?: string,
-): Promise<Array<{ date: string; version: string; total: number; passed: number; rate: number }>> => {
+): Promise<{ date: string; version: string; total: number; passed: number; rate: number }[]> => {
   const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
   const compFilter = component ? ' AND l.component = $2' : '';
   const params: unknown[] = [sinceMs];
-  if (component) params.push(component);
-  const rows = await AppDataSource.query(`
+  if (component) {
+    params.push(component);
+  }
+  const rows = await AppDataSource.query(
+    `
     SELECT
       TO_CHAR(TO_TIMESTAMP(l.start_time / 1000), 'YYYY-MM-DD') as date,
-      SUBSTRING(l.name FROM 'cnv-(\d+\.\d+)') as version,
+      SUBSTRING(l.name FROM 'cnv-(\\d+\\.\\d+)') as version,
       SUM(l.total)::int as total,
       SUM(l.passed)::int as passed,
       ROUND(CAST(SUM(l.passed) AS NUMERIC) / NULLIF(SUM(l.total), 0) * 100, 1) as rate
     FROM launches l
     WHERE l.start_time >= $1${compFilter}
     GROUP BY date, version
-    HAVING SUBSTRING(l.name FROM 'cnv-(\d+\.\d+)') IS NOT NULL
+    HAVING SUBSTRING(l.name FROM 'cnv-(\\d+\\.\\d+)') IS NOT NULL
     ORDER BY date, version
-  `, params);
+  `,
+    params,
+  );
   return rows.map((row: Record<string, unknown>) => ({
     date: row.date as string,
-    version: row.version as string,
-    total: Number(row.total),
     passed: Number(row.passed),
     rate: Number(row.rate),
+    total: Number(row.total),
+    version: row.version as string,
   }));
-}
+};
 
 export const getErrorPatterns = async (
   days: number,
   limit: number,
   component?: string,
-): Promise<Array<{ pattern: string; count: number; uniqueTests: number; firstSeen: string; lastSeen: string }>> => {
+): Promise<
+  {
+    pattern: string;
+    count: number;
+    uniqueTests: number;
+    firstSeen: string;
+    lastSeen: string;
+  }[]
+> => {
   const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
   const compFilter = component ? ' AND l.component = $3' : '';
   const params: unknown[] = [sinceMs, limit];
-  if (component) params.push(component);
-  const rows = await AppDataSource.query(`
+  if (component) {
+    params.push(component);
+  }
+  const rows = await AppDataSource.query(
+    `
     SELECT
       LEFT(ti.error_message, 100) as pattern,
       COUNT(*)::int as count,
@@ -83,25 +104,39 @@ export const getErrorPatterns = async (
     GROUP BY LEFT(ti.error_message, 100)
     ORDER BY count DESC
     LIMIT $2
-  `, params);
+  `,
+    params,
+  );
   return rows.map((row: Record<string, unknown>) => ({
-    pattern: row.pattern as string,
     count: Number(row.count),
-    uniqueTests: Number(row.unique_tests),
     firstSeen: row.first_seen as string,
     lastSeen: row.last_seen as string,
+    pattern: row.pattern as string,
+    uniqueTests: Number(row.unique_tests),
   }));
-}
+};
 
 export const getDefectTypesTrend = async (
   days: number,
   component?: string,
-): Promise<Array<{ week: string; productBug: number; automationBug: number; systemIssue: number; noDefect: number; toInvestigate: number }>> => {
+): Promise<
+  {
+    week: string;
+    productBug: number;
+    automationBug: number;
+    systemIssue: number;
+    noDefect: number;
+    toInvestigate: number;
+  }[]
+> => {
   const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
   const compFilter = component ? ' AND l.component = $2' : '';
   const params: unknown[] = [sinceMs];
-  if (component) params.push(component);
-  const rows = await AppDataSource.query(`
+  if (component) {
+    params.push(component);
+  }
+  const rows = await AppDataSource.query(
+    `
     SELECT
       TO_CHAR(DATE_TRUNC('week', TO_TIMESTAMP(ti.start_time / 1000)), 'YYYY-MM-DD') as week,
       COUNT(*) FILTER (WHERE ti.defect_type LIKE 'pb%')::int as product_bug,
@@ -114,14 +149,15 @@ export const getDefectTypesTrend = async (
     WHERE ti.status = 'FAILED' AND l.start_time >= $1${compFilter}
     GROUP BY week
     ORDER BY week
-  `, params);
+  `,
+    params,
+  );
   return rows.map((row: Record<string, unknown>) => ({
-    week: row.week as string,
-    productBug: Number(row.product_bug),
     automationBug: Number(row.automation_bug),
-    systemIssue: Number(row.system_issue),
     noDefect: Number(row.no_defect),
+    productBug: Number(row.product_bug),
+    systemIssue: Number(row.system_issue),
     toInvestigate: Number(row.to_investigate),
+    week: row.week as string,
   }));
-}
-
+};

@@ -1,15 +1,17 @@
 import React from 'react';
+
 import {
   Card,
   CardBody,
   CardTitle,
+  Content,
   Flex,
   FlexItem,
   Gallery,
   GalleryItem,
-  Content,
 } from '@patternfly/react-core';
-import { PlayIcon, ImageIcon } from '@patternfly/react-icons';
+import { ImageIcon, PlayIcon } from '@patternfly/react-icons';
+
 import type { ArtifactFile } from '../../api/artifacts';
 
 type ScreenshotGalleryProps = {
@@ -17,27 +19,26 @@ type ScreenshotGalleryProps = {
   onSelect: (file: ArtifactFile) => void;
 };
 
-export const ScreenshotGallery: React.FC<ScreenshotGalleryProps> = ({ screenshots, onSelect }) => (
-  <Card isPlain isCompact className="app-section-heading">
+export const ScreenshotGallery: React.FC<ScreenshotGalleryProps> = ({ onSelect, screenshots }) => (
+  <Card isCompact isPlain className="app-section-heading">
     <CardTitle>
       <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
-        <FlexItem><ImageIcon /></FlexItem>
+        <FlexItem>
+          <ImageIcon />
+        </FlexItem>
         <FlexItem>Failure Screenshots ({screenshots.length})</FlexItem>
       </Flex>
     </CardTitle>
     <CardBody>
       <Gallery hasGutter minWidths={{ default: '200px' }}>
-        {screenshots.map((screenshot) => (
+        {screenshots.map(screenshot => (
           <GalleryItem key={screenshot.path || screenshot.name}>
-            <div
-              onClick={() => onSelect(screenshot)}
-              className="app-screenshot-thumb"
-            >
+            <div className="app-screenshot-thumb" onClick={() => onSelect(screenshot)}>
               <img
-                src={screenshot.url}
                 alt={screenshot.name}
-                loading="lazy"
                 className="app-screenshot-img"
+                loading="lazy"
+                src={screenshot.url}
               />
               <div className="app-screenshot-label">
                 <strong>{screenshot.testFile}</strong>
@@ -57,24 +58,23 @@ type VideoListProps = {
 };
 
 export const VideoList: React.FC<VideoListProps> = ({ videos }) => (
-  <Card isPlain isCompact className="app-section-heading">
+  <Card isCompact isPlain className="app-section-heading">
     <CardTitle>
       <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
-        <FlexItem><PlayIcon /></FlexItem>
+        <FlexItem>
+          <PlayIcon />
+        </FlexItem>
         <FlexItem>Test Videos ({videos.length})</FlexItem>
       </Flex>
     </CardTitle>
     <CardBody>
-      {videos.map((video) => (
-        <div key={video.name} className="app-section-heading">
-          <Content component="small" className="app-mb-xs">
+      {videos.map(video => (
+        <div className="app-section-heading" key={video.name}>
+          <Content className="app-mb-xs" component="small">
             <strong>{video.testFile}</strong>
           </Content>
-          <video
-            controls
-            preload="metadata"
-            className="app-video-player"
-          >
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption -- test recordings have no audio track */}
+          <video controls className="app-video-player" preload="metadata">
             <source src={video.url} type="video/mp4" />
           </video>
         </div>

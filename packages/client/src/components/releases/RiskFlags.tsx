@@ -1,6 +1,9 @@
 import React, { useMemo } from 'react';
+
+import type { ChecklistTask, ReleaseInfo } from '@cnv-monitor/shared';
+
 import { Alert } from '@patternfly/react-core';
-import type { ReleaseInfo, ChecklistTask } from '@cnv-monitor/shared';
+
 import type { VersionReadiness } from '../../api/releases';
 
 type RiskFlag = { message: string; severity: 'danger' | 'warning' };
@@ -14,13 +17,30 @@ const detectRisks = (
   const openItems = (checklist ?? []).filter(t => t.status !== 'Closed');
 
   if (release.daysUntilNext !== null && release.daysUntilNext <= 7 && openItems.length > 5) {
-    flags.push({ message: `${openItems.length} checklist items still open with only ${release.daysUntilNext} days until release`, severity: 'danger' });
+    flags.push({
+      message: `${openItems.length} checklist items still open with only ${release.daysUntilNext} days until release`,
+      severity: 'danger',
+    });
   }
 
-  if (readiness?.passRate !== null && readiness?.passRate !== undefined && readiness.passRate < 80) {
-    flags.push({ message: `Pass rate is ${readiness.passRate.toFixed(1)}% — below 80% threshold`, severity: 'danger' });
-  } else if (readiness?.passRate !== null && readiness?.passRate !== undefined && readiness.passRate < 90) {
-    flags.push({ message: `Pass rate is ${readiness.passRate.toFixed(1)}% — below 90% target`, severity: 'warning' });
+  if (
+    readiness?.passRate !== null &&
+    readiness?.passRate !== undefined &&
+    readiness.passRate < 80
+  ) {
+    flags.push({
+      message: `Pass rate is ${readiness.passRate.toFixed(1)}% — below 80% threshold`,
+      severity: 'danger',
+    });
+  } else if (
+    readiness?.passRate !== null &&
+    readiness?.passRate !== undefined &&
+    readiness.passRate < 90
+  ) {
+    flags.push({
+      message: `Pass rate is ${readiness.passRate.toFixed(1)}% — below 90% target`,
+      severity: 'warning',
+    });
   }
 
   if (readiness?.trend && readiness.trend.length >= 2) {
@@ -30,7 +50,10 @@ const detectRisks = (
       const recentAvg = recent.reduce((s, t) => s + (t.passRate ?? 0), 0) / recent.length;
       const earlierAvg = earlier.reduce((s, t) => s + (t.passRate ?? 0), 0) / earlier.length;
       if (recentAvg < earlierAvg - 3) {
-        flags.push({ message: `Pass rate dropped ${(earlierAvg - recentAvg).toFixed(1)}% in the last 3 days`, severity: 'warning' });
+        flags.push({
+          message: `Pass rate dropped ${(earlierAvg - recentAvg).toFixed(1)}% in the last 3 days`,
+          severity: 'warning',
+        });
       }
     }
   }
@@ -40,7 +63,10 @@ const detectRisks = (
     return Date.now() - updated > 7 * 24 * 60 * 60 * 1000;
   });
   if (staleItems.length > 0) {
-    flags.push({ message: `${staleItems.length} checklist items haven't been updated in over 7 days`, severity: 'warning' });
+    flags.push({
+      message: `${staleItems.length} checklist items haven't been updated in over 7 days`,
+      severity: 'warning',
+    });
   }
 
   return flags;
@@ -52,15 +78,27 @@ type RiskFlagsProps = {
   readiness?: VersionReadiness | null;
 };
 
-export const RiskFlags: React.FC<RiskFlagsProps> = ({ release, checklist, readiness }) => {
-  const flags = useMemo(() => detectRisks(release, checklist, readiness), [release, checklist, readiness]);
+export const RiskFlags: React.FC<RiskFlagsProps> = ({ checklist, readiness, release }) => {
+  const flags = useMemo(
+    () => detectRisks(release, checklist, readiness),
+    [release, checklist, readiness],
+  );
 
-  if (flags.length === 0) return null;
+  if (flags.length === 0) {
+    return null;
+  }
 
   return (
     <div className="app-mb-md">
       {flags.map((flag, i) => (
-        <Alert key={i} variant={flag.severity} isInline isPlain title={flag.message} className="app-mb-xs" />
+        <Alert
+          isInline
+          isPlain
+          className="app-mb-xs"
+          key={i}
+          title={flag.message}
+          variant={flag.severity}
+        />
       ))}
     </div>
   );

@@ -1,5 +1,7 @@
-import { Router, Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
+
+import { type NextFunction, type Request, type Response, Router } from 'express';
+
 import { logger } from '../../logger';
 
 const log = logger.child({ module: 'Webhooks' });
@@ -20,8 +22,10 @@ router.post('/git-push', async (req: Request, res: Response, next: NextFunction)
     } else if (githubSignature) {
       const body = JSON.stringify(req.body);
       matchedRepo = repos.find(r => {
-        if (r.provider !== 'github' || !r.webhook_secret) return false;
-        const expected = 'sha256=' + crypto.createHmac('sha256', r.webhook_secret).update(body).digest('hex');
+        if (r.provider !== 'github' || !r.webhook_secret) {
+          return false;
+        }
+        const expected = `sha256=${crypto.createHmac('sha256', r.webhook_secret).update(body).digest('hex')}`;
         return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(githubSignature));
       });
     }
@@ -31,17 +35,19 @@ router.post('/git-push', async (req: Request, res: Response, next: NextFunction)
       return;
     }
 
-    log.info({ repoId: matchedRepo.id, name: matchedRepo.name }, 'Webhook received');
+    log.info({ name: matchedRepo.name, repoId: matchedRepo.id }, 'Webhook received');
 
     const { syncRepository } = await import('../../services/RepoSyncService');
     const { broadcast } = await import('../../ws');
 
     syncRepository(matchedRepo)
       .then(() => broadcast('tree-updated'))
-      .catch(err => log.error({ err, repoId: matchedRepo!.id }, 'Webhook-triggered sync failed'));
+      .catch(err => log.error({ err, repoId: matchedRepo.id }, 'Webhook-triggered sync failed'));
 
-    res.json({ success: true, repo: matchedRepo.name });
-  } catch (err) { next(err); }
+    res.json({ repo: matchedRepo.name, success: true });
+  } catch (err) {
+    next(err);
+  }
 });
 
 export default router;

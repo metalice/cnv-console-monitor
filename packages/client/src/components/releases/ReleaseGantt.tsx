@@ -1,40 +1,51 @@
-import React, { useMemo, useState, useRef } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
+
+import type { MilestoneType, ReleaseInfo } from '@cnv-monitor/shared';
+
 import {
-  Card, CardBody, CardTitle,
-  Bullseye, Spinner, Popover, Tooltip,
-  ToggleGroup, ToggleGroupItem,
-  Flex, FlexItem, Label, Content,
+  Bullseye,
+  Card,
+  CardBody,
+  CardTitle,
+  Content,
+  Flex,
+  FlexItem,
+  Label,
+  Popover,
+  Spinner,
+  ToggleGroup,
+  ToggleGroupItem,
+  Tooltip,
 } from '@patternfly/react-core';
 import { OutlinedQuestionCircleIcon } from '@patternfly/react-icons';
-import type { ReleaseInfo, MilestoneType } from '@cnv-monitor/shared';
 
 type ZoomLevel = '3m' | '6m' | '1y' | '2y';
 
-const ZOOM_DAYS: Record<ZoomLevel, number> = { '3m': 90, '6m': 180, '1y': 365, '2y': 730 };
+const ZOOM_DAYS: Record<ZoomLevel, number> = { '1y': 365, '2y': 730, '3m': 90, '6m': 180 };
 
 const PHASE_COLORS: Record<string, string> = {
-  'Concept': 'var(--pf-t--global--color--status--purple--default, #6753ac)',
+  Concept: 'var(--pf-t--global--color--status--purple--default, #6753ac)',
+  Maintenance: 'var(--pf-t--global--color--status--success--default, #3e8635)',
   'Planning / Development / Testing': 'var(--pf-t--global--color--status--info--default, #2b9af3)',
-  'Maintenance': 'var(--pf-t--global--color--status--success--default, #3e8635)',
 };
 
 const MILESTONE_SHAPES: Record<MilestoneType, { color: string; symbol: string }> = {
-  ga: { color: '#c9190b', symbol: '★' },
   batch: { color: '#2b9af3', symbol: '●' },
-  feature_freeze: { color: '#f0ab00', symbol: '◆' },
-  code_freeze: { color: '#ec7a08', symbol: '■' },
   blockers_only: { color: '#c9190b', symbol: '▲' },
+  code_freeze: { color: '#ec7a08', symbol: '■' },
   custom: { color: '#6753ac', symbol: '◆' },
+  feature_freeze: { color: '#f0ab00', symbol: '◆' },
+  ga: { color: '#c9190b', symbol: '★' },
 };
 
 const extractShortVersion = (name: string): string => {
-  const match = name.match(/(\d+\.\d+\.?\d*)/);
-  return match ? match[1] : name.replace(/^Batch\s+/, '').replace(/GA.*$/, '').trim();
-};
-
-const formatShortDate = (dateStr: string): string => {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const match = /(\d+\.\d+\.?\d*)/.exec(name);
+  return match
+    ? match[1]
+    : name
+        .replace(/^Batch\s+/, '')
+        .replace(/GA.*$/, '')
+        .trim();
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -58,57 +69,61 @@ type ReleaseGanttProps = {
 };
 
 export const ReleaseGantt: React.FC<ReleaseGanttProps> = ({
-  releases, isLoading, selectedVersion, onSelectVersion,
+  isLoading,
+  onSelectVersion,
+  releases,
+  selectedVersion,
 }) => {
   const [zoom, setZoom] = useState<ZoomLevel>('1y');
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const activeReleases = useMemo(() =>
-    (releases ?? []).filter(r => r.phase !== 'Unsupported' && r.startDate),
+  const activeReleases = useMemo(
+    () => (releases ?? []).filter(r => r.phase !== 'Unsupported' && r.startDate),
     [releases],
   );
 
-  const { timelineStart, timelineEnd, todayPos, pxPerDay, totalWidth, monthMarkers, dayMarkers } = useMemo(() => {
-    const today = toDay(new Date());
-    const zoomDays = ZOOM_DAYS[zoom];
-    const start = today - Math.floor(zoomDays * 0.3) * DAY_MS;
-    const end = today + Math.ceil(zoomDays * 0.7) * DAY_MS;
-    const px = 1200 / zoomDays;
-    const width = Math.max(1200, zoomDays * px);
+  const { dayMarkers, monthMarkers, pxPerDay, timelineStart, todayPos, totalWidth } =
+    useMemo(() => {
+      const today = toDay(new Date());
+      const zoomDays = ZOOM_DAYS[zoom];
+      const start = today - Math.floor(zoomDays * 0.3) * DAY_MS;
+      const end = today + Math.ceil(zoomDays * 0.7) * DAY_MS;
+      const px = 1200 / zoomDays;
+      const width = Math.max(1200, zoomDays * px);
 
-    const months: Array<{ x: number; label: string }> = [];
-    const d = new Date(start);
-    d.setDate(1);
-    d.setMonth(d.getMonth() + 1);
-    while (d.getTime() < end) {
-      months.push({ x: ((d.getTime() - start) / DAY_MS) * px, label: formatMonth(d.getTime()) });
+      const months: { x: number; label: string }[] = [];
+      const d = new Date(start);
+      d.setDate(1);
       d.setMonth(d.getMonth() + 1);
-    }
-
-    const dayInterval = zoomDays <= 90 ? 7 : zoomDays <= 180 ? 14 : 28;
-    const days: Array<{ x: number; label: string }> = [];
-    const dayStart = new Date(start);
-    const dayOfWeek = dayStart.getDay();
-    dayStart.setDate(dayStart.getDate() + (dayOfWeek === 0 ? 1 : 8 - dayOfWeek));
-    while (dayStart.getTime() < end) {
-      const dayNum = dayStart.getDate();
-      if (dayInterval <= 7 || dayNum === 1 || dayNum === 15) {
-        const x = ((dayStart.getTime() - start) / DAY_MS) * px;
-        days.push({ x, label: `${dayStart.getDate()}` });
+      while (d.getTime() < end) {
+        months.push({ label: formatMonth(d.getTime()), x: ((d.getTime() - start) / DAY_MS) * px });
+        d.setMonth(d.getMonth() + 1);
       }
-      dayStart.setDate(dayStart.getDate() + dayInterval);
-    }
 
-    return {
-      timelineStart: start,
-      timelineEnd: end,
-      todayPos: ((today - start) / DAY_MS) * px,
-      pxPerDay: px,
-      totalWidth: width,
-      monthMarkers: months,
-      dayMarkers: days,
-    };
-  }, [zoom]);
+      const dayInterval = zoomDays <= 90 ? 7 : zoomDays <= 180 ? 14 : 28;
+      const days: { x: number; label: string }[] = [];
+      const dayStart = new Date(start);
+      const dayOfWeek = dayStart.getDay();
+      dayStart.setDate(dayStart.getDate() + (dayOfWeek === 0 ? 1 : 8 - dayOfWeek));
+      while (dayStart.getTime() < end) {
+        const dayNum = dayStart.getDate();
+        if (dayInterval <= 7 || dayNum === 1 || dayNum === 15) {
+          const x = ((dayStart.getTime() - start) / DAY_MS) * px;
+          days.push({ label: `${dayStart.getDate()}`, x });
+        }
+        dayStart.setDate(dayStart.getDate() + dayInterval);
+      }
+
+      return {
+        dayMarkers: days,
+        monthMarkers: months,
+        pxPerDay: px,
+        timelineEnd: end,
+        timelineStart: start,
+        todayPos: ((today - start) / DAY_MS) * px,
+        totalWidth: width,
+      };
+    }, [zoom]);
 
   const ROW_HEIGHT = 62;
   const HEADER_HEIGHT = 40;
@@ -120,12 +135,25 @@ export const ReleaseGantt: React.FC<ReleaseGanttProps> = ({
     return ((day - timelineStart) / DAY_MS) * pxPerDay;
   };
 
-  if (isLoading) return <Card><CardBody><Bullseye className="app-card-spinner"><Spinner /></Bullseye></CardBody></Card>;
+  if (isLoading) {
+    return (
+      <Card>
+        <CardBody>
+          <Bullseye className="app-card-spinner">
+            <Spinner />
+          </Bullseye>
+        </CardBody>
+      </Card>
+    );
+  }
 
   return (
     <Card>
       <CardTitle>
-        <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }}>
+        <Flex
+          alignItems={{ default: 'alignItemsCenter' }}
+          justifyContent={{ default: 'justifyContentSpaceBetween' }}
+        >
           <FlexItem>
             Release Timeline{' '}
             <Tooltip content="Visual timeline of CNV version lifecycles. Each bar represents a version, colored by phase. Markers show GA releases, batch releases, and milestones. Click a row to see the version dashboard. Hover over markers for details.">
@@ -135,7 +163,12 @@ export const ReleaseGantt: React.FC<ReleaseGanttProps> = ({
           <FlexItem>
             <ToggleGroup aria-label="Zoom level">
               {(['3m', '6m', '1y', '2y'] as ZoomLevel[]).map(z => (
-                <ToggleGroupItem key={z} text={z.toUpperCase()} isSelected={zoom === z} onChange={() => setZoom(z)} />
+                <ToggleGroupItem
+                  isSelected={zoom === z}
+                  key={z}
+                  text={z.toUpperCase()}
+                  onChange={() => setZoom(z)}
+                />
               ))}
             </ToggleGroup>
           </FlexItem>
@@ -143,23 +176,46 @@ export const ReleaseGantt: React.FC<ReleaseGanttProps> = ({
       </CardTitle>
       <CardBody>
         <div className="app-gantt-scroll" ref={scrollRef}>
-          <svg width={totalWidth} height={svgHeight} className="app-gantt-svg">
+          <svg className="app-gantt-svg" height={svgHeight} width={totalWidth}>
             {monthMarkers.map((m, i) => (
               <g key={`m-${i}`}>
-                <line x1={m.x} y1={0} x2={m.x} y2={svgHeight} className="app-gantt-month-line" />
-                <text x={m.x + 4} y={14} className="app-gantt-month-text">{m.label}</text>
+                <line className="app-gantt-month-line" x1={m.x} x2={m.x} y1={0} y2={svgHeight} />
+                <text className="app-gantt-month-text" x={m.x + 4} y={14}>
+                  {m.label}
+                </text>
               </g>
             ))}
 
             {dayMarkers.map((d, i) => (
               <g key={`d-${i}`}>
-                <line x1={d.x} y1={HEADER_HEIGHT - 8} x2={d.x} y2={HEADER_HEIGHT} className="app-gantt-day-tick" />
-                <text x={d.x} y={HEADER_HEIGHT - 2} textAnchor="middle" className="app-gantt-day-text">{d.label}</text>
+                <line
+                  className="app-gantt-day-tick"
+                  x1={d.x}
+                  x2={d.x}
+                  y1={HEADER_HEIGHT - 8}
+                  y2={HEADER_HEIGHT}
+                />
+                <text
+                  className="app-gantt-day-text"
+                  textAnchor="middle"
+                  x={d.x}
+                  y={HEADER_HEIGHT - 2}
+                >
+                  {d.label}
+                </text>
               </g>
             ))}
 
-            <line x1={todayPos} y1={0} x2={todayPos} y2={svgHeight} className="app-gantt-today-line" />
-            <text x={todayPos + 3} y={14} className="app-gantt-today-text">Today</text>
+            <line
+              className="app-gantt-today-line"
+              x1={todayPos}
+              x2={todayPos}
+              y1={0}
+              y2={svgHeight}
+            />
+            <text className="app-gantt-today-text" x={todayPos + 3} y={14}>
+              Today
+            </text>
 
             {activeReleases.map((release, idx) => {
               const y = HEADER_HEIGHT + idx * ROW_HEIGHT;
@@ -172,12 +228,33 @@ export const ReleaseGantt: React.FC<ReleaseGanttProps> = ({
               const versionLabel = release.shortname.replace('cnv-', '');
 
               return (
-                <g key={release.shortname} className="app-gantt-row" onClick={() => onSelectVersion(release.shortname)}>
-                  <rect x={0} y={y} width={totalWidth} height={ROW_HEIGHT} className={`app-gantt-row-bg ${isSelected ? 'app-gantt-row-selected' : ''}`} />
+                <g
+                  className="app-gantt-row"
+                  key={release.shortname}
+                  onClick={() => onSelectVersion(release.shortname)}
+                >
+                  <rect
+                    className={`app-gantt-row-bg ${isSelected ? 'app-gantt-row-selected' : ''}`}
+                    height={ROW_HEIGHT}
+                    width={totalWidth}
+                    x={0}
+                    y={y}
+                  />
 
-                  <text x={8} y={barY + BAR_HEIGHT / 2 + 4} className="app-gantt-version-label">{versionLabel}</text>
+                  <text className="app-gantt-version-label" x={8} y={barY + BAR_HEIGHT / 2 + 4}>
+                    {versionLabel}
+                  </text>
 
-                  <rect x={startX} y={barY} width={barWidth} height={BAR_HEIGHT} rx={4} fill={phaseColor} opacity={0.9} className="app-gantt-bar" />
+                  <rect
+                    className="app-gantt-bar"
+                    fill={phaseColor}
+                    height={BAR_HEIGHT}
+                    opacity={0.9}
+                    rx={4}
+                    width={barWidth}
+                    x={startX}
+                    y={barY}
+                  />
 
                   {release.milestones
                     .filter(m => {
@@ -189,41 +266,86 @@ export const ReleaseGantt: React.FC<ReleaseGanttProps> = ({
                       const shape = MILESTONE_SHAPES[m.type] || MILESTONE_SHAPES.batch;
                       const shortVer = extractShortVersion(m.name);
                       const isBatchOrGa = m.type === 'batch' || m.type === 'ga';
-                      const fmtDate = new Date(m.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                      const fmtDate = new Date(m.date).toLocaleDateString('en-US', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      });
                       return (
                         <g key={mi}>
                           {isBatchOrGa && (
-                            <line x1={mx} y1={barY - 2} x2={mx} y2={barY + BAR_HEIGHT + 2} stroke={shape.color} strokeWidth={1.5} opacity={0.8} />
+                            <line
+                              opacity={0.8}
+                              stroke={shape.color}
+                              strokeWidth={1.5}
+                              x1={mx}
+                              x2={mx}
+                              y1={barY - 2}
+                              y2={barY + BAR_HEIGHT + 2}
+                            />
                           )}
                           <Popover
-                            headerContent={<strong>{shortVer}</strong>}
                             bodyContent={
                               <div>
-                                <Content component="p" className="app-mb-xs">{m.name}</Content>
-                                <Content component="small" className="app-text-muted">{fmtDate}</Content>
-                                {m.type !== 'batch' && <Label color={m.type === 'ga' ? 'red' : m.type === 'feature_freeze' ? 'orange' : 'blue'} isCompact className="app-ml-sm">{m.type.replace('_', ' ')}</Label>}
+                                <Content className="app-mb-xs" component="p">
+                                  {m.name}
+                                </Content>
+                                <Content className="app-text-muted" component="small">
+                                  {fmtDate}
+                                </Content>
+                                {m.type !== 'batch' && (
+                                  <Label
+                                    isCompact
+                                    className="app-ml-sm"
+                                    color={
+                                      m.type === 'ga'
+                                        ? 'red'
+                                        : m.type === 'feature_freeze'
+                                          ? 'orange'
+                                          : 'blue'
+                                    }
+                                  >
+                                    {m.type.replace('_', ' ')}
+                                  </Label>
+                                )}
                               </div>
                             }
-                            triggerAction="hover"
+                            headerContent={<strong>{shortVer}</strong>}
                             position="top"
+                            triggerAction="hover"
                           >
                             <text
-                              x={mx} y={barY + BAR_HEIGHT / 2 + 5}
-                              textAnchor="middle" fill={shape.color}
+                              className="app-gantt-milestone"
+                              fill={shape.color}
                               fontSize={m.type === 'ga' ? 16 : 12}
                               fontWeight={m.type === 'ga' ? 700 : 600}
-                              className="app-gantt-milestone"
+                              textAnchor="middle"
+                              x={mx}
+                              y={barY + BAR_HEIGHT / 2 + 5}
                             >
                               {shape.symbol}
                             </text>
                           </Popover>
                           {isBatchOrGa && (
                             <g className="app-gantt-date-label-group">
-                              <text x={mx} y={barY + BAR_HEIGHT + 13} textAnchor="middle" className="app-gantt-date-label app-gantt-date-ver">
+                              <text
+                                className="app-gantt-date-label app-gantt-date-ver"
+                                textAnchor="middle"
+                                x={mx}
+                                y={barY + BAR_HEIGHT + 13}
+                              >
                                 {shortVer}
                               </text>
-                              <text x={mx} y={barY + BAR_HEIGHT + 25} textAnchor="middle" className="app-gantt-date-label app-gantt-date-day">
-                                {new Date(m.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              <text
+                                className="app-gantt-date-label app-gantt-date-day"
+                                textAnchor="middle"
+                                x={mx}
+                                y={barY + BAR_HEIGHT + 25}
+                              >
+                                {new Date(m.date).toLocaleDateString('en-US', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                })}
                               </text>
                             </g>
                           )}
@@ -236,18 +358,41 @@ export const ReleaseGantt: React.FC<ReleaseGanttProps> = ({
           </svg>
         </div>
 
-        <Flex className="app-mt-sm" spaceItems={{ default: 'spaceItemsMd' }} flexWrap={{ default: 'wrap' }}>
-          {Object.entries(MILESTONE_SHAPES).filter(([t]) => t !== 'custom').map(([type, { color, symbol }]) => (
-            <FlexItem key={type}>
-              <span style={{ color }} className="app-text-xs">{symbol}</span>
-              <span className="app-text-xs app-text-muted app-ml-xs">{type.replace('_', ' ')}</span>
-            </FlexItem>
-          ))}
-          <FlexItem><span className="app-text-xs app-text-muted">|</span></FlexItem>
+        <Flex
+          className="app-mt-sm"
+          flexWrap={{ default: 'wrap' }}
+          spaceItems={{ default: 'spaceItemsMd' }}
+        >
+          {Object.entries(MILESTONE_SHAPES)
+            .filter(([t]) => t !== 'custom')
+            .map(([type, { color, symbol }]) => (
+              <FlexItem key={type}>
+                <span className="app-text-xs" style={{ color }}>
+                  {symbol}
+                </span>
+                <span className="app-text-xs app-text-muted app-ml-xs">
+                  {type.replace('_', ' ')}
+                </span>
+              </FlexItem>
+            ))}
+          <FlexItem>
+            <span className="app-text-xs app-text-muted">|</span>
+          </FlexItem>
           {Object.entries(PHASE_COLORS).map(([phase, color]) => (
             <FlexItem key={phase}>
-              <span style={{ display: 'inline-block', width: 12, height: 8, background: color, borderRadius: 2, verticalAlign: 'middle' }} />
-              <span className="app-text-xs app-text-muted app-ml-xs">{phase.split('/')[0].trim()}</span>
+              <span
+                style={{
+                  background: color,
+                  borderRadius: 2,
+                  display: 'inline-block',
+                  height: 8,
+                  verticalAlign: 'middle',
+                  width: 12,
+                }}
+              />
+              <span className="app-text-xs app-text-muted app-ml-xs">
+                {phase.split('/')[0].trim()}
+              </span>
             </FlexItem>
           ))}
         </Flex>

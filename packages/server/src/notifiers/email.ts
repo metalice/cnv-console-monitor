@@ -1,13 +1,18 @@
 import nodemailer from 'nodemailer';
+
+import { type DailyReport } from '../analyzer';
 import { config } from '../config';
 import { logger } from '../logger';
-import { DailyReport } from '../analyzer';
+
 import { buildHtml } from './email-template';
 
 const log = logger.child({ module: 'Email' });
 const EMAIL_TIMEOUT_MS = 30000;
 
-export const sendEmailReport = async (report: DailyReport, recipientOverride?: string[]): Promise<void> => {
+export const sendEmailReport = async (
+  report: DailyReport,
+  recipientOverride?: string[],
+): Promise<void> => {
   const recipients = recipientOverride ?? [];
   if (!config.email.enabled || recipients.length === 0) {
     log.debug('Email not configured or no recipients, skipping');
@@ -16,23 +21,24 @@ export const sendEmailReport = async (report: DailyReport, recipientOverride?: s
 
   try {
     const transporter = nodemailer.createTransport({
+      auth: config.email.user ? { pass: config.email.pass, user: config.email.user } : undefined,
+      connectionTimeout: EMAIL_TIMEOUT_MS,
+      greetingTimeout: EMAIL_TIMEOUT_MS,
       host: config.email.host,
       port: config.email.port,
       secure: config.email.port === 465,
-      auth: config.email.user ? { user: config.email.user, pass: config.email.pass } : undefined,
-      tls: { rejectUnauthorized: false },
-      connectionTimeout: EMAIL_TIMEOUT_MS,
-      greetingTimeout: EMAIL_TIMEOUT_MS,
       socketTimeout: EMAIL_TIMEOUT_MS,
+      tls: { rejectUnauthorized: false },
     });
 
-    const statusText = report.overallHealth === 'green' ? 'ALL GREEN' : `${report.failedLaunches} FAILED`;
+    const statusText =
+      report.overallHealth === 'green' ? 'ALL GREEN' : `${report.failedLaunches} FAILED`;
 
     await transporter.sendMail({
       from: config.email.from,
-      to: recipients.join(', '),
-      subject: `[CNV Console] ${report.date} — ${statusText}`,
       html: buildHtml(report),
+      subject: `[CNV Console] ${report.date} — ${statusText}`,
+      to: recipients.join(', '),
     });
 
     log.info({ recipients: recipients.length }, 'Report sent');
@@ -40,4 +46,4 @@ export const sendEmailReport = async (report: DailyReport, recipientOverride?: s
     log.error({ err, recipients: recipients.length }, 'Failed to send email report');
     throw err;
   }
-}
+};

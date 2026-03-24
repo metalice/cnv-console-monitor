@@ -30,5 +30,4 @@ export type ReadinessAssessment = {
 export const fetchReadiness = (version: string, days = 30): Promise<ReadinessAssessment> =>
   apiFetch(`/readiness/${encodeURIComponent(version)}?days=${days}`);
 
-export const fetchReadinessVersions = (): Promise<string[]> =>
-  apiFetch('/readiness/versions');
+export const fetchReadinessVersions = (): Promise<string[]> => apiFetch('/readiness/versions');

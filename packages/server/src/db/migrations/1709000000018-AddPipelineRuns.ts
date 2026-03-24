@@ -1,6 +1,10 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import { type MigrationInterface, type QueryRunner } from 'typeorm';
 
 export class AddPipelineRuns1709000000018 implements MigrationInterface {
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`DROP TABLE IF EXISTS "pipeline_runs"`);
+  }
+
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "pipeline_runs" (
@@ -16,10 +20,8 @@ export class AddPipelineRuns1709000000018 implements MigrationInterface {
         "log" jsonb
       )
     `);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_pipeline_runs_started" ON "pipeline_runs" ("started_at" DESC)`);
-  }
-
-  public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP TABLE IF EXISTS "pipeline_runs"`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_pipeline_runs_started" ON "pipeline_runs" ("started_at" DESC)`,
+    );
   }
 }

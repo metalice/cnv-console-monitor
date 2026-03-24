@@ -1,8 +1,9 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useDate } from '../context/DateContext';
-import { useComponentFilter } from '../context/ComponentFilterContext';
+
 import type { ActivityFilters } from '../api/activity';
+import { useComponentFilter } from '../context/ComponentFilterContext';
+import { useDate } from '../context/DateContext';
 
 type LocalFilters = {
   action?: string;
@@ -21,7 +22,9 @@ export const useActivityFilters = () => {
     const initial: LocalFilters = {};
     for (const key of URL_KEYS) {
       const val = searchParams.get(key);
-      if (val) initial[key] = val;
+      if (val) {
+        initial[key] = val;
+      }
     }
     return initial;
   });
@@ -32,36 +35,60 @@ export const useActivityFilters = () => {
     for (const key of URL_KEYS) {
       const val = localFilters[key];
       if (val) {
-        if (params.get(key) !== val) { params.set(key, val); changed = true; }
-      } else {
-        if (params.has(key)) { params.delete(key); changed = true; }
+        if (params.get(key) !== val) {
+          params.set(key, val);
+          changed = true;
+        }
+      } else if (params.has(key)) {
+        params.delete(key);
+        changed = true;
       }
     }
-    if (changed) setSearchParams(params, { replace: true });
+    if (changed) {
+      setSearchParams(params, { replace: true });
+    }
   }, [localFilters, searchParams, setSearchParams]);
 
-  const setLocalFilters = useCallback((update: LocalFilters | ((prev: LocalFilters) => LocalFilters)) => {
-    setLocalFiltersRaw(update);
-  }, []);
+  const setLocalFilters = useCallback(
+    (update: LocalFilters | ((prev: LocalFilters) => LocalFilters)) => {
+      setLocalFiltersRaw(update);
+    },
+    [],
+  );
 
   const component = selectedComponent || undefined;
 
-  const tableFilters: ActivityFilters = useMemo(() => ({
-    component,
-    ...localFilters,
-  }), [component, localFilters]);
+  const tableFilters: ActivityFilters = useMemo(
+    () => ({
+      component,
+      ...localFilters,
+    }),
+    [component, localFilters],
+  );
 
-  const statsFilters: ActivityFilters = useMemo(() => ({
-    component,
-    since: new Date(since).toISOString(),
-    until: new Date(until).toISOString(),
-  }), [since, until, component]);
+  const statsFilters: ActivityFilters = useMemo(
+    () => ({
+      component,
+      since: new Date(since).toISOString(),
+      until: new Date(until).toISOString(),
+    }),
+    [since, until, component],
+  );
 
   const clearAll = useCallback(() => {
     setLocalFiltersRaw({});
   }, []);
 
-  const hasActiveLocalFilters = !!(localFilters.action || localFilters.user || localFilters.search);
+  const hasActiveLocalFilters = Boolean(
+    localFilters.action || localFilters.user || localFilters.search,
+  );
 
-  return { tableFilters, statsFilters, localFilters, setLocalFilters, clearAll, hasActiveLocalFilters };
+  return {
+    clearAll,
+    hasActiveLocalFilters,
+    localFilters,
+    setLocalFilters,
+    statsFilters,
+    tableFilters,
+  };
 };

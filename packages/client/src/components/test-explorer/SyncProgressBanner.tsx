@@ -1,21 +1,25 @@
 import React, { useState } from 'react';
+
 import {
-  Progress,
-  ProgressSize,
   Content,
   ExpandableSection,
-  Label,
   Flex,
   FlexItem,
+  Label,
+  Progress,
+  ProgressSize,
 } from '@patternfly/react-core';
-import { SyncAltIcon, CheckCircleIcon } from '@patternfly/react-icons';
+import { CheckCircleIcon, SyncAltIcon } from '@patternfly/react-icons';
+
 import { useSyncProgress } from '../../hooks/useWebSocket';
 
 export const SyncProgressBanner: React.FC = () => {
   const sync = useSyncProgress();
   const [logExpanded, setLogExpanded] = useState(false);
 
-  if (!sync.active && sync.log.length === 0) return null;
+  if (!sync.active && sync.log.length === 0) {
+    return null;
+  }
 
   const percent = sync.total > 0 ? Math.round((sync.current / sync.total) * 100) : 0;
   const isComplete = sync.phase === 'complete';
@@ -24,15 +28,19 @@ export const SyncProgressBanner: React.FC = () => {
     <div className="app-sync-banner">
       <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
         <FlexItem>
-          {isComplete ? <CheckCircleIcon className="app-text-success" /> : <SyncAltIcon className={sync.active ? 'app-spin' : ''} />}
+          {isComplete ? (
+            <CheckCircleIcon className="app-text-success" />
+          ) : (
+            <SyncAltIcon className={sync.active ? 'app-spin' : ''} />
+          )}
         </FlexItem>
         <FlexItem grow={{ default: 'grow' }}>
           {sync.active ? (
             <Progress
-              value={percent}
+              label={`${sync.current}/${sync.total}`}
               size={ProgressSize.sm}
               title={sync.message}
-              label={`${sync.current}/${sync.total}`}
+              value={percent}
             />
           ) : (
             <Content component="small">{sync.message || 'Sync complete'}</Content>
@@ -47,14 +55,16 @@ export const SyncProgressBanner: React.FC = () => {
 
       {sync.log.length > 0 && (
         <ExpandableSection
-          toggleText={logExpanded ? 'Hide log' : `Show log (${sync.log.length})`}
-          isExpanded={logExpanded}
-          onToggle={(_e, val) => setLogExpanded(val)}
           className="app-mt-xs"
+          isExpanded={logExpanded}
+          toggleText={logExpanded ? 'Hide log' : `Show log (${sync.log.length})`}
+          onToggle={(_e, val) => setLogExpanded(val)}
         >
           <div className="app-sync-log">
             {sync.log.map((entry, i) => (
-              <div key={i} className="app-sync-log-entry">{entry}</div>
+              <div className="app-sync-log-entry" key={i}>
+                {entry}
+              </div>
             ))}
           </div>
         </ExpandableSection>

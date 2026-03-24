@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+
 import {
   Nav,
   NavItem,
@@ -11,37 +11,40 @@ import {
   SkipToContent,
 } from '@patternfly/react-core';
 import {
-  HomeIcon,
-  ExclamationCircleIcon,
-  ChartLineIcon,
-  ExclamationTriangleIcon,
   CalendarAltIcon,
-  ListIcon,
-  CogIcon,
-  UserIcon,
-  CubesIcon,
+  ChartLineIcon,
   CodeBranchIcon,
+  CogIcon,
+  CubesIcon,
+  ExclamationCircleIcon,
+  ExclamationTriangleIcon,
+  HomeIcon,
   InfoCircleIcon,
+  ListIcon,
   SearchIcon,
+  UserIcon,
 } from '@patternfly/react-icons';
+import { useQuery } from '@tanstack/react-query';
+
 import { useAuth } from '../../context/AuthContext';
-import { usePreferences } from '../../context/PreferencesContext';
 import { useComponentFilter } from '../../context/ComponentFilterContext';
+import { usePreferences } from '../../context/PreferencesContext';
+
 import { AppMasthead } from './AppMasthead';
 
 const navItems = [
-  { path: '/my-work', label: 'My Work', icon: <UserIcon /> },
-  { path: '/', label: 'Dashboard', icon: <HomeIcon /> },
-  { path: '/failures', label: 'Failures', icon: <ExclamationCircleIcon /> },
-  { path: '/trends', label: 'Trends', icon: <ChartLineIcon /> },
-  { path: '/flaky', label: 'Flaky Tests', icon: <ExclamationTriangleIcon /> },
-  { path: '/components', label: 'Components', icon: <CubesIcon /> },
-  { path: '/compare', label: 'Compare', icon: <CodeBranchIcon /> },
-  { path: '/releases', label: 'Releases', icon: <CalendarAltIcon /> },
-  { path: '/test-explorer', label: 'Test Explorer', icon: <SearchIcon /> },
-  { path: '/activity', label: 'Activity', icon: <ListIcon /> },
-  { path: '/settings', label: 'Settings', icon: <CogIcon /> },
-  { path: '/about', label: 'About', icon: <InfoCircleIcon /> },
+  { icon: <UserIcon />, label: 'My Work', path: '/my-work' },
+  { icon: <HomeIcon />, label: 'Dashboard', path: '/' },
+  { icon: <ExclamationCircleIcon />, label: 'Failures', path: '/failures' },
+  { icon: <ChartLineIcon />, label: 'Trends', path: '/trends' },
+  { icon: <ExclamationTriangleIcon />, label: 'Flaky Tests', path: '/flaky' },
+  { icon: <CubesIcon />, label: 'Components', path: '/components' },
+  { icon: <CodeBranchIcon />, label: 'Compare', path: '/compare' },
+  { icon: <CalendarAltIcon />, label: 'Releases', path: '/releases' },
+  { icon: <SearchIcon />, label: 'Test Explorer', path: '/test-explorer' },
+  { icon: <ListIcon />, label: 'Activity', path: '/activity' },
+  { icon: <CogIcon />, label: 'Settings', path: '/settings' },
+  { icon: <InfoCircleIcon />, label: 'About', path: '/about' },
 ];
 
 type AppLayoutProps = {
@@ -51,16 +54,18 @@ type AppLayoutProps = {
 export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const { selectedComponents } = useComponentFilter();
 
   const navigateWithFilter = (path: string) => {
     const params = new URLSearchParams();
-    if (selectedComponents.size > 0) params.set('components', [...selectedComponents].join(','));
+    if (selectedComponents.size > 0) {
+      params.set('components', [...selectedComponents].join(','));
+    }
     const qs = params.toString();
     navigate(qs ? `${path}?${qs}` : path);
   };
-  const { preferences, loaded: prefsLoaded, setPreference } = usePreferences();
+  const { loaded: prefsLoaded, preferences, setPreference } = usePreferences();
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
 
   React.useEffect(() => {
@@ -76,19 +81,21 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   };
 
   const { data: activitySummary } = useQuery({
-    queryKey: ['activitySummary', 'badge'],
     queryFn: async () => {
       const { fetchActivitySummary } = await import('../../api/activity');
       return fetchActivitySummary();
     },
-    staleTime: 60 * 1000,
+    queryKey: ['activitySummary', 'badge'],
     refetchInterval: 60 * 1000,
+    staleTime: 60 * 1000,
   });
 
   const hasNewActivity = React.useMemo(() => {
-    const lastViewed = preferences.lastActivityViewedAt as number | undefined;
+    const lastViewed = preferences.lastActivityViewedAt;
     const latest = activitySummary?.latestActivityAt;
-    if (!lastViewed || !latest) return false;
+    if (!lastViewed || !latest) {
+      return false;
+    }
     return latest > lastViewed;
   }, [preferences.lastActivityViewedAt, activitySummary?.latestActivityAt]);
 
@@ -97,21 +104,23 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       <PageSidebarBody>
         <Nav>
           <NavList>
-            {navItems.map((item) => (
+            {navItems.map(item => (
               <NavItem
-                key={item.path}
-                isActive={
-                  location.pathname === item.path
-                  || (item.path === '/' && (location.pathname.startsWith('/launch/') || location.pathname.startsWith('/test/')))
-                  || (item.path === '/releases' && location.pathname.startsWith('/readiness'))
-                }
-                onClick={() => navigateWithFilter(item.path)}
                 icon={item.icon}
+                isActive={
+                  location.pathname === item.path ||
+                  (item.path === '/' &&
+                    (location.pathname.startsWith('/launch/') ||
+                      location.pathname.startsWith('/test/'))) ||
+                  (item.path === '/releases' && location.pathname.startsWith('/readiness'))
+                }
+                key={item.path}
+                onClick={() => navigateWithFilter(item.path)}
               >
                 {item.label}
-                {item.path === '/activity' && hasNewActivity && location.pathname !== '/activity' && (
-                  <span className="app-nav-badge" />
-                )}
+                {item.path === '/activity' &&
+                  hasNewActivity &&
+                  location.pathname !== '/activity' && <span className="app-nav-badge" />}
               </NavItem>
             ))}
           </NavList>
@@ -122,10 +131,17 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
   return (
     <Page
-      masthead={<AppMasthead isSidebarOpen={isSidebarOpen} onSidebarToggle={handleSidebarToggle} userName={user.name} isAdmin={isAdmin} />}
+      mainContainerId="main-content"
+      masthead={
+        <AppMasthead
+          isAdmin={isAdmin}
+          isSidebarOpen={isSidebarOpen}
+          userName={user.name}
+          onSidebarToggle={handleSidebarToggle}
+        />
+      }
       sidebar={sidebar}
       skipToContent={<SkipToContent href="#main-content">Skip to content</SkipToContent>}
-      mainContainerId="main-content"
     >
       {children}
     </Page>

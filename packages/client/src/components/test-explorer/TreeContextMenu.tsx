@@ -1,30 +1,24 @@
 import React, { useEffect, useRef } from 'react';
-import {
-  Menu,
-  MenuContent,
-  MenuList,
-  MenuItem,
-  Divider,
-} from '@patternfly/react-core';
-import {
-  ExternalLinkAltIcon,
-  PencilAltIcon,
-  CopyIcon,
-  LinkIcon,
-  CodeIcon,
-  OutlinedFileAltIcon,
-  BanIcon,
-  LightbulbIcon,
-  SyncAltIcon,
-  CogIcon,
-  FilterIcon,
-  AngleDoubleDownIcon,
-  AngleDoubleUpIcon,
-  SearchIcon,
-} from '@patternfly/react-icons';
+
 import type { TreeNode } from '@cnv-monitor/shared';
 
-export interface ContextMenuAction {
+import { Divider, Menu, MenuContent, MenuItem, MenuList } from '@patternfly/react-core';
+import {
+  BanIcon,
+  CodeIcon,
+  CogIcon,
+  CopyIcon,
+  ExternalLinkAltIcon,
+  FilterIcon,
+  LightbulbIcon,
+  LinkIcon,
+  OutlinedFileAltIcon,
+  PencilAltIcon,
+  SearchIcon,
+  SyncAltIcon,
+} from '@patternfly/react-icons';
+
+export type ContextMenuAction = {
   onEdit?: (node: TreeNode) => void;
   onQuarantine?: (node: TreeNode) => void;
   onViewCounterpart?: (path: string) => void;
@@ -32,48 +26,71 @@ export interface ContextMenuAction {
   onEditRepoSettings?: (repoId: string) => void;
   onFilterComponent?: (component: string) => void;
   onAiAnalyze?: (node: TreeNode) => void;
-}
+};
 
-interface TreeContextMenuProps {
+type TreeContextMenuProps = {
   node: TreeNode | null;
   position: { x: number; y: number };
   onClose: () => void;
   actions: ContextMenuAction;
-}
+};
 
-export const TreeContextMenu: React.FC<TreeContextMenuProps> = ({ node, position, onClose, actions }) => {
+export const TreeContextMenu: React.FC<TreeContextMenuProps> = ({
+  actions,
+  node,
+  onClose,
+  position,
+}) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose();
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onClose();
+      }
     };
-    const keyHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const keyHandler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
     document.addEventListener('mousedown', handler);
     document.addEventListener('keydown', keyHandler);
-    return () => { document.removeEventListener('mousedown', handler); document.removeEventListener('keydown', keyHandler); };
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('keydown', keyHandler);
+    };
   }, [onClose]);
 
-  if (!node) return null;
+  if (!node) {
+    return null;
+  }
 
-  const handleAction = (fn: () => void) => { fn(); onClose(); };
+  const handleAction = (fn: () => void) => {
+    fn();
+    onClose();
+  };
 
   const copyPath = () => navigator.clipboard.writeText(node.path || node.name);
   const copyLink = () => {
     const url = new URL(window.location.href);
     url.pathname = '/test-explorer';
-    if (node.path) url.searchParams.set('file', node.path);
-    if (node.repoId) url.searchParams.set('repo', node.repoId);
-    navigator.clipboard.writeText(url.toString());
+    if (node.path) {
+      url.searchParams.set('file', node.path);
+    }
+    if (node.repoId) {
+      url.searchParams.set('repo', node.repoId);
+    }
+    void navigator.clipboard.writeText(url.toString());
   };
-  const openInRepo = () => { if (node.repoUrl) window.open(node.repoUrl, '_blank'); };
+  const openInRepo = () => {
+    if (node.repoUrl) {
+      window.open(node.repoUrl, '_blank');
+    }
+  };
 
   return (
-    <div
-      ref={menuRef}
-      className="app-context-menu"
-      style={{ top: position.y, left: position.x }}
-    >
+    <div className="app-context-menu" ref={menuRef} style={{ left: position.x, top: position.y }}>
       <Menu isPlain>
         <MenuContent>
           <MenuList>
@@ -85,7 +102,10 @@ export const TreeContextMenu: React.FC<TreeContextMenuProps> = ({ node, position
 
             {(node.type === 'doc' || node.type === 'test') && (
               <>
-                <MenuItem icon={<PencilAltIcon />} onClick={() => handleAction(() => actions.onEdit?.(node))}>
+                <MenuItem
+                  icon={<PencilAltIcon />}
+                  onClick={() => handleAction(() => actions.onEdit?.(node))}
+                >
                   Edit
                 </MenuItem>
                 <MenuItem icon={<CopyIcon />} onClick={() => handleAction(copyPath)}>
@@ -97,25 +117,35 @@ export const TreeContextMenu: React.FC<TreeContextMenuProps> = ({ node, position
               </>
             )}
 
-            {(node.type === 'doc' || node.type === 'test') && node.hasCounterpart && node.counterpartPath && (
-              <>
-                <Divider />
-                <MenuItem
-                  icon={node.type === 'doc' ? <CodeIcon /> : <OutlinedFileAltIcon />}
-                  onClick={() => handleAction(() => actions.onViewCounterpart?.(node.counterpartPath!))}
-                >
-                  View {node.type === 'doc' ? 'test file' : 'documentation'}
-                </MenuItem>
-              </>
-            )}
+            {(node.type === 'doc' || node.type === 'test') &&
+              node.hasCounterpart &&
+              node.counterpartPath && (
+                <>
+                  <Divider />
+                  <MenuItem
+                    icon={node.type === 'doc' ? <CodeIcon /> : <OutlinedFileAltIcon />}
+                    onClick={() =>
+                      handleAction(() => actions.onViewCounterpart?.(node.counterpartPath!))
+                    }
+                  >
+                    View {node.type === 'doc' ? 'test file' : 'documentation'}
+                  </MenuItem>
+                </>
+              )}
 
             {node.type === 'test' && (
               <>
                 <Divider />
-                <MenuItem icon={<BanIcon />} onClick={() => handleAction(() => actions.onQuarantine?.(node))}>
+                <MenuItem
+                  icon={<BanIcon />}
+                  onClick={() => handleAction(() => actions.onQuarantine?.(node))}
+                >
                   Quarantine
                 </MenuItem>
-                <MenuItem icon={<LightbulbIcon />} onClick={() => handleAction(() => actions.onAiAnalyze?.(node))}>
+                <MenuItem
+                  icon={<LightbulbIcon />}
+                  onClick={() => handleAction(() => actions.onAiAnalyze?.(node))}
+                >
                   AI: Analyze test
                 </MenuItem>
               </>
@@ -124,7 +154,10 @@ export const TreeContextMenu: React.FC<TreeContextMenuProps> = ({ node, position
             {node.type === 'doc' && (
               <>
                 <Divider />
-                <MenuItem icon={<LightbulbIcon />} onClick={() => handleAction(() => actions.onAiAnalyze?.(node))}>
+                <MenuItem
+                  icon={<LightbulbIcon />}
+                  onClick={() => handleAction(() => actions.onAiAnalyze?.(node))}
+                >
                   AI: Analyze gaps
                 </MenuItem>
               </>
@@ -135,7 +168,10 @@ export const TreeContextMenu: React.FC<TreeContextMenuProps> = ({ node, position
                 <MenuItem icon={<CopyIcon />} onClick={() => handleAction(copyPath)}>
                   Copy path
                 </MenuItem>
-                <MenuItem icon={<SearchIcon />} onClick={() => handleAction(() => actions.onAiAnalyze?.(node))}>
+                <MenuItem
+                  icon={<SearchIcon />}
+                  onClick={() => handleAction(() => actions.onAiAnalyze?.(node))}
+                >
                   View gaps in folder
                 </MenuItem>
               </>
@@ -143,7 +179,10 @@ export const TreeContextMenu: React.FC<TreeContextMenuProps> = ({ node, position
 
             {node.type === 'repo' && (
               <>
-                <MenuItem icon={<SyncAltIcon />} onClick={() => handleAction(() => actions.onSyncRepo?.(node.repoId!))}>
+                <MenuItem
+                  icon={<SyncAltIcon />}
+                  onClick={() => handleAction(() => actions.onSyncRepo?.(node.repoId!))}
+                >
                   Sync repository
                 </MenuItem>
                 {node.repoUrl && (
@@ -151,18 +190,22 @@ export const TreeContextMenu: React.FC<TreeContextMenuProps> = ({ node, position
                     Open repository
                   </MenuItem>
                 )}
-                <MenuItem icon={<CogIcon />} onClick={() => handleAction(() => actions.onEditRepoSettings?.(node.repoId!))}>
+                <MenuItem
+                  icon={<CogIcon />}
+                  onClick={() => handleAction(() => actions.onEditRepoSettings?.(node.repoId!))}
+                >
                   Edit settings
                 </MenuItem>
               </>
             )}
 
             {node.type === 'component' && (
-              <>
-                <MenuItem icon={<FilterIcon />} onClick={() => handleAction(() => actions.onFilterComponent?.(node.name))}>
-                  Filter by {node.name}
-                </MenuItem>
-              </>
+              <MenuItem
+                icon={<FilterIcon />}
+                onClick={() => handleAction(() => actions.onFilterComponent?.(node.name))}
+              >
+                Filter by {node.name}
+              </MenuItem>
             )}
           </MenuList>
         </MenuContent>

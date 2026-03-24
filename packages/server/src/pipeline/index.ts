@@ -1,17 +1,18 @@
-import { getPipelineManager, initPipelineManager } from './PipelineManager';
-import { FetchLaunchesPhase } from './phases/FetchLaunches';
-import { FetchItemsPhase } from './phases/FetchItems';
-import { EnrichJenkinsPhase } from './phases/EnrichJenkins';
-import { backfillComponentFromSiblings } from '../db/store';
 import { autoGenerateMappings } from '../componentMap';
+import { backfillComponentFromSiblings } from '../db/store';
 import { logger } from '../logger';
+
+import { EnrichJenkinsPhase } from './phases/EnrichJenkins';
+import { FetchItemsPhase } from './phases/FetchItems';
+import { FetchLaunchesPhase } from './phases/FetchLaunches';
+import { getPipelineManager } from './PipelineManager';
 
 const log = logger.child({ module: 'Pipeline' });
 
-export { getPipelineManager, initPipelineManager } from './PipelineManager';
-export { FetchLaunchesPhase } from './phases/FetchLaunches';
-export { FetchItemsPhase } from './phases/FetchItems';
 export { EnrichJenkinsPhase } from './phases/EnrichJenkins';
+export { FetchItemsPhase } from './phases/FetchItems';
+export { FetchLaunchesPhase } from './phases/FetchLaunches';
+export { getPipelineManager, initPipelineManager } from './PipelineManager';
 
 export const registerDefaultPhases = (): {
   launches: FetchLaunchesPhase;
@@ -27,7 +28,7 @@ export const registerDefaultPhases = (): {
   manager.registerPhase(items);
   manager.registerPhase(jenkins);
 
-  manager.onPhaseComplete = (phaseName) => {
+  manager.onPhaseComplete = phaseName => {
     if (phaseName === 'launches') {
       const launchData = launches.getLaunches();
       items.setLaunches(launchData);
@@ -41,7 +42,7 @@ export const registerDefaultPhases = (): {
     }
   };
 
-  return { launches, items, jenkins };
+  return { items, jenkins, launches };
 };
 
 export const startPipeline = async (options: {
@@ -50,10 +51,15 @@ export const startPipeline = async (options: {
   clearData: boolean;
 }): Promise<void> => {
   const manager = getPipelineManager();
-  const launchesPhase = [...(manager as unknown as { phases: Map<string, unknown> }).phases.values()]
-    .find((p: unknown) => (p as { name: string }).name === 'launches') as FetchLaunchesPhase | undefined;
+  const launchesPhase = [
+    ...(manager as unknown as { phases: Map<string, unknown> }).phases.values(),
+  ].find((p: unknown) => (p as { name: string }).name === 'launches') as
+    | FetchLaunchesPhase
+    | undefined;
 
-  if (launchesPhase) launchesPhase.configure(options.lookbackHours, options.clearData);
+  if (launchesPhase) {
+    launchesPhase.configure(options.lookbackHours, options.clearData);
+  }
 
   await manager.start(options);
 };

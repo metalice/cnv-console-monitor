@@ -1,16 +1,18 @@
-import 'reflect-metadata';
 import http from 'http';
-import { createApp } from './api';
-import { config, applySettingsOverrides, setLastPollAt } from './config';
-import { logger } from './logger';
-import { getAllSettings, getMostRecentLaunchTime } from './db/store';
+
+import 'reflect-metadata';
+
 import { AppDataSource } from './db/data-source';
-import { initWebSocket, broadcast } from './ws';
-import { pollReportPortal, enrichLaunchesFromJenkins, refreshStaleInProgress } from './poller';
-import { lockPoll, unlockPoll, isPollLocked, isAutoPollPaused } from './pollLock';
+import { getAllSettings, getMostRecentLaunchTime } from './db/store';
 import { backfillComponentFromSiblings } from './db/store';
-import { setupSubscriptionCrons, setupAckReminder } from './serve-cron';
+import { createApp } from './api';
 import { refreshMappingCache } from './componentMap';
+import { applySettingsOverrides, config, setLastPollAt } from './config';
+import { logger } from './logger';
+import { enrichLaunchesFromJenkins, pollReportPortal, refreshStaleInProgress } from './poller';
+import { isAutoPollPaused, isPollLocked, lockPoll, unlockPoll } from './pollLock';
+import { setupAckReminder, setupSubscriptionCrons } from './serve-cron';
+import { broadcast, initWebSocket } from './ws';
 
 const log = logger.child({ module: 'Dashboard' });
 
@@ -36,16 +38,16 @@ const runScheduledPoll = async (): Promise<void> => {
     unlockPoll();
     broadcast('data-updated');
 
-    refreshStaleInProgress().catch((staleErr) => log.error({ staleErr }, 'Stale refresh failed'));
+    refreshStaleInProgress().catch(staleErr => log.error({ staleErr }, 'Stale refresh failed'));
     if (result.launches.length > 0) {
       enrichLaunchesFromJenkins(result.launches)
         .then(() => backfillComponentFromSiblings())
         .then(() => broadcast('data-updated'))
-        .catch((enrichErr) => log.error({ enrichErr }, 'Post-poll enrichment failed'));
+        .catch(enrichErr => log.error({ enrichErr }, 'Post-poll enrichment failed'));
     } else {
       backfillComponentFromSiblings()
         .then(() => broadcast('data-updated'))
-        .catch((backfillErr) => log.error({ backfillErr }, 'Sibling backfill failed'));
+        .catch(backfillErr => log.error({ backfillErr }, 'Sibling backfill failed'));
     }
     log.info('Scheduled poll complete');
   } catch (err) {
@@ -68,12 +70,18 @@ const main = async (): Promise<void> => {
 
   const { cleanupInternalSettingsLogs, scrubSensitiveSettingsLogs } = await import('./db/store');
   const cleaned = await cleanupInternalSettingsLogs();
-  if (cleaned > 0) log.info({ cleaned }, 'Removed internal settings log entries');
+  if (cleaned > 0) {
+    log.info({ cleaned }, 'Removed internal settings log entries');
+  }
   const scrubbed = await scrubSensitiveSettingsLogs();
-  if (scrubbed > 0) log.info({ scrubbed }, 'Scrubbed exposed secrets from settings log');
+  if (scrubbed > 0) {
+    log.info({ scrubbed }, 'Scrubbed exposed secrets from settings log');
+  }
 
   const lastLaunchTime = await getMostRecentLaunchTime();
-  if (lastLaunchTime) setLastPollAt(Number(lastLaunchTime));
+  if (lastLaunchTime) {
+    setLastPollAt(lastLaunchTime);
+  }
 
   const { loadLastPollSummary } = await import('./pollLock');
   await loadLastPollSummary();
@@ -94,23 +102,24 @@ const main = async (): Promise<void> => {
   setupAckReminder();
 
   server.listen(config.dashboard.port, () => {
-    log.info({
-      port: config.dashboard.port,
-      reportportal: config.reportportal.url,
-      project: config.reportportal.project,
-      pollInterval: `${config.schedule.pollIntervalMinutes}m`,
-      ackReminder: '10:00',
-    }, 'Server started — use Settings > Fetch Full History to populate data');
-
-    setupSubscriptionCrons().catch(
-      (err) => log.error({ err }, 'Failed to setup subscription crons'),
+    log.info(
+      {
+        ackReminder: '10:00',
+        pollInterval: `${config.schedule.pollIntervalMinutes}m`,
+        port: config.dashboard.port,
+        project: config.reportportal.project,
+        reportportal: config.reportportal.url,
+      },
+      'Server started — use Settings > Fetch Full History to populate data',
     );
+
+    setupSubscriptionCrons().catch(err => log.error({ err }, 'Failed to setup subscription crons'));
 
     const scheduleNextPoll = () => {
       const intervalMs = config.schedule.pollIntervalMinutes * 60 * 1000;
       setTimeout(() => {
-        runScheduledPoll()
-          .catch((err) => log.error({ err }, 'Scheduled poll failed'))
+        void runScheduledPoll()
+          .catch(err => log.error({ err }, 'Scheduled poll failed'))
           .finally(scheduleNextPoll);
       }, intervalMs);
     };
@@ -132,7 +141,7 @@ const main = async (): Promise<void> => {
   });
 };
 
-main().catch((err) => {
+main().catch(err => {
   log.fatal({ err }, 'Failed to start server');
   process.exit(1);
 });

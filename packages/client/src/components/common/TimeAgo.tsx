@@ -1,6 +1,8 @@
 import React from 'react';
-import { Tooltip } from '@patternfly/react-core';
+
 import { timeAgo } from '@cnv-monitor/shared';
+
+import { Tooltip } from '@patternfly/react-core';
 
 type TimeAgoProps = {
   timestamp: number;

@@ -1,7 +1,9 @@
-import { Router, Request, Response, NextFunction } from 'express';
 import { timingSafeEqual } from 'crypto';
+
+import { type NextFunction, type Request, type Response, Router } from 'express';
+
 import { config } from '../../config';
-import { getAllUsers, setUserRole, hasAnyAdmin } from '../../db/store';
+import { getAllUsers, hasAnyAdmin, setUserRole } from '../../db/store';
 import { requireAdmin } from '../middleware/auth';
 
 const router = Router();
@@ -44,27 +46,31 @@ router.get('/users', requireAdmin, async (_req: Request, res: Response, next: Ne
   }
 });
 
-router.put('/users/:email/role', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const email = req.params.email as string;
-    const { role } = req.body as { role: string };
+router.put(
+  '/users/:email/role',
+  requireAdmin,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const email = req.params.email as string;
+      const { role } = req.body as { role: string };
 
-    if (!['admin', 'user'].includes(role)) {
-      res.status(400).json({ error: 'Role must be "admin" or "user"' });
-      return;
+      if (!['admin', 'user'].includes(role)) {
+        res.status(400).json({ error: 'Role must be "admin" or "user"' });
+        return;
+      }
+
+      const updated = await setUserRole(email, role);
+      if (!updated) {
+        res.status(404).json({ error: 'User not found' });
+        return;
+      }
+
+      res.json(updated);
+    } catch (err) {
+      next(err);
     }
-
-    const updated = await setUserRole(email, role);
-    if (!updated) {
-      res.status(404).json({ error: 'User not found' });
-      return;
-    }
-
-    res.json(updated);
-  } catch (err) {
-    next(err);
-  }
-});
+  },
+);
 
 router.get('/has-admin', async (_req: Request, res: Response, next: NextFunction) => {
   try {

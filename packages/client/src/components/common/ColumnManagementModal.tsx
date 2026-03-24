@@ -1,19 +1,21 @@
 import React, { useState } from 'react';
+
 import {
+  Button,
+  Content,
+  DataList,
+  DataListCell,
+  DataListCheck,
+  DataListItem,
+  DataListItemCells,
+  DataListItemRow,
   Modal,
-  ModalVariant,
-  ModalHeader,
   ModalBody,
   ModalFooter,
-  Button,
-  DataList,
-  DataListItem,
-  DataListItemRow,
-  DataListCheck,
-  DataListItemCells,
-  DataListCell,
-  Content,
+  ModalHeader,
+  ModalVariant,
 } from '@patternfly/react-core';
+
 import type { ColumnDef } from '../../hooks/useColumnManagement';
 
 type ColumnManagementModalProps = {
@@ -26,24 +28,28 @@ type ColumnManagementModalProps = {
 };
 
 export const ColumnManagementModal: React.FC<ColumnManagementModalProps> = ({
+  allColumns,
   isOpen,
   onClose,
-  allColumns,
-  visibleIds,
-  onSave,
   onReset,
+  onSave,
+  visibleIds,
 }) => {
-  const [checkedColumns, setCheckedColumns] = useState<Set<string>>(new Set(visibleIds));
+  const [checkedColumns, setCheckedColumns] = useState(new Set(visibleIds));
 
   React.useEffect(() => {
-    if (isOpen) setCheckedColumns(new Set(visibleIds));
+    if (isOpen) {
+      setCheckedColumns(new Set(visibleIds));
+    }
   }, [isOpen, visibleIds]);
 
   const onColumnChange = (id: string) => {
     setCheckedColumns(prev => {
       const next = new Set(prev);
       if (next.has(id)) {
-        if (next.size <= 1) return prev;
+        if (next.size <= 1) {
+          return prev;
+        }
         next.delete(id);
       } else {
         next.add(id);
@@ -67,32 +73,40 @@ export const ColumnManagementModal: React.FC<ColumnManagementModalProps> = ({
   };
 
   return (
-    <Modal variant={ModalVariant.small} isOpen={isOpen} onClose={onClose} position="top">
+    <Modal isOpen={isOpen} position="top" variant={ModalVariant.small} onClose={onClose}>
       <ModalHeader title="Manage columns" />
       <ModalBody>
-        <Content component="p" className="app-mb-md">Selected columns will appear in the table.</Content>
+        <Content className="app-mb-md" component="p">
+          Selected columns will appear in the table.
+        </Content>
         <div className="app-mb-sm app-flex-gap-md">
-          <Button variant="link" size="sm" isInline onClick={selectAll}>Select all</Button>
-          <Button variant="link" size="sm" isInline onClick={handleReset}>Restore defaults</Button>
+          <Button isInline size="sm" variant="link" onClick={selectAll}>
+            Select all
+          </Button>
+          <Button isInline size="sm" variant="link" onClick={handleReset}>
+            Restore defaults
+          </Button>
         </div>
-        <DataList aria-label="Column list" isCompact>
+        <DataList isCompact aria-label="Column list">
           {allColumns.map(col => {
             const inputId = `col-mgmt-${col.id}`;
             return (
-              <DataListItem key={col.id} aria-labelledby={`col-label-${col.id}`}>
+              <DataListItem aria-labelledby={`col-label-${col.id}`} key={col.id}>
                 <DataListItemRow>
                   <DataListCheck
                     aria-labelledby={`col-label-${col.id}`}
                     id={inputId}
                     isChecked={checkedColumns.has(col.id)}
+                    isDisabled={checkedColumns.has(col.id) && checkedColumns.size <= 1}
                     name={col.title}
                     onChange={() => onColumnChange(col.id)}
-                    isDisabled={checkedColumns.has(col.id) && checkedColumns.size <= 1}
                   />
                   <DataListItemCells
                     dataListCells={[
-                      <DataListCell key="name" id={`col-label-${col.id}`}>
-                        <label htmlFor={inputId} className="app-cursor-pointer">{col.title}</label>
+                      <DataListCell id={`col-label-${col.id}`} key="name">
+                        <label className="app-cursor-pointer" htmlFor={inputId}>
+                          {col.title}
+                        </label>
                       </DataListCell>,
                     ]}
                   />
@@ -103,8 +117,12 @@ export const ColumnManagementModal: React.FC<ColumnManagementModalProps> = ({
         </DataList>
       </ModalBody>
       <ModalFooter>
-        <Button variant="primary" onClick={handleSave}>Save</Button>
-        <Button variant="link" onClick={onClose}>Cancel</Button>
+        <Button variant="primary" onClick={handleSave}>
+          Save
+        </Button>
+        <Button variant="link" onClick={onClose}>
+          Cancel
+        </Button>
       </ModalFooter>
     </Modal>
   );

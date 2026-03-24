@@ -28,5 +28,4 @@ export type MyWorkData = {
   suggestedWork: MyWorkSuggestion[];
 };
 
-export const fetchMyWork = (): Promise<MyWorkData> =>
-  apiFetch('/my-work');
+export const fetchMyWork = (): Promise<MyWorkData> => apiFetch('/my-work');

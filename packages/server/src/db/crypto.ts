@@ -1,16 +1,18 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+
 import { logger } from '../logger';
 
 const log = logger.child({ module: 'Crypto' });
 
 const ALGO = 'aes-256-gcm';
 const IV_LENGTH = 16;
-const AUTH_TAG_LENGTH = 16;
 const ENCRYPTED_PREFIX = 'enc:';
 
 function getEncryptionKey(): Buffer | null {
   const hex = process.env.SETTINGS_ENCRYPTION_KEY;
-  if (!hex) return null;
+  if (!hex) {
+    return null;
+  }
   if (hex.length !== 64) {
     log.error('SETTINGS_ENCRYPTION_KEY must be exactly 64 hex characters (32 bytes)');
     return null;
@@ -27,7 +29,9 @@ export function isSensitiveKey(key: string): boolean {
 
 export function encryptValue(plaintext: string): string {
   const key = getEncryptionKey();
-  if (!key) return plaintext;
+  if (!key) {
+    return plaintext;
+  }
 
   const iv = randomBytes(IV_LENGTH);
   const cipher = createCipheriv(ALGO, key, iv);
@@ -37,11 +41,15 @@ export function encryptValue(plaintext: string): string {
 }
 
 export function decryptValue(stored: string): string {
-  if (!stored.startsWith(ENCRYPTED_PREFIX)) return stored;
+  if (!stored.startsWith(ENCRYPTED_PREFIX)) {
+    return stored;
+  }
 
   const key = getEncryptionKey();
   if (!key) {
-    log.warn('Encrypted value found but SETTINGS_ENCRYPTION_KEY is not set — returning masked placeholder');
+    log.warn(
+      'Encrypted value found but SETTINGS_ENCRYPTION_KEY is not set — returning masked placeholder',
+    );
     return '';
   }
 
@@ -55,7 +63,9 @@ export function decryptValue(stored: string): string {
   const [ivB64, tagB64, dataB64] = parts;
   const decipher = createDecipheriv(ALGO, key, Buffer.from(ivB64, 'base64'));
   decipher.setAuthTag(Buffer.from(tagB64, 'base64'));
-  return decipher.update(Buffer.from(dataB64, 'base64'), undefined, 'utf8') + decipher.final('utf8');
+  return (
+    decipher.update(Buffer.from(dataB64, 'base64'), undefined, 'utf8') + decipher.final('utf8')
+  );
 }
 
 export function isEncryptionEnabled(): boolean {

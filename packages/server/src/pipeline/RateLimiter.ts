@@ -9,6 +9,24 @@ export class RateLimiter {
     this.currentConcurrency = maxConcurrency;
   }
 
+  getBackoffMs(): number {
+    const base = 1000;
+    const max = 60000;
+    return Math.min(max, base * 2 ** Math.min(this.consecutiveRateLimits - 3, 6));
+  }
+
+  getConcurrency(): number {
+    return this.currentConcurrency;
+  }
+
+  onRateLimit(): void {
+    this.consecutiveRateLimits++;
+    this.currentConcurrency = Math.max(
+      this.minConcurrency,
+      Math.floor(this.currentConcurrency / 2),
+    );
+  }
+
   onSuccess(): void {
     this.consecutiveRateLimits = 0;
     if (this.currentConcurrency < this.maxConcurrency) {
@@ -16,27 +34,12 @@ export class RateLimiter {
     }
   }
 
-  onRateLimit(): void {
-    this.consecutiveRateLimits++;
-    this.currentConcurrency = Math.max(this.minConcurrency, Math.floor(this.currentConcurrency / 2));
-  }
-
-  getConcurrency(): number {
-    return this.currentConcurrency;
+  reset(): void {
+    this.consecutiveRateLimits = 0;
+    this.currentConcurrency = this.maxConcurrency;
   }
 
   shouldBackoff(): boolean {
     return this.consecutiveRateLimits > 3;
-  }
-
-  getBackoffMs(): number {
-    const base = 1000;
-    const max = 60000;
-    return Math.min(max, base * Math.pow(2, Math.min(this.consecutiveRateLimits - 3, 6)));
-  }
-
-  reset(): void {
-    this.consecutiveRateLimits = 0;
-    this.currentConcurrency = this.maxConcurrency;
   }
 }

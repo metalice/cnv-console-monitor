@@ -1,36 +1,94 @@
 import React, { useEffect, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { PageSection, Content, Button, Gallery, GalleryItem, Grid, GridItem, Flex, FlexItem } from '@patternfly/react-core';
+
+import type { TopFailingTest } from '@cnv-monitor/shared';
+
+import {
+  Button,
+  Content,
+  Flex,
+  FlexItem,
+  Gallery,
+  GalleryItem,
+  Grid,
+  GridItem,
+  PageSection,
+} from '@patternfly/react-core';
 import { DownloadIcon } from '@patternfly/react-icons';
-import { fetchTrends, fetchTrendsByVersion, fetchHeatmap, fetchTopFailures, fetchAIAccuracy, fetchClusterReliability, fetchErrorPatterns, fetchDefectTypesTrend, fetchFailuresByHour } from '../api/launches';
-import { useComponentFilter } from '../context/ComponentFilterContext';
+import { useQuery } from '@tanstack/react-query';
+
+import {
+  fetchAIAccuracy,
+  fetchClusterReliability,
+  fetchDefectTypesTrend,
+  fetchErrorPatterns,
+  fetchFailuresByHour,
+  fetchHeatmap,
+  fetchTopFailures,
+  fetchTrends,
+  fetchTrendsByVersion,
+} from '../api/launches';
 import { StatCard } from '../components/common/StatCard';
-import { exportCsv } from '../utils/csvExport';
-import { buildVersionGroups, buildHeatmap, buildAIMatrix, computeVersionHealth, computeSummaryStats } from '../components/trends/trendUtils';
-import { VersionTrendChart } from '../components/trends/VersionTrendChart';
-import { HeatmapTable } from '../components/trends/HeatmapTable';
-import { TopFailuresTable } from '../components/trends/TopFailuresTable';
 import { AIAccuracyTable } from '../components/trends/AIAccuracyTable';
-import { HourlyFailuresChart } from '../components/trends/HourlyFailuresChart';
 import { ClusterReliabilityTable } from '../components/trends/ClusterReliabilityTable';
 import { DefectTypeTrendChart } from '../components/trends/DefectTypeTrendChart';
 import { ErrorPatternsTable } from '../components/trends/ErrorPatternsTable';
-import type { TopFailingTest } from '@cnv-monitor/shared';
+import { HeatmapTable } from '../components/trends/HeatmapTable';
+import { HourlyFailuresChart } from '../components/trends/HourlyFailuresChart';
+import { TopFailuresTable } from '../components/trends/TopFailuresTable';
+import {
+  buildAIMatrix,
+  buildHeatmap,
+  buildVersionGroups,
+  computeSummaryStats,
+  computeVersionHealth,
+} from '../components/trends/trendUtils';
+import { VersionTrendChart } from '../components/trends/VersionTrendChart';
+import { useComponentFilter } from '../context/ComponentFilterContext';
+import { exportCsv } from '../utils/csvExport';
 
 export const TrendsPage: React.FC = () => {
-  useEffect(() => { document.title = 'Trends | CNV Console Monitor'; }, []);
+  useEffect(() => {
+    document.title = 'Trends | CNV Console Monitor';
+  }, []);
 
   const { selectedComponent } = useComponentFilter();
 
-  const { data: trends } = useQuery({ queryKey: ['trends', selectedComponent], queryFn: () => fetchTrends('', 30, selectedComponent) });
-  const { data: versionTrends, isLoading: versionLoading } = useQuery({ queryKey: ['trendsByVersion', selectedComponent], queryFn: () => fetchTrendsByVersion(30, selectedComponent) });
-  const { data: heatmapData, isLoading: heatmapLoading } = useQuery({ queryKey: ['heatmap', selectedComponent], queryFn: () => fetchHeatmap(14, 20, selectedComponent) });
-  const { data: topFailures, isLoading: topLoading } = useQuery({ queryKey: ['topFailures', selectedComponent], queryFn: () => fetchTopFailures(30, 15, selectedComponent) });
-  const { data: aiAccuracy } = useQuery({ queryKey: ['aiAccuracy', selectedComponent], queryFn: () => fetchAIAccuracy(90, selectedComponent) });
-  const { data: clusterData } = useQuery({ queryKey: ['clusterReliability', selectedComponent], queryFn: () => fetchClusterReliability(30, selectedComponent) });
-  const { data: errorPatterns } = useQuery({ queryKey: ['errorPatterns', selectedComponent], queryFn: () => fetchErrorPatterns(30, 10, selectedComponent) });
-  const { data: defectTrend } = useQuery({ queryKey: ['defectTypesTrend', selectedComponent], queryFn: () => fetchDefectTypesTrend(90, selectedComponent) });
-  const { data: hourlyData } = useQuery({ queryKey: ['failuresByHour', selectedComponent], queryFn: () => fetchFailuresByHour(30, selectedComponent) });
+  const { data: trends } = useQuery({
+    queryFn: () => fetchTrends('', 30, selectedComponent),
+    queryKey: ['trends', selectedComponent],
+  });
+  const { data: versionTrends, isLoading: versionLoading } = useQuery({
+    queryFn: () => fetchTrendsByVersion(30, selectedComponent),
+    queryKey: ['trendsByVersion', selectedComponent],
+  });
+  const { data: heatmapData, isLoading: heatmapLoading } = useQuery({
+    queryFn: () => fetchHeatmap(14, 20, selectedComponent),
+    queryKey: ['heatmap', selectedComponent],
+  });
+  const { data: topFailures, isLoading: topLoading } = useQuery({
+    queryFn: () => fetchTopFailures(30, 15, selectedComponent),
+    queryKey: ['topFailures', selectedComponent],
+  });
+  const { data: aiAccuracy } = useQuery({
+    queryFn: () => fetchAIAccuracy(90, selectedComponent),
+    queryKey: ['aiAccuracy', selectedComponent],
+  });
+  const { data: clusterData } = useQuery({
+    queryFn: () => fetchClusterReliability(30, selectedComponent),
+    queryKey: ['clusterReliability', selectedComponent],
+  });
+  const { data: errorPatterns } = useQuery({
+    queryFn: () => fetchErrorPatterns(30, 10, selectedComponent),
+    queryKey: ['errorPatterns', selectedComponent],
+  });
+  const { data: defectTrend } = useQuery({
+    queryFn: () => fetchDefectTypesTrend(90, selectedComponent),
+    queryKey: ['defectTypesTrend', selectedComponent],
+  });
+  const { data: hourlyData } = useQuery({
+    queryFn: () => fetchFailuresByHour(30, selectedComponent),
+    queryKey: ['failuresByHour', selectedComponent],
+  });
 
   const summaryStats = useMemo(() => computeSummaryStats(trends), [trends]);
   const versionGroups = useMemo(() => buildVersionGroups(versionTrends), [versionTrends]);
@@ -41,18 +99,43 @@ export const TrendsPage: React.FC = () => {
   return (
     <>
       <PageSection>
-        <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }}>
+        <Flex
+          alignItems={{ default: 'alignItemsCenter' }}
+          justifyContent={{ default: 'justifyContentSpaceBetween' }}
+        >
           <FlexItem>
             <Content component="h1">Trends</Content>
             <Content component="small">Test health analytics over the last 30 days</Content>
           </FlexItem>
           <FlexItem>
-            <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
+            <Flex
+              alignItems={{ default: 'alignItemsCenter' }}
+              spaceItems={{ default: 'spaceItemsSm' }}
+            >
               <FlexItem>
-                <Button variant="secondary" icon={<DownloadIcon />} isDisabled={!topFailures?.length} onClick={() => {
-                  if (!topFailures) return;
-                  exportCsv('top-failures.csv', ['Test Name', 'Failures', 'Total Runs', 'Failure Rate', 'Trend'], topFailures.map(test => [test.name, test.fail_count, test.total_runs, `${test.failure_rate}%`, test.recent_trend]));
-                }}>Export</Button>
+                <Button
+                  icon={<DownloadIcon />}
+                  isDisabled={!topFailures?.length}
+                  variant="secondary"
+                  onClick={() => {
+                    if (!topFailures) {
+                      return;
+                    }
+                    exportCsv(
+                      'top-failures.csv',
+                      ['Test Name', 'Failures', 'Total Runs', 'Failure Rate', 'Trend'],
+                      topFailures.map(test => [
+                        test.name,
+                        test.fail_count,
+                        test.total_runs,
+                        `${test.failure_rate}%`,
+                        test.recent_trend,
+                      ]),
+                    );
+                  }}
+                >
+                  Export
+                </Button>
               </FlexItem>
             </Flex>
           </FlexItem>
@@ -64,19 +147,57 @@ export const TrendsPage: React.FC = () => {
           <Gallery hasGutter minWidths={{ default: '150px' }}>
             <GalleryItem>
               <StatCard
-                value={`${summaryStats.overallRate}%`} label="Overall Pass Rate" help="Average pass rate across all launches in the last 30 days"
-                color={summaryStats.overallRate >= 95 ? 'var(--pf-t--global--color--status--success--default)' : summaryStats.overallRate >= 80 ? 'var(--pf-t--global--color--status--warning--default)' : 'var(--pf-t--global--color--status--danger--default)'}
+                color={
+                  summaryStats.overallRate >= 95
+                    ? 'var(--pf-t--global--color--status--success--default)'
+                    : summaryStats.overallRate >= 80
+                      ? 'var(--pf-t--global--color--status--warning--default)'
+                      : 'var(--pf-t--global--color--status--danger--default)'
+                }
+                help="Average pass rate across all launches in the last 30 days"
+                label="Overall Pass Rate"
+                value={`${summaryStats.overallRate}%`}
               />
             </GalleryItem>
-            <GalleryItem><StatCard value={summaryStats.totalLaunches} label="Total Launches" help="Number of test launches in the last 30 days" /></GalleryItem>
+            <GalleryItem>
+              <StatCard
+                help="Number of test launches in the last 30 days"
+                label="Total Launches"
+                value={summaryStats.totalLaunches}
+              />
+            </GalleryItem>
             {versionHealth.best && (
-              <GalleryItem><StatCard value={versionHealth.best.version} label={`Healthiest (${versionHealth.best.rate}%)`} help="CNV version with the highest average pass rate" color="var(--pf-t--global--color--status--success--default)" /></GalleryItem>
+              <GalleryItem>
+                <StatCard
+                  color="var(--pf-t--global--color--status--success--default)"
+                  help="CNV version with the highest average pass rate"
+                  label={`Healthiest (${versionHealth.best.rate}%)`}
+                  value={versionHealth.best.version}
+                />
+              </GalleryItem>
             )}
             {versionHealth.worst && versionHealth.worst.version !== versionHealth.best?.version && (
-              <GalleryItem><StatCard value={versionHealth.worst.version} label={`Needs Attention (${versionHealth.worst.rate}%)`} help="CNV version with the lowest average pass rate" color="var(--pf-t--global--color--status--danger--default)" /></GalleryItem>
+              <GalleryItem>
+                <StatCard
+                  color="var(--pf-t--global--color--status--danger--default)"
+                  help="CNV version with the lowest average pass rate"
+                  label={`Needs Attention (${versionHealth.worst.rate}%)`}
+                  value={versionHealth.worst.version}
+                />
+              </GalleryItem>
             )}
             {topFailures && (
-              <GalleryItem><StatCard value={topFailures.filter((test: TopFailingTest) => test.recent_trend === 'worsening').length} label="Getting Worse" help="Tests where failure rate increased in the second half of the period" color="var(--pf-t--global--color--status--danger--default)" /></GalleryItem>
+              <GalleryItem>
+                <StatCard
+                  color="var(--pf-t--global--color--status--danger--default)"
+                  help="Tests where failure rate increased in the second half of the period"
+                  label="Getting Worse"
+                  value={
+                    topFailures.filter((test: TopFailingTest) => test.recent_trend === 'worsening')
+                      .length
+                  }
+                />
+              </GalleryItem>
             )}
           </Gallery>
         </PageSection>
@@ -84,14 +205,40 @@ export const TrendsPage: React.FC = () => {
 
       <PageSection>
         <Grid hasGutter>
-          <GridItem span={12} md={6}><VersionTrendChart isLoading={versionLoading} versionGroups={versionGroups} /></GridItem>
-          <GridItem span={12} md={6}><HeatmapTable isLoading={heatmapLoading} heatmap={heatmap} /></GridItem>
-          <GridItem span={12}><TopFailuresTable isLoading={topLoading} topFailures={topFailures} /></GridItem>
-          {aiMatrix && <GridItem span={6}><AIAccuracyTable aiMatrix={aiMatrix} /></GridItem>}
-          {hourlyData && hourlyData.length > 0 && <GridItem span={6}><HourlyFailuresChart hourlyData={hourlyData} /></GridItem>}
-          {clusterData && clusterData.length > 0 && <GridItem span={12}><ClusterReliabilityTable clusterData={clusterData} /></GridItem>}
-          {defectTrend && defectTrend.length > 0 && <GridItem span={12}><DefectTypeTrendChart defectTrend={defectTrend} /></GridItem>}
-          {errorPatterns && errorPatterns.length > 0 && <GridItem span={12}><ErrorPatternsTable errorPatterns={errorPatterns} /></GridItem>}
+          <GridItem md={6} span={12}>
+            <VersionTrendChart isLoading={versionLoading} versionGroups={versionGroups} />
+          </GridItem>
+          <GridItem md={6} span={12}>
+            <HeatmapTable heatmap={heatmap} isLoading={heatmapLoading} />
+          </GridItem>
+          <GridItem span={12}>
+            <TopFailuresTable isLoading={topLoading} topFailures={topFailures} />
+          </GridItem>
+          {aiMatrix && (
+            <GridItem span={6}>
+              <AIAccuracyTable aiMatrix={aiMatrix} />
+            </GridItem>
+          )}
+          {hourlyData && hourlyData.length > 0 && (
+            <GridItem span={6}>
+              <HourlyFailuresChart hourlyData={hourlyData} />
+            </GridItem>
+          )}
+          {clusterData && clusterData.length > 0 && (
+            <GridItem span={12}>
+              <ClusterReliabilityTable clusterData={clusterData} />
+            </GridItem>
+          )}
+          {defectTrend && defectTrend.length > 0 && (
+            <GridItem span={12}>
+              <DefectTypeTrendChart defectTrend={defectTrend} />
+            </GridItem>
+          )}
+          {errorPatterns && errorPatterns.length > 0 && (
+            <GridItem span={12}>
+              <ErrorPatternsTable errorPatterns={errorPatterns} />
+            </GridItem>
+          )}
         </Grid>
       </PageSection>
     </>

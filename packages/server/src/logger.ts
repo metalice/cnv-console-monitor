@@ -13,43 +13,59 @@ const prettyOptions = {
 
 export const logger = pino({
   level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
-  timestamp: pino.stdTimeFunctions.isoTime,
   serializers: {
-    err: (err) => ({ type: err?.constructor?.name || 'Error', message: err?.message, code: err?.code, status: err?.status || err?.statusCode }),
-    error: (err) => ({ type: err?.constructor?.name || 'Error', message: err?.message, code: err?.code, status: err?.status || err?.statusCode }),
+    err: err => ({
+      code: err?.code,
+      message: err?.message,
+      status: err?.status || err?.statusCode,
+      type: err?.constructor?.name || 'Error',
+    }),
+    error: err => ({
+      code: err?.code,
+      message: err?.message,
+      status: err?.status || err?.statusCode,
+      type: err?.constructor?.name || 'Error',
+    }),
   },
+  timestamp: pino.stdTimeFunctions.isoTime,
   transport: {
-    target: 'pino-pretty',
     options: prettyOptions,
+    target: 'pino-pretty',
   },
 });
 
 export const setResponseError = (res: unknown, message: string): void => {
   (res as Record<string, unknown>).__errorMessage = message;
-}
+};
 
 export const httpLogger = pinoHttp({
-  logger,
   autoLogging: {
-    ignore: (req) => req.url === '/health',
-  },
-  customLogLevel: (_req, res, err) => {
-    if (res.statusCode >= 500 || err) return 'error';
-    if (res.statusCode >= 400) return 'warn';
-    return 'info';
+    ignore: req => req.url === '/health',
   },
   customErrorMessage: (_req, res) => {
-    const errorMsg = (res as unknown as Record<string, unknown>).__errorMessage as string | undefined;
+    const errorMsg = (res as unknown as Record<string, unknown>).__errorMessage as
+      | string
+      | undefined;
     return errorMsg || `request failed with status ${res.statusCode}`;
   },
+  customLogLevel: (_req, res, err) => {
+    if (res.statusCode >= 500 || err) {
+      return 'error';
+    }
+    if (res.statusCode >= 400) {
+      return 'warn';
+    }
+    return 'info';
+  },
+  logger,
   serializers: {
-    req: (req) => ({
+    err: () => undefined,
+    req: req => ({
       method: req.method,
       url: req.url,
     }),
-    res: (res) => ({
+    res: res => ({
       statusCode: res.statusCode,
     }),
-    err: () => undefined,
   },
 });

@@ -1,34 +1,34 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity('triage_log')
 export class TriageLog {
-  @PrimaryGeneratedColumn()
-  id!: number;
-
-  @Column({ type: 'int' })
-  test_item_rp_id!: number;
-
   @Column({ type: 'varchar' })
   action!: string;
 
-  @Column({ type: 'text', nullable: true })
-  old_value!: string | null;
+  @Column({ nullable: true, type: 'varchar' })
+  component!: string | null;
 
-  @Column({ type: 'text', nullable: true })
+  @PrimaryGeneratedColumn()
+  id!: number;
+
+  @Column({ nullable: true, type: 'text' })
   new_value!: string | null;
 
-  @Column({ type: 'varchar', nullable: true })
-  performed_by!: string | null;
-
-  @Column({ type: 'varchar', nullable: true })
-  component!: string | null;
+  @Column({ nullable: true, type: 'text' })
+  old_value!: string | null;
 
   @CreateDateColumn()
   performed_at!: Date;
 
-  @Column({ type: 'boolean', default: false })
+  @Column({ nullable: true, type: 'varchar' })
+  performed_by!: string | null;
+
+  @Column({ nullable: true, type: 'text' })
+  pin_note!: string | null;
+
+  @Column({ default: false, type: 'boolean' })
   pinned!: boolean;
 
-  @Column({ type: 'text', nullable: true })
-  pin_note!: string | null;
+  @Column({ type: 'int' })
+  test_item_rp_id!: number;
 }

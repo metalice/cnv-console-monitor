@@ -1,12 +1,14 @@
 import React from 'react';
-import { Card, CardBody, Content, Spinner } from '@patternfly/react-core';
+
 import {
   Chart,
   ChartAxis,
-  ChartLine,
   ChartGroup,
+  ChartLine,
   ChartVoronoiContainer,
 } from '@patternfly/react-charts/victory';
+import { Card, CardBody, Content, Spinner } from '@patternfly/react-core';
+
 import { VERSION_COLORS, type VersionGroups } from './trendUtils';
 
 type VersionTrendChartProps = {
@@ -14,10 +16,15 @@ type VersionTrendChartProps = {
   versionGroups: VersionGroups;
 };
 
-export const VersionTrendChart: React.FC<VersionTrendChartProps> = ({ isLoading, versionGroups }) => (
+export const VersionTrendChart: React.FC<VersionTrendChartProps> = ({
+  isLoading,
+  versionGroups,
+}) => (
   <Card>
     <CardBody>
-      <Content component="h3" className="app-section-heading">Pass Rate by Version</Content>
+      <Content className="app-section-heading" component="h3">
+        Pass Rate by Version
+      </Content>
       {isLoading ? (
         <Spinner size="md" />
       ) : versionGroups.versions.length > 0 ? (
@@ -32,13 +39,20 @@ export const VersionTrendChart: React.FC<VersionTrendChartProps> = ({ isLoading,
               />
             }
             height={300}
-            padding={{ bottom: 80, left: 60, right: 30, top: 20 }}
-            legendData={versionGroups.versions.map((v, i) => ({ name: v, symbol: { fill: VERSION_COLORS[i % VERSION_COLORS.length] } }))}
+            legendData={versionGroups.versions.map((v, i) => ({
+              name: v,
+              symbol: { fill: VERSION_COLORS[i % VERSION_COLORS.length] },
+            }))}
             legendPosition="bottom"
+            padding={{ bottom: 80, left: 60, right: 30, top: 20 }}
           >
             <ChartAxis
-              tickValues={versionGroups.dates.filter((_, i) => i % Math.max(1, Math.floor(versionGroups.dates.length / 10)) === 0).map(d => d.slice(5))}
-              style={{ tickLabels: { angle: -45, textAnchor: 'end', fontSize: 10 } }}
+              style={{ tickLabels: { angle: -45, fontSize: 10, textAnchor: 'end' } }}
+              tickValues={versionGroups.dates
+                .filter(
+                  (_, i) => i % Math.max(1, Math.floor(versionGroups.dates.length / 10)) === 0,
+                )
+                .map(d => d.slice(5))}
             />
             <ChartAxis dependentAxis domain={[0, 100]} tickFormat={(t: number) => `${t}%`} />
             <ChartGroup>
@@ -46,10 +60,14 @@ export const VersionTrendChart: React.FC<VersionTrendChartProps> = ({ isLoading,
                 const versionData = versionGroups.byVersion.get(version)!;
                 return (
                   <ChartLine
+                    data={versionGroups.dates
+                      .map(d => ({ x: d.slice(5), y: versionData.get(d) ?? null }))
+                      .filter(d => d.y !== null)}
                     key={version}
                     name={version}
-                    data={versionGroups.dates.map(d => ({ x: d.slice(5), y: versionData.get(d) ?? null })).filter(d => d.y !== null)}
-                    style={{ data: { stroke: VERSION_COLORS[idx % VERSION_COLORS.length], strokeWidth: 2 } }}
+                    style={{
+                      data: { stroke: VERSION_COLORS[idx % VERSION_COLORS.length], strokeWidth: 2 },
+                    }}
                   />
                 );
               })}

@@ -1,13 +1,9 @@
 import React from 'react';
-import {
-  Flex,
-  FlexItem,
-  Label,
-  Spinner,
-  Tooltip,
-} from '@patternfly/react-core';
+
+import { Flex, FlexItem, Label, Spinner, Tooltip } from '@patternfly/react-core';
 import { CheckCircleIcon, ExclamationCircleIcon } from '@patternfly/react-icons';
 import { useQuery } from '@tanstack/react-query';
+
 import { apiFetch } from '../../api/client';
 
 type HealthCheck = { status: 'up' | 'down'; message: string };
@@ -19,19 +15,23 @@ const SERVICES = [
 
 export const SystemHealth: React.FC = () => {
   const { data, isLoading } = useQuery({
-    queryKey: ['systemHealth'],
     queryFn: () => apiFetch<Record<string, HealthCheck>>('/settings/health'),
-    staleTime: 30 * 1000,
+    queryKey: ['systemHealth'],
     refetchInterval: 60 * 1000,
+    staleTime: 30 * 1000,
   });
 
-  if (isLoading || !data) return <Spinner size="md" aria-label="Checking services" />;
+  if (isLoading || !data) {
+    return <Spinner aria-label="Checking services" size="md" />;
+  }
 
   return (
     <Flex spaceItems={{ default: 'spaceItemsMd' }}>
       {SERVICES.map(({ key, label }) => {
         const check = data[key];
-        if (!check) return null;
+        if (!check) {
+          return null;
+        }
         return (
           <FlexItem key={key}>
             <Tooltip content={check.message}>

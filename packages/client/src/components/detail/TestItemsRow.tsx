@@ -1,17 +1,14 @@
 import React from 'react';
-import {
-  Button,
-  ExpandableSection,
-  Flex,
-  FlexItem,
-  Label,
-  Tooltip,
-} from '@patternfly/react-core';
-import { Tr, Td } from '@patternfly/react-table';
-import { WrenchIcon, BugIcon, LinkIcon } from '@patternfly/react-icons';
-import type { TestItem, PublicConfig } from '@cnv-monitor/shared';
+
+import type { PublicConfig, TestItem } from '@cnv-monitor/shared';
+
+import { Button, ExpandableSection, Flex, FlexItem, Label, Tooltip } from '@patternfly/react-core';
+import { BugIcon, LinkIcon, WrenchIcon } from '@patternfly/react-icons';
+import { Td, Tr } from '@patternfly/react-table';
+
 import type { AggregatedItem } from '../../utils/aggregation';
 import { StatusBadge } from '../common/StatusBadge';
+
 import { LogViewer } from './LogViewer';
 import { SimilarFailuresPanel } from './SimilarFailuresPanel';
 
@@ -31,58 +28,168 @@ type TestItemsRowProps = {
 };
 
 export const TestItemsRow: React.FC<TestItemsRowProps> = ({
-  group, isGroupMode, launchCount, config,
-  isExpanded, visibleColumnCount, isColumnVisible,
-  onToggleExpand, onNavigate, onTriage, onCreateJira, onLinkJira,
+  config,
+  group,
+  isColumnVisible,
+  isExpanded,
+  isGroupMode,
+  launchCount,
+  onCreateJira,
+  onLinkJira,
+  onNavigate,
+  onToggleExpand,
+  onTriage,
+  visibleColumnCount,
 }) => {
-  const { representative: item, allRpIds, occurrences } = group;
+  const { allRpIds, occurrences, representative: item } = group;
   const shortName = item.name.split('.').pop() || item.name;
 
   return (
     <React.Fragment key={item.unique_id ?? item.rp_id}>
       <Tr>
-        <Td expand={{ isExpanded, onToggle: () => onToggleExpand(item.rp_id), rowIndex: item.rp_id }} />
+        <Td
+          expand={{ isExpanded, onToggle: () => onToggleExpand(item.rp_id), rowIndex: item.rp_id }}
+        />
         {isColumnVisible('testName') && (
-          <Td dataLabel="Test Name" className="app-cell-truncate">
+          <Td className="app-cell-truncate" dataLabel="Test Name">
             <Tooltip content={item.name}>
-              {item.unique_id
-                ? <Button variant="link" isInline size="sm" onClick={(event) => { event.stopPropagation(); onNavigate(`/test/${encodeURIComponent(item.unique_id!)}`); }}>{shortName}</Button>
-                : <span>{shortName}</span>}
+              {item.unique_id ? (
+                <Button
+                  isInline
+                  size="sm"
+                  variant="link"
+                  onClick={event => {
+                    event.stopPropagation();
+                    onNavigate(`/test/${encodeURIComponent(item.unique_id!)}`);
+                  }}
+                >
+                  {shortName}
+                </Button>
+              ) : (
+                <span>{shortName}</span>
+              )}
             </Tooltip>
           </Td>
         )}
         {isGroupMode && (
-          <Td dataLabel="Occurrences" className="app-cell-nowrap">
-            {occurrences > 1 && <Tooltip content={`Failed in ${occurrences} of ${launchCount} launches`}><Label color="orange" isCompact>{occurrences}x</Label></Tooltip>}
+          <Td className="app-cell-nowrap" dataLabel="Occurrences">
+            {occurrences > 1 && (
+              <Tooltip content={`Failed in ${occurrences} of ${launchCount} launches`}>
+                <Label isCompact color="orange">
+                  {occurrences}x
+                </Label>
+              </Tooltip>
+            )}
           </Td>
         )}
-        {isColumnVisible('status') && <Td dataLabel="Status" className="app-cell-nowrap"><StatusBadge status={item.status} /></Td>}
+        {isColumnVisible('status') && (
+          <Td className="app-cell-nowrap" dataLabel="Status">
+            <StatusBadge status={item.status} />
+          </Td>
+        )}
         {isColumnVisible('error') && (
-          <Td dataLabel="Error" className="app-cell-truncate">
-            {item.error_message && <Tooltip content={item.error_message}><span className="app-text-xs app-text-muted">{item.error_message.split('\n')[0]}</span></Tooltip>}
+          <Td className="app-cell-truncate" dataLabel="Error">
+            {item.error_message && (
+              <Tooltip content={item.error_message}>
+                <span className="app-text-xs app-text-muted">
+                  {item.error_message.split('\n')[0]}
+                </span>
+              </Tooltip>
+            )}
           </Td>
         )}
         {isColumnVisible('polarion') && (
-          <Td dataLabel="Polarion" className="app-cell-nowrap">
-            {item.polarion_id && <Label color="blue" isCompact>{config?.polarionUrl ? <a href={`${config.polarionUrl}${item.polarion_id}`} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>{item.polarion_id}</a> : item.polarion_id}</Label>}
+          <Td className="app-cell-nowrap" dataLabel="Polarion">
+            {item.polarion_id && (
+              <Label isCompact color="blue">
+                {config?.polarionUrl ? (
+                  <a
+                    href={`${config.polarionUrl}${item.polarion_id}`}
+                    rel="noreferrer"
+                    target="_blank"
+                    onClick={event => event.stopPropagation()}
+                  >
+                    {item.polarion_id}
+                  </a>
+                ) : (
+                  item.polarion_id
+                )}
+              </Label>
+            )}
           </Td>
         )}
         {isColumnVisible('defect') && (
-          <Td dataLabel="AI" className="app-cell-nowrap">
-            {item.ai_prediction && <Label isCompact color={item.ai_prediction.includes('Product') ? 'red' : item.ai_prediction.includes('System') ? 'orange' : 'grey'}>{item.ai_prediction.replace('Predicted ', '')} {item.ai_confidence}%</Label>}
+          <Td className="app-cell-nowrap" dataLabel="AI">
+            {item.ai_prediction && (
+              <Label
+                isCompact
+                color={
+                  item.ai_prediction.includes('Product')
+                    ? 'red'
+                    : item.ai_prediction.includes('System')
+                      ? 'orange'
+                      : 'grey'
+                }
+              >
+                {item.ai_prediction.replace('Predicted ', '')} {item.ai_confidence}%
+              </Label>
+            )}
           </Td>
         )}
         {isColumnVisible('jira') && (
-          <Td dataLabel="Jira" className="app-cell-nowrap">
-            {item.jira_key && <Label color="blue" isCompact>{config?.jiraUrl ? <a href={`${config.jiraUrl}/browse/${item.jira_key}`} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>{item.jira_key}</a> : item.jira_key}{' '}({item.jira_status})</Label>}
+          <Td className="app-cell-nowrap" dataLabel="Jira">
+            {item.jira_key && (
+              <Label isCompact color="blue">
+                {config?.jiraUrl ? (
+                  <a
+                    href={`${config.jiraUrl}/browse/${item.jira_key}`}
+                    rel="noreferrer"
+                    target="_blank"
+                    onClick={event => event.stopPropagation()}
+                  >
+                    {item.jira_key}
+                  </a>
+                ) : (
+                  item.jira_key
+                )}{' '}
+                ({item.jira_status})
+              </Label>
+            )}
           </Td>
         )}
         {isColumnVisible('actions') && (
-          <Td dataLabel="Actions" className="app-cell-nowrap">
+          <Td className="app-cell-nowrap" dataLabel="Actions">
             <Flex flexWrap={{ default: 'nowrap' }}>
-              <FlexItem><Button variant="link" isInline icon={<WrenchIcon />} onClick={() => onTriage(allRpIds)}>Classify{occurrences > 1 ? ` (${occurrences})` : ''}</Button></FlexItem>
-              <FlexItem><Button variant="link" isInline icon={<BugIcon />} onClick={() => onCreateJira(item)}>Bug</Button></FlexItem>
-              <FlexItem><Button variant="link" isInline icon={<LinkIcon />} onClick={() => onLinkJira(item.rp_id)}>Link</Button></FlexItem>
+              <FlexItem>
+                <Button
+                  isInline
+                  icon={<WrenchIcon />}
+                  variant="link"
+                  onClick={() => onTriage(allRpIds)}
+                >
+                  Classify{occurrences > 1 ? ` (${occurrences})` : ''}
+                </Button>
+              </FlexItem>
+              <FlexItem>
+                <Button
+                  isInline
+                  icon={<BugIcon />}
+                  variant="link"
+                  onClick={() => onCreateJira(item)}
+                >
+                  Bug
+                </Button>
+              </FlexItem>
+              <FlexItem>
+                <Button
+                  isInline
+                  icon={<LinkIcon />}
+                  variant="link"
+                  onClick={() => onLinkJira(item.rp_id)}
+                >
+                  Link
+                </Button>
+              </FlexItem>
             </Flex>
           </Td>
         )}
@@ -90,8 +197,14 @@ export const TestItemsRow: React.FC<TestItemsRowProps> = ({
       {isExpanded && (
         <Tr isExpanded>
           <Td colSpan={visibleColumnCount + (isGroupMode ? 2 : 1)} noPadding={false}>
-            <ExpandableSection toggleText="Error Logs" isIndented><LogViewer itemId={item.rp_id} /></ExpandableSection>
-            {item.unique_id && <ExpandableSection toggleText="Similar Failures History" isIndented><SimilarFailuresPanel uniqueId={item.unique_id} /></ExpandableSection>}
+            <ExpandableSection isIndented toggleText="Error Logs">
+              <LogViewer itemId={item.rp_id} />
+            </ExpandableSection>
+            {item.unique_id && (
+              <ExpandableSection isIndented toggleText="Similar Failures History">
+                <SimilarFailuresPanel uniqueId={item.unique_id} />
+              </ExpandableSection>
+            )}
           </Td>
         </Tr>
       )}

@@ -1,5 +1,6 @@
-import { apiFetch } from './client';
 import type { TestItem } from '@cnv-monitor/shared';
+
+import { apiFetch } from './client';
 
 export type TestIdentity = {
   name: string;

@@ -1,13 +1,17 @@
-import { Request, Response, NextFunction } from 'express';
-import { config } from '../../config';
-import { logger } from '../../logger';
-import { upsertUser, getSubscription } from '../../db/store';
+import { type NextFunction, type Request, type Response } from 'express';
+
 import type { User } from '@cnv-monitor/shared';
+
+import { config } from '../../config';
+import { getSubscription, upsertUser } from '../../db/store';
+import { logger } from '../../logger';
 
 const log = logger.child({ module: 'Auth' });
 
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace -- Express module augmentation requires namespace
   namespace Express {
+    // eslint-disable-next-line @typescript-eslint/consistent-type-definitions -- Express augmentation requires interface
     interface Request {
       user?: User;
     }
@@ -15,15 +19,19 @@ declare global {
 }
 
 const DEV_USER: User = {
-  id: 'dev-user',
   email: 'developer@redhat.com',
+  id: 'dev-user',
   name: 'Dev User',
   role: 'admin',
 };
 
 let loggedOnce = false;
 
-export const extractUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const extractUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
   if (!config.auth.enabled) {
     if (!loggedOnce) {
       log.warn('Authentication is DISABLED (AUTH_ENABLED=false)');
@@ -45,15 +53,15 @@ export const extractUser = async (req: Request, res: Response, next: NextFunctio
         const impUser = await upsertUser(impersonate, impersonate.split('@')[0]);
         log.warn({ impersonate }, 'Dev mode impersonation active');
         req.user = {
-          id: impUser.email,
           email: impUser.email,
+          id: impUser.email,
           name: impUser.name,
           role: impUser.role === 'admin' ? 'user' : impUser.role,
         };
         next();
         return;
       } catch {
-        // fall through to dev user
+        // Fall through to dev user
       }
     }
 
@@ -76,33 +84,34 @@ export const extractUser = async (req: Request, res: Response, next: NextFunctio
   try {
     const dbUser = await upsertUser(userEmail, userName);
     req.user = {
-      id: username || email!,
       email: userEmail,
+      id: username || email!,
       name: userName,
       role: dbUser.role,
     };
   } catch {
     req.user = {
-      id: username || email!,
       email: userEmail,
+      id: username || email!,
       name: userName,
       role: 'user',
     };
   }
 
   next();
-}
+};
 
 export const requireAdmin = (req: Request, res: Response, next: NextFunction): void => {
-  if (!req.user || req.user.role !== 'admin') {
+  if (req.user?.role !== 'admin') {
     res.status(403).json({ error: 'Admin access required' });
     return;
   }
   next();
-}
+};
 
-export const requireOwnerOrAdmin = (getOwnerId: (req: Request) => Promise<string | null>) => {
-  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const requireOwnerOrAdmin =
+  (getOwnerId: (req: Request) => Promise<string | null>) =>
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     if (req.user?.role === 'admin') {
       next();
       return;
@@ -116,11 +125,12 @@ export const requireOwnerOrAdmin = (getOwnerId: (req: Request) => Promise<string
 
     res.status(403).json({ error: 'You can only modify your own resources, or ask an admin' });
   };
-}
 
 export const getSubscriptionOwner = async (req: Request): Promise<string | null> => {
   const id = parseInt(req.params.id as string, 10);
-  if (isNaN(id)) return null;
+  if (isNaN(id)) {
+    return null;
+  }
   const sub = await getSubscription(id);
   return sub?.createdBy ?? null;
-}
+};

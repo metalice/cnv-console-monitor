@@ -1,28 +1,28 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity('edit_activity')
 export class EditActivity {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  @Column({ length: 50, type: 'varchar' })
+  @Index('idx_edit_activity_action')
+  action!: string;
 
   @Column({ type: 'varchar' })
   @Index('idx_edit_activity_actor')
   actor!: string;
 
-  @Column({ type: 'varchar', length: 50 })
-  @Index('idx_edit_activity_action')
-  action!: string;
-
-  @Column({ type: 'varchar', length: 1024 })
-  file_path!: string;
-
-  @Column({ type: 'uuid', nullable: true })
-  repo_id!: string | null;
-
-  @Column({ type: 'jsonb', nullable: true })
-  details!: Record<string, unknown> | null;
-
   @CreateDateColumn()
   @Index('idx_edit_activity_created')
   created_at!: Date;
+
+  @Column({ nullable: true, type: 'jsonb' })
+  details!: Record<string, unknown> | null;
+
+  @Column({ length: 1024, type: 'varchar' })
+  file_path!: string;
+
+  @PrimaryGeneratedColumn('uuid')
+  id!: string;
+
+  @Column({ nullable: true, type: 'uuid' })
+  repo_id!: string | null;
 }

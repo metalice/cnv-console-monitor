@@ -1,13 +1,15 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+
 import {
   CodeBlock,
   CodeBlockCode,
-  Spinner,
+  Content,
   EmptyState,
   EmptyStateBody,
-  Content,
+  Spinner,
 } from '@patternfly/react-core';
+import { useQuery } from '@tanstack/react-query';
+
 import { fetchTestItemLogs } from '../../api/testItems';
 
 type LogViewerProps = {
@@ -15,17 +17,19 @@ type LogViewerProps = {
 };
 
 export const LogViewer: React.FC<LogViewerProps> = ({ itemId }) => {
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['logs', itemId],
+  const { data, error, isLoading } = useQuery({
     queryFn: () => fetchTestItemLogs(itemId, 'ERROR'),
+    queryKey: ['logs', itemId],
   });
 
-  if (isLoading) return <Spinner size="lg" />;
+  if (isLoading) {
+    return <Spinner size="lg" />;
+  }
 
   if (error) {
     return (
       <EmptyState>
-        <EmptyStateBody>Failed to load logs: {(error as Error).message}</EmptyStateBody>
+        <EmptyStateBody>Failed to load logs: {error.message}</EmptyStateBody>
       </EmptyState>
     );
   }
@@ -39,7 +43,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({ itemId }) => {
   }
 
   const logText = data.content
-    .map((log) => {
+    .map(log => {
       const time = new Date(log.time).toISOString();
       return `[${time}] [${log.level}] ${log.message}`;
     })
@@ -47,7 +51,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({ itemId }) => {
 
   return (
     <div>
-      <Content component="h4" className="app-mb-sm">
+      <Content className="app-mb-sm" component="h4">
         Error Logs ({data.page.totalElements} entries)
       </Content>
       <CodeBlock>

@@ -1,47 +1,57 @@
 import { AppDataSource } from '../data-source';
 import { Acknowledgment } from '../entities/Acknowledgment';
+
 import type { AcknowledgmentRecord } from './types';
 
 const acknowledgments = () => AppDataSource.getRepository(Acknowledgment);
 
-const toAckRecord = (row: Acknowledgment): AcknowledgmentRecord => {
-  return {
-    date: row.date,
-    reviewer: row.reviewer,
-    notes: row.notes ?? undefined,
-    component: row.component ?? undefined,
-    acknowledged_at: row.acknowledged_at?.toISOString() ?? undefined,
-  };
-}
+const toAckRecord = (row: Acknowledgment): AcknowledgmentRecord => ({
+  acknowledged_at: row.acknowledged_at?.toISOString() ?? undefined,
+  component: row.component ?? undefined,
+  date: row.date,
+  notes: row.notes ?? undefined,
+  reviewer: row.reviewer,
+});
 
 export const addAcknowledgment = async (ack: AcknowledgmentRecord): Promise<void> => {
   await acknowledgments().save({
-    date: ack.date,
-    reviewer: ack.reviewer,
-    notes: ack.notes ?? null,
     component: ack.component ?? null,
+    date: ack.date,
+    notes: ack.notes ?? null,
+    reviewer: ack.reviewer,
   });
-}
+};
 
-export const getAcknowledgmentsForDate = async (date: string, component?: string): Promise<AcknowledgmentRecord[]> => {
+export const getAcknowledgmentsForDate = async (
+  date: string,
+  component?: string,
+): Promise<AcknowledgmentRecord[]> => {
   const where: Record<string, unknown> = { date };
-  if (component) where.component = component;
+  if (component) {
+    where.component = component;
+  }
   const rows = await acknowledgments().find({
-    where,
     order: { acknowledged_at: 'ASC' },
+    where,
   });
   return rows.map(toAckRecord);
-}
+};
 
-export const deleteAcknowledgment = async (date: string, reviewer: string, component?: string): Promise<void> => {
+export const deleteAcknowledgment = async (
+  date: string,
+  reviewer: string,
+  component?: string,
+): Promise<void> => {
   const where: Record<string, unknown> = { date, reviewer };
-  if (component) where.component = component;
+  if (component) {
+    where.component = component;
+  }
   await acknowledgments().delete(where);
-}
+};
 
 export const getAckHistory = async (
   days: number,
-): Promise<Array<{ date: string; reviewer: string; acknowledged_at: string | null }>> => {
+): Promise<{ date: string; reviewer: string; acknowledged_at: string | null }[]> => {
   const sinceDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   return acknowledgments()
     .createQueryBuilder('a')
@@ -50,11 +60,11 @@ export const getAckHistory = async (
     .orderBy('a.date', 'DESC')
     .addOrderBy('a.acknowledged_at', 'ASC')
     .getRawMany();
-}
+};
 
 export const getApproverStats = async (
   days: number,
-): Promise<Array<{ reviewer: string; totalReviews: number; lastReviewDate: string }>> => {
+): Promise<{ reviewer: string; totalReviews: number; lastReviewDate: string }[]> => {
   const sinceDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const rows = await acknowledgments()
     .createQueryBuilder('a')
@@ -65,5 +75,9 @@ export const getApproverStats = async (
     .groupBy('a.reviewer')
     .orderBy('"totalReviews"', 'DESC')
     .getRawMany();
-  return rows.map((row) => ({ reviewer: row.reviewer, totalReviews: Number(row.totalReviews), lastReviewDate: row.lastReviewDate }));
-}
+  return rows.map(row => ({
+    lastReviewDate: row.lastReviewDate,
+    reviewer: row.reviewer,
+    totalReviews: Number(row.totalReviews),
+  }));
+};

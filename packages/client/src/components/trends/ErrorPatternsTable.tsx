@@ -1,7 +1,9 @@
 import React from 'react';
-import { Card, CardBody, Content, Tooltip } from '@patternfly/react-core';
-import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
+
 import type { ErrorPattern } from '@cnv-monitor/shared';
+
+import { Card, CardBody, Content, Tooltip } from '@patternfly/react-core';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 
 type ErrorPatternsTableProps = {
   errorPatterns: ErrorPattern[];
@@ -10,8 +12,12 @@ type ErrorPatternsTableProps = {
 export const ErrorPatternsTable: React.FC<ErrorPatternsTableProps> = ({ errorPatterns }) => (
   <Card>
     <CardBody>
-      <Content component="h3" className="app-section-heading">Top Error Patterns (last 30 days)</Content>
-      <Content component="small" className="app-section-subheading">Most common error messages across all failures. High counts indicate systemic issues.</Content>
+      <Content className="app-section-heading" component="h3">
+        Top Error Patterns (last 30 days)
+      </Content>
+      <Content className="app-section-subheading" component="small">
+        Most common error messages across all failures. High counts indicate systemic issues.
+      </Content>
       <div className="app-table-scroll">
         <Table aria-label="Error patterns" variant="compact">
           <Thead>
@@ -26,17 +32,21 @@ export const ErrorPatternsTable: React.FC<ErrorPatternsTableProps> = ({ errorPat
           <Tbody>
             {errorPatterns.map((e, i) => (
               <Tr key={i}>
-                <Td dataLabel="Error" className="app-cell-truncate">
+                <Td className="app-cell-truncate" dataLabel="Error">
                   <Tooltip content={e.pattern}>
-                    <span className="app-mono-sm">
-                      {e.pattern}
-                    </span>
+                    <span className="app-mono-sm">{e.pattern}</span>
                   </Tooltip>
                 </Td>
-                <Td dataLabel="Occurrences"><strong>{e.count}</strong></Td>
+                <Td dataLabel="Occurrences">
+                  <strong>{e.count}</strong>
+                </Td>
                 <Td dataLabel="Tests">{e.uniqueTests}</Td>
-                <Td dataLabel="First" className="app-cell-nowrap">{e.firstSeen}</Td>
-                <Td dataLabel="Last" className="app-cell-nowrap">{e.lastSeen}</Td>
+                <Td className="app-cell-nowrap" dataLabel="First">
+                  {e.firstSeen}
+                </Td>
+                <Td className="app-cell-nowrap" dataLabel="Last">
+                  {e.lastSeen}
+                </Td>
               </Tr>
             ))}
           </Tbody>

@@ -1,9 +1,20 @@
 import React, { useMemo, useState } from 'react';
-import { Card, CardBody, CardTitle, Flex, FlexItem, Button, Tooltip, Label } from '@patternfly/react-core';
-import { AngleLeftIcon, AngleRightIcon, OutlinedQuestionCircleIcon } from '@patternfly/react-icons';
+
 import type { ReleaseInfo } from '@cnv-monitor/shared';
 
-const VERSION_COLORS = ['#2b9af3', '#3e8635', '#ec7a08', '#6753ac', '#c9190b', '#009596', '#f0ab00', '#8a8d90'];
+import { Button, Card, CardBody, CardTitle, Flex, FlexItem, Tooltip } from '@patternfly/react-core';
+import { AngleLeftIcon, AngleRightIcon, OutlinedQuestionCircleIcon } from '@patternfly/react-icons';
+
+const VERSION_COLORS = [
+  '#2b9af3',
+  '#3e8635',
+  '#ec7a08',
+  '#6753ac',
+  '#c9190b',
+  '#009596',
+  '#f0ab00',
+  '#8a8d90',
+];
 const DAY_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const toDateStr = (d: Date): string => d.toISOString().split('T')[0];
@@ -15,10 +26,10 @@ type ReleaseCalendarProps = {
   onSelectVersion?: (shortname: string) => void;
 };
 
-export const ReleaseCalendar: React.FC<ReleaseCalendarProps> = ({ releases, onSelectVersion }) => {
+export const ReleaseCalendar: React.FC<ReleaseCalendarProps> = ({ onSelectVersion, releases }) => {
   const [monthOffset, setMonthOffset] = useState(0);
 
-  const { year, month, weeks, events, monthLabel } = useMemo(() => {
+  const { events, monthLabel, weeks } = useMemo(() => {
     const now = new Date();
     const target = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
     const y = target.getFullYear();
@@ -32,12 +43,17 @@ export const ReleaseCalendar: React.FC<ReleaseCalendarProps> = ({ releases, onSe
       versionColors.set(r.shortname, color);
       for (const ms of r.milestones) {
         const key = ms.date;
-        if (!evtMap.has(key)) evtMap.set(key, []);
+        if (!evtMap.has(key)) {
+          evtMap.set(key, []);
+        }
         evtMap.get(key)!.push({
-          version: r.shortname.replace('cnv-', ''),
-          shortname: r.shortname,
-          milestone: ms.name.replace(/^Batch\s+/, '').replace(/GA Stable Release|GA Release/g, 'GA').trim(),
           color,
+          milestone: ms.name
+            .replace(/^Batch\s+/, '')
+            .replace(/GA Stable Release|GA Release/g, 'GA')
+            .trim(),
+          shortname: r.shortname,
+          version: r.shortname.replace('cnv-', ''),
         });
       }
     });
@@ -45,18 +61,21 @@ export const ReleaseCalendar: React.FC<ReleaseCalendarProps> = ({ releases, onSe
     const firstDay = new Date(y, m, 1);
     const startCol = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
     const daysInMonth = new Date(y, m + 1, 0).getDate();
-    const wks: Array<Array<{ day: number; dateStr: string } | null>> = [];
-    let week: Array<{ day: number; dateStr: string } | null> = new Array(7).fill(null);
+    const wks: ({ day: number; dateStr: string } | null)[][] = [];
+    let week: ({ day: number; dateStr: string } | null)[] = new Array(7).fill(null);
 
     for (let d = 1; d <= daysInMonth; d++) {
       const col = (startCol + d - 1) % 7;
-      if (col === 0 && d > 1) { wks.push(week); week = new Array(7).fill(null); }
+      if (col === 0 && d > 1) {
+        wks.push(week);
+        week = new Array(7).fill(null);
+      }
       const dt = new Date(y, m, d);
-      week[col] = { day: d, dateStr: toDateStr(dt) };
+      week[col] = { dateStr: toDateStr(dt), day: d };
     }
     wks.push(week);
 
-    return { year: y, month: m, weeks: wks, events: evtMap, monthLabel: label };
+    return { events: evtMap, month: m, monthLabel: label, weeks: wks, year: y };
   }, [releases, monthOffset]);
 
   const todayStr = toDateStr(new Date());
@@ -64,7 +83,10 @@ export const ReleaseCalendar: React.FC<ReleaseCalendarProps> = ({ releases, onSe
   return (
     <Card>
       <CardTitle>
-        <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }}>
+        <Flex
+          alignItems={{ default: 'alignItemsCenter' }}
+          justifyContent={{ default: 'justifyContentSpaceBetween' }}
+        >
           <FlexItem>
             Release Calendar{' '}
             <Tooltip content="Month view showing all release milestones across CNV versions. Color-coded by version. Hover over events for details.">
@@ -72,11 +94,38 @@ export const ReleaseCalendar: React.FC<ReleaseCalendarProps> = ({ releases, onSe
             </Tooltip>
           </FlexItem>
           <FlexItem>
-            <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
-              <FlexItem><Button variant="plain" size="sm" icon={<AngleLeftIcon />} onClick={() => setMonthOffset(o => o - 1)} aria-label="Previous month" /></FlexItem>
-              <FlexItem><strong>{monthLabel}</strong></FlexItem>
-              <FlexItem><Button variant="plain" size="sm" icon={<AngleRightIcon />} onClick={() => setMonthOffset(o => o + 1)} aria-label="Next month" /></FlexItem>
-              {monthOffset !== 0 && <FlexItem><Button variant="link" size="sm" onClick={() => setMonthOffset(0)}>Today</Button></FlexItem>}
+            <Flex
+              alignItems={{ default: 'alignItemsCenter' }}
+              spaceItems={{ default: 'spaceItemsSm' }}
+            >
+              <FlexItem>
+                <Button
+                  aria-label="Previous month"
+                  icon={<AngleLeftIcon />}
+                  size="sm"
+                  variant="plain"
+                  onClick={() => setMonthOffset(o => o - 1)}
+                />
+              </FlexItem>
+              <FlexItem>
+                <strong>{monthLabel}</strong>
+              </FlexItem>
+              <FlexItem>
+                <Button
+                  aria-label="Next month"
+                  icon={<AngleRightIcon />}
+                  size="sm"
+                  variant="plain"
+                  onClick={() => setMonthOffset(o => o + 1)}
+                />
+              </FlexItem>
+              {monthOffset !== 0 && (
+                <FlexItem>
+                  <Button size="sm" variant="link" onClick={() => setMonthOffset(0)}>
+                    Today
+                  </Button>
+                </FlexItem>
+              )}
             </Flex>
           </FlexItem>
         </Flex>
@@ -84,29 +133,47 @@ export const ReleaseCalendar: React.FC<ReleaseCalendarProps> = ({ releases, onSe
       <CardBody>
         <div className="app-rel-cal">
           <div className="app-rel-cal-header">
-            {DAY_HEADERS.map(d => <div key={d} className="app-rel-cal-hcell">{d}</div>)}
+            {DAY_HEADERS.map(d => (
+              <div className="app-rel-cal-hcell" key={d}>
+                {d}
+              </div>
+            ))}
           </div>
           {weeks.map((week, wi) => (
-            <div key={wi} className="app-rel-cal-row">
+            <div className="app-rel-cal-row" key={wi}>
               {week.map((cell, ci) => {
-                if (!cell) return <div key={ci} className="app-rel-cal-cell app-rel-cal-empty" />;
+                if (!cell) {
+                  return <div className="app-rel-cal-cell app-rel-cal-empty" key={ci} />;
+                }
                 const dayEvents = events.get(cell.dateStr) ?? [];
                 const isToday = cell.dateStr === todayStr;
                 return (
-                  <div key={ci} className={`app-rel-cal-cell ${isToday ? 'app-rel-cal-today' : ''}`}>
+                  <div
+                    className={`app-rel-cal-cell ${isToday ? 'app-rel-cal-today' : ''}`}
+                    key={ci}
+                  >
                     <span className="app-rel-cal-day">{cell.day}</span>
                     {dayEvents.slice(0, 3).map((evt, ei) => (
-                      <Tooltip key={ei} content={`${evt.version}: ${evt.milestone}`}>
+                      <Tooltip content={`${evt.version}: ${evt.milestone}`} key={ei}>
                         <div
                           className={`app-rel-cal-event ${onSelectVersion ? 'app-rel-cal-event-clickable' : ''}`}
                           style={{ borderLeftColor: evt.color }}
-                          onClick={(e) => { e.stopPropagation(); if (onSelectVersion) onSelectVersion(evt.shortname); }}
+                          onClick={e => {
+                            e.stopPropagation();
+                            if (onSelectVersion) {
+                              onSelectVersion(evt.shortname);
+                            }
+                          }}
                         >
-                          <span className="app-text-xs">{evt.version} {evt.milestone.substring(0, 12)}</span>
+                          <span className="app-text-xs">
+                            {evt.version} {evt.milestone.substring(0, 12)}
+                          </span>
                         </div>
                       </Tooltip>
                     ))}
-                    {dayEvents.length > 3 && <span className="app-text-xs app-text-muted">+{dayEvents.length - 3}</span>}
+                    {dayEvents.length > 3 && (
+                      <span className="app-text-xs app-text-muted">+{dayEvents.length - 3}</span>
+                    )}
                   </div>
                 );
               })}

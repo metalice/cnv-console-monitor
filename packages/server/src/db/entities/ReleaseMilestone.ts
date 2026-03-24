@@ -1,12 +1,18 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity('release_milestones')
 export class ReleaseMilestoneEntity {
+  @CreateDateColumn()
+  created_at!: Date;
+
+  @Column({ nullable: true, type: 'varchar' })
+  created_by!: string | null;
+
+  @Column({ type: 'date' })
+  date!: string;
+
   @PrimaryGeneratedColumn()
   id!: number;
-
-  @Column({ type: 'varchar' })
-  version!: string;
 
   @Column({ type: 'varchar' })
   milestone_type!: string;
@@ -14,15 +20,9 @@ export class ReleaseMilestoneEntity {
   @Column({ type: 'varchar' })
   name!: string;
 
-  @Column({ type: 'date' })
-  date!: string;
-
-  @Column({ type: 'text', nullable: true })
+  @Column({ nullable: true, type: 'text' })
   notes!: string | null;
 
-  @Column({ type: 'varchar', nullable: true })
-  created_by!: string | null;
-
-  @CreateDateColumn()
-  created_at!: Date;
+  @Column({ type: 'varchar' })
+  version!: string;
 }

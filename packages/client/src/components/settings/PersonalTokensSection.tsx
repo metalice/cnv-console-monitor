@@ -1,30 +1,38 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+import type { UserTokenInfo } from '@cnv-monitor/shared';
+
 import {
+  Alert,
+  Button,
   Card,
   CardBody,
   CardTitle,
-  Button,
-  TextInput,
-  Label,
-  Spinner,
-  Alert,
-  Flex,
-  FlexItem,
   DescriptionList,
+  DescriptionListDescription,
   DescriptionListGroup,
   DescriptionListTerm,
-  DescriptionListDescription,
+  Flex,
+  FlexItem,
   InputGroup,
   InputGroupItem,
+  Label,
+  Spinner,
+  TextInput,
 } from '@patternfly/react-core';
-import { CheckCircleIcon, TimesCircleIcon, KeyIcon, TrashIcon } from '@patternfly/react-icons';
-import type { UserTokenInfo } from '@cnv-monitor/shared';
-import { fetchUserTokens, saveUserTokenApi, deleteUserTokenApi, testUserTokenApi } from '../../api/userTokens';
+import { CheckCircleIcon, KeyIcon, TimesCircleIcon, TrashIcon } from '@patternfly/react-icons';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
+import {
+  deleteUserTokenApi,
+  fetchUserTokens,
+  saveUserTokenApi,
+  testUserTokenApi,
+} from '../../api/userTokens';
 
 const providerLabels: Record<string, string> = {
-  gitlab: 'GitLab Access Token',
   github: 'GitHub Access Token',
+  gitlab: 'GitLab Access Token',
   jira: 'Jira API Token',
 };
 
@@ -33,28 +41,33 @@ export const PersonalTokensSection: React.FC = () => {
   const [tokenInputs, setTokenInputs] = useState<Record<string, string>>({});
 
   const { data: tokens, isLoading } = useQuery({
-    queryKey: ['userTokens'],
     queryFn: fetchUserTokens,
+    queryKey: ['userTokens'],
   });
 
   const saveMutation = useMutation({
-    mutationFn: ({ provider, token }: { provider: string; token: string }) => saveUserTokenApi(provider, token),
+    mutationFn: ({ provider, token }: { provider: string; token: string }) =>
+      saveUserTokenApi(provider, token),
     onSuccess: (_data, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['userTokens'] });
+      void queryClient.invalidateQueries({ queryKey: ['userTokens'] });
       setTokenInputs(prev => ({ ...prev, [vars.provider]: '' }));
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (provider: string) => deleteUserTokenApi(provider),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['userTokens'] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['userTokens'] });
+    },
   });
 
   const testMutation = useMutation({
     mutationFn: (provider: string) => testUserTokenApi(provider),
   });
 
-  if (isLoading) return <Spinner />;
+  if (isLoading) {
+    return <Spinner />;
+  }
 
   return (
     <Card>
@@ -65,16 +78,26 @@ export const PersonalTokensSection: React.FC = () => {
         </Flex>
       </CardTitle>
       <CardBody>
-        <p className="app-mb-md">Used for creating PRs and Jira tickets when quarantining tests. Write access required. Actions are attributed to you.</p>
+        <p className="app-mb-md">
+          Used for creating PRs and Jira tickets when quarantining tests. Write access required.
+          Actions are attributed to you.
+        </p>
 
-        {saveMutation.isError && <Alert variant="danger" isInline title="Save failed" className="app-mb-md">{(saveMutation.error as Error).message}</Alert>}
+        {saveMutation.isError && (
+          <Alert isInline className="app-mb-md" title="Save failed" variant="danger">
+            {saveMutation.error.message}
+          </Alert>
+        )}
 
         <DescriptionList isHorizontal>
           {(tokens || []).map((t: UserTokenInfo) => (
             <DescriptionListGroup key={t.provider}>
               <DescriptionListTerm>{providerLabels[t.provider] || t.provider}</DescriptionListTerm>
               <DescriptionListDescription>
-                <Flex spaceItems={{ default: 'spaceItemsSm' }} alignItems={{ default: 'alignItemsCenter' }}>
+                <Flex
+                  alignItems={{ default: 'alignItemsCenter' }}
+                  spaceItems={{ default: 'spaceItemsSm' }}
+                >
                   {t.isConfigured ? (
                     <>
                       <FlexItem>
@@ -82,14 +105,26 @@ export const PersonalTokensSection: React.FC = () => {
                           color={t.isValid ? 'green' : 'red'}
                           icon={t.isValid ? <CheckCircleIcon /> : <TimesCircleIcon />}
                         >
-                          {t.isValid ? (t.providerUsername || 'Valid') : 'Invalid'}
+                          {t.isValid ? t.providerUsername || 'Valid' : 'Invalid'}
                         </Label>
                       </FlexItem>
                       <FlexItem>
-                        <Button variant="secondary" size="sm" onClick={() => testMutation.mutate(t.provider)} isLoading={testMutation.isPending}>Test</Button>
+                        <Button
+                          isLoading={testMutation.isPending}
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => testMutation.mutate(t.provider)}
+                        >
+                          Test
+                        </Button>
                       </FlexItem>
                       <FlexItem>
-                        <Button variant="plain" size="sm" icon={<TrashIcon />} onClick={() => deleteMutation.mutate(t.provider)} />
+                        <Button
+                          icon={<TrashIcon />}
+                          size="sm"
+                          variant="plain"
+                          onClick={() => deleteMutation.mutate(t.provider)}
+                        />
                       </FlexItem>
                     </>
                   ) : (
@@ -97,18 +132,25 @@ export const PersonalTokensSection: React.FC = () => {
                       <InputGroup>
                         <InputGroupItem isFill>
                           <TextInput
+                            placeholder={`Enter ${providerLabels[t.provider] || t.provider} token`}
                             type="password"
                             value={tokenInputs[t.provider] || ''}
-                            onChange={(_e, val) => setTokenInputs(prev => ({ ...prev, [t.provider]: val }))}
-                            placeholder={`Enter ${providerLabels[t.provider] || t.provider} token`}
+                            onChange={(_e, val) =>
+                              setTokenInputs(prev => ({ ...prev, [t.provider]: val }))
+                            }
                           />
                         </InputGroupItem>
                         <InputGroupItem>
                           <Button
-                            variant="control"
-                            onClick={() => saveMutation.mutate({ provider: t.provider, token: tokenInputs[t.provider] || '' })}
                             isDisabled={!tokenInputs[t.provider] || saveMutation.isPending}
                             isLoading={saveMutation.isPending}
+                            variant="control"
+                            onClick={() =>
+                              saveMutation.mutate({
+                                provider: t.provider,
+                                token: tokenInputs[t.provider] || '',
+                              })
+                            }
                           >
                             Save
                           </Button>
@@ -123,7 +165,7 @@ export const PersonalTokensSection: React.FC = () => {
         </DescriptionList>
 
         {testMutation.isSuccess && (
-          <Alert variant="success" isInline title="Token valid" className="app-mt-md">
+          <Alert isInline className="app-mt-md" title="Token valid" variant="success">
             Connected as {String((testMutation.data as Record<string, unknown>).username)}
           </Alert>
         )}

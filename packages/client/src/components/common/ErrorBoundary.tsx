@@ -1,22 +1,23 @@
 import React from 'react';
+
 import {
-  EmptyState,
-  EmptyStateBody,
-  EmptyStateActions,
-  EmptyStateFooter,
   Button,
+  EmptyState,
+  EmptyStateActions,
+  EmptyStateBody,
+  EmptyStateFooter,
   PageSection,
 } from '@patternfly/react-core';
 import { ExclamationCircleIcon } from '@patternfly/react-icons';
 
-interface Props {
+type Props = {
   children: React.ReactNode;
-}
+};
 
-interface State {
+type State = {
   hasError: boolean;
   error?: Error;
-}
+};
 
 export class ErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
@@ -25,10 +26,11 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+    return { error, hasError: true };
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
+    // eslint-disable-next-line no-console -- error boundaries need console output for debugging
     console.error('ErrorBoundary caught:', error, info.componentStack);
   }
 
@@ -39,15 +41,18 @@ export class ErrorBoundary extends React.Component<Props, State> {
           <EmptyState
             headingLevel="h2"
             icon={ExclamationCircleIcon}
-            titleText="Something went wrong"
             status="danger"
+            titleText="Something went wrong"
           >
             <EmptyStateBody>
               {this.state.error?.message || 'An unexpected error occurred.'}
             </EmptyStateBody>
             <EmptyStateFooter>
               <EmptyStateActions>
-                <Button variant="primary" onClick={() => this.setState({ hasError: false, error: undefined })}>
+                <Button
+                  variant="primary"
+                  onClick={() => this.setState({ error: undefined, hasError: false })}
+                >
                   Try Again
                 </Button>
                 <Button variant="link" onClick={() => window.location.reload()}>

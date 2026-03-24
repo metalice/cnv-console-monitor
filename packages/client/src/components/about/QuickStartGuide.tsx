@@ -1,8 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+
 import {
-  Card, CardBody, CardTitle, Button,
-  ExpandableSection, Content, Flex, FlexItem, Label,
+  Button,
+  Card,
+  CardBody,
+  Content,
+  ExpandableSection,
+  Flex,
+  FlexItem,
+  Label,
 } from '@patternfly/react-core';
 import { ArrowRightIcon } from '@patternfly/react-icons';
 
@@ -19,7 +26,12 @@ type QuickStartGuideProps = {
   defaultExpanded?: boolean;
 };
 
-export const QuickStartGuide: React.FC<QuickStartGuideProps> = ({ title, icon, steps, defaultExpanded }) => {
+export const QuickStartGuide: React.FC<QuickStartGuideProps> = ({
+  defaultExpanded,
+  icon,
+  steps,
+  title,
+}) => {
   const [expanded, setExpanded] = useState(defaultExpanded ?? false);
   const navigate = useNavigate();
 
@@ -27,29 +39,51 @@ export const QuickStartGuide: React.FC<QuickStartGuideProps> = ({ title, icon, s
     <Card className="app-about-quickstart">
       <CardBody>
         <ExpandableSection
+          isExpanded={expanded}
           toggleContent={
-            <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
+            <Flex
+              alignItems={{ default: 'alignItemsCenter' }}
+              spaceItems={{ default: 'spaceItemsSm' }}
+            >
               <FlexItem>{icon}</FlexItem>
-              <FlexItem><strong>{title}</strong></FlexItem>
-              <FlexItem><Label isCompact color="blue">{steps.length} steps</Label></FlexItem>
+              <FlexItem>
+                <strong>{title}</strong>
+              </FlexItem>
+              <FlexItem>
+                <Label isCompact color="blue">
+                  {steps.length} steps
+                </Label>
+              </FlexItem>
             </Flex>
           }
-          isExpanded={expanded}
           onToggle={(_e, v) => setExpanded(v)}
         >
           <div className="app-about-steps">
             {steps.map((step, i) => (
-              <div key={i} className="app-about-step">
-                <Flex alignItems={{ default: 'alignItemsFlexStart' }} spaceItems={{ default: 'spaceItemsMd' }}>
+              <div className="app-about-step" key={i}>
+                <Flex
+                  alignItems={{ default: 'alignItemsFlexStart' }}
+                  spaceItems={{ default: 'spaceItemsMd' }}
+                >
                   <FlexItem>
                     <span className="app-about-step-number">{i + 1}</span>
                   </FlexItem>
                   <FlexItem style={{ flex: 1 }}>
-                    <Content component="p" className="app-mb-none"><strong>{step.title}</strong></Content>
-                    <Content component="small" className="app-text-muted">{step.description}</Content>
+                    <Content className="app-mb-none" component="p">
+                      <strong>{step.title}</strong>
+                    </Content>
+                    <Content className="app-text-muted" component="small">
+                      {step.description}
+                    </Content>
                     {step.link && (
                       <div className="app-mt-xs">
-                        <Button variant="link" size="sm" icon={<ArrowRightIcon />} iconPosition="end" onClick={() => navigate(step.link!.path)}>
+                        <Button
+                          icon={<ArrowRightIcon />}
+                          iconPosition="end"
+                          size="sm"
+                          variant="link"
+                          onClick={() => navigate(step.link!.path)}
+                        >
                           {step.link.label}
                         </Button>
                       </div>

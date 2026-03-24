@@ -1,23 +1,27 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+
 import {
-  PageSection,
-  Content,
   Bullseye,
+  Content,
   EmptyState,
   EmptyStateBody,
+  PageSection,
   Spinner,
 } from '@patternfly/react-core';
 import { ExclamationCircleIcon } from '@patternfly/react-icons';
-import { fetchCompare, fetchCompareLaunches, type CompareResult } from '../api/compare';
-import { CompareSelector } from '../components/compare/CompareSelector';
+import { useQuery } from '@tanstack/react-query';
+
+import { type CompareResult, fetchCompare, fetchCompareLaunches } from '../api/compare';
 import { CompareResults } from '../components/compare/CompareResults';
+import { CompareSelector } from '../components/compare/CompareSelector';
 
 export const ComparePage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  useEffect(() => { document.title = 'Compare Launches | CNV Console Monitor'; }, []);
+  useEffect(() => {
+    document.title = 'Compare Launches | CNV Console Monitor';
+  }, []);
 
   const paramA = searchParams.get('a') ?? '';
   const paramB = searchParams.get('b') ?? '';
@@ -26,24 +30,30 @@ export const ComparePage: React.FC = () => {
   const hasValidParams = !isNaN(queryA) && !isNaN(queryB);
 
   const [selectedLaunchName, setSelectedLaunchName] = useState<string | null>(null);
-  const [selectedRunA, setSelectedRunA] = useState<number | null>(!isNaN(queryA) ? queryA : null);
-  const [selectedRunB, setSelectedRunB] = useState<number | null>(!isNaN(queryB) ? queryB : null);
+  const [selectedRunA, setSelectedRunA] = useState(!isNaN(queryA) ? queryA : null);
+  const [selectedRunB, setSelectedRunB] = useState(!isNaN(queryB) ? queryB : null);
 
   const { data: launchGroups, isLoading: groupsLoading } = useQuery({
-    queryKey: ['compareLaunches'],
     queryFn: () => fetchCompareLaunches(60),
+    queryKey: ['compareLaunches'],
     staleTime: 5 * 60 * 1000,
   });
 
   const selectedGroup = useMemo(() => {
-    if (!selectedLaunchName || !launchGroups) return null;
-    return launchGroups.find((group) => group.name === selectedLaunchName) ?? null;
+    if (!selectedLaunchName || !launchGroups) {
+      return null;
+    }
+    return launchGroups.find(group => group.name === selectedLaunchName) ?? null;
   }, [selectedLaunchName, launchGroups]);
 
-  const { data: result, isLoading: comparing, error: compareError } = useQuery<CompareResult>({
-    queryKey: ['compare', queryA, queryB],
-    queryFn: () => fetchCompare(queryA, queryB),
+  const {
+    data: result,
+    error: compareError,
+    isLoading: comparing,
+  } = useQuery<CompareResult>({
     enabled: hasValidParams,
+    queryFn: () => fetchCompare(queryA, queryB),
+    queryKey: ['compare', queryA, queryB],
   });
 
   const handleSelectLaunch = (name: string) => {
@@ -74,34 +84,38 @@ export const ComparePage: React.FC = () => {
       {!hasValidParams && (
         <PageSection>
           <CompareSelector
-            launchGroups={launchGroups}
+            isComparing={comparing}
             isLoading={groupsLoading}
+            launchGroups={launchGroups}
             selectedGroup={selectedGroup}
-            onSelectLaunch={handleSelectLaunch}
-            onClearLaunch={() => setSelectedLaunchName(null)}
             selectedRunA={selectedRunA}
             selectedRunB={selectedRunB}
+            onClearLaunch={() => setSelectedLaunchName(null)}
+            onCompare={handleCompare}
+            onSelectLaunch={handleSelectLaunch}
             onSelectRunA={setSelectedRunA}
             onSelectRunB={setSelectedRunB}
-            onCompare={handleCompare}
-            isComparing={comparing}
           />
         </PageSection>
       )}
 
       {comparing && (
-        <PageSection><Bullseye className="app-min-h-200"><Spinner aria-label="Comparing" /></Bullseye></PageSection>
+        <PageSection>
+          <Bullseye className="app-min-h-200">
+            <Spinner aria-label="Comparing" />
+          </Bullseye>
+        </PageSection>
       )}
 
       {compareError && (
         <PageSection>
-          <EmptyState headingLevel="h4" titleText="Comparison failed" icon={ExclamationCircleIcon}>
-            <EmptyStateBody>{(compareError as Error).message}</EmptyStateBody>
+          <EmptyState headingLevel="h4" icon={ExclamationCircleIcon} titleText="Comparison failed">
+            <EmptyStateBody>{compareError.message}</EmptyStateBody>
           </EmptyState>
         </PageSection>
       )}
 
-      {result && result.summary && (
+      {result?.summary && (
         <PageSection>
           <CompareResults result={result} onReset={handleReset} />
         </PageSection>

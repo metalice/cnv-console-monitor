@@ -1,5 +1,7 @@
-import { Server } from 'http';
-import { WebSocketServer, WebSocket } from 'ws';
+import { type Server } from 'http';
+
+import { WebSocket, WebSocketServer } from 'ws';
+
 import { logger } from './logger';
 
 const log = logger.child({ module: 'WebSocket' });
@@ -10,9 +12,9 @@ let wss: WebSocketServer;
 let heartbeatTimer: ReturnType<typeof setInterval>;
 
 export const initWebSocket = (server: Server): void => {
-  wss = new WebSocketServer({ server, path: '/ws' });
+  wss = new WebSocketServer({ path: '/ws', server });
 
-  wss.on('connection', (ws) => {
+  wss.on('connection', ws => {
     (ws as WebSocket & { isAlive: boolean }).isAlive = true;
     log.info({ clients: wss.clients.size }, 'Client connected');
 
@@ -22,7 +24,9 @@ export const initWebSocket = (server: Server): void => {
       if (state.active) {
         ws.send(JSON.stringify({ event: 'pipeline-state', ...state }));
       }
-    } catch { /* pipeline not initialized yet */ }
+    } catch {
+      /* Pipeline not initialized yet */
+    }
 
     ws.on('pong', () => {
       (ws as WebSocket & { isAlive: boolean }).isAlive = true;
@@ -50,10 +54,12 @@ export const initWebSocket = (server: Server): void => {
   });
 
   log.info('WebSocket server initialized with heartbeat');
-}
+};
 
 export const broadcast = (event: string, data?: Record<string, unknown>): void => {
-  if (!wss) return;
+  if (!wss) {
+    return;
+  }
 
   const message = JSON.stringify(data ? { event, ...data } : { event });
   let sent = 0;
@@ -66,6 +72,6 @@ export const broadcast = (event: string, data?: Record<string, unknown>): void =
   }
 
   if (sent > 0 && event !== 'poll-progress') {
-    log.debug({ event, clients: sent }, 'Broadcast sent');
+    log.debug({ clients: sent, event }, 'Broadcast sent');
   }
-}
+};

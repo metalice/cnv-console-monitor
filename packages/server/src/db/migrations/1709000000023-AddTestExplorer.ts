@@ -1,8 +1,16 @@
 import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddTestExplorer1709000000023 implements MigrationInterface {
+  public down = async (queryRunner: QueryRunner): Promise<void> => {
+    await queryRunner.query(`DROP TABLE IF EXISTS "quarantine_log"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "user_tokens"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "quarantines"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "repo_files"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "repositories"`);
+  };
+
   public up = async (queryRunner: QueryRunner): Promise<void> => {
-    // repositories table
+    // Repositories table
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "repositories" (
         "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -27,7 +35,7 @@ export class AddTestExplorer1709000000023 implements MigrationInterface {
       )
     `);
 
-    // repo_files table
+    // Repo_files table
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "repo_files" (
         "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -45,7 +53,7 @@ export class AddTestExplorer1709000000023 implements MigrationInterface {
       )
     `);
 
-    // quarantines table
+    // Quarantines table
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "quarantines" (
         "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -73,7 +81,7 @@ export class AddTestExplorer1709000000023 implements MigrationInterface {
       )
     `);
 
-    // quarantine_log table
+    // Quarantine_log table
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "quarantine_log" (
         "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -85,7 +93,7 @@ export class AddTestExplorer1709000000023 implements MigrationInterface {
       )
     `);
 
-    // user_tokens table
+    // User_tokens table
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "user_tokens" (
         "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -103,25 +111,41 @@ export class AddTestExplorer1709000000023 implements MigrationInterface {
     `);
 
     // Indexes
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_repositories_provider" ON "repositories" ("provider")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_repositories_enabled" ON "repositories" ("enabled")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_repo_files_repo" ON "repo_files" ("repo_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_repo_files_type" ON "repo_files" ("file_type")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_repo_files_counterpart" ON "repo_files" ("counterpart_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_quarantines_status" ON "quarantines" ("status")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_quarantines_component" ON "quarantines" ("component")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_quarantines_test" ON "quarantines" ("test_name")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_quarantines_sla" ON "quarantines" ("sla_deadline") WHERE status = 'active'`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_quarantine_log_qid" ON "quarantine_log" ("quarantine_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_user_tokens_user" ON "user_tokens" ("user_email")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_user_tokens_provider" ON "user_tokens" ("provider")`);
-  };
-
-  public down = async (queryRunner: QueryRunner): Promise<void> => {
-    await queryRunner.query(`DROP TABLE IF EXISTS "quarantine_log"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "user_tokens"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "quarantines"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "repo_files"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "repositories"`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_repositories_provider" ON "repositories" ("provider")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_repositories_enabled" ON "repositories" ("enabled")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_repo_files_repo" ON "repo_files" ("repo_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_repo_files_type" ON "repo_files" ("file_type")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_repo_files_counterpart" ON "repo_files" ("counterpart_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_quarantines_status" ON "quarantines" ("status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_quarantines_component" ON "quarantines" ("component")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_quarantines_test" ON "quarantines" ("test_name")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_quarantines_sla" ON "quarantines" ("sla_deadline") WHERE status = 'active'`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_quarantine_log_qid" ON "quarantine_log" ("quarantine_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_user_tokens_user" ON "user_tokens" ("user_email")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_user_tokens_provider" ON "user_tokens" ("provider")`,
+    );
   };
 }

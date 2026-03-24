@@ -1,4 +1,5 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { type NextFunction, type Request, type Response, Router } from 'express';
+
 import { AppDataSource } from '../../db/data-source';
 
 const router = Router();
@@ -20,9 +21,11 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     for (const row of subscriptionRows) {
       try {
         const parsed: string[] = JSON.parse(row.components || '[]');
-        for (const comp of parsed) componentSet.add(comp);
+        for (const comp of parsed) {
+          componentSet.add(comp);
+        }
       } catch {
-        // malformed components JSON – skip
+        // Malformed components JSON – skip
       }
     }
     const myComponents = [...componentSet].sort();
@@ -69,7 +72,12 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
       [email],
     );
 
-    let suggestedWork: Array<{ name: string; unique_id: string; occurrences: number; consecutiveFailures: number }> = [];
+    let suggestedWork: {
+      name: string;
+      unique_id: string;
+      occurrences: number;
+      consecutiveFailures: number;
+    }[] = [];
     if (myComponents.length > 0) {
       const placeholders = myComponents.map((_, i) => `$${i + 1}`).join(', ');
       const timeParam = `$${myComponents.length + 1}`;
@@ -91,17 +99,17 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
       );
       suggestedWork = suggestedWork.map(row => ({
         ...row,
-        occurrences: Number(row.occurrences),
-        consecutiveFailures: Number(row.consecutiveFailures),
+        consecutiveFailures: row.consecutiveFailures,
+        occurrences: row.occurrences,
       }));
     }
 
     res.json({
       myComponents,
-      untriagedInMyComponents,
-      myRecentActivity,
       myJiraBugs,
+      myRecentActivity,
       suggestedWork,
+      untriagedInMyComponents,
     });
   } catch (err) {
     next(err);

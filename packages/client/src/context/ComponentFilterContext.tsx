@@ -1,6 +1,17 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+
 import { useQuery } from '@tanstack/react-query';
+
 import { apiFetch } from '../api/client';
+
 import { usePreferences } from './PreferencesContext';
 
 type ComponentFilterContextValue = {
@@ -13,12 +24,14 @@ type ComponentFilterContextValue = {
 const ComponentFilterContext = createContext<ComponentFilterContextValue | null>(null);
 
 export const ComponentFilterProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { preferences, loaded: prefsLoaded, setPreference } = usePreferences();
-  const [selectedComponents, setSelectedComponentsRaw] = useState<Set<string>>(new Set());
+  const { loaded: prefsLoaded, preferences, setPreference } = usePreferences();
+  const [selectedComponents, setSelectedComponentsRaw] = useState(new Set());
 
   const initializedRef = useRef(false);
   useEffect(() => {
-    if (!prefsLoaded || initializedRef.current) return;
+    if (!prefsLoaded || initializedRef.current) {
+      return;
+    }
     initializedRef.current = true;
     const urlComps = new URLSearchParams(window.location.search).get('components');
     if (urlComps) {
@@ -30,46 +43,53 @@ export const ComponentFilterProvider: React.FC<{ children: React.ReactNode }> = 
     }
   }, [prefsLoaded, preferences.dashboardComponents, setPreference]);
 
-  const setSelectedComponents = useCallback((value: Set<string>) => {
-    setSelectedComponentsRaw(value);
-    setPreference('dashboardComponents', [...value]);
+  const setSelectedComponents = useCallback(
+    (value: Set<string>) => {
+      setSelectedComponentsRaw(value);
+      setPreference('dashboardComponents', [...value]);
 
-    const url = new URL(window.location.href);
-    if (value.size > 0) {
-      url.searchParams.set('components', [...value].join(','));
-    } else {
-      url.searchParams.delete('components');
-    }
-    window.history.replaceState(null, '', url.pathname + (url.search || ''));
-  }, [setPreference]);
+      const url = new URL(window.location.href);
+      if (value.size > 0) {
+        url.searchParams.set('components', [...value].join(','));
+      } else {
+        url.searchParams.delete('components');
+      }
+      window.history.replaceState(null, '', url.pathname + (url.search || ''));
+    },
+    [setPreference],
+  );
 
   const { data: availableComponents } = useQuery({
-    queryKey: ['availableComponents'],
     queryFn: () => apiFetch<string[]>('/launches/components'),
+    queryKey: ['availableComponents'],
     staleTime: 5 * 60 * 1000,
   });
 
   const selectedComponent = useMemo(
-    () => selectedComponents.size === 1 ? [...selectedComponents][0] : undefined,
+    () => (selectedComponents.size === 1 ? [...selectedComponents][0] : undefined),
     [selectedComponents],
   );
 
-  const value = useMemo<ComponentFilterContextValue>(() => ({
-    selectedComponents,
-    setSelectedComponents,
-    availableComponents: availableComponents ?? [],
-    selectedComponent,
-  }), [selectedComponents, setSelectedComponents, availableComponents, selectedComponent]);
+  const value = useMemo<ComponentFilterContextValue>(
+    () => ({
+      availableComponents: availableComponents ?? [],
+      selectedComponent,
+      selectedComponents,
+      setSelectedComponents,
+    }),
+    [selectedComponents, setSelectedComponents, availableComponents, selectedComponent],
+  );
 
   return (
-    <ComponentFilterContext.Provider value={value}>
-      {children}
-    </ComponentFilterContext.Provider>
+    <ComponentFilterContext.Provider value={value}>{children}</ComponentFilterContext.Provider>
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useComponentFilter = (): ComponentFilterContextValue => {
   const ctx = useContext(ComponentFilterContext);
-  if (!ctx) throw new Error('useComponentFilter must be used within ComponentFilterProvider');
+  if (!ctx) {
+    throw new Error('useComponentFilter must be used within ComponentFilterProvider');
+  }
   return ctx;
 };

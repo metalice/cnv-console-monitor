@@ -4,11 +4,11 @@ export const TokenProviderEnum = z.enum(['gitlab', 'github', 'jira']);
 export type TokenProvider = z.infer<typeof TokenProviderEnum>;
 
 export const UserTokenInfoSchema = z.object({
-  provider: TokenProviderEnum,
   isConfigured: z.boolean(),
   isValid: z.boolean(),
-  providerUsername: z.string().nullish(),
+  provider: TokenProviderEnum,
   providerEmail: z.string().nullish(),
+  providerUsername: z.string().nullish(),
   validatedAt: z.string().nullish(),
 });
 

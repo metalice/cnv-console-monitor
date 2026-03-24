@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
+
 import {
-  Toolbar,
-  ToolbarContent,
-  ToolbarItem,
-  ToolbarGroup,
+  Button,
+  Content,
   InputGroup,
   InputGroupItem,
   TextInput,
-  Button,
-  Content,
+  Toolbar,
+  ToolbarContent,
+  ToolbarGroup,
+  ToolbarItem,
 } from '@patternfly/react-core';
-import { SearchIcon, TimesIcon, ColumnsIcon } from '@patternfly/react-icons';
-import { ColumnManagementModal } from './ColumnManagementModal';
+import { ColumnsIcon, SearchIcon, TimesIcon } from '@patternfly/react-icons';
+
 import type { ColumnDef } from '../../hooks/useColumnManagement';
+
+import { ColumnManagementModal } from './ColumnManagementModal';
 
 type TableToolbarProps = {
   searchValue: string;
@@ -28,16 +31,16 @@ type TableToolbarProps = {
 };
 
 export const TableToolbar: React.FC<TableToolbarProps> = ({
-  searchValue,
-  onSearchChange,
-  searchPlaceholder = 'Search...',
-  resultCount,
-  totalCount,
-  columns,
-  visibleIds,
-  onSaveColumns,
-  onResetColumns,
   children,
+  columns,
+  onResetColumns,
+  onSaveColumns,
+  onSearchChange,
+  resultCount,
+  searchPlaceholder = 'Search...',
+  searchValue,
+  totalCount,
+  visibleIds,
 }) => {
   const [colModalOpen, setColModalOpen] = useState(false);
   const hasColumnManagement = columns && visibleIds && onSaveColumns && onResetColumns;
@@ -51,17 +54,22 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({
               <InputGroup>
                 <InputGroupItem>
                   <TextInput
-                    type="search"
                     aria-label="Search table"
+                    customIcon={<SearchIcon />}
                     placeholder={searchPlaceholder}
+                    type="search"
                     value={searchValue}
                     onChange={(_e, v) => onSearchChange(v)}
-                    customIcon={<SearchIcon />}
                   />
                 </InputGroupItem>
                 {searchValue && (
                   <InputGroupItem>
-                    <Button variant="plain" aria-label="Clear search" onClick={() => onSearchChange('')} icon={<TimesIcon />} />
+                    <Button
+                      aria-label="Clear search"
+                      icon={<TimesIcon />}
+                      variant="plain"
+                      onClick={() => onSearchChange('')}
+                    />
                   </InputGroupItem>
                 )}
               </InputGroup>
@@ -73,14 +81,21 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({
           <ToolbarGroup align={{ default: 'alignEnd' }}>
             {searchValue && (
               <ToolbarItem>
-                <Content component="small" className="app-text-muted">
-                  {resultCount === totalCount ? `${totalCount} items` : `${resultCount} of ${totalCount}`}
+                <Content className="app-text-muted" component="small">
+                  {resultCount === totalCount
+                    ? `${totalCount} items`
+                    : `${resultCount} of ${totalCount}`}
                 </Content>
               </ToolbarItem>
             )}
             {hasColumnManagement && (
               <ToolbarItem>
-                <Button variant="plain" aria-label="Manage columns" onClick={() => setColModalOpen(true)} icon={<ColumnsIcon />} />
+                <Button
+                  aria-label="Manage columns"
+                  icon={<ColumnsIcon />}
+                  variant="plain"
+                  onClick={() => setColModalOpen(true)}
+                />
               </ToolbarItem>
             )}
           </ToolbarGroup>
@@ -89,12 +104,12 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({
 
       {hasColumnManagement && (
         <ColumnManagementModal
-          isOpen={colModalOpen}
-          onClose={() => setColModalOpen(false)}
           allColumns={columns}
+          isOpen={colModalOpen}
           visibleIds={visibleIds}
-          onSave={onSaveColumns}
+          onClose={() => setColModalOpen(false)}
           onReset={onResetColumns}
+          onSave={onSaveColumns}
         />
       )}
     </>

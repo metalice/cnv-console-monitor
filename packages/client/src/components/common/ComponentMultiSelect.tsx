@@ -1,11 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import {
-  Select,
-  SelectList,
-  SelectOption,
-  MenuToggle,
-  Divider,
-} from '@patternfly/react-core';
+
+import { Divider, MenuToggle, Select, SelectList, SelectOption } from '@patternfly/react-core';
 
 type ComponentMultiSelectProps = {
   id: string;
@@ -20,23 +15,29 @@ type ComponentMultiSelectProps = {
 
 export const ComponentMultiSelect: React.FC<ComponentMultiSelectProps> = ({
   id,
-  selected,
-  options,
-  onChange,
-  placeholder = 'All Components',
-  itemLabel = 'components',
-  isDisabled,
   isCompact,
+  isDisabled,
+  itemLabel = 'components',
+  onChange,
+  options,
+  placeholder = 'All Components',
+  selected,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const label = useMemo(() => {
-    if (selected.size === 0) return placeholder;
+    if (selected.size === 0) {
+      return placeholder;
+    }
     if (isCompact) {
-      if (selected.size === 1) return [...selected][0];
+      if (selected.size === 1) {
+        return [...selected][0];
+      }
       return itemLabel.charAt(0).toUpperCase() + itemLabel.slice(1);
     }
-    if (selected.size === 1) return [...selected][0];
+    if (selected.size === 1) {
+      return [...selected][0];
+    }
     return `${selected.size} ${itemLabel}`;
   }, [selected, placeholder, itemLabel, isCompact]);
 
@@ -44,7 +45,11 @@ export const ComponentMultiSelect: React.FC<ComponentMultiSelectProps> = ({
 
   const toggle = (option: string) => {
     const next = new Set(selected);
-    if (next.has(option)) next.delete(option); else next.add(option);
+    if (next.has(option)) {
+      next.delete(option);
+    } else {
+      next.add(option);
+    }
     onChange(next);
   };
 
@@ -54,29 +59,35 @@ export const ComponentMultiSelect: React.FC<ComponentMultiSelectProps> = ({
 
   return (
     <Select
-      role="menu"
+      isScrollable
       id={id}
       isOpen={isOpen}
-      isScrollable
       maxMenuHeight="280px"
-      onOpenChange={(open) => setIsOpen(open)}
-      onSelect={(_e, val) => { toggle(val as string); setIsOpen(true); }}
-      toggle={(ref) => (
+      role="menu"
+      // eslint-disable-next-line react/no-unstable-nested-components
+      toggle={ref => (
         <MenuToggle
-          ref={ref}
-          onClick={() => !isDisabled && setIsOpen(!isOpen)}
-          isExpanded={isOpen}
-          isDisabled={isDisabled}
-          variant={isCompact ? 'plainText' : 'default'}
           className={isCompact ? 'app-masthead-select' : 'app-min-w-200'}
+          isDisabled={isDisabled}
+          isExpanded={isOpen}
+          ref={ref}
+          variant={isCompact ? 'plainText' : 'default'}
+          onClick={() => !isDisabled && setIsOpen(!isOpen)}
         >
-          {isCompact && selected.size > 0 && <span className="app-masthead-badge">{selected.size}</span>}
+          {isCompact && selected.size > 0 && (
+            <span className="app-masthead-badge">{selected.size}</span>
+          )}
           {label}
         </MenuToggle>
       )}
+      onOpenChange={open => setIsOpen(open)}
+      onSelect={(_e, val) => {
+        toggle(val as string);
+        setIsOpen(true);
+      }}
     >
       <div className="app-select-all-row">
-        <button type="button" className="app-select-all-toggle" onClick={toggleAll}>
+        <button className="app-select-all-toggle" type="button" onClick={toggleAll}>
           {allSelected ? 'Clear selection' : 'Select all'}
         </button>
         {selected.size > 0 && !allSelected && (
@@ -86,7 +97,7 @@ export const ComponentMultiSelect: React.FC<ComponentMultiSelectProps> = ({
       <Divider />
       <SelectList>
         {options.map(opt => (
-          <SelectOption key={opt} value={opt} hasCheckbox isSelected={selected.has(opt)}>
+          <SelectOption hasCheckbox isSelected={selected.has(opt)} key={opt} value={opt}>
             {opt}
           </SelectOption>
         ))}

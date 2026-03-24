@@ -1,4 +1,5 @@
-import type { TriageRequest, CommentRequest, BulkTriageRequest } from '@cnv-monitor/shared';
+import type { BulkTriageRequest, CommentRequest, TriageRequest } from '@cnv-monitor/shared';
+
 import { apiPost } from './client';
 
 export type TriageResult = { success: boolean };

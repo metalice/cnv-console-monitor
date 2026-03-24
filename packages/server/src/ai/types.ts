@@ -43,7 +43,7 @@ export type PromptTemplate = {
   user: string;
 };
 
-export interface ModelProvider {
+export type ModelProvider = {
   readonly name: string;
   readonly displayName: string;
   chat(messages: ChatMessage[], options?: ModelOptions): Promise<AIResponse>;
@@ -51,7 +51,7 @@ export interface ModelProvider {
   supportsStreaming(): boolean;
   isAvailable(): boolean;
   listModels(): ModelInfo[];
-}
+};
 
 export type AIConfig = {
   enabled: boolean;

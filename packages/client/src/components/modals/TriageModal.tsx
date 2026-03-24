@@ -1,71 +1,89 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
 import {
-  Modal,
-  ModalVariant,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
+  Alert,
   Button,
   Form,
   FormGroup,
-  TextArea,
   HelperText,
   HelperTextItem,
-  Label, Alert, Tooltip,
+  Modal,
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
+  ModalVariant,
+  TextArea,
+  Tooltip,
 } from '@patternfly/react-core';
 import { MagicIcon } from '@patternfly/react-icons';
-import { fetchDefectTypes } from '../../api/defectTypes';
-import { classifyDefect, bulkClassifyDefect } from '../../api/triage';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
 import { suggestTriage } from '../../api/ai';
+import { fetchDefectTypes } from '../../api/defectTypes';
+import { bulkClassifyDefect, classifyDefect } from '../../api/triage';
 import { SearchableSelect } from '../common/SearchableSelect';
 
 type TriageModalProps = {
   isOpen: boolean;
   onClose: () => void;
   itemIds: number[];
-  testContext?: { testName: string; component?: string; errorMessage?: string; consecutiveFailures?: number };
+  testContext?: {
+    testName: string;
+    component?: string;
+    errorMessage?: string;
+    consecutiveFailures?: number;
+  };
 };
 
-export const TriageModal: React.FC<TriageModalProps> = ({ isOpen, onClose, itemIds, testContext }) => {
+export const TriageModal: React.FC<TriageModalProps> = ({
+  isOpen,
+  itemIds,
+  onClose,
+  testContext,
+}) => {
   const queryClient = useQueryClient();
   const [defectType, setDefectType] = useState('');
   const [comment, setComment] = useState('');
-  const [aiSuggestion, setAiSuggestion] = useState<{ suggestedType?: string; suggestedLabel?: string; confidence?: string; reasoning?: string } | null>(null);
+  const [aiSuggestion, setAiSuggestion] = useState<{
+    suggestedType?: string;
+    suggestedLabel?: string;
+    confidence?: string;
+    reasoning?: string;
+  } | null>(null);
 
   const { data: defectTypes } = useQuery({
-    queryKey: ['defectTypes'],
     queryFn: fetchDefectTypes,
+    queryKey: ['defectTypes'],
     staleTime: Infinity,
   });
 
   const mutation = useMutation({
     mutationFn: () => {
       if (itemIds.length === 1) {
-        return classifyDefect(itemIds[0], { defectType, comment });
+        return classifyDefect(itemIds[0], { comment, defectType });
       }
-      return bulkClassifyDefect({ itemIds, defectType, comment });
+      return bulkClassifyDefect({ comment, defectType, itemIds });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['report'] });
-      queryClient.invalidateQueries({ queryKey: ['untriaged'] });
-      queryClient.invalidateQueries({ queryKey: ['activity'] });
-      queryClient.invalidateQueries({ queryKey: ['testItems'] });
-      queryClient.invalidateQueries({ queryKey: ['testProfile'] });
-      queryClient.invalidateQueries({ queryKey: ['streaks'] });
-      queryClient.invalidateQueries({ queryKey: ['flakyTests'] });
+      void queryClient.invalidateQueries({ queryKey: ['report'] });
+      void queryClient.invalidateQueries({ queryKey: ['untriaged'] });
+      void queryClient.invalidateQueries({ queryKey: ['activity'] });
+      void queryClient.invalidateQueries({ queryKey: ['testItems'] });
+      void queryClient.invalidateQueries({ queryKey: ['testProfile'] });
+      void queryClient.invalidateQueries({ queryKey: ['streaks'] });
+      void queryClient.invalidateQueries({ queryKey: ['flakyTests'] });
       onClose();
       setDefectType('');
       setComment('');
     },
   });
 
-  const options: Array<{ value: string; label: string }> = [];
+  const options: { value: string; label: string }[] = [];
   if (defectTypes) {
     for (const [category, types] of Object.entries(defectTypes)) {
       for (const dt of types) {
         if (!category.startsWith('TO_INVESTIGATE') || dt.locator === 'ti001') {
-          options.push({ value: dt.locator, label: `${dt.longName} (${dt.shortName})` });
+          options.push({ label: `${dt.longName} (${dt.shortName})`, value: dt.locator });
         }
       }
     }
@@ -74,70 +92,97 @@ export const TriageModal: React.FC<TriageModalProps> = ({ isOpen, onClose, itemI
   const isBulk = itemIds.length > 1;
 
   const aiMutation = useMutation({
-    mutationFn: () => suggestTriage({
-      testName: testContext?.testName ?? '',
-      component: testContext?.component,
-      errorMessage: testContext?.errorMessage ?? '',
-      consecutiveFailures: testContext?.consecutiveFailures,
-    }),
-    onSuccess: (data) => {
+    mutationFn: () =>
+      suggestTriage({
+        component: testContext?.component,
+        consecutiveFailures: testContext?.consecutiveFailures,
+        errorMessage: testContext?.errorMessage ?? '',
+        testName: testContext?.testName ?? '',
+      }),
+    onSuccess: data => {
       setAiSuggestion(data.suggestion);
       if (data.suggestion.suggestedType) {
-        const match = options.find(o => o.value === data.suggestion.suggestedType || o.label.toLowerCase().includes((data.suggestion.suggestedLabel ?? '').toLowerCase()));
-        if (match) setDefectType(match.value);
+        const match = options.find(
+          o =>
+            o.value === data.suggestion.suggestedType ||
+            o.label.toLowerCase().includes((data.suggestion.suggestedLabel ?? '').toLowerCase()),
+        );
+        if (match) {
+          setDefectType(match.value);
+        }
       }
-      if (data.suggestion.reasoning) setComment(data.suggestion.reasoning);
+      if (data.suggestion.reasoning) {
+        setComment(data.suggestion.reasoning);
+      }
     },
   });
 
   return (
-    <Modal
-      variant={ModalVariant.medium}
-      isOpen={isOpen}
-      onClose={onClose}
-    >
+    <Modal isOpen={isOpen} variant={ModalVariant.medium} onClose={onClose}>
       <ModalHeader title={isBulk ? `Classify ${itemIds.length} Items` : 'Classify Defect'} />
       <ModalBody>
         <Form>
           {testContext && !isBulk && (
             <FormGroup>
               <Tooltip content="AI analyzes the error message and test context to suggest the most likely defect classification (Product Bug, Automation Bug, System Issue, etc.)">
-                <Button variant="secondary" icon={<MagicIcon />} onClick={() => aiMutation.mutate()} isLoading={aiMutation.isPending} isDisabled={aiMutation.isPending} size="sm">
+                <Button
+                  icon={<MagicIcon />}
+                  isDisabled={aiMutation.isPending}
+                  isLoading={aiMutation.isPending}
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => aiMutation.mutate()}
+                >
                   AI Suggest
                 </Button>
               </Tooltip>
               {aiSuggestion && (
-                <Alert variant="info" isInline isPlain className="app-mt-sm"
+                <Alert
+                  isInline
+                  isPlain
+                  className="app-mt-sm"
                   title={`AI suggests: ${aiSuggestion.suggestedLabel ?? aiSuggestion.suggestedType} (${aiSuggestion.confidence} confidence)`}
+                  variant="info"
                 />
               )}
             </FormGroup>
           )}
-          <FormGroup label="Defect Type" isRequired>
+          <FormGroup isRequired label="Defect Type">
             <SearchableSelect
               id="defect-type"
-              value={defectType}
-              options={options}
-              onChange={setDefectType}
-              placeholder="Select a defect type..."
               noResultsText="No defect types"
+              options={options}
+              placeholder="Select a defect type..."
+              value={defectType}
+              onChange={setDefectType}
             />
           </FormGroup>
           <FormGroup label="Comment">
-            <TextArea value={comment} onChange={(_e, val) => setComment(val)} placeholder="Reason for classification..." />
+            <TextArea
+              placeholder="Reason for classification..."
+              value={comment}
+              onChange={(_e, val) => setComment(val)}
+            />
           </FormGroup>
           {mutation.isError && (
             <HelperText>
-              <HelperTextItem variant="error">{(mutation.error as Error).message}</HelperTextItem>
+              <HelperTextItem variant="error">{mutation.error.message}</HelperTextItem>
             </HelperText>
           )}
         </Form>
       </ModalBody>
       <ModalFooter>
-        <Button variant="primary" onClick={() => mutation.mutate()} isDisabled={!defectType} isLoading={mutation.isPending}>
+        <Button
+          isDisabled={!defectType}
+          isLoading={mutation.isPending}
+          variant="primary"
+          onClick={() => mutation.mutate()}
+        >
           Classify
         </Button>
-        <Button variant="link" onClick={onClose}>Cancel</Button>
+        <Button variant="link" onClick={onClose}>
+          Cancel
+        </Button>
       </ModalFooter>
     </Modal>
   );

@@ -1,5 +1,6 @@
 import type { JiraMeta, JiraTestResponse } from '../../api/settings';
 import type { SearchableSelectOption } from '../common/SearchableSelect';
+
 import { toOptions } from './types';
 
 type JiraMetaResolved = {
@@ -15,26 +16,41 @@ export const resolveJiraMeta = (
   jiraTestMode: boolean,
 ): JiraMetaResolved => {
   const jiraMetaDraftData = jiraMetaDraft
-    ? { projects: jiraMetaDraft.projects ?? [], issueTypes: jiraMetaDraft.issueTypes ?? [], components: jiraMetaDraft.components ?? [] }
+    ? {
+        components: jiraMetaDraft.components ?? [],
+        issueTypes: jiraMetaDraft.issueTypes ?? [],
+        projects: jiraMetaDraft.projects ?? [],
+      }
     : null;
 
   const jiraMetaData = jiraTokenDirty
-    ? (jiraTestMode
-        ? {
-            projects: jiraMetaOverride?.projects?.length ? jiraMetaOverride.projects : (jiraMetaDraftData?.projects ?? []),
-            issueTypes: jiraMetaOverride?.issueTypes?.length ? jiraMetaOverride.issueTypes : (jiraMetaDraftData?.issueTypes ?? []),
-            components: jiraMetaDraftData?.components?.length ? jiraMetaDraftData.components : (jiraMetaOverride?.components ?? []),
-          }
-        : jiraMeta)
+    ? jiraTestMode
+      ? {
+          components: jiraMetaDraftData?.components?.length
+            ? jiraMetaDraftData.components
+            : (jiraMetaOverride?.components ?? []),
+          issueTypes: jiraMetaOverride?.issueTypes?.length
+            ? jiraMetaOverride.issueTypes
+            : (jiraMetaDraftData?.issueTypes ?? []),
+          projects: jiraMetaOverride?.projects?.length
+            ? jiraMetaOverride.projects
+            : (jiraMetaDraftData?.projects ?? []),
+        }
+      : jiraMeta
     : jiraMeta;
 
   const jiraProjectOptions = jiraMetaData?.projects?.length ? jiraMetaData.projects : [];
-  const jiraProjectSelectOptions: SearchableSelectOption[] = jiraProjectOptions.map(p => ({ value: p.key, label: `${p.key} - ${p.name}` }));
-  const issueTypeOptions = jiraMetaData?.issueTypes?.length ? jiraMetaData.issueTypes : ['Bug', 'Task', 'Story'];
+  const jiraProjectSelectOptions: SearchableSelectOption[] = jiraProjectOptions.map(p => ({
+    label: `${p.key} - ${p.name}`,
+    value: p.key,
+  }));
+  const issueTypeOptions = jiraMetaData?.issueTypes?.length
+    ? jiraMetaData.issueTypes
+    : ['Bug', 'Task', 'Story'];
   const issueTypeSelectOptions = toOptions(issueTypeOptions);
 
-  return { jiraProjectSelectOptions, issueTypeSelectOptions };
-}
+  return { issueTypeSelectOptions, jiraProjectSelectOptions };
+};
 
 export const resolveRpProjectOptions = (
   rpProjectsOverride: string[] | null,
@@ -45,4 +61,4 @@ export const resolveRpProjectOptions = (
   return rpProjectsData.length
     ? [...new Set([currentProject, ...rpProjectsData])]
     : [currentProject];
-}
+};

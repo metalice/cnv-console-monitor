@@ -1,4 +1,5 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { type AxiosInstance } from 'axios';
+
 import { config } from '../config';
 
 const buildAuthHeader = (email?: string, token?: string): string => {
@@ -11,7 +12,11 @@ const buildAuthHeader = (email?: string, token?: string): string => {
   return `Bearer ${jiraToken}`;
 };
 
-export const createJiraClient = (overrides?: { url?: string; token?: string; email?: string }): AxiosInstance => {
+export const createJiraClient = (overrides?: {
+  url?: string;
+  token?: string;
+  email?: string;
+}): AxiosInstance => {
   const baseUrl = overrides?.url || config.jira.url;
   const authHeader = buildAuthHeader(overrides?.email, overrides?.token);
 

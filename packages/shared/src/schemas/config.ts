@@ -1,15 +1,15 @@
 import { z } from 'zod';
 
 export const PublicConfigSchema = z.object({
-  reportportalUrl: z.string(),
-  reportportalProject: z.string(),
-  jiraEnabled: z.boolean(),
-  jiraUrl: z.string().optional(),
-  jiraProjectKey: z.string().optional(),
-  polarionUrl: z.string().optional(),
-  rpLaunchBaseUrl: z.string(),
-  rpItemBaseUrl: z.string(),
   emailEnabled: z.boolean().optional(),
+  jiraEnabled: z.boolean(),
+  jiraProjectKey: z.string().optional(),
+  jiraUrl: z.string().optional(),
+  polarionUrl: z.string().optional(),
+  reportportalProject: z.string(),
+  reportportalUrl: z.string(),
+  rpItemBaseUrl: z.string(),
+  rpLaunchBaseUrl: z.string(),
   slackEnabled: z.boolean().optional(),
 });
 

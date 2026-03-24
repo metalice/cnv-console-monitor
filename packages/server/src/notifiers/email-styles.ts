@@ -1,11 +1,15 @@
 export const healthColor = (health: string): string => {
   switch (health) {
-    case 'green': return '#2ecc71';
-    case 'yellow': return '#f39c12';
-    case 'red': return '#e74c3c';
-    default: return '#95a5a6';
+    case 'green':
+      return '#2ecc71';
+    case 'yellow':
+      return '#f39c12';
+    case 'red':
+      return '#e74c3c';
+    default:
+      return '#95a5a6';
   }
-}
+};
 
 export const emailCss = `
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }
@@ -27,20 +31,28 @@ export const emailCss = `
     .section-title { font-size: 16px; font-weight: 600; margin: 24px 0 12px 0; }
     .green-list { color: #2ecc71; }`;
 
-export const streakBarHtml = (runs: Array<{ status: string; date: string }>): string => {
-  const segments = runs.map(run => {
-    const color = run.status === 'FAILED' ? '#e74c3c' : run.status === 'PASSED' ? '#2ecc71' : '#95a5a6';
-    const label = run.status === 'FAILED' ? `${run.date} — Failed` : `${run.date} — Passed`;
-    return `<span style="display:inline-block;width:12px;height:12px;background:${color};border-radius:2px;margin-right:2px;cursor:default;" title="${label}"></span>`;
-  }).join('');
+export const streakBarHtml = (runs: { status: string; date: string }[]): string => {
+  const segments = runs
+    .map(run => {
+      const color =
+        run.status === 'FAILED' ? '#e74c3c' : run.status === 'PASSED' ? '#2ecc71' : '#95a5a6';
+      const label = run.status === 'FAILED' ? `${run.date} — Failed` : `${run.date} — Passed`;
+      return `<span style="display:inline-block;width:12px;height:12px;background:${color};border-radius:2px;margin-right:2px;cursor:default;" title="${label}"></span>`;
+    })
+    .join('');
   return `<span style="display:inline-flex;align-items:center;">${segments}</span>`;
-}
+};
 
-export const formatLastPass = (lastPassDate: string | null, lastPassTime: number | null): string => {
-  if (!lastPassDate || !lastPassTime) return '<span style="color:#e74c3c;">Never passed</span>';
+export const formatLastPass = (
+  lastPassDate: string | null,
+  lastPassTime: number | null,
+): string => {
+  if (!lastPassDate || !lastPassTime) {
+    return '<span style="color:#e74c3c;">Never passed</span>';
+  }
   const dateObj = new Date(lastPassTime);
   const month = dateObj.toLocaleString('en-US', { month: 'short' });
   const day = dateObj.getDate();
   const time = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   return `Last passed: ${month} ${day} ${time}`;
-}
+};

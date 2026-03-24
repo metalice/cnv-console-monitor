@@ -1,6 +1,10 @@
 import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddAICache1709000000021 implements MigrationInterface {
+  public down = async (queryRunner: QueryRunner): Promise<void> => {
+    await queryRunner.query(`DROP TABLE IF EXISTS "ai_cache"`);
+  };
+
   public up = async (queryRunner: QueryRunner): Promise<void> => {
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "ai_cache" (
@@ -13,9 +17,5 @@ export class AddAICache1709000000021 implements MigrationInterface {
         "created_at" TIMESTAMP DEFAULT NOW()
       )
     `);
-  };
-
-  public down = async (queryRunner: QueryRunner): Promise<void> => {
-    await queryRunner.query(`DROP TABLE IF EXISTS "ai_cache"`);
   };
 }

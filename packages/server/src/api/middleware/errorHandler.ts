@@ -1,5 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
 import { AxiosError } from 'axios';
+import { type NextFunction, type Request, type Response } from 'express';
+
 import { logger, setResponseError } from '../../logger';
 
 const log = logger.child({ module: 'API' });
@@ -10,10 +11,13 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
     const upstream = err.response?.data;
     const url = err.config?.url;
 
-    log.error({
-      err: { message: err.message, code: err.code, status, url },
-      upstream,
-    }, 'Upstream API error');
+    log.error(
+      {
+        err: { code: err.code, message: err.message, status, url },
+        upstream,
+      },
+      'Upstream API error',
+    );
 
     setResponseError(res, 'An upstream service returned an error');
     res.status(502).json({

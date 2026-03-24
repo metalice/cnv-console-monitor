@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+
 import type { User } from '@cnv-monitor/shared';
+
 import { Bullseye, Spinner } from '@patternfly/react-core';
 
 type AuthContextValue = {
@@ -16,10 +18,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const impersonate = params.get('impersonate');
-    const url = impersonate ? `/api/user/profile?impersonate=${encodeURIComponent(impersonate)}` : '/api/user/profile';
-    fetch(url)
-      .then((response) => {
-        if (!response.ok) throw new Error('Not authenticated');
+    const url = impersonate
+      ? `/api/user/profile?impersonate=${encodeURIComponent(impersonate)}`
+      : '/api/user/profile';
+    void fetch(url)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Not authenticated');
+        }
         return response.json();
       })
       .then((data: User) => setUser(data))
@@ -27,9 +33,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .finally(() => setLoading(false));
   }, []);
 
-  const value = useMemo((): AuthContextValue | null => (
-    user ? { user, isAdmin: user.role === 'admin' } : null
-  ), [user]);
+  const value = useMemo(
+    (): AuthContextValue | null => (user ? { isAdmin: user.role === 'admin', user } : null),
+    [user],
+  );
 
   if (loading) {
     return (
@@ -42,7 +49,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   if (!value) {
     return (
       <Bullseye className="app-full-height">
-        <div>Unable to determine user identity. Ensure you are accessing through the OAuth proxy.</div>
+        <div>
+          Unable to determine user identity. Ensure you are accessing through the OAuth proxy.
+        </div>
       </Bullseye>
     );
   }
@@ -50,8 +59,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = (): AuthContextValue => {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  if (!ctx) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
   return ctx;
 };

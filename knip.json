@@ -1,0 +1,14 @@
+{
+  "workspaces": {
+    "packages/shared": {
+      "project": ["src/**/*.ts"]
+    },
+    "packages/server": {
+      "project": ["src/**/*.ts"]
+    },
+    "packages/client": {
+      "project": ["src/**/*.{ts,tsx}"]
+    }
+  },
+  "ignore": ["docs/**"]
+}

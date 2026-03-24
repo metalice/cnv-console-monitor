@@ -10,7 +10,7 @@ export type ArtifactFile = {
 export type ArtifactsResponse = {
   videos: ArtifactFile[];
   screenshots: ArtifactFile[];
-  reports: Array<{ name: string; url: string }>;
+  reports: { name: string; url: string }[];
   artifactsPageUrl: string | null;
 };
 

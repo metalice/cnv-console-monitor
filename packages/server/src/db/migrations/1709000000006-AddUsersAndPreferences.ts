@@ -1,6 +1,11 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import { type MigrationInterface, type QueryRunner } from 'typeorm';
 
 export class AddUsersAndPreferences1709000000006 implements MigrationInterface {
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query('DROP TABLE IF EXISTS "user_preferences"');
+    await queryRunner.query('DROP TABLE IF EXISTS "users"');
+  }
+
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "users" (
@@ -19,10 +24,5 @@ export class AddUsersAndPreferences1709000000006 implements MigrationInterface {
         "updated_at" TIMESTAMP DEFAULT NOW()
       )
     `);
-  }
-
-  public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query('DROP TABLE IF EXISTS "user_preferences"');
-    await queryRunner.query('DROP TABLE IF EXISTS "users"');
   }
 }

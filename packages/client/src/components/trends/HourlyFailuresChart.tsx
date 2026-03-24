@@ -1,12 +1,14 @@
 import React from 'react';
-import { Card, CardBody, Content } from '@patternfly/react-core';
+
+import type { HourlyFailure } from '@cnv-monitor/shared';
+
 import {
   Chart,
   ChartAxis,
   ChartBar,
   ChartVoronoiContainer,
 } from '@patternfly/react-charts/victory';
-import type { HourlyFailure } from '@cnv-monitor/shared';
+import { Card, CardBody, Content } from '@patternfly/react-core';
 
 type HourlyFailuresChartProps = {
   hourlyData: HourlyFailure[];
@@ -15,24 +17,29 @@ type HourlyFailuresChartProps = {
 export const HourlyFailuresChart: React.FC<HourlyFailuresChartProps> = ({ hourlyData }) => (
   <Card>
     <CardBody>
-      <Content component="h3" className="app-section-heading">Failure Rate by Hour</Content>
-      <Content component="small" className="app-section-subheading">When do failures happen most? (last 30 days)</Content>
+      <Content className="app-section-heading" component="h3">
+        Failure Rate by Hour
+      </Content>
+      <Content className="app-section-subheading" component="small">
+        When do failures happen most? (last 30 days)
+      </Content>
       <div className="app-chart-container-sm">
         <Chart
-          height={250}
-          padding={{ bottom: 60, left: 60, right: 20, top: 20 }}
           containerComponent={
             <ChartVoronoiContainer
               labels={({ datum }: { datum: { x: string; y: number } }) => `${datum.x}: ${datum.y}%`}
             />
           }
+          height={250}
+          padding={{ bottom: 60, left: 60, right: 20, top: 20 }}
         >
-          <ChartAxis
-            style={{ tickLabels: { fontSize: 9, angle: -45, textAnchor: 'end' } }}
-          />
+          <ChartAxis style={{ tickLabels: { angle: -45, fontSize: 9, textAnchor: 'end' } }} />
           <ChartAxis dependentAxis tickFormat={(t: number) => `${t}%`} />
           <ChartBar
-            data={hourlyData.map(h => ({ x: `${String(h.hour).padStart(2, '0')}:00`, y: h.failRate }))}
+            data={hourlyData.map(h => ({
+              x: `${String(h.hour).padStart(2, '0')}:00`,
+              y: h.failRate,
+            }))}
             style={{ data: { fill: '#0066CC' } }}
           />
         </Chart>

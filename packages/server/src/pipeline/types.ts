@@ -45,17 +45,17 @@ export type PipelineLogEntry = {
 export type PhaseEstimate = {
   totalItems: number;
   estimatedDurationMs: number;
-  connectivity: Array<{ service: string; status: 'ok' | 'error'; message: string }>;
+  connectivity: { service: string; status: 'ok' | 'error'; message: string }[];
 };
 
 export type DryRunReport = {
   phases: Record<string, PhaseEstimate>;
   totalEstimatedMs: number;
-  health: Array<{ service: string; status: 'ok' | 'error'; message: string }>;
+  health: { service: string; status: 'ok' | 'error'; message: string }[];
 };
 
 export type HealthReport = {
-  services: Array<{ name: string; status: 'ok' | 'error'; latencyMs: number; message: string }>;
+  services: { name: string; status: 'ok' | 'error'; latencyMs: number; message: string }[];
   allOk: boolean;
 };
 
@@ -66,31 +66,31 @@ export type PipelineOptions = {
 };
 
 export const createEmptyPhaseState = (concurrency = 20): PhaseState => ({
-  status: 'idle',
-  total: 0,
-  succeeded: 0,
-  failed: 0,
-  permanentFailures: 0,
-  errors: [],
-  startedAt: null,
   completedAt: null,
   currentConcurrency: concurrency,
+  errors: [],
+  failed: 0,
+  permanentFailures: 0,
   retryRound: 0,
+  startedAt: null,
+  status: 'idle',
+  succeeded: 0,
+  total: 0,
 });
 
 export const createEmptyPipelineState = (): PipelineState => ({
-  runId: '',
   active: false,
   cancelled: false,
-  startedAt: null,
   completedAt: null,
   durationMs: null,
-  trigger: 'manual',
-  phases: {},
   log: [],
+  phases: {},
+  runId: '',
+  startedAt: null,
+  trigger: 'manual',
 });
 
-export interface PipelinePhase {
+export type PipelinePhase = {
   readonly name: string;
   readonly displayName: string;
 
@@ -103,9 +103,9 @@ export interface PipelinePhase {
 
   retryItem(itemId: number): Promise<boolean>;
   isPermanentError(error: unknown): boolean;
-}
+};
 
-export interface PhaseContext {
+export type PhaseContext = {
   getConcurrency(): number;
   setConcurrency(n: number): void;
   isCancelled(): boolean;
@@ -116,4 +116,4 @@ export interface PhaseContext {
   log(level: 'info' | 'warn' | 'error', message: string): void;
   getPhaseState(): PhaseState;
   emit(): void;
-}
+};

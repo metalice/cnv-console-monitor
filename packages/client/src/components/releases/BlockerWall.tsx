@@ -1,11 +1,17 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+
 import {
-  Bullseye, Content, EmptyState, EmptyStateBody,
-  Label, Spinner, Tooltip,
+  Bullseye,
+  EmptyState,
+  EmptyStateBody,
+  Label,
+  Spinner,
+  Tooltip,
 } from '@patternfly/react-core';
-import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import { ExternalLinkAltIcon } from '@patternfly/react-icons';
+import { Table, Tbody, Td, Thead, Tr } from '@patternfly/react-table';
+import { useQuery } from '@tanstack/react-query';
+
 import { fetchBlockers } from '../../api/releases';
 import { ThWithHelp } from '../common/ThWithHelp';
 
@@ -15,14 +21,24 @@ type BlockerWallProps = {
 
 export const BlockerWall: React.FC<BlockerWallProps> = ({ version }) => {
   const { data: blockers, isLoading } = useQuery({
-    queryKey: ['blockers', version],
     queryFn: () => fetchBlockers(version),
+    queryKey: ['blockers', version],
     staleTime: 5 * 60 * 1000,
   });
 
-  if (isLoading) return <Bullseye className="app-card-spinner"><Spinner size="lg" /></Bullseye>;
+  if (isLoading) {
+    return (
+      <Bullseye className="app-card-spinner">
+        <Spinner size="lg" />
+      </Bullseye>
+    );
+  }
   if (!blockers || blockers.length === 0) {
-    return <EmptyState><EmptyStateBody>No open blockers or critical bugs for this version.</EmptyStateBody></EmptyState>;
+    return (
+      <EmptyState>
+        <EmptyStateBody>No open blockers or critical bugs for this version.</EmptyStateBody>
+      </EmptyState>
+    );
   }
 
   return (
@@ -30,19 +46,26 @@ export const BlockerWall: React.FC<BlockerWallProps> = ({ version }) => {
       <Table aria-label="Blockers" variant="compact">
         <Thead>
           <Tr>
-            <ThWithHelp label="Key" help="Jira issue key. Click to open in Jira." />
-            <ThWithHelp label="Summary" help="Issue title from Jira." />
-            <ThWithHelp label="Priority" help="Blocker or Critical priority level." />
-            <ThWithHelp label="Assignee" help="Person assigned to fix this issue." />
-            <ThWithHelp label="Status" help="Current Jira workflow status." />
-            <ThWithHelp label="Age" help="Days since the issue was created. Red if open more than 7 days." />
+            <ThWithHelp help="Jira issue key. Click to open in Jira." label="Key" />
+            <ThWithHelp help="Issue title from Jira." label="Summary" />
+            <ThWithHelp help="Blocker or Critical priority level." label="Priority" />
+            <ThWithHelp help="Person assigned to fix this issue." label="Assignee" />
+            <ThWithHelp help="Current Jira workflow status." label="Status" />
+            <ThWithHelp
+              help="Days since the issue was created. Red if open more than 7 days."
+              label="Age"
+            />
           </Tr>
         </Thead>
         <Tbody>
           {blockers.map(b => (
-            <Tr key={b.key} className={b.ageDays > 7 ? 'app-blocker-old' : undefined}>
+            <Tr className={b.ageDays > 7 ? 'app-blocker-old' : undefined} key={b.key}>
               <Td className="app-cell-nowrap">
-                <a href={`https://issues.redhat.com/browse/${b.key}`} target="_blank" rel="noreferrer">
+                <a
+                  href={`https://issues.redhat.com/browse/${b.key}`}
+                  rel="noreferrer"
+                  target="_blank"
+                >
                   {b.key} <ExternalLinkAltIcon className="app-text-xs" />
                 </a>
               </Td>
@@ -52,10 +75,16 @@ export const BlockerWall: React.FC<BlockerWallProps> = ({ version }) => {
                 </Tooltip>
               </Td>
               <Td className="app-cell-nowrap">
-                <Label color={b.priority === 'Blocker' ? 'red' : 'orange'} isCompact>{b.priority}</Label>
+                <Label isCompact color={b.priority === 'Blocker' ? 'red' : 'orange'}>
+                  {b.priority}
+                </Label>
               </Td>
-              <Td className="app-cell-nowrap">{b.assignee || <span className="app-text-muted">Unassigned</span>}</Td>
-              <Td className="app-cell-nowrap"><Label isCompact>{b.status}</Label></Td>
+              <Td className="app-cell-nowrap">
+                {b.assignee || <span className="app-text-muted">Unassigned</span>}
+              </Td>
+              <Td className="app-cell-nowrap">
+                <Label isCompact>{b.status}</Label>
+              </Td>
               <Td className="app-cell-nowrap">
                 <Tooltip content={`Created ${new Date(b.created).toLocaleDateString()}`}>
                   <span className={b.ageDays > 7 ? 'app-text-danger' : ''}>{b.ageDays}d</span>

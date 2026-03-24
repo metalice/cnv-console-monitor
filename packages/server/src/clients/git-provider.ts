@@ -1,22 +1,22 @@
-export interface GitTreeEntry {
+export type GitTreeEntry = {
   path: string;
   type: 'blob' | 'tree';
   name: string;
-}
+};
 
-export interface GitFileContent {
+export type GitFileContent = {
   content: string;
   encoding: string;
   sha: string;
-}
+};
 
-export interface GitPRResult {
+export type GitPRResult = {
   url: string;
   number: number;
   title: string;
-}
+};
 
-export interface GitProvider {
+export type GitProvider = {
   fetchTree(branch: string): Promise<GitTreeEntry[]>;
   fetchFileContent(path: string, branch: string): Promise<GitFileContent>;
   createBranch(name: string, fromBranch: string): Promise<void>;
@@ -27,7 +27,7 @@ export interface GitProvider {
     title: string;
     description: string;
   }): Promise<GitPRResult>;
-}
+};
 
 export const createGitProvider = (
   provider: 'gitlab' | 'github',
