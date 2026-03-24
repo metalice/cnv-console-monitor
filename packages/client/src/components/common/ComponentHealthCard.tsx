@@ -1,31 +1,46 @@
 import React from 'react';
-import {
-  Card,
-  CardBody,
-  Label,
-  Flex,
-  FlexItem,
-  Tooltip,
-} from '@patternfly/react-core';
-import { TrendUpIcon, TrendDownIcon, EqualsIcon } from '@patternfly/react-icons';
+
+import { Card, CardBody, Flex, FlexItem, Label, Tooltip } from '@patternfly/react-core';
+import { EqualsIcon, TrendDownIcon, TrendUpIcon } from '@patternfly/react-icons';
+
 import type { ComponentHealthSummary } from '../../api/componentHealth';
 
 const passRateColor = (rate: number): string => {
-  if (rate >= 95) return 'var(--pf-t--global--color--status--success--default)';
-  if (rate >= 80) return 'var(--pf-t--global--color--status--warning--default)';
+  if (rate >= 95) {
+    return 'var(--pf-t--global--color--status--success--default)';
+  }
+  if (rate >= 80) {
+    return 'var(--pf-t--global--color--status--warning--default)';
+  }
   return 'var(--pf-t--global--color--status--danger--default)';
 };
 
 const passRateLabelColor = (rate: number): 'green' | 'yellow' | 'red' => {
-  if (rate >= 95) return 'green';
-  if (rate >= 80) return 'yellow';
+  if (rate >= 95) {
+    return 'green';
+  }
+  if (rate >= 80) {
+    return 'yellow';
+  }
   return 'red';
 };
 
-const Stat = ({ value, label, color, help }: { value: number; label: string; color?: string; help: string }) => (
+const Stat = ({
+  color,
+  help,
+  label,
+  value,
+}: {
+  value: number;
+  label: string;
+  color?: string;
+  help: string;
+}) => (
   <Tooltip content={help}>
     <div className="app-stat-wrapper">
-      <div className="app-health-stat-value" style={{ color: color ?? 'inherit' }}>{value}</div>
+      <div className="app-health-stat-value" style={{ color: color ?? 'inherit' }}>
+        {value}
+      </div>
       <div className="app-text-muted app-health-stat-label">{label}</div>
     </div>
   </Tooltip>
@@ -36,66 +51,129 @@ type ComponentHealthCardProps = {
   onClick: () => void;
 };
 
-export const ComponentHealthCard: React.FC<ComponentHealthCardProps> = ({ component: c, onClick }) => {
+export const ComponentHealthCard: React.FC<ComponentHealthCardProps> = ({
+  component: c,
+  onClick,
+}) => {
   const barColor = passRateColor(c.passRate);
   const labelColor = passRateLabelColor(c.passRate);
 
   return (
-    <Card
-      isClickable
-      isSelectable
-      onClick={onClick}
-      className="app-health-card"
-    >
+    <Card isClickable isSelectable className="app-health-card" onClick={onClick}>
       <CardBody>
         <Flex alignItems={{ default: 'alignItemsCenter' }} flexWrap={{ default: 'nowrap' }}>
           <FlexItem className="app-health-name-col">
             <div className="app-health-component-name">{c.component}</div>
             <div className="app-mb-xs">
-              <Tooltip content={`Trend compares the pass rate in the selected period (${c.passRate}%) against the previous equivalent period. Improving = current is 3%+ higher, Worsening = current is 3%+ lower.`}>
+              <Tooltip
+                content={`Trend compares the pass rate in the selected period (${c.passRate}%) against the previous equivalent period. Improving = current is 3%+ higher, Worsening = current is 3%+ lower.`}
+              >
                 <span>
-                  {c.trend === 'improving' && <Label color="green" isCompact icon={<TrendUpIcon />}>Improving</Label>}
-                  {c.trend === 'worsening' && <Label color="red" isCompact icon={<TrendDownIcon />}>Worsening</Label>}
-                  {c.trend === 'stable' && <Label color="grey" isCompact icon={<EqualsIcon />}>Stable</Label>}
+                  {c.trend === 'improving' && (
+                    <Label isCompact color="green" icon={<TrendUpIcon />}>
+                      Improving
+                    </Label>
+                  )}
+                  {c.trend === 'worsening' && (
+                    <Label isCompact color="red" icon={<TrendDownIcon />}>
+                      Worsening
+                    </Label>
+                  )}
+                  {c.trend === 'stable' && (
+                    <Label isCompact color="grey" icon={<EqualsIcon />}>
+                      Stable
+                    </Label>
+                  )}
                 </span>
               </Tooltip>
             </div>
           </FlexItem>
 
           <FlexItem className="app-health-rate-col">
-            <Tooltip content={`Pass rate = number of launches with PASSED status / total launches for this component in the selected period. ${c.totalLaunches - c.failedLaunches} passed out of ${c.totalLaunches} total.`}>
-              <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsMd' }} className="app-cursor-help">
+            <Tooltip
+              content={`Pass rate = number of launches with PASSED status / total launches for this component in the selected period. ${c.totalLaunches - c.failedLaunches} passed out of ${c.totalLaunches} total.`}
+            >
+              <Flex
+                alignItems={{ default: 'alignItemsCenter' }}
+                className="app-cursor-help"
+                spaceItems={{ default: 'spaceItemsMd' }}
+              >
                 <FlexItem>
-                  <Label color={labelColor} className="app-health-label-big">{c.passRate}%</Label>
+                  <Label className="app-health-label-big" color={labelColor}>
+                    {c.passRate}%
+                  </Label>
                 </FlexItem>
                 <FlexItem className="app-flex-1 app-max-w-120">
                   <div className="app-progress-track app-health-progress-track">
-                    <div className="app-progress-fill--brand" style={{ width: `${c.passRate}%`, background: barColor }} />
+                    <div
+                      className="app-progress-fill--brand"
+                      style={{ background: barColor, width: `${c.passRate}%` }}
+                    />
                   </div>
                 </FlexItem>
               </Flex>
             </Tooltip>
           </FlexItem>
 
-          <Flex flex={{ default: 'flex_1' }} justifyContent={{ default: 'justifyContentSpaceEvenly' }} alignItems={{ default: 'alignItemsCenter' }}>
+          <Flex
+            alignItems={{ default: 'alignItemsCenter' }}
+            flex={{ default: 'flex_1' }}
+            justifyContent={{ default: 'justifyContentSpaceEvenly' }}
+          >
             <FlexItem>
-              <Stat value={c.totalLaunches} label="Launches" help="Total number of test launches (runs) for this component in the selected time period." />
+              <Stat
+                help="Total number of test launches (runs) for this component in the selected time period."
+                label="Launches"
+                value={c.totalLaunches}
+              />
             </FlexItem>
             <FlexItem>
-              <Stat value={c.failedLaunches} label="Failed" color={c.failedLaunches > 0 ? 'var(--pf-t--global--color--status--danger--default)' : undefined}
-                help="Number of launches with FAILED status. A launch is failed if any test in it failed." />
+              <Stat
+                color={
+                  c.failedLaunches > 0
+                    ? 'var(--pf-t--global--color--status--danger--default)'
+                    : undefined
+                }
+                help="Number of launches with FAILED status. A launch is failed if any test in it failed."
+                label="Failed"
+                value={c.failedLaunches}
+              />
             </FlexItem>
             <FlexItem>
-              <Stat value={c.untriagedCount} label="Untriaged" color={c.untriagedCount > 0 ? 'var(--pf-t--global--color--status--warning--default)' : undefined}
-                help="Number of unique failing tests that have not been classified yet (no defect type assigned). Each test is counted once regardless of how many launches it failed in." />
+              <Stat
+                color={
+                  c.untriagedCount > 0
+                    ? 'var(--pf-t--global--color--status--warning--default)'
+                    : undefined
+                }
+                help="Number of unique failing tests that have not been classified yet (no defect type assigned). Each test is counted once regardless of how many launches it failed in."
+                label="Untriaged"
+                value={c.untriagedCount}
+              />
             </FlexItem>
             <FlexItem>
-              <Stat value={c.flakyCount} label="Flaky" color={c.flakyCount > 0 ? 'var(--pf-t--global--color--status--warning--default)' : undefined}
-                help="Number of unique tests that flipped between PASSED and FAILED across launches in the selected period. Flaky tests are unreliable and need investigation." />
+              <Stat
+                color={
+                  c.flakyCount > 0
+                    ? 'var(--pf-t--global--color--status--warning--default)'
+                    : undefined
+                }
+                help="Number of unique tests that flipped between PASSED and FAILED across launches in the selected period. Flaky tests are unreliable and need investigation."
+                label="Flaky"
+                value={c.flakyCount}
+              />
             </FlexItem>
             <FlexItem>
-              <Stat value={c.worseningCount} label="Worsening" color={c.worseningCount > 0 ? 'var(--pf-t--global--color--status--danger--default)' : undefined}
-                help="Number of failing tests whose failure rate increased in the second half of the period compared to the first half. These tests are getting worse over time." />
+              <Stat
+                color={
+                  c.worseningCount > 0
+                    ? 'var(--pf-t--global--color--status--danger--default)'
+                    : undefined
+                }
+                help="Number of failing tests whose failure rate increased in the second half of the period compared to the first half. These tests are getting worse over time."
+                label="Worsening"
+                value={c.worseningCount}
+              />
             </FlexItem>
           </Flex>
         </Flex>

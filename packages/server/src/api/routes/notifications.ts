@@ -1,8 +1,9 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import { config } from '../../config';
+import { type NextFunction, type Request, type Response, Router } from 'express';
+
 import { buildDailyReport } from '../../analyzer';
-import { buildBlocks } from '../../notifiers/slack-blocks';
+import { config } from '../../config';
 import { buildHtml } from '../../notifiers/email-template';
+import { buildBlocks } from '../../notifiers/slack-blocks';
 
 const router = Router();
 
@@ -10,11 +11,11 @@ router.get('/status', (_req: Request, res: Response) => {
   res.json({
     email: {
       enabled: config.email.enabled,
-      host: config.email.host || null,
       from: config.email.from,
+      host: config.email.host || null,
     },
     slack: {
-      jiraWebhookConfigured: !!config.slack.jiraWebhookUrl,
+      jiraWebhookConfigured: Boolean(config.slack.jiraWebhookUrl),
     },
   });
 });
@@ -26,7 +27,10 @@ router.get('/preview/:format', async (req: Request, res: Response, next: NextFun
 
     if (format === 'slack') {
       const blocks = buildBlocks(report);
-      res.json({ blocks, text: `Preview — ${report.date}: ${report.failedLaunches} Failed / ${report.passedLaunches} Passed` });
+      res.json({
+        blocks,
+        text: `Preview — ${report.date}: ${report.failedLaunches} Failed / ${report.passedLaunches} Passed`,
+      });
     } else if (format === 'email') {
       const html = buildHtml(report);
       res.type('html').send(html);

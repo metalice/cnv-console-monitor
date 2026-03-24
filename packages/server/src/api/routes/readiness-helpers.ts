@@ -22,8 +22,13 @@ export type ReadinessResponse = {
   recommendation: 'ready' | 'at_risk' | 'blocked';
 };
 
-export const fetchBlockingFailures = async (version: string, sinceMs: number, midMs: number): Promise<BlockingFailure[]> => {
-  const rows = await AppDataSource.query(`
+export const fetchBlockingFailures = async (
+  version: string,
+  sinceMs: number,
+  midMs: number,
+): Promise<BlockingFailure[]> => {
+  const rows: Record<string, unknown>[] = await AppDataSource.query(
+    `
     WITH test_failures AS (
       SELECT
         ti.unique_id, ti.name,
@@ -46,26 +51,36 @@ export const fetchBlockingFailures = async (version: string, sinceMs: number, mi
       ROUND(CAST(fail_count AS NUMERIC) / NULLIF(total_runs, 0) * 100, 1) as failure_rate,
       first_half_fails, first_half_runs, second_half_fails, second_half_runs
     FROM test_failures
-  `, [version, sinceMs, midMs]);
+  `,
+    [version, sinceMs, midMs],
+  );
 
   return rows.map((r: Record<string, unknown>) => {
-    const firstRate = Number(r.first_half_runs) > 0 ? Number(r.first_half_fails) / Number(r.first_half_runs) : 0;
-    const secondRate = Number(r.second_half_runs) > 0 ? Number(r.second_half_fails) / Number(r.second_half_runs) : 0;
+    const firstRate =
+      Number(r.first_half_runs) > 0 ? Number(r.first_half_fails) / Number(r.first_half_runs) : 0;
+    const secondRate =
+      Number(r.second_half_runs) > 0 ? Number(r.second_half_fails) / Number(r.second_half_runs) : 0;
     const diff = secondRate - firstRate;
-    const trend = diff > 0.1 ? 'worsening' as const : diff < -0.1 ? 'improving' as const : 'stable' as const;
+    const trend =
+      diff > 0.1
+        ? ('worsening' as const)
+        : diff < -0.1
+          ? ('improving' as const)
+          : ('stable' as const);
     return {
-      name: r.name as string,
-      unique_id: r.unique_id as string,
       fail_count: Number(r.fail_count),
-      total_runs: Number(r.total_runs),
       failure_rate: Number(r.failure_rate),
+      name: r.name as string,
       recent_trend: trend,
+      total_runs: Number(r.total_runs),
+      unique_id: r.unique_id as string,
     };
   });
-}
+};
 
 export const fetchTrendData = async (version: string, sinceMs: number): Promise<TrendPoint[]> => {
-  const rows = await AppDataSource.query(`
+  const rows: Record<string, unknown>[] = await AppDataSource.query(
+    `
     SELECT
       TO_CHAR(TO_TIMESTAMP(l.start_time / 1000), 'YYYY-MM-DD') as date,
       SUM(l.total)::int as total,
@@ -75,12 +90,14 @@ export const fetchTrendData = async (version: string, sinceMs: number): Promise<
     WHERE l.cnv_version = $1 AND l.start_time >= $2
     GROUP BY TO_CHAR(TO_TIMESTAMP(l.start_time / 1000), 'YYYY-MM-DD')
     ORDER BY date ASC
-  `, [version, sinceMs]);
+  `,
+    [version, sinceMs],
+  );
 
   return rows.map((r: Record<string, unknown>) => ({
     date: r.date as string,
-    total: Number(r.total),
     passed: Number(r.passed),
     rate: Number(r.rate),
+    total: Number(r.total),
   }));
-}
+};

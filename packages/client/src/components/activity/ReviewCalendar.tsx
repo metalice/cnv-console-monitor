@@ -1,25 +1,64 @@
 import React, { useMemo } from 'react';
-import { Card, CardBody, CardTitle, Flex, FlexItem, Tooltip, Content } from '@patternfly/react-core';
+
 import type { AckHistoryEntry } from '@cnv-monitor/shared';
 
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+import {
+  Card,
+  CardBody,
+  CardTitle,
+  Content,
+  Flex,
+  FlexItem,
+  Tooltip,
+} from '@patternfly/react-core';
+
+const MONTH_NAMES = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
 const DAY_LABELS = ['Mon', '', 'Wed', '', 'Fri', '', ''];
 const MIN_DAYS = 30;
 
 const toDateStr = (d: Date): string => d.toISOString().split('T')[0];
 
-const computeStreak = (reviewedSet: Set<string>, totalDays: number): { current: number; longest: number } => {
+const computeStreak = (
+  reviewedSet: Set<string>,
+  totalDays: number,
+): { current: number; longest: number } => {
   const today = new Date();
   let current = 0;
   const d = new Date(today);
-  if (!reviewedSet.has(toDateStr(d))) d.setDate(d.getDate() - 1);
-  while (reviewedSet.has(toDateStr(d))) { current++; d.setDate(d.getDate() - 1); }
+  if (!reviewedSet.has(toDateStr(d))) {
+    d.setDate(d.getDate() - 1);
+  }
+  while (reviewedSet.has(toDateStr(d))) {
+    current++;
+    d.setDate(d.getDate() - 1);
+  }
 
-  let longest = 0, streak = 0;
+  let longest = 0,
+    streak = 0;
   for (let i = totalDays - 1; i >= 0; i--) {
     const check = new Date(today);
     check.setDate(check.getDate() - i);
-    if (reviewedSet.has(toDateStr(check))) { streak++; if (streak > longest) longest = streak; } else { streak = 0; }
+    if (reviewedSet.has(toDateStr(check))) {
+      streak++;
+      if (streak > longest) {
+        longest = streak;
+      }
+    } else {
+      streak = 0;
+    }
   }
   return { current, longest };
 };
@@ -31,12 +70,14 @@ type ReviewCalendarProps = {
   days: number;
 };
 
-export const ReviewCalendar: React.FC<ReviewCalendarProps> = ({ history, days: rawDays }) => {
+export const ReviewCalendar: React.FC<ReviewCalendarProps> = ({ days: rawDays, history }) => {
   const days = Math.max(rawDays, MIN_DAYS);
 
-  const { weeks, stats, todayDate, monthLabels } = useMemo(() => {
+  const { monthLabels, stats, todayDate, weeks } = useMemo(() => {
     const map = new Map<string, string[]>();
-    for (const entry of history) map.set(entry.date, entry.reviewers);
+    for (const entry of history) {
+      map.set(entry.date, entry.reviewers);
+    }
     const revSet = new Set(map.keys());
 
     const today = new Date();
@@ -46,24 +87,34 @@ export const ReviewCalendar: React.FC<ReviewCalendarProps> = ({ history, days: r
       const d = new Date(today);
       d.setDate(d.getDate() - i);
       const ds = toDateStr(d);
-      allDays.push({ date: ds, reviewers: map.get(ds) ?? [], dayOfWeek: d.getDay(), month: d.getMonth() });
+      allDays.push({
+        date: ds,
+        dayOfWeek: d.getDay(),
+        month: d.getMonth(),
+        reviewers: map.get(ds) ?? [],
+      });
     }
 
-    const wks: Array<Array<DayCell | null>> = [];
-    let currentWeek: Array<DayCell | null> = new Array(7).fill(null);
+    const wks: (DayCell | null)[][] = [];
+    let currentWeek: (DayCell | null)[] = Array.from<DayCell | null>({ length: 7 }).fill(null);
     for (const day of allDays) {
       const col = day.dayOfWeek === 0 ? 6 : day.dayOfWeek - 1;
       currentWeek[col] = day;
-      if (col === 6) { wks.push(currentWeek); currentWeek = new Array(7).fill(null); }
+      if (col === 6) {
+        wks.push(currentWeek);
+        currentWeek = Array.from<DayCell | null>({ length: 7 }).fill(null);
+      }
     }
-    if (currentWeek.some(d => d !== null)) wks.push(currentWeek);
+    if (currentWeek.some(d => d !== null)) {
+      wks.push(currentWeek);
+    }
 
-    const mLabels: Array<{ weekIdx: number; label: string }> = [];
+    const mLabels: { weekIdx: number; label: string }[] = [];
     let lastMonth = -1;
     for (let wi = 0; wi < wks.length; wi++) {
       const firstDay = wks[wi].find(d => d !== null);
       if (firstDay && firstDay.month !== lastMonth) {
-        mLabels.push({ weekIdx: wi, label: MONTH_NAMES[firstDay.month] });
+        mLabels.push({ label: MONTH_NAMES[firstDay.month], weekIdx: wi });
         lastMonth = firstDay.month;
       }
     }
@@ -73,10 +124,10 @@ export const ReviewCalendar: React.FC<ReviewCalendarProps> = ({ history, days: r
     const { current, longest } = computeStreak(revSet, days);
 
     return {
-      weeks: wks,
-      todayDate: todayS,
       monthLabels: mLabels,
-      stats: { weekdaysReviewed, weekdaysTotal: weekdaysOnly.length, current, longest },
+      stats: { current, longest, weekdaysReviewed, weekdaysTotal: weekdaysOnly.length },
+      todayDate: todayS,
+      weeks: wks,
     };
   }, [history, days]);
 
@@ -84,7 +135,9 @@ export const ReviewCalendar: React.FC<ReviewCalendarProps> = ({ history, days: r
     const isWeekend = day.dayOfWeek === 0 || day.dayOfWeek === 6;
     const isToday = day.date === todayDate;
     let cls = 'app-cal-cell';
-    if (isToday) cls += ' app-cal-today';
+    if (isToday) {
+      cls += ' app-cal-today';
+    }
     if (day.reviewers.length === 0) {
       cls += isWeekend ? ' app-cal-weekend' : ' app-cal-empty';
     } else if (day.reviewers.length === 1) {
@@ -97,15 +150,23 @@ export const ReviewCalendar: React.FC<ReviewCalendarProps> = ({ history, days: r
     return cls;
   };
 
-  const pct = stats.weekdaysTotal > 0 ? Math.round((stats.weekdaysReviewed / stats.weekdaysTotal) * 100) : 0;
+  const pct =
+    stats.weekdaysTotal > 0 ? Math.round((stats.weekdaysReviewed / stats.weekdaysTotal) * 100) : 0;
 
   return (
     <Card>
       <CardTitle>
-        <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }}>
+        <Flex
+          alignItems={{ default: 'alignItemsCenter' }}
+          justifyContent={{ default: 'justifyContentSpaceBetween' }}
+        >
           <FlexItem>
             Review Calendar
-            <Content component="small" className="app-text-muted app-ml-sm" style={{ display: 'inline' }}>
+            <Content
+              className="app-text-muted app-ml-sm"
+              component="small"
+              style={{ display: 'inline' }}
+            >
               Daily report acknowledgment tracking
             </Content>
           </FlexItem>
@@ -144,47 +205,90 @@ export const ReviewCalendar: React.FC<ReviewCalendarProps> = ({ history, days: r
             <div className="app-cal-month-spacer" />
             {weeks.map((_w, wi) => {
               const ml = monthLabels.find(m => m.weekIdx === wi);
-              return <div key={wi} className="app-cal-month-label">{ml ? ml.label : ''}</div>;
+              return (
+                // eslint-disable-next-line react/no-array-index-key
+                <div className="app-cal-month-label" key={wi}>
+                  {ml ? ml.label : ''}
+                </div>
+              );
             })}
           </div>
           <div className="app-cal-grid">
             <div className="app-cal-labels">
               {DAY_LABELS.map((label, i) => (
-                <div key={i} className="app-cal-label">{label}</div>
+                // eslint-disable-next-line react/no-array-index-key
+                <div className="app-cal-label" key={i}>
+                  {label}
+                </div>
               ))}
             </div>
             <div className="app-cal-weeks">
               {weeks.map((week, wi) => (
-                <div key={wi} className="app-cal-week">
-                  {week.map((day, di) => (
+                // eslint-disable-next-line react/no-array-index-key
+                <div className="app-cal-week" key={wi}>
+                  {week.map((day, di) =>
                     day ? (
                       <Tooltip
+                        content={
+                          day.reviewers.length > 0
+                            ? `${day.date}: ${day.reviewers.join(', ')}`
+                            : `${day.date}: Not reviewed`
+                        }
                         key={day.date}
-                        content={day.reviewers.length > 0 ? `${day.date}: ${day.reviewers.join(', ')}` : `${day.date}: Not reviewed`}
                       >
                         <div className={getCellClass(day)} />
                       </Tooltip>
                     ) : (
-                      <div key={`e-${wi}-${di}`} className="app-cal-cell app-cal-none" />
-                    )
-                  ))}
+                      // eslint-disable-next-line react/no-array-index-key
+                      <div className="app-cal-cell app-cal-none" key={`e-${wi}-${di}`} />
+                    ),
+                  )}
                 </div>
               ))}
             </div>
           </div>
         </div>
-        <Flex className="app-mt-sm" spaceItems={{ default: 'spaceItemsMd' }} alignItems={{ default: 'alignItemsCenter' }}>
-          <FlexItem><span className="app-text-xs app-text-muted">Less</span></FlexItem>
-          <FlexItem><div className="app-cal-cell app-cal-weekend app-cal-legend" /></FlexItem>
-          <FlexItem><div className="app-cal-cell app-cal-empty app-cal-legend" /></FlexItem>
-          <FlexItem><div className="app-cal-cell app-cal-l1 app-cal-legend" /></FlexItem>
-          <FlexItem><div className="app-cal-cell app-cal-l2 app-cal-legend" /></FlexItem>
-          <FlexItem><div className="app-cal-cell app-cal-l3 app-cal-legend" /></FlexItem>
-          <FlexItem><span className="app-text-xs app-text-muted">More</span></FlexItem>
-          <FlexItem><span className="app-text-xs app-text-muted">|</span></FlexItem>
-          <FlexItem><div className="app-cal-cell app-cal-weekend app-cal-legend" /><span className="app-text-xs app-text-muted app-ml-xs">Weekend</span></FlexItem>
-          <FlexItem><div className="app-cal-cell app-cal-empty app-cal-legend" /><span className="app-text-xs app-text-muted app-ml-xs">Not reviewed</span></FlexItem>
-          <FlexItem><div className="app-cal-cell app-cal-today app-cal-empty app-cal-legend" /><span className="app-text-xs app-text-muted app-ml-xs">Today</span></FlexItem>
+        <Flex
+          alignItems={{ default: 'alignItemsCenter' }}
+          className="app-mt-sm"
+          spaceItems={{ default: 'spaceItemsMd' }}
+        >
+          <FlexItem>
+            <span className="app-text-xs app-text-muted">Less</span>
+          </FlexItem>
+          <FlexItem>
+            <div className="app-cal-cell app-cal-weekend app-cal-legend" />
+          </FlexItem>
+          <FlexItem>
+            <div className="app-cal-cell app-cal-empty app-cal-legend" />
+          </FlexItem>
+          <FlexItem>
+            <div className="app-cal-cell app-cal-l1 app-cal-legend" />
+          </FlexItem>
+          <FlexItem>
+            <div className="app-cal-cell app-cal-l2 app-cal-legend" />
+          </FlexItem>
+          <FlexItem>
+            <div className="app-cal-cell app-cal-l3 app-cal-legend" />
+          </FlexItem>
+          <FlexItem>
+            <span className="app-text-xs app-text-muted">More</span>
+          </FlexItem>
+          <FlexItem>
+            <span className="app-text-xs app-text-muted">|</span>
+          </FlexItem>
+          <FlexItem>
+            <div className="app-cal-cell app-cal-weekend app-cal-legend" />
+            <span className="app-text-xs app-text-muted app-ml-xs">Weekend</span>
+          </FlexItem>
+          <FlexItem>
+            <div className="app-cal-cell app-cal-empty app-cal-legend" />
+            <span className="app-text-xs app-text-muted app-ml-xs">Not reviewed</span>
+          </FlexItem>
+          <FlexItem>
+            <div className="app-cal-cell app-cal-today app-cal-empty app-cal-legend" />
+            <span className="app-text-xs app-text-muted app-ml-xs">Today</span>
+          </FlexItem>
         </Flex>
       </CardBody>
     </Card>

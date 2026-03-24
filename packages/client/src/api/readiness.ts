@@ -9,14 +9,14 @@ export type BlockingFailure = {
   recent_trend: 'worsening' | 'improving' | 'stable';
 };
 
-export type ReadinessTrendPoint = {
+type ReadinessTrendPoint = {
   date: string;
   total: number;
   passed: number;
   rate: number;
 };
 
-export type ReadinessAssessment = {
+type ReadinessAssessment = {
   version: string;
   passRate: number;
   totalLaunches: number;
@@ -30,5 +30,4 @@ export type ReadinessAssessment = {
 export const fetchReadiness = (version: string, days = 30): Promise<ReadinessAssessment> =>
   apiFetch(`/readiness/${encodeURIComponent(version)}?days=${days}`);
 
-export const fetchReadinessVersions = (): Promise<string[]> =>
-  apiFetch('/readiness/versions');
+export const fetchReadinessVersions = (): Promise<string[]> => apiFetch('/readiness/versions');

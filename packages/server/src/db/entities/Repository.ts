@@ -1,7 +1,42 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity('repositories')
 export class Repository {
+  @Column({ length: 512, type: 'varchar' })
+  api_base_url!: string;
+
+  @Column({ default: '["main"]', type: 'jsonb' })
+  branches!: string;
+
+  @Column({ default: 5, type: 'int' })
+  cache_ttl_min!: number;
+
+  @Column({ default: '[]', type: 'jsonb' })
+  components!: string;
+
+  @CreateDateColumn()
+  created_at!: Date;
+
+  @Column({ default: '[]', type: 'jsonb' })
+  doc_paths!: string;
+
+  @Column({ default: true, type: 'boolean' })
+  @Index('idx_repositories_enabled')
+  enabled!: boolean;
+
+  @Column({ nullable: true, type: 'jsonb' })
+  frontmatter_schema!: string | null;
+
+  @Column({ type: 'varchar' })
+  global_token_key!: string;
+
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
@@ -9,52 +44,24 @@ export class Repository {
   name!: string;
 
   @Column({ type: 'varchar' })
+  project_id!: string;
+
+  @Column({ type: 'varchar' })
   @Index('idx_repositories_provider')
   provider!: string;
 
-  @Column({ type: 'varchar', length: 512 })
-  url!: string;
-
-  @Column({ type: 'varchar', length: 512 })
-  api_base_url!: string;
-
-  @Column({ type: 'varchar' })
-  project_id!: string;
-
-  @Column({ type: 'jsonb', default: '["main"]' })
-  branches!: string;
-
-  @Column({ type: 'varchar' })
-  global_token_key!: string;
-
-  @Column({ type: 'jsonb', default: '[]' })
-  doc_paths!: string;
-
-  @Column({ type: 'jsonb', default: '[]' })
-  test_paths!: string;
-
-  @Column({ type: 'jsonb', nullable: true })
-  frontmatter_schema!: string | null;
-
-  @Column({ type: 'jsonb', default: '[]' })
-  components!: string;
-
-  @Column({ type: 'int', default: 5 })
-  cache_ttl_min!: number;
-
-  @Column({ type: 'varchar', nullable: true })
-  webhook_secret!: string | null;
-
-  @Column({ type: 'jsonb', nullable: true, default: '[]' })
+  @Column({ default: '[]', nullable: true, type: 'jsonb' })
   skip_annotations!: string | null;
 
-  @Column({ type: 'boolean', default: true })
-  @Index('idx_repositories_enabled')
-  enabled!: boolean;
-
-  @CreateDateColumn()
-  created_at!: Date;
+  @Column({ default: '[]', type: 'jsonb' })
+  test_paths!: string;
 
   @UpdateDateColumn()
   updated_at!: Date;
+
+  @Column({ length: 512, type: 'varchar' })
+  url!: string;
+
+  @Column({ nullable: true, type: 'varchar' })
+  webhook_secret!: string | null;
 }

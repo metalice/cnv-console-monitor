@@ -1,18 +1,21 @@
 import React from 'react';
+
 import {
   Card,
-  CardTitle,
   CardBody,
-  Label,
+  CardTitle,
+  Content,
   EmptyState,
   EmptyStateBody,
-  Tooltip,
   Flex,
   FlexItem,
-  Content,
+  Label,
+  Tooltip,
 } from '@patternfly/react-core';
+
 import type { MyWorkActivity } from '../../api/myWork';
-import { formatAction, actionColor, shortTestName } from './myWorkHelpers';
+
+import { actionColor, formatAction, shortTestName } from './myWorkHelpers';
 
 type MyRecentActivityCardProps = {
   activities: MyWorkActivity[];
@@ -30,14 +33,24 @@ export const MyRecentActivityCard: React.FC<MyRecentActivityCardProps> = ({ acti
         <div className="app-max-h-420">
           {activities.map((entry, index) => {
             const isAck = entry.action === 'acknowledge';
-            const timeAgo = new Date(entry.performed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-            const noteLines = entry.new_value ? entry.new_value.split('\n').filter((line: string) => line.trim()) : [];
+            const timeAgo = new Date(entry.performed_at).toLocaleDateString('en-US', {
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              month: 'short',
+            });
+            const noteLines = entry.new_value
+              ? entry.new_value.split('\n').filter((line: string) => line.trim())
+              : [];
 
             return (
-              <div key={index} className="app-activity-item">
+              // eslint-disable-next-line react/no-array-index-key
+              <div className="app-activity-item" key={index}>
                 <Flex alignItems={{ default: 'alignItemsCenter' }} gap={{ default: 'gapSm' }}>
                   <FlexItem>
-                    <Label isCompact color={actionColor(entry.action)}>{formatAction(entry.action)}</Label>
+                    <Label isCompact color={actionColor(entry.action)}>
+                      {formatAction(entry.action)}
+                    </Label>
                   </FlexItem>
                   <FlexItem flex={{ default: 'flex_1' }}>
                     <Content component="small">
@@ -56,13 +69,18 @@ export const MyRecentActivityCard: React.FC<MyRecentActivityCardProps> = ({ acti
                     </Content>
                   </FlexItem>
                   <FlexItem>
-                    <Content component="small" className="app-text-muted">{timeAgo}</Content>
+                    <Content className="app-text-muted" component="small">
+                      {timeAgo}
+                    </Content>
                   </FlexItem>
                 </Flex>
                 {isAck && noteLines.length > 0 && (
                   <div className="app-activity-notes">
                     {noteLines.map((line: string, lineIdx: number) => (
-                      <div key={lineIdx} className="app-activity-note-line">{line}</div>
+                      // eslint-disable-next-line react/no-array-index-key
+                      <div className="app-activity-note-line" key={lineIdx}>
+                        {line}
+                      </div>
                     ))}
                   </div>
                 )}

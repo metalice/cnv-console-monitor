@@ -1,18 +1,20 @@
-import React, { useState, useRef, useCallback } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useCallback, useRef, useState } from 'react';
+
 import {
-  Modal,
-  ModalVariant,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
+  Alert,
   Button,
   Form,
   FormGroup,
-  TextInput,
   Label,
-  Alert,
+  Modal,
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
+  ModalVariant,
+  TextInput,
 } from '@patternfly/react-core';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+
 import { linkJiraIssue, searchJiraIssues } from '../../api/jira';
 
 type JiraLinkModalProps = {
@@ -27,17 +29,19 @@ export const JiraLinkModal: React.FC<JiraLinkModalProps> = ({ isOpen, onClose, t
   const queryClient = useQueryClient();
   const [jiraKey, setJiraKey] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Array<{ key: string; summary: string; status: string }>>([]);
+  const [searchResults, setSearchResults] = useState<
+    { key: string; summary: string; status: string }[]
+  >([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const mutation = useMutation({
-    mutationFn: () => linkJiraIssue({ testItemId, jiraKey }),
+    mutationFn: () => linkJiraIssue({ jiraKey, testItemId }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['report'] });
-      queryClient.invalidateQueries({ queryKey: ['activity'] });
-      queryClient.invalidateQueries({ queryKey: ['testItems'] });
-      queryClient.invalidateQueries({ queryKey: ['untriaged'] });
-      queryClient.invalidateQueries({ queryKey: ['testProfile'] });
+      void queryClient.invalidateQueries({ queryKey: ['report'] });
+      void queryClient.invalidateQueries({ queryKey: ['activity'] });
+      void queryClient.invalidateQueries({ queryKey: ['testItems'] });
+      void queryClient.invalidateQueries({ queryKey: ['untriaged'] });
+      void queryClient.invalidateQueries({ queryKey: ['testProfile'] });
       onClose();
       setJiraKey('');
       setSearchQuery('');
@@ -65,30 +69,38 @@ export const JiraLinkModal: React.FC<JiraLinkModalProps> = ({ isOpen, onClose, t
   }, []);
 
   return (
-    <Modal variant={ModalVariant.medium} isOpen={isOpen} onClose={onClose}>
+    <Modal isOpen={isOpen} variant={ModalVariant.medium} onClose={onClose}>
       <ModalHeader title="Link Jira Issue" />
       <ModalBody>
         <Form>
           <FormGroup label="Jira Issue Key">
             <TextInput
+              placeholder="e.g. CNV-12345"
               value={jiraKey}
               onChange={(_e, inputValue) => setJiraKey(inputValue)}
-              placeholder="e.g. CNV-12345"
             />
           </FormGroup>
           <FormGroup label="Or search">
             <TextInput
+              placeholder="Search Jira issues..."
               value={searchQuery}
               onChange={(_e, inputValue) => handleSearch(inputValue)}
-              placeholder="Search Jira issues..."
             />
             {searchResults.length > 0 && (
               <div className="app-jira-search-results">
-                {searchResults.map((result) => (
+                {searchResults.map(result => (
                   <div
-                    key={result.key}
-                    onClick={() => setJiraKey(result.key)}
                     className={`app-jira-search-item${jiraKey === result.key ? ' app-jira-search-item--selected' : ''}`}
+                    key={result.key}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setJiraKey(result.key)}
+                    onKeyDown={(e: React.KeyboardEvent) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setJiraKey(result.key);
+                      }
+                    }}
                   >
                     <strong>{result.key}</strong> — {result.summary}{' '}
                     <Label isCompact>{result.status}</Label>
@@ -97,16 +109,21 @@ export const JiraLinkModal: React.FC<JiraLinkModalProps> = ({ isOpen, onClose, t
               </div>
             )}
           </FormGroup>
-          {mutation.isError && (
-            <Alert variant="danger" title={(mutation.error as Error).message} isInline />
-          )}
+          {mutation.isError && <Alert isInline title={mutation.error.message} variant="danger" />}
         </Form>
       </ModalBody>
       <ModalFooter>
-        <Button variant="primary" onClick={() => mutation.mutate()} isDisabled={!jiraKey} isLoading={mutation.isPending}>
+        <Button
+          isDisabled={!jiraKey}
+          isLoading={mutation.isPending}
+          variant="primary"
+          onClick={() => mutation.mutate()}
+        >
           Link
         </Button>
-        <Button variant="link" onClick={onClose}>Cancel</Button>
+        <Button variant="link" onClick={onClose}>
+          Cancel
+        </Button>
       </ModalFooter>
     </Modal>
   );

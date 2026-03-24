@@ -1,45 +1,55 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+
 import {
-  Drawer,
-  DrawerContent,
-  DrawerContentBody,
-  DrawerPanelContent,
-  DrawerHead,
-  DrawerPanelBody,
-  DrawerActions,
-  DrawerCloseButton,
-  Title,
-  Label,
-  Spinner,
   DescriptionList,
+  DescriptionListDescription,
   DescriptionListGroup,
   DescriptionListTerm,
-  DescriptionListDescription,
+  Drawer,
+  DrawerActions,
+  DrawerCloseButton,
+  DrawerContent,
+  DrawerContentBody,
+  DrawerHead,
+  DrawerPanelBody,
+  DrawerPanelContent,
+  Label,
+  Spinner,
+  Title,
 } from '@patternfly/react-core';
-import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
+import { useQuery } from '@tanstack/react-query';
+
 import { fetchGaps } from '../../api/testExplorer';
 
-interface AIInsightsDrawerProps {
+type AIInsightsDrawerProps = {
   isOpen: boolean;
   onClose: () => void;
   component?: string;
   children: React.ReactNode;
-}
+};
 
 const severityColor = (severity: string): 'red' | 'orange' | 'blue' => {
   switch (severity) {
-    case 'error': return 'red';
-    case 'warning': return 'orange';
-    default: return 'blue';
+    case 'error':
+      return 'red';
+    case 'warning':
+      return 'orange';
+    default:
+      return 'blue';
   }
 };
 
-export const AIInsightsDrawer: React.FC<AIInsightsDrawerProps> = ({ isOpen, onClose, component, children }) => {
+export const AIInsightsDrawer: React.FC<AIInsightsDrawerProps> = ({
+  children,
+  component,
+  isOpen,
+  onClose,
+}) => {
   const { data, isLoading } = useQuery({
-    queryKey: ['gaps', component],
-    queryFn: () => fetchGaps(component),
     enabled: isOpen,
+    queryFn: () => fetchGaps(component),
+    queryKey: ['gaps', component],
     staleTime: 60_000,
   });
 
@@ -47,22 +57,28 @@ export const AIInsightsDrawer: React.FC<AIInsightsDrawerProps> = ({ isOpen, onCl
     <DrawerPanelContent widths={{ default: 'width_50' }}>
       <DrawerHead>
         <Title headingLevel="h3">AI Insights</Title>
-        <DrawerActions><DrawerCloseButton onClick={onClose} /></DrawerActions>
+        <DrawerActions>
+          <DrawerCloseButton onClick={onClose} />
+        </DrawerActions>
       </DrawerHead>
       <DrawerPanelBody>
         {isLoading ? (
-          <div className="app-page-spinner"><Spinner /></div>
+          <div className="app-page-spinner">
+            <Spinner />
+          </div>
         ) : (
           <>
-            <DescriptionList isHorizontal isCompact>
+            <DescriptionList isCompact isHorizontal>
               <DescriptionListGroup>
                 <DescriptionListTerm>Total Gaps</DescriptionListTerm>
                 <DescriptionListDescription>{data?.total ?? 0}</DescriptionListDescription>
               </DescriptionListGroup>
             </DescriptionList>
 
-            <Title headingLevel="h4" className="app-mt-lg">Gaps</Title>
-            <Table variant="compact" className="app-mt-md">
+            <Title className="app-mt-lg" headingLevel="h4">
+              Gaps
+            </Title>
+            <Table className="app-mt-md" variant="compact">
               <Thead>
                 <Tr>
                   <Th>Type</Th>
@@ -73,15 +89,26 @@ export const AIInsightsDrawer: React.FC<AIInsightsDrawerProps> = ({ isOpen, onCl
               </Thead>
               <Tbody>
                 {data?.gaps.map((gap: Record<string, unknown>, i: number) => (
+                  // eslint-disable-next-line react/no-array-index-key
                   <Tr key={i}>
-                    <Td><Label isCompact>{String(gap.type).replace('_', ' ')}</Label></Td>
-                    <Td><Label color={severityColor(gap.severity as string)} isCompact>{gap.severity as string}</Label></Td>
+                    <Td>
+                      <Label isCompact>{String(gap.type).replace('_', ' ')}</Label>
+                    </Td>
+                    <Td>
+                      <Label isCompact color={severityColor(gap.severity as string)}>
+                        {gap.severity as string}
+                      </Label>
+                    </Td>
                     <Td className="app-text-mono">{(gap.filePath as string).split('/').pop()}</Td>
                     <Td>{gap.repoName as string}</Td>
                   </Tr>
                 ))}
                 {(!data?.gaps || data.gaps.length === 0) && (
-                  <Tr><Td colSpan={4}><em>No gaps detected</em></Td></Tr>
+                  <Tr>
+                    <Td colSpan={4}>
+                      <em>No gaps detected</em>
+                    </Td>
+                  </Tr>
                 )}
               </Tbody>
             </Table>
@@ -92,7 +119,12 @@ export const AIInsightsDrawer: React.FC<AIInsightsDrawerProps> = ({ isOpen, onCl
   );
 
   return (
-    <Drawer isExpanded={isOpen} onExpand={() => {}}>
+    <Drawer
+      isExpanded={isOpen}
+      onExpand={() => {
+        // no-op
+      }}
+    >
       <DrawerContent panelContent={panelContent}>
         <DrawerContentBody>{children}</DrawerContentBody>
       </DrawerContent>

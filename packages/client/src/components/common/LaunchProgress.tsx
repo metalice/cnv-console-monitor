@@ -1,7 +1,9 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Tooltip, Label, Progress } from '@patternfly/react-core';
+
+import { Label, Progress, Tooltip } from '@patternfly/react-core';
 import { InProgressIcon } from '@patternfly/react-icons';
+import { useQuery } from '@tanstack/react-query';
+
 import { apiFetch } from '../../api/client';
 
 type ProgressData = {
@@ -22,21 +24,28 @@ type LaunchProgressProps = {
 
 export const LaunchProgress: React.FC<LaunchProgressProps> = ({ launchRpId }) => {
   const { data } = useQuery({
-    queryKey: ['launchProgress', launchRpId],
     queryFn: () => apiFetch<ProgressData>(`/launches/progress/${launchRpId}`),
+    queryKey: ['launchProgress', launchRpId],
     refetchInterval: 60000,
     staleTime: 30000,
   });
 
   if (!data?.available) {
-    return <Label color="blue" isCompact icon={<InProgressIcon />}>In Progress</Label>;
+    return (
+      <Label isCompact color="blue" icon={<InProgressIcon />}>
+        In Progress
+      </Label>
+    );
   }
 
   if (!data.building && data.result) {
-    const color = data.result === 'SUCCESS' ? 'green' : data.result === 'UNSTABLE' ? 'orange' : 'red';
+    const color =
+      data.result === 'SUCCESS' ? 'green' : data.result === 'UNSTABLE' ? 'orange' : 'red';
     return (
       <Tooltip content={`Jenkins: ${data.result} (RP still shows IN_PROGRESS)`}>
-        <Label color={color} isCompact>{data.result}</Label>
+        <Label isCompact color={color}>
+          {data.result}
+        </Label>
       </Tooltip>
     );
   }
@@ -48,12 +57,14 @@ export const LaunchProgress: React.FC<LaunchProgressProps> = ({ launchRpId }) =>
     `${data.elapsedMinutes}m elapsed / ${data.estimatedMinutes}m estimated`,
     remaining > 0 ? `~${remaining}m remaining` : null,
     stage ? `Stage: ${stage}` : null,
-  ].filter(Boolean).join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   return (
     <Tooltip content={tooltipText}>
       <div className="app-inline-flex-center">
-        <Progress value={percentage} size="sm" className="app-w-60" aria-label="Build progress" />
+        <Progress aria-label="Build progress" className="app-w-60" size="sm" value={percentage} />
         <span className="app-text-xs app-text-muted app-cell-nowrap">
           {percentage}%{remaining > 0 ? ` (~${remaining}m)` : ''}
         </span>

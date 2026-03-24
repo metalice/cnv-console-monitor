@@ -1,11 +1,12 @@
 import 'reflect-metadata';
-import { pollReportPortal } from './poller';
-import { buildDailyReport } from './analyzer';
-import { config } from './config';
-import { logger } from './logger';
+
 import { AppDataSource } from './db/data-source';
 import { getAllSubscriptions } from './db/store';
 import { dispatchToSubscription } from './notifiers/dispatch';
+import { buildDailyReport } from './analyzer';
+import { config } from './config';
+import { logger } from './logger';
+import { pollReportPortal } from './poller';
 
 const log = logger.child({ module: 'Main' });
 
@@ -19,17 +20,20 @@ const dispatchToSubscriptions = async (): Promise<void> => {
   const report = await buildDailyReport(24);
 
   for (const sub of subs) {
-    if (!sub.enabled) continue;
+    if (!sub.enabled) {
+      continue;
+    }
+    // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
     await dispatchToSubscription(report, sub);
   }
-}
+};
 
 const main = async (): Promise<void> => {
   log.info('Initializing database...');
   await AppDataSource.initialize();
   await AppDataSource.runMigrations();
 
-  log.info({ url: config.reportportal.url, project: config.reportportal.project }, 'Configuration');
+  log.info({ project: config.reportportal.project, url: config.reportportal.url }, 'Configuration');
 
   try {
     await pollReportPortal(24, true, Date.now());
@@ -42,6 +46,6 @@ const main = async (): Promise<void> => {
     log.fatal({ err }, 'Fatal error');
     process.exit(1);
   }
-}
+};
 
-main();
+void main();

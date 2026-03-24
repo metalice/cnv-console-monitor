@@ -1,37 +1,48 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+/* eslint-disable max-lines */
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+
+import type { Repository } from '@cnv-monitor/shared';
+
 import {
-  Modal,
-  ModalVariant,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
+  Alert,
   Button,
+  ExpandableSection,
   Form,
   FormGroup,
   FormSection,
-  TextInput,
   FormSelect,
   FormSelectOption,
-  NumberInput,
-  Switch,
-  Alert,
   HelperText,
   HelperTextItem,
-  Content,
-  ExpandableSection,
+  Modal,
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
+  ModalVariant,
+  NumberInput,
+  Switch,
+  TextInput,
 } from '@patternfly/react-core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Repository } from '@cnv-monitor/shared';
-import { createRepositoryApi, updateRepositoryApi, resolveGitLabProject } from '../../api/repositories';
+
 import { apiFetch } from '../../api/client';
 import { fetchComponentMappings } from '../../api/componentMappings';
+import { createRepositoryApi, updateRepositoryApi } from '../../api/repositories';
 import { ComponentMultiSelect } from '../common/ComponentMultiSelect';
 import { SearchableSelect } from '../common/SearchableSelect';
 
-interface RepositoryModalProps {
+type RepositoryModalProps = {
   isOpen: boolean;
   onClose: () => void;
   existing?: Repository;
+};
+
+function stripTrailingSlashes(s: string): string {
+  let t = s;
+  while (t.endsWith('/')) {
+    t = t.slice(0, -1);
+  }
+  return t;
 }
 
 function cleanRepoUrl(repoUrl: string): { repoRoot: string; subPath: string } {
@@ -39,19 +50,24 @@ function cleanRepoUrl(repoUrl: string): { repoRoot: string; subPath: string } {
   if (gitlabSep !== -1) {
     const root = repoUrl.slice(0, gitlabSep);
     const rest = repoUrl.slice(gitlabSep + 3);
-    const pathMatch = rest.match(/^(?:tree|blob)\/[^/]+\/(.+?)\/?\s*$/);
+    const pathMatch = /^(?:tree|blob)\/[^/]+\/([^/?#\s]+)\/?\s*$/.exec(rest);
     return { repoRoot: root, subPath: pathMatch?.[1] || '' };
   }
-  const githubMatch = repoUrl.match(/^(https:\/\/github\.com\/[^/]+\/[^/]+)(?:\/tree\/[^/]+\/(.+?)\/?\s*)?$/);
+  const githubMatch =
+    /^(https:\/\/github\.com\/[^/]+\/[^/]+)(?:\/tree\/[^/]+\/([^/?#\s]+)\/?\s*)?$/.exec(repoUrl);
   if (githubMatch) {
     return { repoRoot: githubMatch[1], subPath: githubMatch[2] || '' };
   }
-  return { repoRoot: repoUrl.replace(/\/+$/, ''), subPath: '' };
+  return { repoRoot: stripTrailingSlashes(repoUrl), subPath: '' };
 }
 
 function deriveApiUrl(provider: string, repoUrl: string): string {
-  if (provider === 'github') return 'https://api.github.com';
-  if (!repoUrl) return '';
+  if (provider === 'github') {
+    return 'https://api.github.com';
+  }
+  if (!repoUrl) {
+    return '';
+  }
   try {
     const { repoRoot } = cleanRepoUrl(repoUrl);
     const parsed = new URL(repoRoot);
@@ -62,35 +78,56 @@ function deriveApiUrl(provider: string, repoUrl: string): string {
 }
 
 function deriveProjectId(provider: string, repoUrl: string): string {
-  if (provider !== 'github' || !repoUrl) return '';
+  if (provider !== 'github' || !repoUrl) {
+    return '';
+  }
   try {
     const { repoRoot } = cleanRepoUrl(repoUrl);
     const parsed = new URL(repoRoot);
-    const parts = parsed.pathname.replace(/^\//, '').replace(/\.git$/, '').split('/');
-    if (parts.length >= 2) return `${parts[0]}/${parts[1]}`;
-  } catch { /* ignore */ }
+    const parts = parsed.pathname
+      .replace(/^\//, '')
+      .replace(/\.git$/, '')
+      .split('/');
+    if (parts.length >= 2) {
+      return `${parts[0]}/${parts[1]}`;
+    }
+  } catch {
+    /* Ignore */
+  }
   return '';
 }
 
 function deriveDisplayName(repoUrl: string): string {
-  if (!repoUrl) return '';
+  if (!repoUrl) {
+    return '';
+  }
   try {
     const { repoRoot } = cleanRepoUrl(repoUrl);
     const parsed = new URL(repoRoot);
-    const parts = parsed.pathname.replace(/^\//, '').replace(/\.git$/, '').split('/');
-    if (parts.length >= 2) return parts.slice(-2).join(' / ');
-    if (parts.length === 1 && parts[0]) return parts[0];
-  } catch { /* ignore */ }
+    const parts = parsed.pathname
+      .replace(/^\//, '')
+      .replace(/\.git$/, '')
+      .split('/');
+    if (parts.length >= 2) {
+      return parts.slice(-2).join(' / ');
+    }
+    if (parts.length === 1 && parts[0]) {
+      return parts[0];
+    }
+  } catch {
+    /* Ignore */
+  }
   return '';
 }
 
-export const RepositoryModal: React.FC<RepositoryModalProps> = ({ isOpen, onClose, existing }) => {
+// eslint-disable-next-line max-lines-per-function
+export const RepositoryModal: React.FC<RepositoryModalProps> = ({ existing, isOpen, onClose }) => {
   const [provider, setProvider] = useState<'gitlab' | 'github'>('gitlab');
   const [url, setUrl] = useState('');
   const [name, setName] = useState('');
   const [apiBaseUrl, setApiBaseUrl] = useState('');
   const [projectId, setProjectId] = useState('');
-  const [selectedBranches, setSelectedBranches] = useState<Set<string>>(new Set(['main']));
+  const [selectedBranches, setSelectedBranches] = useState(new Set(['main']));
   const [availableBranches, setAvailableBranches] = useState<string[]>([]);
   const [branchesLoading, setBranchesLoading] = useState(false);
   const [globalTokenKey, setGlobalTokenKey] = useState('');
@@ -105,19 +142,21 @@ export const RepositoryModal: React.FC<RepositoryModalProps> = ({ isOpen, onClos
   const queryClient = useQueryClient();
 
   const { data: mappingsData } = useQuery({
-    queryKey: ['componentMappings'],
     queryFn: fetchComponentMappings,
+    queryKey: ['componentMappings'],
     staleTime: 5 * 60_000,
   });
 
   const componentOptions = useMemo(() => {
     const jiraComps = mappingsData?.jiraComponents ?? [];
     const mappedComps = (mappingsData?.mappings ?? []).map(m => m.component);
-    return [...new Set([...jiraComps, ...mappedComps])].sort();
+    return [...new Set([...jiraComps, ...mappedComps])].toSorted((a, b) => a.localeCompare(b));
   }, [mappingsData]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      return;
+    }
     if (existing) {
       const e = existing as unknown as Record<string, unknown>;
       setProvider((e.provider || 'gitlab') as 'gitlab' | 'github');
@@ -152,144 +191,202 @@ export const RepositoryModal: React.FC<RepositoryModalProps> = ({ isOpen, onClos
     }
   }, [existing, isOpen]);
 
-  const loadBranches = useCallback((api: string, project: string, prov: string, token?: string) => {
-    if (!api || !project) return;
-    setBranchesLoading(true);
-    const body: Record<string, string> = { apiBaseUrl: api, projectId: project, provider: prov };
-    if (token) body.token = token;
-    apiFetch<{ branches: string[] }>('/repositories/resolve-branches', { method: 'POST', body: JSON.stringify(body) })
-      .then(result => {
-        setAvailableBranches(result.branches);
-        setNeedsToken(false);
-        if (selectedBranches.size === 0 || (selectedBranches.size === 1 && selectedBranches.has('main'))) {
-          const defaultBranch = result.branches.includes('main') ? 'main' : result.branches[0];
-          if (defaultBranch) setSelectedBranches(new Set([defaultBranch]));
-        }
+  const loadBranches = useCallback(
+    (api: string, project: string, prov: string, token?: string) => {
+      if (!api || !project) {
+        return;
+      }
+      setBranchesLoading(true);
+      const body: Record<string, string> = { apiBaseUrl: api, projectId: project, provider: prov };
+      if (token) {
+        body.token = token;
+      }
+      void apiFetch<{ branches: string[] }>('/repositories/resolve-branches', {
+        body: JSON.stringify(body),
+        method: 'POST',
       })
-      .catch(() => { setNeedsToken(true); })
-      .finally(() => setBranchesLoading(false));
-  }, [selectedBranches]);
-
-  const handleProviderChange = useCallback((_e: React.FormEvent, val: string) => {
-    const p = val as 'gitlab' | 'github';
-    setProvider(p);
-    if (!existing) {
-      setGlobalTokenKey(`${p}.token`);
-      if (url) {
-        setApiBaseUrl(deriveApiUrl(p, url));
-        if (p === 'github') setProjectId(deriveProjectId(p, url));
-      } else if (p === 'github') {
-        setApiBaseUrl('https://api.github.com');
-      } else {
-        setApiBaseUrl('');
-      }
-    }
-  }, [existing, url]);
-
-  const handleUrlChange = useCallback((_e: React.FormEvent, val: string) => {
-    const { repoRoot, subPath } = cleanRepoUrl(val);
-    setUrl(repoRoot);
-    setResolveError('');
-    if (!existing && repoRoot) {
-      const derived = deriveApiUrl(provider, repoRoot);
-      if (derived) setApiBaseUrl(derived);
-      const derivedName = deriveDisplayName(repoRoot);
-      if (derivedName && !name) setName(derivedName);
-      if (provider === 'github') {
-        const derivedProject = deriveProjectId(provider, repoRoot);
-        if (derivedProject) setProjectId(derivedProject);
-      }
-      if (provider === 'gitlab' && derived) {
-        setResolving(true);
-        const resolveBody: Record<string, string> = { repoUrl: val, apiBaseUrl: derived, provider: 'gitlab' };
-        if (inlineToken) resolveBody.token = inlineToken;
-        apiFetch<{ projectId: string; name: string; defaultBranch: string }>('/repositories/resolve-project', { method: 'POST', body: JSON.stringify(resolveBody) })
-          .then(result => {
-            setProjectId(result.projectId);
-            if (!name && result.name) setName(result.name);
-            if (result.defaultBranch) setSelectedBranches(new Set([result.defaultBranch]));
-            setResolveError('');
-            setNeedsToken(false);
-            loadBranches(derived, result.projectId, provider, inlineToken || undefined);
-          })
-          .catch(err => {
-            const msg = err instanceof Error ? err.message : 'Could not resolve project';
-            if (msg.includes('token') || msg.includes('Token')) {
-              setNeedsToken(true);
-              setResolveError('');
-            } else {
-              setResolveError(msg);
+        .then(result => {
+          setAvailableBranches(result.branches);
+          setNeedsToken(false);
+          if (
+            selectedBranches.size === 0 ||
+            (selectedBranches.size === 1 && selectedBranches.has('main'))
+          ) {
+            const defaultBranch = result.branches.includes('main') ? 'main' : result.branches[0];
+            if (defaultBranch) {
+              setSelectedBranches(new Set([defaultBranch]));
             }
-          })
-          .finally(() => setResolving(false));
-      }
-      if (provider === 'github') {
-        const derivedProject = deriveProjectId(provider, val);
-        if (derivedProject && derived) {
-          loadBranches(derived, derivedProject, provider);
+          }
+          return undefined;
+        })
+        .catch(() => {
+          setNeedsToken(true);
+        })
+        .finally(() => setBranchesLoading(false));
+    },
+    [selectedBranches],
+  );
+
+  const handleProviderChange = useCallback(
+    (_e: React.FormEvent, val: string) => {
+      const p = val as 'gitlab' | 'github';
+      setProvider(p);
+      if (!existing) {
+        setGlobalTokenKey(`${p}.token`);
+        if (url) {
+          setApiBaseUrl(deriveApiUrl(p, url));
+          if (p === 'github') {
+            setProjectId(deriveProjectId(p, url));
+          }
+        } else if (p === 'github') {
+          setApiBaseUrl('https://api.github.com');
+        } else {
+          setApiBaseUrl('');
         }
       }
-    }
-  }, [existing, provider, name, loadBranches, inlineToken]);
+    },
+    [existing, url],
+  );
+
+  const handleUrlChange = useCallback(
+    (_e: React.FormEvent, val: string) => {
+      const { repoRoot } = cleanRepoUrl(val);
+      setUrl(repoRoot);
+      setResolveError('');
+      if (!existing && repoRoot) {
+        const derived = deriveApiUrl(provider, repoRoot);
+        if (derived) {
+          setApiBaseUrl(derived);
+        }
+        const derivedName = deriveDisplayName(repoRoot);
+        if (derivedName && !name) {
+          setName(derivedName);
+        }
+        if (provider === 'github') {
+          const derivedProject = deriveProjectId(provider, repoRoot);
+          if (derivedProject) {
+            setProjectId(derivedProject);
+          }
+        }
+        if (provider === 'gitlab' && derived) {
+          setResolving(true);
+          const resolveBody: Record<string, string> = {
+            apiBaseUrl: derived,
+            provider: 'gitlab',
+            repoUrl: val,
+          };
+          if (inlineToken) {
+            resolveBody.token = inlineToken;
+          }
+          void apiFetch<{ projectId: string; name: string; defaultBranch: string }>(
+            '/repositories/resolve-project',
+            { body: JSON.stringify(resolveBody), method: 'POST' },
+          )
+            .then(result => {
+              setProjectId(result.projectId);
+              if (!name && result.name) {
+                setName(result.name);
+              }
+              if (result.defaultBranch) {
+                setSelectedBranches(new Set([result.defaultBranch]));
+              }
+              setResolveError('');
+              setNeedsToken(false);
+              loadBranches(derived, result.projectId, provider, inlineToken || undefined);
+              return undefined;
+            })
+            .catch(err => {
+              const msg = err instanceof Error ? err.message : 'Could not resolve project';
+              if (msg.includes('token') || msg.includes('Token')) {
+                setNeedsToken(true);
+                setResolveError('');
+              } else {
+                setResolveError(msg);
+              }
+            })
+            .finally(() => setResolving(false));
+        }
+        if (provider === 'github') {
+          const derivedProject = deriveProjectId(provider, val);
+          if (derivedProject && derived) {
+            loadBranches(derived, derivedProject, provider);
+          }
+        }
+      }
+    },
+    [existing, provider, name, loadBranches, inlineToken],
+  );
 
   const effectiveApiUrl = apiBaseUrl || deriveApiUrl(provider, url);
   const effectiveTokenKey = globalTokenKey || `${provider}.token`;
 
-  const splitComma = (val: string) => val.split(',').map(s => s.trim()).filter(Boolean);
-
-
-  const canSubmit = useMemo(() => {
-    return !!(name || deriveDisplayName(url)) && url && projectId && selectedBranches.size > 0;
-  }, [name, url, projectId, selectedBranches]);
+  const canSubmit = useMemo(
+    () => Boolean(name || deriveDisplayName(url)) && url && projectId && selectedBranches.size > 0,
+    [name, url, projectId, selectedBranches],
+  );
 
   const mutation = useMutation({
     mutationFn: async () => {
       const data: Record<string, unknown> = {
-        name: name || deriveDisplayName(url),
-        provider,
-        url,
         apiBaseUrl: effectiveApiUrl,
-        projectId,
         branches: [...selectedBranches],
-        globalTokenKey: effectiveTokenKey,
-        docPaths: [],
-        testPaths: [],
-        components: selectedComponent ? [selectedComponent] : [],
         cacheTtlMin,
+        components: selectedComponent ? [selectedComponent] : [],
+        docPaths: [],
         enabled,
+        globalTokenKey: effectiveTokenKey,
+        name: name || deriveDisplayName(url),
+        projectId,
+        provider,
+        testPaths: [],
+        url,
       };
       if (inlineToken && !existing) {
         data.token = inlineToken;
       }
-      return existing ? updateRepositoryApi(existing.id, data) : createRepositoryApi(data as Parameters<typeof createRepositoryApi>[0]);
+      return existing
+        ? updateRepositoryApi(existing.id, data)
+        : createRepositoryApi(data as Parameters<typeof createRepositoryApi>[0]);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['repositories'] });
-      queryClient.invalidateQueries({ queryKey: ['testExplorerTree'] });
-      queryClient.invalidateQueries({ queryKey: ['testExplorerStats'] });
+      void queryClient.invalidateQueries({ queryKey: ['repositories'] });
+      void queryClient.invalidateQueries({ queryKey: ['testExplorerTree'] });
+      void queryClient.invalidateQueries({ queryKey: ['testExplorerStats'] });
       setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ['testExplorerTree'] });
-        queryClient.invalidateQueries({ queryKey: ['testExplorerStats'] });
+        void queryClient.invalidateQueries({ queryKey: ['testExplorerTree'] });
+        void queryClient.invalidateQueries({ queryKey: ['testExplorerStats'] });
       }, 5000);
       onClose();
     },
   });
 
   return (
-    <Modal variant={ModalVariant.large} isOpen={isOpen} onClose={onClose}>
-      <ModalHeader title={existing ? `Edit Repository: ${existing.name}` : 'Add Repository'} description="Connect a GitLab or GitHub repository for test documentation and quarantine management." />
+    <Modal isOpen={isOpen} variant={ModalVariant.large} onClose={onClose}>
+      <ModalHeader
+        description="Connect a GitLab or GitHub repository for test documentation and quarantine management."
+        title={existing ? `Edit Repository: ${existing.name}` : 'Add Repository'}
+      />
       <ModalBody>
         <Form isHorizontal>
           <FormSection title="Connection" titleElement="h3">
-            <FormGroup label="Provider" isRequired fieldId="repo-provider">
+            <FormGroup isRequired fieldId="repo-provider" label="Provider">
               <FormSelect id="repo-provider" value={provider} onChange={handleProviderChange}>
-                <FormSelectOption value="gitlab" label="GitLab" />
-                <FormSelectOption value="github" label="GitHub" />
+                <FormSelectOption label="GitLab" value="gitlab" />
+                <FormSelectOption label="GitHub" value="github" />
               </FormSelect>
             </FormGroup>
 
-            <FormGroup label="Repository URL" isRequired fieldId="repo-url">
-              <TextInput id="repo-url" value={url} onChange={handleUrlChange} placeholder={provider === 'gitlab' ? 'https://gitlab.cee.redhat.com/group/repo' : 'https://github.com/owner/repo'} />
+            <FormGroup isRequired fieldId="repo-url" label="Repository URL">
+              <TextInput
+                id="repo-url"
+                placeholder={
+                  provider === 'gitlab'
+                    ? 'https://gitlab.cee.redhat.com/group/repo'
+                    : 'https://github.com/owner/repo'
+                }
+                value={url}
+                onChange={handleUrlChange}
+              />
               <HelperText>
                 <HelperTextItem>
                   {resolving
@@ -298,48 +395,76 @@ export const RepositoryModal: React.FC<RepositoryModalProps> = ({ isOpen, onClos
                       ? `Resolved: project ID ${projectId}`
                       : `Paste the repository URL. Everything else will be auto-detected.`}
                 </HelperTextItem>
-                {resolveError && <HelperTextItem variant="error">{resolveError}. You can enter the project ID manually below.</HelperTextItem>}
+                {resolveError && (
+                  <HelperTextItem variant="error">
+                    {resolveError}. You can enter the project ID manually below.
+                  </HelperTextItem>
+                )}
               </HelperText>
             </FormGroup>
 
             {needsToken && (
-              <FormGroup label={`${provider === 'gitlab' ? 'GitLab' : 'GitHub'} Access Token`} isRequired fieldId="repo-inline-token">
+              <FormGroup
+                isRequired
+                fieldId="repo-inline-token"
+                label={`${provider === 'gitlab' ? 'GitLab' : 'GitHub'} Access Token`}
+              >
                 <TextInput
                   id="repo-inline-token"
+                  placeholder={`Paste your ${provider === 'gitlab' ? 'GitLab' : 'GitHub'} access token`}
                   type="password"
                   value={inlineToken}
                   onChange={(_e, val) => setInlineToken(val)}
-                  placeholder={`Paste your ${provider === 'gitlab' ? 'GitLab' : 'GitHub'} access token`}
                 />
                 <HelperText>
                   <HelperTextItem>
-                    A read-only access token is needed to fetch repository info. {provider === 'gitlab' ? 'Needs at least read_api scope.' : 'Needs repo read access.'}
-                    {' '}This token will be saved to settings for future use.
+                    A read-only access token is needed to fetch repository info.{' '}
+                    {provider === 'gitlab'
+                      ? 'Needs at least read_api scope.'
+                      : 'Needs repo read access.'}{' '}
+                    This token will be saved to settings for future use.
                   </HelperTextItem>
                 </HelperText>
                 {inlineToken && (
                   <Button
-                    variant="secondary"
-                    size="sm"
                     className="app-mt-sm"
+                    isDisabled={resolving}
+                    isLoading={resolving}
+                    size="sm"
+                    variant="secondary"
                     onClick={() => {
                       if (url) {
                         const derived = deriveApiUrl(provider, url);
                         if (provider === 'gitlab' && derived) {
                           setResolving(true);
-                          apiFetch<{ projectId: string; name: string; defaultBranch: string }>('/repositories/resolve-project', {
-                            method: 'POST',
-                            body: JSON.stringify({ repoUrl: url, apiBaseUrl: derived, provider: 'gitlab', token: inlineToken }),
-                          })
+                          void apiFetch<{ projectId: string; name: string; defaultBranch: string }>(
+                            '/repositories/resolve-project',
+                            {
+                              body: JSON.stringify({
+                                apiBaseUrl: derived,
+                                provider: 'gitlab',
+                                repoUrl: url,
+                                token: inlineToken,
+                              }),
+                              method: 'POST',
+                            },
+                          )
                             .then(result => {
                               setProjectId(result.projectId);
-                              if (!name && result.name) setName(result.name);
-                              if (result.defaultBranch) setSelectedBranches(new Set([result.defaultBranch]));
+                              if (!name && result.name) {
+                                setName(result.name);
+                              }
+                              if (result.defaultBranch) {
+                                setSelectedBranches(new Set([result.defaultBranch]));
+                              }
                               setResolveError('');
                               setNeedsToken(false);
                               loadBranches(derived, result.projectId, provider, inlineToken);
+                              return undefined;
                             })
-                            .catch(err => setResolveError(err instanceof Error ? err.message : 'Failed'))
+                            .catch(err =>
+                              setResolveError(err instanceof Error ? err.message : 'Failed'),
+                            )
                             .finally(() => setResolving(false));
                         } else if (provider === 'github') {
                           const proj = deriveProjectId(provider, url);
@@ -351,8 +476,6 @@ export const RepositoryModal: React.FC<RepositoryModalProps> = ({ isOpen, onClos
                         }
                       }
                     }}
-                    isLoading={resolving}
-                    isDisabled={resolving}
                   >
                     Connect
                   </Button>
@@ -360,100 +483,180 @@ export const RepositoryModal: React.FC<RepositoryModalProps> = ({ isOpen, onClos
               </FormGroup>
             )}
 
-            {(resolveError || (!resolving && !projectId && url && !needsToken)) && provider === 'gitlab' && (
-              <FormGroup label="Project ID" isRequired fieldId="repo-project">
-                <TextInput id="repo-project" value={projectId} onChange={(_e, val) => setProjectId(val)} placeholder="12345" />
-                <HelperText><HelperTextItem>The numeric project ID from GitLab (Settings &gt; General).</HelperTextItem></HelperText>
-              </FormGroup>
-            )}
+            {(resolveError || (!resolving && !projectId && url && !needsToken)) &&
+              provider === 'gitlab' && (
+                <FormGroup isRequired fieldId="repo-project" label="Project ID">
+                  <TextInput
+                    id="repo-project"
+                    placeholder="12345"
+                    value={projectId}
+                    onChange={(_e, val) => setProjectId(val)}
+                  />
+                  <HelperText>
+                    <HelperTextItem>
+                      The numeric project ID from GitLab (Settings &gt; General).
+                    </HelperTextItem>
+                  </HelperText>
+                </FormGroup>
+              )}
           </FormSection>
 
           <FormSection title="What to Track" titleElement="h3">
-            <FormGroup label="Branches" isRequired fieldId="repo-branches">
+            <FormGroup isRequired fieldId="repo-branches" label="Branches">
               {availableBranches.length > 0 ? (
                 <ComponentMultiSelect
                   id="repo-branches"
-                  selected={selectedBranches}
-                  options={availableBranches}
-                  onChange={setSelectedBranches}
-                  placeholder={branchesLoading ? 'Loading branches...' : 'Select branches...'}
-                  itemLabel="branches"
                   isDisabled={branchesLoading}
+                  itemLabel="branches"
+                  options={availableBranches}
+                  placeholder={branchesLoading ? 'Loading branches...' : 'Select branches...'}
+                  selected={selectedBranches}
+                  onChange={setSelectedBranches}
                 />
               ) : (
                 <TextInput
                   id="repo-branches-text"
-                  value={[...selectedBranches].join(', ')}
-                  onChange={(_e, val) => setSelectedBranches(new Set(val.split(',').map(s => s.trim()).filter(Boolean)))}
-                  placeholder={branchesLoading ? 'Loading branches...' : 'main'}
                   isDisabled={branchesLoading}
+                  placeholder={branchesLoading ? 'Loading branches...' : 'main'}
+                  value={[...selectedBranches].join(', ')}
+                  onChange={(_e, val) =>
+                    setSelectedBranches(
+                      new Set(
+                        val
+                          .split(',')
+                          .map(s => s.trim())
+                          .filter(Boolean),
+                      ),
+                    )
+                  }
                 />
               )}
-              <HelperText><HelperTextItem>{availableBranches.length > 0 ? `${availableBranches.length} branches available. Select which ones to track.` : branchesLoading ? 'Fetching branches from the repository...' : 'Branches will be loaded once the repository URL is resolved.'}</HelperTextItem></HelperText>
+              <HelperText>
+                <HelperTextItem>
+                  {availableBranches.length > 0
+                    ? `${availableBranches.length} branches available. Select which ones to track.`
+                    : branchesLoading
+                      ? 'Fetching branches from the repository...'
+                      : 'Branches will be loaded once the repository URL is resolved.'}
+                </HelperTextItem>
+              </HelperText>
             </FormGroup>
 
-            <FormGroup label="Component" fieldId="repo-component">
+            <FormGroup fieldId="repo-component" label="Component">
               <SearchableSelect
                 id="repo-component"
-                value={selectedComponent}
-                options={componentOptions.map(c => ({ value: c, label: c }))}
-                onChange={setSelectedComponent}
+                options={componentOptions.map(c => ({ label: c, value: c }))}
                 placeholder="Select a component..."
+                value={selectedComponent}
+                onChange={setSelectedComponent}
               />
-              <HelperText><HelperTextItem>The Jira component this repository belongs to.</HelperTextItem></HelperText>
+              <HelperText>
+                <HelperTextItem>The Jira component this repository belongs to.</HelperTextItem>
+              </HelperText>
             </FormGroup>
-
           </FormSection>
 
-          <ExpandableSection toggleText={showAdvanced ? 'Hide advanced options' : 'Show advanced options'} isExpanded={showAdvanced} onToggle={(_e, expanded) => setShowAdvanced(expanded)}>
+          <ExpandableSection
+            isExpanded={showAdvanced}
+            toggleText={showAdvanced ? 'Hide advanced options' : 'Show advanced options'}
+            onToggle={(_e, expanded) => setShowAdvanced(expanded)}
+          >
             <FormSection titleElement="h3">
-              <FormGroup label="Display Name" fieldId="repo-name">
-                <TextInput id="repo-name" value={name} onChange={(_e, val) => setName(val)} placeholder={deriveDisplayName(url) || 'Auto-detected from URL'} />
-                <HelperText><HelperTextItem>Override the auto-detected name. Leave empty to use the repository path.</HelperTextItem></HelperText>
+              <FormGroup fieldId="repo-name" label="Display Name">
+                <TextInput
+                  id="repo-name"
+                  placeholder={deriveDisplayName(url) || 'Auto-detected from URL'}
+                  value={name}
+                  onChange={(_e, val) => setName(val)}
+                />
+                <HelperText>
+                  <HelperTextItem>
+                    Override the auto-detected name. Leave empty to use the repository path.
+                  </HelperTextItem>
+                </HelperText>
               </FormGroup>
 
-              <FormGroup label="API Base URL" fieldId="repo-api">
-                <TextInput id="repo-api" value={apiBaseUrl} onChange={(_e, val) => setApiBaseUrl(val)} placeholder={effectiveApiUrl || 'Auto-detected from repository URL'} />
-                <HelperText><HelperTextItem>Override only if using a custom API gateway or proxy.</HelperTextItem></HelperText>
+              <FormGroup fieldId="repo-api" label="API Base URL">
+                <TextInput
+                  id="repo-api"
+                  placeholder={effectiveApiUrl || 'Auto-detected from repository URL'}
+                  value={apiBaseUrl}
+                  onChange={(_e, val) => setApiBaseUrl(val)}
+                />
+                <HelperText>
+                  <HelperTextItem>
+                    Override only if using a custom API gateway or proxy.
+                  </HelperTextItem>
+                </HelperText>
               </FormGroup>
 
-              <FormGroup label="Access Token Key" fieldId="repo-token">
-                <TextInput id="repo-token" value={globalTokenKey} onChange={(_e, val) => setGlobalTokenKey(val)} placeholder={effectiveTokenKey} />
-                <HelperText><HelperTextItem>The settings key storing the read-only token. Default: {effectiveTokenKey}</HelperTextItem></HelperText>
+              <FormGroup fieldId="repo-token" label="Access Token Key">
+                <TextInput
+                  id="repo-token"
+                  placeholder={effectiveTokenKey}
+                  value={globalTokenKey}
+                  onChange={(_e, val) => setGlobalTokenKey(val)}
+                />
+                <HelperText>
+                  <HelperTextItem>
+                    The settings key storing the read-only token. Default: {effectiveTokenKey}
+                  </HelperTextItem>
+                </HelperText>
               </FormGroup>
 
-              <FormGroup label="Cache Duration" fieldId="repo-cache">
+              <FormGroup fieldId="repo-cache" label="Cache Duration">
                 <NumberInput
                   id="repo-cache"
+                  max={1440}
+                  min={1}
+                  unit="minutes"
                   value={cacheTtlMin}
-                  onChange={(e) => setCacheTtlMin(Number((e.target as HTMLInputElement).value))}
+                  onChange={e => setCacheTtlMin(Number((e.target as HTMLInputElement).value))}
                   onMinus={() => setCacheTtlMin(Math.max(1, cacheTtlMin - 1))}
                   onPlus={() => setCacheTtlMin(cacheTtlMin + 1)}
-                  min={1}
-                  max={1440}
-                  unit="minutes"
                 />
-                <HelperText><HelperTextItem>How long to cache the file tree before re-fetching.</HelperTextItem></HelperText>
+                <HelperText>
+                  <HelperTextItem>
+                    How long to cache the file tree before re-fetching.
+                  </HelperTextItem>
+                </HelperText>
               </FormGroup>
 
-              <FormGroup label="Enabled" fieldId="repo-enabled">
-                <Switch id="repo-enabled" isChecked={enabled} onChange={(_e, checked) => setEnabled(checked)} label="Sync and display this repository" />
+              <FormGroup fieldId="repo-enabled" label="Enabled">
+                <Switch
+                  id="repo-enabled"
+                  isChecked={enabled}
+                  label="Sync and display this repository"
+                  onChange={(_e, checked) => setEnabled(checked)}
+                />
               </FormGroup>
             </FormSection>
           </ExpandableSection>
 
           {mutation.isError && (
-            <Alert variant="danger" isInline title="Failed to save repository" className="app-mt-md">
-              {(mutation.error as Error).message}
+            <Alert
+              isInline
+              className="app-mt-md"
+              title="Failed to save repository"
+              variant="danger"
+            >
+              {mutation.error.message}
             </Alert>
           )}
         </Form>
       </ModalBody>
       <ModalFooter>
-        <Button variant="primary" onClick={() => mutation.mutate()} isDisabled={!canSubmit || mutation.isPending} isLoading={mutation.isPending}>
+        <Button
+          isDisabled={!canSubmit || mutation.isPending}
+          isLoading={mutation.isPending}
+          variant="primary"
+          onClick={() => mutation.mutate()}
+        >
           {existing ? 'Save Changes' : 'Add Repository'}
         </Button>
-        <Button variant="link" onClick={onClose}>Cancel</Button>
+        <Button variant="link" onClick={onClose}>
+          Cancel
+        </Button>
       </ModalFooter>
     </Modal>
   );

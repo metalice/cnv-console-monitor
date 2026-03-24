@@ -1,80 +1,99 @@
-import express from 'express';
 import path from 'path';
-import helmet from 'helmet';
+
 import cors from 'cors';
+import express from 'express';
 import rateLimit from 'express-rate-limit';
-import { httpLogger } from '../logger';
+import helmet from 'helmet';
+
 import { config } from '../config';
 import { AppDataSource } from '../db/data-source';
+import { httpLogger } from '../logger';
+
 import { extractUser } from './middleware/auth';
-import authRouter from './routes/auth';
+import { errorHandler } from './middleware/errorHandler';
+import acknowledgmentRouter from './routes/acknowledgment';
+import activityRouter from './routes/activity';
+import adminRouter from './routes/admin';
+import aiRouter from './routes/ai';
+import analysisRouter from './routes/analysis';
 import artifactsRouter from './routes/artifacts';
+import authRouter from './routes/auth';
+import compareRouter from './routes/compare';
+import componentMappingsRouter from './routes/component-mappings';
+import componentHealthRouter from './routes/componentHealth';
+import configPublicRouter from './routes/configPublic';
+import defectTypesRouter from './routes/defectTypes';
+import flakyRouter from './routes/flaky';
+import jiraRouter from './routes/jira';
 import launchesRouter from './routes/launches';
+import myWorkRouter from './routes/myWork';
+import notificationsRouter from './routes/notifications';
+import pollRouter from './routes/poll';
+import quarantineRouter from './routes/quarantine';
+import readinessRouter from './routes/readiness';
+import releasesRouter from './routes/releases';
+import repositoriesRouter from './routes/repositories';
+import settingsRouter from './routes/settings';
+import subscriptionsRouter from './routes/subscriptions';
+import testExplorerRouter from './routes/test-explorer';
 import testItemsRouter from './routes/testItems';
 import testProfileRouter from './routes/testProfile';
 import triageRouter from './routes/triage';
-import analysisRouter from './routes/analysis';
-import jiraRouter from './routes/jira';
-import acknowledgmentRouter from './routes/acknowledgment';
-import flakyRouter from './routes/flaky';
-import defectTypesRouter from './routes/defectTypes';
-import activityRouter from './routes/activity';
-import configPublicRouter from './routes/configPublic';
-import pollRouter from './routes/poll';
-import notificationsRouter from './routes/notifications';
-import settingsRouter from './routes/settings';
-import subscriptionsRouter from './routes/subscriptions';
-import releasesRouter from './routes/releases';
 import userRouter from './routes/user';
-import adminRouter from './routes/admin';
-import componentHealthRouter from './routes/componentHealth';
-import compareRouter from './routes/compare';
-import readinessRouter from './routes/readiness';
-import myWorkRouter from './routes/myWork';
-import componentMappingsRouter from './routes/component-mappings';
-import aiRouter from './routes/ai';
-import repositoriesRouter from './routes/repositories';
-import testExplorerRouter from './routes/test-explorer';
-import quarantineRouter from './routes/quarantine';
-import webhooksRouter from './routes/webhooks';
 import userTokensRouter from './routes/user-tokens';
-import { errorHandler } from './middleware/errorHandler';
+import webhooksRouter from './routes/webhooks';
 
 export const createApp = (): express.Application => {
   const app = express();
 
-  app.use(helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", 'data:', 'https:'],
-        connectSrc: ["'self'", 'wss:', 'ws:'],
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          connectSrc: ["'self'", 'wss:', 'ws:'],
+          defaultSrc: ["'self'"],
+          imgSrc: ["'self'", 'data:', 'https:'],
+          scriptSrc: ["'self'", "'unsafe-inline'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+        },
       },
-    },
-    crossOriginEmbedderPolicy: false,
-  }));
+      crossOriginEmbedderPolicy: false,
+    }),
+  );
 
   const allowedOrigins = config.dashboard.url ? [config.dashboard.url] : [];
-  app.use(cors({
-    origin: allowedOrigins.length > 0 ? allowedOrigins : false,
-    credentials: true,
-  }));
+  app.use(
+    cors({
+      credentials: true,
+      origin: allowedOrigins.length > 0 ? allowedOrigins : false,
+    }),
+  );
 
   app.use(httpLogger);
   app.use(express.json({ limit: '1mb' }));
 
-  const apiLimiter = rateLimit({ windowMs: 60_000, max: 200, standardHeaders: true, legacyHeaders: false });
-  const strictLimiter = rateLimit({ windowMs: 60_000, max: 10, standardHeaders: true, legacyHeaders: false });
+  const apiLimiter = rateLimit({
+    legacyHeaders: false,
+    max: 200,
+    standardHeaders: true,
+    windowMs: 60_000,
+  });
+  const strictLimiter = rateLimit({
+    legacyHeaders: false,
+    max: 10,
+    standardHeaders: true,
+    windowMs: 60_000,
+  });
   app.use('/api', apiLimiter);
 
   app.get('/health', async (_req, res) => {
     try {
       await AppDataSource.query('SELECT 1');
-      res.json({ status: 'ok', db: 'connected', timestamp: new Date().toISOString() });
+      res.json({ db: 'connected', status: 'ok', timestamp: new Date().toISOString() });
     } catch {
-      res.status(503).json({ status: 'degraded', db: 'disconnected', timestamp: new Date().toISOString() });
+      res
+        .status(503)
+        .json({ db: 'disconnected', status: 'degraded', timestamp: new Date().toISOString() });
     }
   });
 
@@ -120,4 +139,4 @@ export const createApp = (): express.Application => {
   app.use(errorHandler);
 
   return app;
-}
+};

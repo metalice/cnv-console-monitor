@@ -1,12 +1,12 @@
 import { z } from 'zod';
 
 export const DefectTypeSchema = z.object({
+  color: z.string(),
   id: z.number(),
   locator: z.string(),
-  typeRef: z.string(),
   longName: z.string(),
   shortName: z.string(),
-  color: z.string(),
+  typeRef: z.string(),
 });
 
 export type DefectType = z.infer<typeof DefectTypeSchema>;

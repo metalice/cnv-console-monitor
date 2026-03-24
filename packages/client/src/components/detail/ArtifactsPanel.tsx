@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+
 import {
-  ExpandableSection,
   Button,
-  Spinner,
-  Modal,
-  ModalVariant,
-  ModalHeader,
-  ModalBody,
   Content,
+  ExpandableSection,
+  Modal,
+  ModalBody,
+  ModalHeader,
+  ModalVariant,
+  Spinner,
 } from '@patternfly/react-core';
 import { ExternalLinkAltIcon } from '@patternfly/react-icons';
-import { fetchArtifacts, type ArtifactFile } from '../../api/artifacts';
+import { useQuery } from '@tanstack/react-query';
+
+import { type ArtifactFile, fetchArtifacts } from '../../api/artifacts';
+
 import { ScreenshotGallery, VideoList } from './ArtifactGalleries';
 
 type ArtifactsPanelProps = {
@@ -23,9 +26,9 @@ export const ArtifactsPanel: React.FC<ArtifactsPanelProps> = ({ launchId }) => {
   const [selectedImage, setSelectedImage] = useState<ArtifactFile | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['artifacts', launchId],
-    queryFn: () => fetchArtifacts(launchId),
     enabled: isExpanded,
+    queryFn: () => fetchArtifacts(launchId),
+    queryKey: ['artifacts', launchId],
     staleTime: 5 * 60 * 1000,
   });
 
@@ -37,12 +40,12 @@ export const ArtifactsPanel: React.FC<ArtifactsPanelProps> = ({ launchId }) => {
   return (
     <>
       <ExpandableSection
+        isIndented
+        isExpanded={isExpanded}
         toggleText={toggleLabel}
         onToggle={(_e, expanded) => setIsExpanded(expanded)}
-        isExpanded={isExpanded}
-        isIndented
       >
-        {isLoading && <Spinner size="md" aria-label="Loading artifacts" />}
+        {isLoading && <Spinner aria-label="Loading artifacts" size="md" />}
 
         {data && !hasArtifacts && (
           <Content component="small">No videos or screenshots available for this launch.</Content>
@@ -52,22 +55,31 @@ export const ArtifactsPanel: React.FC<ArtifactsPanelProps> = ({ launchId }) => {
           <ScreenshotGallery screenshots={data.screenshots} onSelect={setSelectedImage} />
         )}
 
-        {data && data.videos.length > 0 && (
-          <VideoList videos={data.videos} />
-        )}
+        {data && data.videos.length > 0 && <VideoList videos={data.videos} />}
 
         {data?.artifactsPageUrl && (
-          <Button variant="link" component="a" href={data.artifactsPageUrl} target="_blank" rel="noreferrer" icon={<ExternalLinkAltIcon />}>
+          <Button
+            component="a"
+            href={data.artifactsPageUrl}
+            icon={<ExternalLinkAltIcon />}
+            rel="noreferrer"
+            target="_blank"
+            variant="link"
+          >
             Open all artifacts in Jenkins
           </Button>
         )}
       </ExpandableSection>
 
       {selectedImage && (
-        <Modal variant={ModalVariant.large} isOpen onClose={() => setSelectedImage(null)}>
+        <Modal isOpen variant={ModalVariant.large} onClose={() => setSelectedImage(null)}>
           <ModalHeader title={`${selectedImage.testFile} — ${selectedImage.name}`} />
           <ModalBody>
-            <img src={selectedImage.url} alt={selectedImage.name} className="app-screenshot-img-full" />
+            <img
+              alt={selectedImage.name}
+              className="app-screenshot-img-full"
+              src={selectedImage.url}
+            />
           </ModalBody>
         </Modal>
       )}

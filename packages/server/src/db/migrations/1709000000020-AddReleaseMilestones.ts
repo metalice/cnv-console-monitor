@@ -1,6 +1,10 @@
 import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddReleaseMilestones1709000000020 implements MigrationInterface {
+  public down = async (queryRunner: QueryRunner): Promise<void> => {
+    await queryRunner.query(`DROP TABLE IF EXISTS "release_milestones"`);
+  };
+
   public up = async (queryRunner: QueryRunner): Promise<void> => {
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "release_milestones" (
@@ -14,10 +18,8 @@ export class AddReleaseMilestones1709000000020 implements MigrationInterface {
         "created_at" TIMESTAMP DEFAULT NOW()
       )
     `);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_release_milestones_version" ON "release_milestones" ("version")`);
-  };
-
-  public down = async (queryRunner: QueryRunner): Promise<void> => {
-    await queryRunner.query(`DROP TABLE IF EXISTS "release_milestones"`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_release_milestones_version" ON "release_milestones" ("version")`,
+    );
   };
 }

@@ -1,110 +1,123 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+import type { TreeNode } from '@cnv-monitor/shared';
+
 import {
-  PageSection,
-  Content,
+  Alert,
   Button,
-  Toolbar,
-  ToolbarContent,
-  ToolbarItem,
-  ToolbarGroup,
-  Spinner,
+  Content,
+  Divider,
   EmptyState,
   EmptyStateBody,
-  Card,
-  CardBody,
-  Gallery,
-  GalleryItem,
   Flex,
   FlexItem,
+  Gallery,
+  GalleryItem,
   Label,
-  Alert,
-  Divider,
+  PageSection,
+  Spinner,
+  Toolbar,
+  ToolbarContent,
+  ToolbarGroup,
+  ToolbarItem,
 } from '@patternfly/react-core';
 import {
-  SyncAltIcon,
+  CogIcon,
   LightbulbIcon,
   RepositoryIcon,
-  OutlinedFileAltIcon,
-  CodeIcon,
-  LinkIcon,
-  ShieldAltIcon,
   SearchIcon,
-  CogIcon,
+  SyncAltIcon,
 } from '@patternfly/react-icons';
-import { useNavigate } from 'react-router-dom';
-import type { TreeNode } from '@cnv-monitor/shared';
-import { fetchTree, fetchExplorerStats, syncAllRepos, syncRepo, fetchDraftPaths, fetchDraftCount } from '../api/testExplorer';
+import { useMutation, useQuery } from '@tanstack/react-query';
+
+import {
+  fetchDraftCount,
+  fetchDraftPaths,
+  fetchExplorerStats,
+  fetchTree,
+  syncAllRepos,
+  syncRepo,
+} from '../api/testExplorer';
+import { StatCard } from '../components/common/StatCard';
+import { TimeAgo } from '../components/common/TimeAgo';
+import { AIInsightsDrawer } from '../components/test-explorer/AIInsightsDrawer';
+import { EditActivitySection } from '../components/test-explorer/EditActivitySection';
+import { FileDetail } from '../components/test-explorer/FileDetail';
+import { FileTree } from '../components/test-explorer/FileTree';
+import { QuarantineDashboard } from '../components/test-explorer/QuarantineDashboard';
+import { CreateQuarantineModal } from '../components/test-explorer/QuarantineModal';
+import { SubmitDraftsModal } from '../components/test-explorer/SubmitDraftsModal';
+import { SyncProgressBanner } from '../components/test-explorer/SyncProgressBanner';
 import type { ContextMenuAction } from '../components/test-explorer/TreeContextMenu';
 import { useComponentFilter } from '../context/ComponentFilterContext';
 import { usePreferences } from '../context/PreferencesContext';
-import { FileTree } from '../components/test-explorer/FileTree';
-import { FileDetail } from '../components/test-explorer/FileDetail';
-import { QuarantineDashboard } from '../components/test-explorer/QuarantineDashboard';
-import { CreateQuarantineModal } from '../components/test-explorer/QuarantineModal';
-import { AIInsightsDrawer } from '../components/test-explorer/AIInsightsDrawer';
-import { SubmitDraftsModal } from '../components/test-explorer/SubmitDraftsModal';
-import { EditActivitySection } from '../components/test-explorer/EditActivitySection';
-import { SyncProgressBanner } from '../components/test-explorer/SyncProgressBanner';
-import { StatCard } from '../components/common/StatCard';
-import { TimeAgo } from '../components/common/TimeAgo';
 
 const STATUS_SUCCESS = 'var(--pf-t--global--color--status--success--default)';
 const STATUS_DANGER = 'var(--pf-t--global--color--status--danger--default)';
 const STATUS_WARNING = 'var(--pf-t--global--color--status--warning--default)';
 const STATUS_INFO = 'var(--pf-t--global--color--status--info--default)';
 
+// eslint-disable-next-line max-lines-per-function
 export const TestExplorerPage: React.FC = () => {
-  useEffect(() => { document.title = 'Test Explorer | CNV Console Monitor'; }, []);
+  useEffect(() => {
+    document.title = 'Test Explorer | CNV Console Monitor';
+  }, []);
 
   const navigate = useNavigate();
   const { selectedComponent: activeComponent } = useComponentFilter();
   const { preferences, setPreference } = usePreferences();
   const prevSidebarState = useRef<boolean | undefined>(undefined);
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
-  const [highlightInfo, setHighlightInfo] = useState<{ lines: number[]; scrollTo: number } | null>(null);
+  const [highlightInfo, setHighlightInfo] = useState<{ lines: number[]; scrollTo: number } | null>(
+    null,
+  );
   const [insightsOpen, setInsightsOpen] = useState(false);
   const [quarantineTarget, setQuarantineTarget] = useState<TreeNode | null>(null);
   const [quarantineOpen, setQuarantineOpen] = useState(false);
   const [submitDraftsOpen, setSubmitDraftsOpen] = useState(false);
 
   const { data: draftPaths } = useQuery({
-    queryKey: ['draftPaths'],
     queryFn: fetchDraftPaths,
-    staleTime: 10_000,
+    queryKey: ['draftPaths'],
     refetchInterval: 30_000,
+    staleTime: 10_000,
   });
 
   const { data: draftCount } = useQuery({
-    queryKey: ['draftCount'],
     queryFn: fetchDraftCount,
-    staleTime: 10_000,
+    queryKey: ['draftCount'],
     refetchInterval: 30_000,
+    staleTime: 10_000,
   });
 
-  const draftPathSet = useMemo(() => new Set(draftPaths || []), [draftPaths]);
+  const draftPathSet = useMemo(() => new Set(draftPaths ?? []), [draftPaths]);
 
   useEffect(() => {
-    if (prevSidebarState.current === undefined) {
-      prevSidebarState.current = preferences.sidebarCollapsed !== true;
-    }
+    prevSidebarState.current ??= preferences.sidebarCollapsed !== true;
     setPreference('sidebarCollapsed', true);
     return () => {
       if (prevSidebarState.current !== undefined) {
         setPreference('sidebarCollapsed', !prevSidebarState.current);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount/unmount only: restores sidebar state on leave
   }, []);
 
-  const { data: tree, isLoading, refetch, dataUpdatedAt } = useQuery({
-    queryKey: ['testExplorerTree', activeComponent],
+  const {
+    data: tree,
+    dataUpdatedAt,
+    isLoading,
+    refetch,
+  } = useQuery({
     queryFn: () => fetchTree(activeComponent || undefined),
+    queryKey: ['testExplorerTree', activeComponent],
     staleTime: 60_000,
   });
 
   const { data: stats } = useQuery({
-    queryKey: ['testExplorerStats', activeComponent],
     queryFn: () => fetchExplorerStats(activeComponent || undefined),
+    queryKey: ['testExplorerStats', activeComponent],
     staleTime: 60_000,
   });
 
@@ -112,57 +125,85 @@ export const TestExplorerPage: React.FC = () => {
 
   const syncMutation = useMutation({
     mutationFn: () => syncAllRepos(),
-    onSuccess: (data) => {
-      const result = data as Record<string, unknown>;
-      const errors = (result.errors as string[]) || [];
+    onSuccess: data => {
+      const result = data;
+      const rawErrors = result.errors;
+      const errors = Array.isArray(rawErrors) ? rawErrors : [];
       setSyncErrors(errors);
       setTimeout(() => refetch(), 5000);
     },
   });
 
-  const handleQuarantine = (node: TreeNode) => {
+  const handleQuarantine = useCallback((node: TreeNode) => {
     setQuarantineTarget(node);
     setQuarantineOpen(true);
-  };
+  }, []);
 
-  const [editTrigger, setEditTrigger] = useState(0);
+  const [, setEditTrigger] = useState(0);
 
   const findNodeInTree = useCallback((nodes: TreeNode[], target: string): TreeNode | undefined => {
     for (const n of nodes) {
-      if (n.path === target) return n;
-      if (n.children) { const found = findNodeInTree(n.children, target); if (found) return found; }
+      if (n.path === target) {
+        return n;
+      }
+      if (n.children) {
+        const found = findNodeInTree(n.children, target);
+        if (found) {
+          return found;
+        }
+      }
     }
     return undefined;
   }, []);
 
-  const contextActions: ContextMenuAction = useMemo(() => ({
-    onEdit: (node) => { setSelectedNode(node); setHighlightInfo(null); setEditTrigger(prev => prev + 1); },
-    onQuarantine: handleQuarantine,
-    onViewCounterpart: (path) => {
-      if (!tree) return;
-      const target = findNodeInTree(tree, path);
-      if (target) { setSelectedNode(target); setHighlightInfo(null); }
-    },
-    onSyncRepo: (repoId) => { syncRepo(repoId).then(() => refetch()); },
-    onFilterComponent: (component) => {
-      const params = new URLSearchParams(window.location.search);
-      params.set('components', component);
-      window.history.replaceState({}, '', `${window.location.pathname}?${params}`);
-      window.location.reload();
-    },
-    onAiAnalyze: (node) => { setSelectedNode(node); setHighlightInfo(null); },
-  }), [tree, handleQuarantine, findNodeInTree, refetch]);
+  const contextActions: ContextMenuAction = useMemo(
+    () => ({
+      onAiAnalyze: node => {
+        setSelectedNode(node);
+        setHighlightInfo(null);
+      },
+      onEdit: node => {
+        setSelectedNode(node);
+        setHighlightInfo(null);
+        setEditTrigger(prev => prev + 1);
+      },
+      onFilterComponent: component => {
+        const params = new URLSearchParams(window.location.search);
+        params.set('components', component);
+        window.history.replaceState({}, '', `${window.location.pathname}?${params}`);
+        window.location.reload();
+      },
+      onQuarantine: handleQuarantine,
+      onSyncRepo: repoId => {
+        void syncRepo(repoId).then(() => refetch());
+      },
+      onViewCounterpart: path => {
+        if (!tree) {
+          return;
+        }
+        const target = findNodeInTree(tree, path);
+        if (target) {
+          setSelectedNode(target);
+          setHighlightInfo(null);
+        }
+      },
+    }),
+    [tree, handleQuarantine, findNodeInTree, refetch],
+  );
 
-  const statsData = stats as Record<string, unknown> | undefined;
+  const statsData = stats;
   const quarantineStats = statsData?.quarantine as Record<string, number> | undefined;
 
   const content = (
     <>
       <PageSection>
-        <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }}>
+        <Flex
+          alignItems={{ default: 'alignItemsCenter' }}
+          justifyContent={{ default: 'justifyContentSpaceBetween' }}
+        >
           <FlexItem>
             <Content component="h1">Test Explorer</Content>
-            <Content component="small" className="app-text-muted">
+            <Content className="app-text-muted" component="small">
               Documentation tree, test coverage gaps, and quarantine management
             </Content>
           </FlexItem>
@@ -172,26 +213,26 @@ export const TestExplorerPage: React.FC = () => {
                 <ToolbarGroup>
                   {dataUpdatedAt > 0 && (
                     <ToolbarItem>
-                      <Label variant="outline" className="app-text-muted app-text-xs">
+                      <Label className="app-text-muted app-text-xs" variant="outline">
                         Last synced: <TimeAgo timestamp={dataUpdatedAt} />
                       </Label>
                     </ToolbarItem>
                   )}
                   <ToolbarItem>
                     <Button
-                      variant="secondary"
                       icon={<SyncAltIcon />}
-                      onClick={() => syncMutation.mutate()}
-                      isLoading={syncMutation.isPending}
                       isDisabled={syncMutation.isPending}
+                      isLoading={syncMutation.isPending}
+                      variant="secondary"
+                      onClick={() => syncMutation.mutate()}
                     >
                       {syncMutation.isPending ? 'Syncing...' : 'Sync Repos'}
                     </Button>
                   </ToolbarItem>
                   <ToolbarItem>
                     <Button
-                      variant={insightsOpen ? 'primary' : 'secondary'}
                       icon={<LightbulbIcon />}
+                      variant={insightsOpen ? 'primary' : 'secondary'}
                       onClick={() => setInsightsOpen(!insightsOpen)}
                     >
                       AI Insights
@@ -200,12 +241,19 @@ export const TestExplorerPage: React.FC = () => {
                   {(draftCount?.count ?? 0) > 0 && (
                     <ToolbarItem>
                       <Button variant="primary" onClick={() => setSubmitDraftsOpen(true)}>
-                        Submit Changes <Label isCompact className="app-ml-xs">{draftCount?.count}</Label>
+                        Submit Changes{' '}
+                        <Label isCompact className="app-ml-xs">
+                          {draftCount?.count}
+                        </Label>
                       </Button>
                     </ToolbarItem>
                   )}
                   <ToolbarItem>
-                    <Button variant="plain" icon={<CogIcon />} onClick={() => navigate('/settings')} />
+                    <Button
+                      icon={<CogIcon />}
+                      variant="plain"
+                      onClick={() => navigate('/settings')}
+                    />
                   </ToolbarItem>
                 </ToolbarGroup>
               </ToolbarContent>
@@ -220,9 +268,11 @@ export const TestExplorerPage: React.FC = () => {
 
       {(syncMutation.isError || syncErrors.length > 0) && (
         <PageSection>
-          <Alert variant="danger" isInline title="Sync failed">
+          <Alert isInline title="Sync failed" variant="danger">
             {syncMutation.isError
-              ? String((syncMutation.error as Error)?.message || 'Unknown error')
+              ? syncMutation.error instanceof Error
+                ? syncMutation.error.message
+                : 'Unknown error'
               : syncErrors.join(' ')}
           </Alert>
         </PageSection>
@@ -233,52 +283,54 @@ export const TestExplorerPage: React.FC = () => {
           <Gallery hasGutter minWidths={{ default: '140px' }}>
             <GalleryItem>
               <StatCard
-                value={Number(statsData.repositories ?? 0)}
-                label="Repositories"
                 color={STATUS_INFO}
                 help="Number of registered and enabled repositories"
+                label="Repositories"
+                value={Number(statsData.repositories ?? 0)}
               />
             </GalleryItem>
             <GalleryItem>
               <StatCard
-                value={Number(statsData.docs ?? 0)}
-                label="Doc Files"
                 help="Total markdown documentation files found across all repos"
+                label="Doc Files"
+                value={Number(statsData.docs ?? 0)}
               />
             </GalleryItem>
             <GalleryItem>
               <StatCard
-                value={Number(statsData.tests ?? 0)}
-                label="Test Files"
                 help="Total test files found across all repos"
+                label="Test Files"
+                value={Number(statsData.tests ?? 0)}
               />
             </GalleryItem>
             <GalleryItem>
               <StatCard
-                value={Number(statsData.matched ?? 0)}
-                label="Matched Pairs"
                 color={STATUS_SUCCESS}
                 help="Doc-test file pairs that have been matched"
+                label="Matched Pairs"
+                value={Number(statsData.matched ?? 0)}
               />
             </GalleryItem>
             <GalleryItem>
               <StatCard
-                value={Number(statsData.docCoverage ?? 0)}
-                label="Coverage %"
                 color={
-                  Number(statsData.docCoverage ?? 0) >= 80 ? STATUS_SUCCESS
-                    : Number(statsData.docCoverage ?? 0) >= 50 ? STATUS_WARNING
-                    : STATUS_DANGER
+                  Number(statsData.docCoverage ?? 0) >= 80
+                    ? STATUS_SUCCESS
+                    : Number(statsData.docCoverage ?? 0) >= 50
+                      ? STATUS_WARNING
+                      : STATUS_DANGER
                 }
                 help="Percentage of test files that have matching documentation"
+                label="Coverage %"
+                value={Number(statsData.docCoverage ?? 0)}
               />
             </GalleryItem>
             <GalleryItem>
               <StatCard
-                value={quarantineStats?.active ?? 0}
-                label="Quarantined"
                 color={(quarantineStats?.active ?? 0) > 0 ? STATUS_WARNING : STATUS_SUCCESS}
                 help="Tests currently quarantined (active + overdue)"
+                label="Quarantined"
+                value={quarantineStats?.active ?? 0}
               />
             </GalleryItem>
           </Gallery>
@@ -289,16 +341,19 @@ export const TestExplorerPage: React.FC = () => {
 
       {isLoading ? (
         <PageSection isFilled>
-          <div className="app-page-spinner"><Spinner aria-label="Loading tree" /></div>
+          <div className="app-page-spinner">
+            <Spinner aria-label="Loading tree" />
+          </div>
         </PageSection>
       ) : !tree || tree.length === 0 ? (
         <PageSection>
-          <EmptyState variant="lg" icon={RepositoryIcon}>
+          <EmptyState icon={RepositoryIcon} variant="lg">
             <Content component="h2">No repositories configured</Content>
             <EmptyStateBody>
-              Add a repository in Settings to start exploring test documentation, coverage gaps, and quarantine management.
+              Add a repository in Settings to start exploring test documentation, coverage gaps, and
+              quarantine management.
             </EmptyStateBody>
-            <Button variant="primary" icon={<CogIcon />} onClick={() => navigate('/settings')}>
+            <Button icon={<CogIcon />} variant="primary" onClick={() => navigate('/settings')}>
               Go to Settings
             </Button>
           </EmptyState>
@@ -307,28 +362,48 @@ export const TestExplorerPage: React.FC = () => {
         <PageSection isFilled>
           <div className="app-explorer-layout">
             <div className="app-explorer-tree-panel">
-              <FileTree tree={tree} onSelect={(n) => { setSelectedNode(n); setHighlightInfo(null); }} selectedPath={selectedNode?.path} draftPaths={draftPathSet} contextActions={contextActions} />
+              <FileTree
+                contextActions={contextActions}
+                draftPaths={draftPathSet}
+                selectedPath={selectedNode?.path}
+                tree={tree}
+                onSelect={n => {
+                  setSelectedNode(n);
+                  setHighlightInfo(null);
+                }}
+              />
             </div>
             <div className="app-explorer-detail-panel">
               {selectedNode ? (
-                <FileDetail node={selectedNode} onQuarantine={handleQuarantine} highlightInfo={highlightInfo} onNavigate={(path, highlight) => {
-                  if (!tree) return;
-                  const findNode = (nodes: TreeNode[], target: string): TreeNode | undefined => {
-                    for (const n of nodes) {
-                      if (n.path === target) return n;
-                      if (n.children) { const found = findNode(n.children, target); if (found) return found; }
+                <FileDetail
+                  highlightInfo={highlightInfo}
+                  node={selectedNode}
+                  onNavigate={(path, highlight) => {
+                    const findNode = (nodes: TreeNode[], target: string): TreeNode | undefined => {
+                      for (const n of nodes) {
+                        if (n.path === target) {
+                          return n;
+                        }
+                        if (n.children) {
+                          const found = findNode(n.children, target);
+                          if (found) {
+                            return found;
+                          }
+                        }
+                      }
+                      return undefined;
+                    };
+                    const target = findNode(tree, path);
+                    if (target) {
+                      setSelectedNode(target);
+                      setHighlightInfo(highlight ?? null);
                     }
-                    return undefined;
-                  };
-                  const target = findNode(tree, path);
-                  if (target) {
-                    setSelectedNode(target);
-                    setHighlightInfo(highlight || null);
-                  }
-                }} />
+                  }}
+                  onQuarantine={handleQuarantine}
+                />
               ) : (
                 <div className="app-explorer-empty">
-                  <EmptyState variant="sm" icon={SearchIcon}>
+                  <EmptyState icon={SearchIcon} variant="sm">
                     <Content component="h4">Select a file</Content>
                     <EmptyStateBody>
                       Click a file in the tree to view its details, metadata, and content.
@@ -351,12 +426,15 @@ export const TestExplorerPage: React.FC = () => {
 
       {quarantineTarget && (
         <CreateQuarantineModal
-          isOpen={quarantineOpen}
-          onClose={() => { setQuarantineOpen(false); setQuarantineTarget(null); }}
-          testName={quarantineTarget.name}
-          testFilePath={quarantineTarget.path}
-          repoId={quarantineTarget.repoId}
           component={activeComponent || undefined}
+          isOpen={quarantineOpen}
+          repoId={quarantineTarget.repoId}
+          testFilePath={quarantineTarget.path}
+          testName={quarantineTarget.name}
+          onClose={() => {
+            setQuarantineOpen(false);
+            setQuarantineTarget(null);
+          }}
         />
       )}
 
@@ -365,7 +443,11 @@ export const TestExplorerPage: React.FC = () => {
   );
 
   return (
-    <AIInsightsDrawer isOpen={insightsOpen} onClose={() => setInsightsOpen(false)} component={activeComponent || undefined}>
+    <AIInsightsDrawer
+      component={activeComponent || undefined}
+      isOpen={insightsOpen}
+      onClose={() => setInsightsOpen(false)}
+    >
       {content}
     </AIInsightsDrawer>
   );

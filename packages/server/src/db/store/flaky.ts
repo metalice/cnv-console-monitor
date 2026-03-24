@@ -4,12 +4,20 @@ export const getFlakyTests = async (
   days: number,
   limit: number,
   component?: string,
-): Promise<Array<{ name: string; unique_id: string; flip_count: number; total_runs: number }>> => {
+): Promise<{ name: string; unique_id: string; flip_count: number; total_runs: number }[]> => {
   const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
   const compFilter = component ? ' AND l.component = $3' : '';
   const params: unknown[] = [sinceMs, limit];
-  if (component) params.push(component);
-  const rows = await AppDataSource.query(`
+  if (component) {
+    params.push(component);
+  }
+  const rows: {
+    name: string;
+    unique_id: string;
+    flip_count: number;
+    total_runs: number;
+  }[] = await AppDataSource.query(
+    `
     WITH failed_tests AS (
       SELECT DISTINCT ti.unique_id, ti.name
       FROM test_items ti
@@ -43,6 +51,8 @@ export const getFlakyTests = async (
     HAVING COUNT(CASE WHEN status != prev_status AND prev_status IS NOT NULL THEN 1 END) > 0
     ORDER BY flip_count DESC
     LIMIT $2
-  `, params);
+  `,
+    params,
+  );
   return rows;
-}
+};

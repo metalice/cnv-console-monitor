@@ -1,16 +1,30 @@
-import 'reflect-metadata';
 import { DataSource } from 'typeorm';
+
+import 'reflect-metadata';
+
 import { config } from '../config';
-import { Launch } from './entities/Launch';
-import { TestItem } from './entities/TestItem';
+
 import { Acknowledgment } from './entities/Acknowledgment';
-import { TriageLog } from './entities/TriageLog';
-import { Setting } from './entities/Setting';
+import { AICache } from './entities/AICache';
+import { AICorrection } from './entities/AICorrection';
+import { ComponentMapping } from './entities/ComponentMapping';
+import { EditActivity } from './entities/EditActivity';
+import { FileDraft } from './entities/FileDraft';
+import { Launch } from './entities/Launch';
 import { NotificationSubscription } from './entities/NotificationSubscription';
+import { PipelineRun } from './entities/PipelineRun';
+import { Quarantine } from './entities/Quarantine';
+import { QuarantineLog } from './entities/QuarantineLog';
+import { ReleaseMilestoneEntity } from './entities/ReleaseMilestone';
+import { RepoFile } from './entities/RepoFile';
+import { Repository } from './entities/Repository';
+import { Setting } from './entities/Setting';
+import { SettingsLog } from './entities/SettingsLog';
+import { TestItem } from './entities/TestItem';
+import { TriageLog } from './entities/TriageLog';
 import { UserEntity } from './entities/UserEntity';
 import { UserPreference } from './entities/UserPreference';
-import { ComponentMapping } from './entities/ComponentMapping';
-import { SettingsLog } from './entities/SettingsLog';
+import { UserToken } from './entities/UserToken';
 import { InitialSchema1709000000000 } from './migrations/1709000000000-InitialSchema';
 import { AddArtifactsUrl1709000000001 } from './migrations/1709000000001-AddArtifactsUrl';
 import { AddSettings1709000000002 } from './migrations/1709000000002-AddSettings';
@@ -28,31 +42,68 @@ import { AddJenkinsMetadataAndStatus1709000000013 } from './migrations/170900000
 import { CleanSlateV21709000000014 } from './migrations/1709000000014-CleanSlateV2';
 import { AddSettingsLog1709000000015 } from './migrations/1709000000015-AddSettingsLog';
 import { AddSubscriptionReminder1709000000016 } from './migrations/1709000000016-AddSubscriptionReminder';
-import { PipelineRun } from './entities/PipelineRun';
 import { AddPipelineRuns1709000000018 } from './migrations/1709000000018-AddPipelineRuns';
 import { AddTriageLogPinning1709000000019 } from './migrations/1709000000019-AddTriageLogPinning';
-import { ReleaseMilestoneEntity } from './entities/ReleaseMilestone';
 import { AddReleaseMilestones1709000000020 } from './migrations/1709000000020-AddReleaseMilestones';
-import { AICache } from './entities/AICache';
 import { AddAICache1709000000021 } from './migrations/1709000000021-AddAICache';
-import { AICorrection } from './entities/AICorrection';
 import { AddAICorrections1709000000022 } from './migrations/1709000000022-AddAICorrections';
-import { Repository } from './entities/Repository';
-import { RepoFile } from './entities/RepoFile';
-import { Quarantine } from './entities/Quarantine';
-import { QuarantineLog } from './entities/QuarantineLog';
-import { UserToken } from './entities/UserToken';
 import { AddTestExplorer1709000000023 } from './migrations/1709000000023-AddTestExplorer';
-import { FileDraft } from './entities/FileDraft';
 import { AddFileDrafts1709000000024 } from './migrations/1709000000024-AddFileDrafts';
-import { EditActivity } from './entities/EditActivity';
 import { AddEditActivity1709000000025 } from './migrations/1709000000025-AddEditActivity';
 
 export const AppDataSource = new DataSource({
+  entities: [
+    Launch,
+    TestItem,
+    Acknowledgment,
+    TriageLog,
+    Setting,
+    NotificationSubscription,
+    UserEntity,
+    UserPreference,
+    ComponentMapping,
+    SettingsLog,
+    PipelineRun,
+    ReleaseMilestoneEntity,
+    AICache,
+    AICorrection,
+    Repository,
+    RepoFile,
+    Quarantine,
+    QuarantineLog,
+    UserToken,
+    FileDraft,
+    EditActivity,
+  ],
+  logging: false,
+  migrations: [
+    InitialSchema1709000000000,
+    AddArtifactsUrl1709000000001,
+    AddSettings1709000000002,
+    AddComponent1709000000003,
+    AddNotificationSubscriptions1709000000004,
+    AddSubscriptionTimezone1709000000005,
+    AddUsersAndPreferences1709000000006,
+    AddSubscriptionJiraWebhook1709000000007,
+    AddComponentToAckAndTriage1709000000008,
+    AddComponentMappings1709000000009,
+    CleanupAutoMappings1709000000010,
+    AddJenkinsTeamToLaunches1709000000011,
+    CleanSlate1709000000012,
+    AddJenkinsMetadataAndStatus1709000000013,
+    CleanSlateV21709000000014,
+    AddSettingsLog1709000000015,
+    AddSubscriptionReminder1709000000016,
+    AddPipelineRuns1709000000018,
+    AddTriageLogPinning1709000000019,
+    AddReleaseMilestones1709000000020,
+    AddAICache1709000000021,
+    AddAICorrections1709000000022,
+    AddTestExplorer1709000000023,
+    AddFileDrafts1709000000024,
+    AddEditActivity1709000000025,
+  ],
+  synchronize: false,
   type: 'postgres',
   url: config.db.url,
-  entities: [Launch, TestItem, Acknowledgment, TriageLog, Setting, NotificationSubscription, UserEntity, UserPreference, ComponentMapping, SettingsLog, PipelineRun, ReleaseMilestoneEntity, AICache, AICorrection, Repository, RepoFile, Quarantine, QuarantineLog, UserToken, FileDraft, EditActivity],
-  migrations: [InitialSchema1709000000000, AddArtifactsUrl1709000000001, AddSettings1709000000002, AddComponent1709000000003, AddNotificationSubscriptions1709000000004, AddSubscriptionTimezone1709000000005, AddUsersAndPreferences1709000000006, AddSubscriptionJiraWebhook1709000000007, AddComponentToAckAndTriage1709000000008, AddComponentMappings1709000000009, CleanupAutoMappings1709000000010, AddJenkinsTeamToLaunches1709000000011, CleanSlate1709000000012, AddJenkinsMetadataAndStatus1709000000013, CleanSlateV21709000000014, AddSettingsLog1709000000015, AddSubscriptionReminder1709000000016, AddPipelineRuns1709000000018, AddTriageLogPinning1709000000019, AddReleaseMilestones1709000000020, AddAICache1709000000021, AddAICorrections1709000000022, AddTestExplorer1709000000023, AddFileDrafts1709000000024, AddEditActivity1709000000025],
-  synchronize: false,
-  logging: false,
 });

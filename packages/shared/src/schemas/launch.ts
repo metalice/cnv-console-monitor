@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { TestItemSchema, EnrichedTestItemSchema } from './testItem';
+
+import { EnrichedTestItemSchema, TestItemSchema } from './testItem';
 
 export const LaunchStatusEnum = z.enum([
   'PASSED',
@@ -12,25 +13,25 @@ export const LaunchStatusEnum = z.enum([
 export type LaunchStatus = z.infer<typeof LaunchStatusEnum>;
 
 export const LaunchSchema = z.object({
-  rp_id: z.number(),
-  uuid: z.string(),
+  artifacts_url: z.string().nullish(),
+  bundle: z.string().nullish(),
+  cluster_name: z.string().nullish(),
+  cnv_version: z.string().nullish(),
+  component: z.string().nullish(),
+  duration: z.number().nullish(),
+  end_time: z.number().nullish(),
+  failed: z.number(),
   name: z.string(),
   number: z.number(),
-  status: z.string(),
-  cnv_version: z.string().nullish(),
-  bundle: z.string().nullish(),
   ocp_version: z.string().nullish(),
-  tier: z.string().nullish(),
-  cluster_name: z.string().nullish(),
-  total: z.number(),
   passed: z.number(),
-  failed: z.number(),
+  rp_id: z.number(),
   skipped: z.number(),
   start_time: z.number(),
-  end_time: z.number().nullish(),
-  duration: z.number().nullish(),
-  artifacts_url: z.string().nullish(),
-  component: z.string().nullish(),
+  status: z.string(),
+  tier: z.string().nullish(),
+  total: z.number(),
+  uuid: z.string(),
 });
 
 export type Launch = z.infer<typeof LaunchSchema>;
@@ -40,37 +41,37 @@ export type HealthStatus = z.infer<typeof HealthStatusEnum>;
 
 export const LaunchGroupSchema = z.object({
   cnvVersion: z.string(),
-  tier: z.string(),
-  launches: z.array(LaunchSchema).optional(),
-  latestLaunch: LaunchSchema,
-  health: HealthStatusEnum,
-  totalTests: z.number(),
-  passedTests: z.number(),
-  failedTests: z.number(),
-  skippedTests: z.number(),
-  passRate: z.number(),
-  failedItems: z.array(TestItemSchema).optional(),
-  enrichedFailedItems: z.array(EnrichedTestItemSchema).optional(),
   component: z.string().optional(),
-  lastPassedTime: z.number().nullish(),
-  launchCount: z.number().optional(),
+  enrichedFailedItems: z.array(EnrichedTestItemSchema).optional(),
   failedItemCount: z.number().optional(),
+  failedItems: z.array(TestItemSchema).optional(),
+  failedTests: z.number(),
+  health: HealthStatusEnum,
+  lastPassedTime: z.number().nullish(),
+  latestLaunch: LaunchSchema,
+  launchCount: z.number().optional(),
+  launches: z.array(LaunchSchema).optional(),
+  passedTests: z.number(),
+  passRate: z.number(),
+  skippedTests: z.number(),
+  tier: z.string(),
+  totalTests: z.number(),
 });
 
 export type LaunchGroup = z.infer<typeof LaunchGroupSchema>;
 
 export const LauncherRowSchema = z.object({
-  name: z.string(),
-  description: z.string().nullish(),
   component: z.string().nullish(),
-  version: z.string(),
-  tier: z.string(),
-  totalRuns: z.number(),
-  passed: z.number(),
+  description: z.string().nullish(),
   failed: z.number(),
   inProgress: z.number(),
-  passRate: z.number(),
   latestLaunch: LaunchSchema,
+  name: z.string(),
+  passed: z.number(),
+  passRate: z.number(),
+  tier: z.string(),
+  totalRuns: z.number(),
+  version: z.string(),
 });
 
 export type LauncherRow = z.infer<typeof LauncherRowSchema>;

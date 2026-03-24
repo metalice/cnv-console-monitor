@@ -1,4 +1,5 @@
 import type { JiraCreateRequest, JiraLinkRequest } from '@cnv-monitor/shared';
+
 import { apiFetch, apiPost } from './client';
 
 type JiraCreateResponse = {

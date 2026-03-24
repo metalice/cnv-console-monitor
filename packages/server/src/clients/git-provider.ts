@@ -1,22 +1,22 @@
-export interface GitTreeEntry {
+export type GitTreeEntry = {
   path: string;
   type: 'blob' | 'tree';
   name: string;
-}
+};
 
-export interface GitFileContent {
+export type GitFileContent = {
   content: string;
   encoding: string;
   sha: string;
-}
+};
 
-export interface GitPRResult {
+export type GitPRResult = {
   url: string;
   number: number;
   title: string;
-}
+};
 
-export interface GitProvider {
+export type GitProvider = {
   fetchTree(branch: string): Promise<GitTreeEntry[]>;
   fetchFileContent(path: string, branch: string): Promise<GitFileContent>;
   createBranch(name: string, fromBranch: string): Promise<void>;
@@ -27,18 +27,18 @@ export interface GitProvider {
     title: string;
     description: string;
   }): Promise<GitPRResult>;
-}
+};
 
-export const createGitProvider = (
+export const createGitProvider = async (
   provider: 'gitlab' | 'github',
   apiBaseUrl: string,
   projectId: string,
   token: string,
-): GitProvider => {
+): Promise<GitProvider> => {
   if (provider === 'gitlab') {
-    const { GitLabProvider } = require('./gitlab');
+    const { GitLabProvider } = await import('./gitlab');
     return new GitLabProvider(apiBaseUrl, projectId, token);
   }
-  const { GitHubProvider } = require('./github-repo');
+  const { GitHubProvider } = await import('./github-repo');
   return new GitHubProvider(apiBaseUrl, projectId, token);
 };

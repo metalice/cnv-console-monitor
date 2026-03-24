@@ -1,23 +1,35 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+
+import type { PublicConfig, ReleaseInfo } from '@cnv-monitor/shared';
+
 import {
-  PageSection, Content, Gallery, GalleryItem,
-  Flex, FlexItem, Toolbar, ToolbarContent, ToolbarItem,
-  Spinner, Alert, Label,
+  Alert,
+  Content,
+  Flex,
+  FlexItem,
+  Gallery,
+  GalleryItem,
+  Label,
+  PageSection,
+  Spinner,
+  Toolbar,
+  ToolbarContent,
+  ToolbarItem,
 } from '@patternfly/react-core';
+import { useQuery } from '@tanstack/react-query';
+
 import { apiFetch } from '../api/client';
 import { fetchReportForRange } from '../api/launches';
 import { fetchReleases } from '../api/releases';
-import type { PublicConfig, ReleaseInfo } from '@cnv-monitor/shared';
-import { useDate } from '../context/DateContext';
-import { useDashboardFilters } from '../hooks/useDashboardFilters';
-import { HealthBanner } from '../components/common/HealthBanner';
 import { AckBanner } from '../components/common/AckBanner';
 import { ExportButton } from '../components/common/ExportButton';
+import { HealthBanner } from '../components/common/HealthBanner';
 import { StatCard } from '../components/common/StatCard';
-import { AcknowledgeModal } from '../components/modals/AcknowledgeModal';
 import { LaunchTable } from '../components/dashboard/LaunchTable';
+import { AcknowledgeModal } from '../components/modals/AcknowledgeModal';
+import { useDate } from '../context/DateContext';
+import { useDashboardFilters } from '../hooks/useDashboardFilters';
 
 const STATUS_SUCCESS = 'var(--pf-t--global--color--status--success--default)';
 const STATUS_DANGER = 'var(--pf-t--global--color--status--danger--default)';
@@ -25,37 +37,70 @@ const STATUS_WARNING = 'var(--pf-t--global--color--status--warning--default)';
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const { lookbackMode, since, until, displayLabel } = useDate();
+  const { displayLabel, lookbackMode, since, until } = useDate();
   const [ackModalOpen, setAckModalOpen] = useState(false);
 
-  useEffect(() => { document.title = 'Dashboard | CNV Console Monitor'; }, []);
+  useEffect(() => {
+    document.title = 'Dashboard | CNV Console Monitor';
+  }, []);
 
-  const { data: config } = useQuery({ queryKey: ['config'], queryFn: () => apiFetch<PublicConfig>('/config'), staleTime: Infinity });
-  const { data: report, isLoading } = useQuery({ queryKey: ['report', lookbackMode, since, until], queryFn: () => fetchReportForRange(since, until) });
-  const { data: releases } = useQuery({ queryKey: ['releases'], queryFn: fetchReleases, staleTime: 10 * 60 * 1000 });
+  const { data: config } = useQuery({
+    queryFn: () => apiFetch<PublicConfig>('/config'),
+    queryKey: ['config'],
+    staleTime: Infinity,
+  });
+  const { data: report, isLoading } = useQuery({
+    queryFn: () => fetchReportForRange(since, until),
+    queryKey: ['report', lookbackMode, since, until],
+  });
+  const { data: releases } = useQuery({
+    queryFn: fetchReleases,
+    queryKey: ['releases'],
+    staleTime: 10 * 60 * 1000,
+  });
 
   const filters = useDashboardFilters(report);
 
   const upcomingReleases = useMemo(() => {
-    if (!releases) return [];
+    if (!releases) {
+      return [];
+    }
     return releases
-      .filter((release: ReleaseInfo) => release.daysUntilNext !== null && release.daysUntilNext <= 7)
-      .sort((releaseA: ReleaseInfo, releaseB: ReleaseInfo) => (releaseA.daysUntilNext ?? Infinity) - (releaseB.daysUntilNext ?? Infinity));
+      .filter(
+        (release: ReleaseInfo) => release.daysUntilNext !== null && release.daysUntilNext <= 7,
+      )
+      .sort(
+        (releaseA: ReleaseInfo, releaseB: ReleaseInfo) =>
+          (releaseA.daysUntilNext ?? Infinity) - (releaseB.daysUntilNext ?? Infinity),
+      );
   }, [releases]);
 
   if (isLoading || !report) {
-    return <PageSection isFilled><div className="app-page-spinner"><Spinner aria-label="Loading dashboard" /></div></PageSection>;
+    return (
+      <PageSection isFilled>
+        <div className="app-page-spinner">
+          <Spinner aria-label="Loading dashboard" />
+        </div>
+      </PageSection>
+    );
   }
 
   return (
     <>
       <PageSection>
-        <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }}>
-          <FlexItem><Content component="h1">Dashboard</Content></FlexItem>
+        <Flex
+          alignItems={{ default: 'alignItemsCenter' }}
+          justifyContent={{ default: 'justifyContentSpaceBetween' }}
+        >
+          <FlexItem>
+            <Content component="h1">Dashboard</Content>
+          </FlexItem>
           <FlexItem>
             <Toolbar>
               <ToolbarContent>
-                <ToolbarItem><ExportButton groups={filters.filteredGroups} date={displayLabel} /></ToolbarItem>
+                <ToolbarItem>
+                  <ExportButton date={displayLabel} groups={filters.filteredGroups} />
+                </ToolbarItem>
               </ToolbarContent>
             </Toolbar>
           </FlexItem>
@@ -63,40 +108,121 @@ export const DashboardPage: React.FC = () => {
       </PageSection>
 
       <PageSection>
-        {filters.selectedComponents.size === 1 && <AckBanner onAcknowledge={() => setAckModalOpen(true)} component={[...filters.selectedComponents][0]} />}
+        {filters.selectedComponents.size === 1 && (
+          <AckBanner
+            component={[...filters.selectedComponents][0]}
+            onAcknowledge={() => setAckModalOpen(true)}
+          />
+        )}
         {upcomingReleases.length > 0 && (
-          <Alert variant="warning" isInline title="Upcoming Releases" className="app-mb-md">
+          <Alert isInline className="app-mb-md" title="Upcoming Releases" variant="warning">
             {upcomingReleases.map(release => (
-              <Label key={release.shortname} color={release.daysUntilNext! <= 3 ? 'red' : 'orange'} className="app-mr-sm app-cursor-pointer" onClick={() => navigate('/releases')}>
-                {release.shortname.replace('cnv-', 'CNV ')} &mdash; {release.nextRelease?.date} ({release.daysUntilNext}d)
+              <Label
+                className="app-mr-sm app-cursor-pointer"
+                color={(release.daysUntilNext ?? 0) <= 3 ? 'red' : 'orange'}
+                key={release.shortname}
+                onClick={() => navigate('/releases')}
+              >
+                {release.shortname.replace('cnv-', 'CNV ')} &mdash; {release.nextRelease?.date} (
+                {release.daysUntilNext}d)
               </Label>
             ))}
           </Alert>
         )}
-        <HealthBanner health={filters.scopedHealth} passed={filters.scopedStats.passed} failed={filters.scopedStats.failed} inProgress={filters.scopedStats.inProgress} />
+        <HealthBanner
+          failed={filters.scopedStats.failed}
+          health={filters.scopedHealth}
+          inProgress={filters.scopedStats.inProgress}
+          passed={filters.scopedStats.passed}
+        />
 
-        <Gallery hasGutter minWidths={{ default: '130px' }} className="app-mb-xl">
-          {([
-            { value: filters.scopedStats.total, label: 'Total', help: 'Total launches in this time range. Click to clear filters.', onClick: () => filters.setStatusFilter(null), isActive: filters.statusFilter === null },
-            { value: filters.scopedStats.passed, label: 'Passed', help: 'Launches where all tests passed.', color: STATUS_SUCCESS, onClick: () => filters.setStatusFilter(filters.statusFilter === 'PASSED' ? null : 'PASSED'), isActive: filters.statusFilter === 'PASSED' },
-            { value: filters.scopedStats.failed, label: 'Failed', help: 'Launches with at least one failed test.', color: STATUS_DANGER, onClick: () => filters.setStatusFilter(filters.statusFilter === 'FAILED' ? null : 'FAILED'), isActive: filters.statusFilter === 'FAILED' },
-            { value: filters.scopedStats.inProgress, label: 'In Progress', help: 'Launches still running.', color: STATUS_WARNING, onClick: () => filters.setStatusFilter(filters.statusFilter === 'IN_PROGRESS' ? null : 'IN_PROGRESS'), isActive: filters.statusFilter === 'IN_PROGRESS' },
-            { value: filters.scopedStats.newFailures, label: 'New Failures', help: 'Tests that failed now but not in the previous window.', color: STATUS_DANGER, onClick: () => navigate('/failures') },
-            { value: filters.scopedStats.untriaged, label: 'Untriaged', help: 'Failed tests not yet classified.', color: STATUS_WARNING, onClick: () => navigate('/failures') },
-          ] as const).map(card => (
-            <GalleryItem key={card.label}><StatCard {...card} /></GalleryItem>
+        <Gallery hasGutter className="app-mb-xl" minWidths={{ default: '130px' }}>
+          {(
+            [
+              {
+                help: 'Total launches in this time range. Click to clear filters.',
+                isActive: filters.statusFilter === null,
+                label: 'Total',
+                onClick: () => filters.setStatusFilter(null),
+                value: filters.scopedStats.total,
+              },
+              {
+                color: STATUS_SUCCESS,
+                help: 'Launches where all tests passed.',
+                isActive: filters.statusFilter === 'PASSED',
+                label: 'Passed',
+                onClick: () =>
+                  filters.setStatusFilter(filters.statusFilter === 'PASSED' ? null : 'PASSED'),
+                value: filters.scopedStats.passed,
+              },
+              {
+                color: STATUS_DANGER,
+                help: 'Launches with at least one failed test.',
+                isActive: filters.statusFilter === 'FAILED',
+                label: 'Failed',
+                onClick: () =>
+                  filters.setStatusFilter(filters.statusFilter === 'FAILED' ? null : 'FAILED'),
+                value: filters.scopedStats.failed,
+              },
+              {
+                color: STATUS_WARNING,
+                help: 'Launches still running.',
+                isActive: filters.statusFilter === 'IN_PROGRESS',
+                label: 'In Progress',
+                onClick: () =>
+                  filters.setStatusFilter(
+                    filters.statusFilter === 'IN_PROGRESS' ? null : 'IN_PROGRESS',
+                  ),
+                value: filters.scopedStats.inProgress,
+              },
+              {
+                color: STATUS_DANGER,
+                help: 'Tests that failed now but not in the previous window.',
+                label: 'New Failures',
+                onClick: () => navigate('/failures'),
+                value: filters.scopedStats.newFailures,
+              },
+              {
+                color: STATUS_WARNING,
+                help: 'Failed tests not yet classified.',
+                label: 'Untriaged',
+                onClick: () => navigate('/failures'),
+                value: filters.scopedStats.untriaged,
+              },
+            ] as const
+          ).map(card => (
+            <GalleryItem key={card.label}>
+              <StatCard {...card} />
+            </GalleryItem>
           ))}
         </Gallery>
 
         <LaunchTable
-          groups={filters.filteredGroups} availableComponents={filters.availableComponents}
-          tableSearch={filters.tableSearch} onSearchChange={filters.setTableSearch} config={config}
-          selectedTiers={filters.selectedTiers} availableTiers={filters.availableTiers} onTiersChange={filters.setSelectedTiers}
-          versionFilter={filters.versionFilter} versionOptions={filters.versions.map((v) => ({ value: v, label: v === 'all' ? 'All Versions' : `CNV ${v}` }))} onVersionChange={filters.setVersionFilter}
+          availableComponents={filters.availableComponents}
+          availableTiers={filters.availableTiers}
+          config={config}
+          groups={filters.filteredGroups}
+          selectedTiers={filters.selectedTiers}
+          tableSearch={filters.tableSearch}
+          versionFilter={filters.versionFilter}
+          versionOptions={filters.versions.map(v => ({
+            label: v === 'all' ? 'All Versions' : `CNV ${v}`,
+            value: v,
+          }))}
+          onSearchChange={filters.setTableSearch}
+          onTiersChange={filters.setSelectedTiers}
+          onVersionChange={filters.setVersionFilter}
         />
       </PageSection>
 
-      <AcknowledgeModal isOpen={ackModalOpen} onClose={() => setAckModalOpen(false)} groups={filters.filteredGroups} component={filters.selectedComponents.size === 1 ? [...filters.selectedComponents][0] : undefined} />
+      <AcknowledgeModal
+        component={
+          filters.selectedComponents.size === 1 ? [...filters.selectedComponents][0] : undefined
+        }
+        groups={filters.filteredGroups}
+        isOpen={ackModalOpen}
+        onClose={() => setAckModalOpen(false)}
+      />
     </>
   );
 };

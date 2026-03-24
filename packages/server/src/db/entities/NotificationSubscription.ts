@@ -1,48 +1,54 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity('notification_subscriptions')
 export class NotificationSubscription {
+  @Column({ default: '[]', type: 'text' })
+  components!: string;
+
+  @CreateDateColumn()
+  created_at!: Date;
+
+  @Column({ nullable: true, type: 'varchar' })
+  created_by!: string | null;
+
+  @Column({ nullable: true, type: 'text' })
+  email_recipients!: string | null;
+
+  @Column({ default: true, type: 'boolean' })
+  enabled!: boolean;
+
   @PrimaryGeneratedColumn()
   id!: number;
+
+  @Column({ nullable: true, type: 'varchar' })
+  jira_webhook!: string | null;
 
   @Column({ type: 'varchar' })
   name!: string;
 
-  @Column({ type: 'text', default: '[]' })
-  components!: string;
-
-  @Column({ type: 'varchar', nullable: true })
-  slack_webhook!: string | null;
-
-  @Column({ type: 'varchar', nullable: true })
-  jira_webhook!: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  email_recipients!: string | null;
-
-  @Column({ type: 'varchar', default: '0 7 * * *' })
-  schedule!: string;
-
-  @Column({ type: 'varchar', default: 'Asia/Jerusalem' })
-  timezone!: string;
-
-  @Column({ type: 'boolean', default: true })
-  enabled!: boolean;
-
-  @Column({ type: 'boolean', default: false })
-  reminder_enabled!: boolean;
-
-  @Column({ type: 'varchar', default: '10:00' })
-  reminder_time!: string;
-
-  @Column({ type: 'varchar', default: '1,2,3,4,5' })
+  @Column({ default: '1,2,3,4,5', type: 'varchar' })
   reminder_days!: string;
 
-  @Column({ type: 'varchar', nullable: true })
-  created_by!: string | null;
+  @Column({ default: false, type: 'boolean' })
+  reminder_enabled!: boolean;
 
-  @CreateDateColumn()
-  created_at!: Date;
+  @Column({ default: '10:00', type: 'varchar' })
+  reminder_time!: string;
+
+  @Column({ default: '0 7 * * *', type: 'varchar' })
+  schedule!: string;
+
+  @Column({ nullable: true, type: 'varchar' })
+  slack_webhook!: string | null;
+
+  @Column({ default: 'Asia/Jerusalem', type: 'varchar' })
+  timezone!: string;
 
   @UpdateDateColumn()
   updated_at!: Date;

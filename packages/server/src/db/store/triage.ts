@@ -1,19 +1,20 @@
 import { AppDataSource } from '../data-source';
 import { TriageLog } from '../entities/TriageLog';
-import type { TriageLogRecord, ActivityLogEntry, ActivityFilters } from './types';
+
+import type { ActivityFilters, ActivityLogEntry, TriageLogRecord } from './types';
 
 const triageLogs = () => AppDataSource.getRepository(TriageLog);
 
 export const addTriageLog = async (log: TriageLogRecord): Promise<void> => {
   await triageLogs().insert({
-    test_item_rp_id: log.test_item_rp_id,
     action: log.action,
-    old_value: log.old_value ?? null,
-    new_value: log.new_value ?? null,
-    performed_by: log.performed_by ?? null,
     component: log.component ?? null,
+    new_value: log.new_value ?? null,
+    old_value: log.old_value ?? null,
+    performed_by: log.performed_by ?? null,
+    test_item_rp_id: log.test_item_rp_id,
   });
-}
+};
 
 export const getActivityLog = async (
   limit = 50,
@@ -52,7 +53,10 @@ export const getActivityLog = async (
     params.push(filters.until);
   }
   if (filters.action) {
-    const actions = filters.action.split(',').map(a => a.trim()).filter(Boolean);
+    const actions = filters.action
+      .split(',')
+      .map(a => a.trim())
+      .filter(Boolean);
     const hasAck = actions.includes('acknowledge');
     const triageActions = actions.filter(a => a !== 'acknowledge');
     if (triageActions.length > 0) {
@@ -61,11 +65,15 @@ export const getActivityLog = async (
     } else {
       triageWhere.push('FALSE');
     }
-    if (!hasAck) ackWhere.push('FALSE');
+    if (!hasAck) {
+      ackWhere.push('FALSE');
+    }
   }
   if (filters.search) {
     const sp = p();
-    triageWhere.push(`(ti.name ILIKE ${sp} OR tl.new_value ILIKE ${sp} OR tl.performed_by ILIKE ${sp})`);
+    triageWhere.push(
+      `(ti.name ILIKE ${sp} OR tl.new_value ILIKE ${sp} OR tl.performed_by ILIKE ${sp})`,
+    );
     ackWhere.push(`(a.reviewer ILIKE ${sp} OR a.notes ILIKE ${sp} OR a.component ILIKE ${sp})`);
     params.push(`%${filters.search}%`);
   }
@@ -137,10 +145,10 @@ export const getActivityLog = async (
     ) combined
   `;
 
-  const [rows, countResult] = await Promise.all([
+  const [rows, countResult] = (await Promise.all([
     AppDataSource.query(query, params),
     AppDataSource.query(countQuery, countParams),
-  ]);
+  ])) as [ActivityLogEntry[], Record<string, string>[]];
 
   return { entries: rows, total: parseInt(countResult[0]?.total ?? '0', 10) };
-}
+};

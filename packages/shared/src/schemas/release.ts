@@ -1,4 +1,10 @@
-export type MilestoneType = 'ga' | 'batch' | 'feature_freeze' | 'code_freeze' | 'blockers_only' | 'custom';
+export type MilestoneType =
+  | 'ga'
+  | 'batch'
+  | 'feature_freeze'
+  | 'code_freeze'
+  | 'blockers_only'
+  | 'custom';
 
 export type ReleaseMilestone = {
   name: string;
@@ -46,10 +52,10 @@ export type ChecklistTransition = {
 
 export type ChecklistDetail = ChecklistTask & {
   description: string | null;
-  subtasks: Array<{
+  subtasks: {
     key: string;
     summary: string;
     status: string;
-  }>;
+  }[];
   transitions: ChecklistTransition[];
 };

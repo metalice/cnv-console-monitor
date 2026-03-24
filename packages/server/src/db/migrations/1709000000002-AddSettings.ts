@@ -1,6 +1,10 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import { type MigrationInterface, type QueryRunner } from 'typeorm';
 
 export class AddSettings1709000000002 implements MigrationInterface {
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query('DROP TABLE IF EXISTS "settings"');
+  }
+
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "settings" (
@@ -10,9 +14,5 @@ export class AddSettings1709000000002 implements MigrationInterface {
         "updated_at" TIMESTAMP DEFAULT NOW()
       )
     `);
-  }
-
-  public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query('DROP TABLE IF EXISTS "settings"');
   }
 }

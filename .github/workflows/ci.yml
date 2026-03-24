@@ -24,8 +24,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Lint
+        run: npx eslint . --max-warnings 0
+
+      - name: Format check
+        run: npm run format:check
+
       - name: Build shared
         run: npm run build -w packages/shared
+
+      - name: Knip (unused code)
+        run: npx knip
 
       - name: Typecheck server
         run: npm run typecheck -w packages/server

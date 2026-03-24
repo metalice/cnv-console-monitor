@@ -1,15 +1,18 @@
 import React from 'react';
+
 import {
   Card,
-  CardTitle,
   CardBody,
+  CardTitle,
   EmptyState,
   EmptyStateBody,
   Tooltip,
 } from '@patternfly/react-core';
-import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import { ExternalLinkAltIcon } from '@patternfly/react-icons';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
+
 import type { MyWorkJiraBug } from '../../api/myWork';
+
 import { shortTestName } from './myWorkHelpers';
 
 type MyJiraBugsCardProps = {
@@ -36,22 +39,25 @@ export const MyJiraBugsCard: React.FC<MyJiraBugsCardProps> = ({ bugs, jiraUrl })
           </Thead>
           <Tbody>
             {bugs.map((bug, i) => (
+              // eslint-disable-next-line react/no-array-index-key
               <Tr key={i}>
-                <Td dataLabel="Jira Key" className="app-cell-nowrap">
+                <Td className="app-cell-nowrap" dataLabel="Jira Key">
                   {jiraUrl ? (
-                    <a href={`${jiraUrl}/browse/${bug.jira_key}`} target="_blank" rel="noreferrer">
+                    <a href={`${jiraUrl}/browse/${bug.jira_key}`} rel="noreferrer" target="_blank">
                       {bug.jira_key} <ExternalLinkAltIcon className="app-text-xs" />
                     </a>
                   ) : (
                     bug.jira_key
                   )}
                 </Td>
-                <Td dataLabel="Test" className="app-cell-truncate">
+                <Td className="app-cell-truncate" dataLabel="Test">
                   <Tooltip content={bug.test_name || '—'}>
                     <span>{shortTestName(bug.test_name)}</span>
                   </Tooltip>
                 </Td>
-                <Td dataLabel="Created" className="app-cell-nowrap">{new Date(bug.created_at).toLocaleDateString()}</Td>
+                <Td className="app-cell-nowrap" dataLabel="Created">
+                  {new Date(bug.created_at).toLocaleDateString()}
+                </Td>
               </Tr>
             ))}
           </Tbody>

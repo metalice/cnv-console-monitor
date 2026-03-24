@@ -1,6 +1,10 @@
 import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddFileDrafts1709000000024 implements MigrationInterface {
+  public down = async (queryRunner: QueryRunner): Promise<void> => {
+    await queryRunner.query(`DROP TABLE IF EXISTS "file_drafts"`);
+  };
+
   public up = async (queryRunner: QueryRunner): Promise<void> => {
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "file_drafts" (
@@ -18,11 +22,11 @@ export class AddFileDrafts1709000000024 implements MigrationInterface {
         UNIQUE("user_email", "repo_id", "branch", "file_path")
       )
     `);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_file_drafts_user" ON "file_drafts" ("user_email", "status")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_file_drafts_repo" ON "file_drafts" ("repo_id", "branch")`);
-  };
-
-  public down = async (queryRunner: QueryRunner): Promise<void> => {
-    await queryRunner.query(`DROP TABLE IF EXISTS "file_drafts"`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_file_drafts_user" ON "file_drafts" ("user_email", "status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_file_drafts_repo" ON "file_drafts" ("repo_id", "branch")`,
+    );
   };
 }

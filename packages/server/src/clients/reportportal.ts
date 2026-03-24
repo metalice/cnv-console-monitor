@@ -1,17 +1,24 @@
 import { withRetry } from '../utils/retry';
-import { createRPClient, RPLaunch, RPTestItem, RPDefectType, RPLogEntry } from './reportportal-types';
 
-export type { RPLaunch, RPTestItem, RPDefectType, RPLogEntry };
+import {
+  createRPClient,
+  type RPDefectType,
+  type RPLaunch,
+  type RPLogEntry,
+  type RPTestItem,
+} from './reportportal-types';
+
+export type { RPLaunch, RPTestItem };
 
 export {
-  updateDefectType,
   addTestItemComment,
+  extractAttribute,
+  getReportPortalItemUrl,
+  getReportPortalLaunchUrl,
   triggerAutoAnalysis,
   triggerPatternAnalysis,
   triggerUniqueErrorAnalysis,
-  extractAttribute,
-  getReportPortalLaunchUrl,
-  getReportPortalItemUrl,
+  updateDefectType,
 } from './reportportal-analysis';
 
 export const fetchLaunches = async (params: {
@@ -22,8 +29,8 @@ export const fetchLaunches = async (params: {
 }): Promise<{ content: RPLaunch[]; page: { totalElements: number; totalPages: number } }> => {
   const client = createRPClient();
   const queryParams: Record<string, string | number> = {
-    'page.size': params.pageSize || 20,
     'page.page': params.page || 1,
+    'page.size': params.pageSize || 20,
     'page.sort': 'startTime,number,DESC',
   };
 
@@ -38,8 +45,11 @@ export const fetchLaunches = async (params: {
     () => client.get('/launch', { params: queryParams }),
     'fetchLaunches',
   );
-  return response.data;
-}
+  return response.data as {
+    content: RPLaunch[];
+    page: { totalElements: number; totalPages: number };
+  };
+};
 
 export const fetchLaunchById = async (launchId: number): Promise<RPLaunch> => {
   const client = createRPClient();
@@ -47,8 +57,8 @@ export const fetchLaunchById = async (launchId: number): Promise<RPLaunch> => {
     () => client.get(`/launch/${launchId}`),
     `fetchLaunchById(${launchId})`,
   );
-  return response.data;
-}
+  return response.data as RPLaunch;
+};
 
 export const fetchTestItems = async (params: {
   launchId: number;
@@ -58,10 +68,10 @@ export const fetchTestItems = async (params: {
 }): Promise<{ content: RPTestItem[]; page: { totalElements: number; totalPages: number } }> => {
   const client = createRPClient();
   const queryParams: Record<string, string | number> = {
-    'filter.eq.launchId': params.launchId,
     'filter.eq.hasStats': 'true',
-    'page.size': params.pageSize || 50,
+    'filter.eq.launchId': params.launchId,
     'page.page': params.page || 1,
+    'page.size': params.pageSize || 50,
     'page.sort': 'startTime,ASC',
   };
 
@@ -73,19 +83,25 @@ export const fetchTestItems = async (params: {
     () => client.get('/item', { params: queryParams }),
     `fetchTestItems(launch=${params.launchId})`,
   );
-  return response.data;
-}
+  return response.data as {
+    content: RPTestItem[];
+    page: { totalElements: number; totalPages: number };
+  };
+};
 
-export const fetchTestItemLogs = async (itemId: number, params?: {
-  pageSize?: number;
-  page?: number;
-  level?: string;
-}): Promise<{ content: RPLogEntry[]; page: { totalElements: number } }> => {
+export const fetchTestItemLogs = async (
+  itemId: number,
+  params?: {
+    pageSize?: number;
+    page?: number;
+    level?: string;
+  },
+): Promise<{ content: RPLogEntry[]; page: { totalElements: number } }> => {
   const client = createRPClient();
   const queryParams: Record<string, string | number> = {
     'filter.eq.item': itemId,
-    'page.size': params?.pageSize || 50,
     'page.page': params?.page || 1,
+    'page.size': params?.pageSize || 50,
     'page.sort': 'logTime,ASC',
   };
 
@@ -97,14 +113,12 @@ export const fetchTestItemLogs = async (itemId: number, params?: {
     () => client.get('/log', { params: queryParams }),
     `fetchTestItemLogs(${itemId})`,
   );
-  return response.data;
-}
+  return response.data as { content: RPLogEntry[]; page: { totalElements: number } };
+};
 
 export const fetchDefectTypes = async (): Promise<Record<string, RPDefectType[]>> => {
   const client = createRPClient();
-  const response = await withRetry(
-    () => client.get('/settings'),
-    'fetchDefectTypes',
-  );
-  return response.data?.subTypes || {};
-}
+  const response = await withRetry(() => client.get('/settings'), 'fetchDefectTypes');
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime RP API data
+  return (response.data as { subTypes?: Record<string, RPDefectType[]> })?.subTypes ?? {};
+};

@@ -1,10 +1,12 @@
+import { createJiraClient } from './clients/jira-auth';
 import {
-  getAllComponentMappings, ComponentMappingRecord,
-  getDistinctJenkinsTeams, upsertComponentMapping,
+  type ComponentMappingRecord,
+  getAllComponentMappings,
+  getDistinctJenkinsTeams,
   updateComponentByJenkinsTeam,
+  upsertComponentMapping,
 } from './db/store';
 import { config } from './config';
-import { createJiraClient } from './clients/jira-auth';
 import { logger } from './logger';
 
 const log = logger.child({ module: 'ComponentMap' });
@@ -16,8 +18,8 @@ export const refreshMappingCache = async (): Promise<void> => {
   try {
     const dbMappings = await getAllComponentMappings();
     mappingCache = dbMappings.map((mapping: ComponentMappingRecord) => ({
-      pattern: mapping.pattern,
       component: mapping.component,
+      pattern: mapping.pattern,
       type: mapping.type,
     }));
     log.info({ count: mappingCache.length }, 'Component mapping cache refreshed');
@@ -26,33 +28,49 @@ export const refreshMappingCache = async (): Promise<void> => {
   }
 };
 
-export const resolveComponent = (jenkinsTeam: string | null | undefined, launchName?: string): string | null => {
-  if (jenkinsTeam) return jenkinsTeam;
+export const resolveComponent = (
+  jenkinsTeam: string | null | undefined,
+  launchName?: string,
+): string | null => {
+  if (jenkinsTeam) {
+    return jenkinsTeam;
+  }
 
-  if (!launchName) return null;
-  const manualMappings = mappingCache.filter((item) => item.type === 'manual');
+  if (!launchName) {
+    return null;
+  }
+  const manualMappings = mappingCache.filter(item => item.type === 'manual');
   for (const entry of manualMappings) {
     try {
-      if (new RegExp(entry.pattern, 'i').test(launchName)) return entry.component;
-    } catch { /* invalid regex */ }
+      // eslint-disable-next-line security/detect-non-literal-regexp -- pattern from validated config, not user input
+      if (new RegExp(entry.pattern, 'i').test(launchName)) {
+        return entry.component;
+      }
+    } catch {
+      /* Invalid regex */
+    }
   }
   return null;
 };
 
 export const fetchJiraComponents = async (): Promise<string[]> => {
-  if (!config.jira.enabled || !config.jira.token) return [];
+  if (!config.jira.enabled || !config.jira.token) {
+    return [];
+  }
   try {
     const client = createJiraClient();
     const response = await client.get(`/project/${config.jira.projectKey}/components`);
-    return (response.data as Array<{ name: string }>).map((comp) => comp.name).sort();
+    return (response.data as { name: string }[])
+      .map(comp => comp.name)
+      .toSorted((a, b) => a.localeCompare(b));
   } catch (error) {
     log.warn({ error }, 'Failed to fetch Jira components');
     return [];
   }
 };
 
-export type AutoMappingResult = {
-  mapped: Array<{ jenkinsTeam: string; jiraComponent: string }>;
+type AutoMappingResult = {
+  mapped: { jenkinsTeam: string; jiraComponent: string }[];
   unmapped: string[];
 };
 
@@ -62,22 +80,28 @@ export const autoGenerateMappings = async (): Promise<AutoMappingResult> => {
     fetchJiraComponents(),
   ]);
 
-  log.info({ jenkinsTeams: jenkinsTeams.length, jiraComponents: jiraComponents.length }, 'Auto-mapping');
+  log.info(
+    { jenkinsTeams: jenkinsTeams.length, jiraComponents: jiraComponents.length },
+    'Auto-mapping',
+  );
 
   if (jiraComponents.length === 0) {
     log.warn('No Jira components found');
     return { mapped: [], unmapped: jenkinsTeams };
   }
 
-  const jiraSet = new Set(jiraComponents.map((comp) => comp.toLowerCase()));
+  const jiraSet = new Set(jiraComponents.map(comp => comp.toLowerCase()));
   const mapped: AutoMappingResult['mapped'] = [];
   const unmapped: string[] = [];
 
   for (const team of jenkinsTeams) {
     if (jiraSet.has(team.toLowerCase())) {
-      const jiraName = jiraComponents.find((comp) => comp.toLowerCase() === team.toLowerCase()) ?? team;
+      const jiraName =
+        jiraComponents.find(comp => comp.toLowerCase() === team.toLowerCase()) ?? team;
       mapped.push({ jenkinsTeam: team, jiraComponent: jiraName });
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       await upsertComponentMapping(team, jiraName, 'auto');
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       await updateComponentByJenkinsTeam(team, jiraName);
     } else {
       unmapped.push(team);
@@ -88,6 +112,9 @@ export const autoGenerateMappings = async (): Promise<AutoMappingResult> => {
 
   const { backfillComponentFromSiblings } = await import('./db/store');
   const backfilled = await backfillComponentFromSiblings();
-  log.info({ mapped: mapped.length, unmapped: unmapped.length, backfilled }, 'Auto-mapping complete');
+  log.info(
+    { backfilled, mapped: mapped.length, unmapped: unmapped.length },
+    'Auto-mapping complete',
+  );
   return { mapped, unmapped };
 };

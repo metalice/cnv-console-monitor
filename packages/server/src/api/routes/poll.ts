@@ -1,10 +1,11 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import { requireAdmin } from '../middleware/auth';
-import { logger } from '../../logger';
-import { getPipelineManager, startPipeline } from '../../pipeline';
+import { type NextFunction, type Request, type Response, Router } from 'express';
+
 import { config, lastPollAt, setLastPollAt } from '../../config';
 import { getEnrichmentStats, getLaunchCount } from '../../db/store';
+import { logger } from '../../logger';
+import { getPipelineManager, startPipeline } from '../../pipeline';
 import { broadcast } from '../../ws';
+import { requireAdmin } from '../middleware/auth';
 
 const log = logger.child({ module: 'PollAPI' });
 const router = Router();
@@ -17,7 +18,9 @@ router.get('/status', async (_req: Request, res: Response) => {
   const [enrichment, totalLaunches] = await Promise.all([getEnrichmentStats(), getLaunchCount()]);
 
   const pipelineState = manager.getState();
-  const activePhase = Object.entries(pipelineState.phases).find(([, p]) => p.status === 'running' || p.status === 'retrying');
+  const activePhase = Object.entries(pipelineState.phases).find(
+    ([, p]) => p.status === 'running' || p.status === 'retrying',
+  );
 
   const lightPhases: Record<string, unknown> = {};
   for (const [name, phase] of Object.entries(pipelineState.phases)) {
@@ -30,21 +33,21 @@ router.get('/status', async (_req: Request, res: Response) => {
   }
 
   res.json({
+    active: pipelineState.active,
+    current: activePhase ? activePhase[1].succeeded : 0,
+    enrichment: { ...enrichment, total: totalLaunches },
+    lastPollAt: lastPollAt ?? null,
+    message: activePhase ? `${activePhase[1].succeeded}/${activePhase[1].total}` : '',
+    phase: activePhase ? activePhase[0] : pipelineState.active ? 'starting' : '',
     pipeline: {
       ...pipelineState,
-      phases: lightPhases,
       log: pipelineState.log.slice(-MAX_STATUS_LOG),
+      phases: lightPhases,
       totalLogEntries: pipelineState.log.length,
     },
-    lastPollAt: lastPollAt ? Number(lastPollAt) : null,
     pollIntervalMinutes: config.schedule.pollIntervalMinutes,
-    enrichment: { ...enrichment, total: totalLaunches },
-    active: pipelineState.active,
-    phase: activePhase ? activePhase[0] : pipelineState.active ? 'starting' : '',
-    current: activePhase ? activePhase[1].succeeded : 0,
-    total: activePhase ? activePhase[1].total : 0,
-    message: activePhase ? `${activePhase[1].succeeded}/${activePhase[1].total}` : '',
     startedAt: pipelineState.startedAt,
+    total: activePhase ? activePhase[1].total : 0,
   });
 });
 
@@ -54,10 +57,12 @@ router.get('/history', async (_req: Request, res: Response, next: NextFunction) 
     const limit = parseInt(_req.query.limit as string, 10) || 10;
     const runs = await manager.getHistory(limit);
     res.json(runs);
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
-router.post('/start', requireAdmin, async (req: Request, res: Response) => {
+router.post('/start', requireAdmin, (req: Request, res: Response) => {
   const manager = getPipelineManager();
   if (manager.isActive()) {
     res.status(409).json({ error: 'Pipeline already running' });
@@ -66,32 +71,36 @@ router.post('/start', requireAdmin, async (req: Request, res: Response) => {
 
   const mode = (req.query.mode as string) === 'full' ? 'full' : 'incremental';
   const lookbackDays = parseInt(req.query.lookbackDays as string, 10);
-  const lookbackHours = mode === 'full'
-    ? (lookbackDays > 0 ? lookbackDays : config.schedule.initialLookbackDays) * 24
-    : 24;
+  const lookbackHours =
+    mode === 'full'
+      ? (lookbackDays > 0 ? lookbackDays : config.schedule.initialLookbackDays) * 24
+      : 24;
 
-  res.json({ success: true, mode, lookbackHours });
+  res.json({ lookbackHours, mode, success: true });
 
-  startPipeline({
-    mode,
-    lookbackHours,
+  void startPipeline({
     clearData: mode === 'full',
-  }).then(() => {
-    setLastPollAt(Date.now());
-    broadcast('data-updated');
-    log.info('Pipeline completed');
-  }).catch(err => {
-    log.error({ err }, 'Pipeline failed');
-  });
+    lookbackHours,
+    mode,
+  })
+    .then(() => {
+      setLastPollAt(Date.now());
+      broadcast('data-updated');
+      log.info('Pipeline completed');
+      return undefined;
+    })
+    .catch(err => {
+      log.error({ err }, 'Pipeline failed');
+    });
 });
 
 router.post('/cancel', requireAdmin, (_req: Request, res: Response) => {
   const manager = getPipelineManager();
-  manager.cancel();
+  void manager.cancel();
   res.json({ success: true });
 });
 
-router.post('/resume-phase/:phaseName', requireAdmin, async (req: Request, res: Response) => {
+router.post('/resume-phase/:phaseName', requireAdmin, (req: Request, res: Response) => {
   const manager = getPipelineManager();
   const phaseName = req.params.phaseName as string;
 
@@ -101,9 +110,13 @@ router.post('/resume-phase/:phaseName', requireAdmin, async (req: Request, res: 
   }
 
   try {
-    res.json({ success: true, phase: phaseName });
-    manager.resumePhase(phaseName)
-      .then(() => { broadcast('data-updated'); })
+    res.json({ phase: phaseName, success: true });
+    manager
+      .resumePhase(phaseName)
+      .then(() => {
+        broadcast('data-updated');
+        return undefined;
+      })
       .catch(err => log.error({ err, phase: phaseName }, 'Phase resume failed'));
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : 'Resume failed' });
@@ -115,7 +128,9 @@ router.post('/health-check', async (_req: Request, res: Response, next: NextFunc
     const manager = getPipelineManager();
     const report = await manager.healthCheck();
     res.json(report);
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 router.post('/dry-run', async (_req: Request, res: Response, next: NextFunction) => {
@@ -123,26 +138,42 @@ router.post('/dry-run', async (_req: Request, res: Response, next: NextFunction)
     const manager = getPipelineManager();
     const report = await manager.dryRun();
     res.json(report);
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Legacy endpoints for backward compatibility
-router.post('/now', requireAdmin, async (req: Request, res: Response) => {
+router.post('/now', requireAdmin, (req: Request, res: Response) => {
   const manager = getPipelineManager();
-  if (manager.isActive()) { res.status(409).json({ error: 'Pipeline already running' }); return; }
+  if (manager.isActive()) {
+    res.status(409).json({ error: 'Pipeline already running' });
+    return;
+  }
   res.json({ success: true });
-  startPipeline({ mode: 'incremental', lookbackHours: 24, clearData: false })
-    .then(() => { setLastPollAt(Date.now()); broadcast('data-updated'); })
+  startPipeline({ clearData: false, lookbackHours: 24, mode: 'incremental' })
+    .then(() => {
+      setLastPollAt(Date.now());
+      broadcast('data-updated');
+      return undefined;
+    })
     .catch(err => log.error({ err }, 'Poll failed'));
 });
 
-router.post('/backfill', requireAdmin, async (_req: Request, res: Response) => {
+router.post('/backfill', requireAdmin, (_req: Request, res: Response) => {
   const manager = getPipelineManager();
-  if (manager.isActive()) { res.status(409).json({ error: 'Pipeline already running' }); return; }
+  if (manager.isActive()) {
+    res.status(409).json({ error: 'Pipeline already running' });
+    return;
+  }
   const lookbackDays = config.schedule.initialLookbackDays;
-  res.json({ success: true, lookbackDays });
-  startPipeline({ mode: 'full', lookbackHours: lookbackDays * 24, clearData: true })
-    .then(() => { setLastPollAt(Date.now()); broadcast('data-updated'); })
+  res.json({ lookbackDays, success: true });
+  startPipeline({ clearData: true, lookbackHours: lookbackDays * 24, mode: 'full' })
+    .then(() => {
+      setLastPollAt(Date.now());
+      broadcast('data-updated');
+      return undefined;
+    })
     .catch(err => log.error({ err }, 'Backfill failed'));
 });
 

@@ -1,28 +1,36 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+import type { Repository } from '@cnv-monitor/shared';
+
 import {
+  Button,
   Card,
   CardBody,
   CardTitle,
-  Button,
-  Label,
-  LabelGroup,
-  EmptyState,
-  EmptyStateBody,
-  Spinner,
-  Flex,
-  FlexItem,
+  Content,
   DescriptionList,
+  DescriptionListDescription,
   DescriptionListGroup,
   DescriptionListTerm,
-  DescriptionListDescription,
+  EmptyState,
+  EmptyStateBody,
+  Flex,
+  FlexItem,
+  Label,
+  LabelGroup,
+  Spinner,
   Split,
   SplitItem,
-  Content,
 } from '@patternfly/react-core';
-import { PlusCircleIcon, TrashIcon, SyncAltIcon, CheckCircleIcon, TimesCircleIcon } from '@patternfly/react-icons';
-import type { Repository } from '@cnv-monitor/shared';
-import { fetchRepositories, deleteRepositoryApi, testRepositoryConnection } from '../../api/repositories';
+import { PlusCircleIcon, SyncAltIcon, TrashIcon } from '@patternfly/react-icons';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
+import {
+  deleteRepositoryApi,
+  fetchRepositories,
+  testRepositoryConnection,
+} from '../../api/repositories';
+
 import { RepositoryModal } from './RepositoryModal';
 
 export const RepositoryMappingSection: React.FC = () => {
@@ -31,8 +39,8 @@ export const RepositoryMappingSection: React.FC = () => {
   const queryClient = useQueryClient();
 
   const { data: repos, isLoading } = useQuery({
-    queryKey: ['repositories'],
     queryFn: fetchRepositories,
+    queryKey: ['repositories'],
   });
 
   const deleteMutation = useMutation({
@@ -60,12 +68,17 @@ export const RepositoryMappingSection: React.FC = () => {
         <CardTitle>
           <Split hasGutter>
             <SplitItem isFilled>Repository Mapping</SplitItem>
-            <SplitItem><Button variant="primary" icon={<PlusCircleIcon />} onClick={handleAdd}>Add Repository</Button></SplitItem>
+            <SplitItem>
+              <Button icon={<PlusCircleIcon />} variant="primary" onClick={handleAdd}>
+                Add Repository
+              </Button>
+            </SplitItem>
           </Split>
         </CardTitle>
         <CardBody>
-          <Content component="small" className="app-text-muted app-mb-md">
-            Connect Git repositories for test documentation and quarantine management. Configure access tokens in the Git tab above.
+          <Content className="app-text-muted app-mb-md" component="small">
+            Connect Git repositories for test documentation and quarantine management. Configure
+            access tokens in the Git tab above.
           </Content>
 
           {isLoading ? (
@@ -79,36 +92,71 @@ export const RepositoryMappingSection: React.FC = () => {
                       <Split hasGutter>
                         <SplitItem isFilled>
                           <strong>{repo.name}</strong>
-                          <DescriptionList isHorizontal isCompact className="app-mt-sm">
+                          <DescriptionList isCompact isHorizontal className="app-mt-sm">
                             <DescriptionListGroup>
                               <DescriptionListTerm>Provider</DescriptionListTerm>
-                              <DescriptionListDescription><Label>{repo.provider}</Label></DescriptionListDescription>
+                              <DescriptionListDescription>
+                                <Label>{repo.provider}</Label>
+                              </DescriptionListDescription>
                             </DescriptionListGroup>
                             <DescriptionListGroup>
                               <DescriptionListTerm>Branches</DescriptionListTerm>
                               <DescriptionListDescription>
-                                <LabelGroup>{(repo.branches || []).map((b: string) => <Label key={b} isCompact>{b}</Label>)}</LabelGroup>
+                                <LabelGroup>
+                                  {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data */}
+                                  {(repo.branches || []).map((b: string) => (
+                                    <Label isCompact key={b}>
+                                      {b}
+                                    </Label>
+                                  ))}
+                                </LabelGroup>
                               </DescriptionListDescription>
                             </DescriptionListGroup>
                             <DescriptionListGroup>
                               <DescriptionListTerm>Components</DescriptionListTerm>
                               <DescriptionListDescription>
-                                <LabelGroup>{(repo.components || []).map((c: string) => <Label key={c} isCompact color="blue">{c}</Label>)}</LabelGroup>
+                                <LabelGroup>
+                                  {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data */}
+                                  {(repo.components || []).map((c: string) => (
+                                    <Label isCompact color="blue" key={c}>
+                                      {c}
+                                    </Label>
+                                  ))}
+                                </LabelGroup>
                               </DescriptionListDescription>
                             </DescriptionListGroup>
                             <DescriptionListGroup>
                               <DescriptionListTerm>Status</DescriptionListTerm>
                               <DescriptionListDescription>
-                                <Label color={repo.enabled ? 'green' : 'grey'}>{repo.enabled ? 'Enabled' : 'Disabled'}</Label>
+                                <Label color={repo.enabled ? 'green' : 'grey'}>
+                                  {repo.enabled ? 'Enabled' : 'Disabled'}
+                                </Label>
                               </DescriptionListDescription>
                             </DescriptionListGroup>
                           </DescriptionList>
                         </SplitItem>
                         <SplitItem>
                           <Flex spaceItems={{ default: 'spaceItemsSm' }}>
-                            <Button variant="secondary" size="sm" onClick={() => handleEdit(repo)}>Edit</Button>
-                            <Button variant="secondary" size="sm" icon={<SyncAltIcon />} onClick={() => testMutation.mutate(repo.id)} isLoading={testMutation.isPending}>Test</Button>
-                            <Button variant="danger" size="sm" icon={<TrashIcon />} onClick={() => deleteMutation.mutate(repo.id)}>Delete</Button>
+                            <Button size="sm" variant="secondary" onClick={() => handleEdit(repo)}>
+                              Edit
+                            </Button>
+                            <Button
+                              icon={<SyncAltIcon />}
+                              isLoading={testMutation.isPending}
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => testMutation.mutate(repo.id)}
+                            >
+                              Test
+                            </Button>
+                            <Button
+                              icon={<TrashIcon />}
+                              size="sm"
+                              variant="danger"
+                              onClick={() => deleteMutation.mutate(repo.id)}
+                            >
+                              Delete
+                            </Button>
                           </Flex>
                         </SplitItem>
                       </Split>
@@ -119,16 +167,21 @@ export const RepositoryMappingSection: React.FC = () => {
             </Flex>
           ) : (
             <EmptyState variant="sm">
-              <EmptyStateBody>No repositories configured. Add a repository to enable the Test Explorer.</EmptyStateBody>
+              <EmptyStateBody>
+                No repositories configured. Add a repository to enable the Test Explorer.
+              </EmptyStateBody>
             </EmptyState>
           )}
         </CardBody>
       </Card>
 
       <RepositoryModal
-        isOpen={isModalOpen}
-        onClose={() => { setIsModalOpen(false); setEditingRepo(undefined); }}
         existing={editingRepo}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingRepo(undefined);
+        }}
       />
     </>
   );

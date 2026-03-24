@@ -1,62 +1,104 @@
 import { IsNull } from 'typeorm';
+
 import { AppDataSource } from '../data-source';
 import { Launch } from '../entities/Launch';
+
 import type { LaunchRecord } from './types';
 
 const launches = () => AppDataSource.getRepository(Launch);
 
 const toLaunchRecord = (row: Launch): LaunchRecord => ({
-  rp_id: row.rp_id, uuid: row.uuid, name: row.name, number: row.number,
-  status: row.status, cnv_version: row.cnv_version ?? undefined,
-  bundle: row.bundle ?? undefined, ocp_version: row.ocp_version ?? undefined,
-  tier: row.tier ?? undefined, cluster_name: row.cluster_name ?? undefined,
-  total: row.total, passed: row.passed, failed: row.failed, skipped: row.skipped,
-  start_time: Number(row.start_time), end_time: row.end_time ? Number(row.end_time) : undefined,
-  duration: row.duration ?? undefined, artifacts_url: row.artifacts_url ?? undefined,
-  component: row.component ?? undefined, jenkins_team: row.jenkins_team ?? undefined,
-  jenkins_metadata: row.jenkins_metadata ?? undefined, jenkins_status: row.jenkins_status ?? undefined,
+  artifacts_url: row.artifacts_url ?? undefined,
+  bundle: row.bundle ?? undefined,
+  cluster_name: row.cluster_name ?? undefined,
+  cnv_version: row.cnv_version ?? undefined,
+  component: row.component ?? undefined,
+  duration: row.duration ?? undefined,
+  end_time: row.end_time ?? undefined,
+  failed: row.failed,
+  jenkins_metadata: row.jenkins_metadata ?? undefined,
+  jenkins_status: row.jenkins_status ?? undefined,
+  jenkins_team: row.jenkins_team ?? undefined,
+  name: row.name,
+  number: row.number,
+  ocp_version: row.ocp_version ?? undefined,
+  passed: row.passed,
+  rp_id: row.rp_id,
+  skipped: row.skipped,
+  start_time: row.start_time,
+  status: row.status,
+  tier: row.tier ?? undefined,
+  total: row.total,
+  uuid: row.uuid,
 });
 
-export type EnrichmentStats = { success: number; mapped: number; failed: number; pending: number; noUrl: number; notFound: number; authRequired: number };
+export type EnrichmentStats = {
+  success: number;
+  mapped: number;
+  failed: number;
+  pending: number;
+  noUrl: number;
+  notFound: number;
+  authRequired: number;
+};
 
 export const getEnrichmentStats = async (): Promise<EnrichmentStats> => {
-  const rows = await launches()
+  const rows: Record<string, unknown>[] = await launches()
     .createQueryBuilder('l')
     .select('l.jenkins_status', 'status')
     .addSelect('COUNT(*)', 'count')
     .groupBy('l.jenkins_status')
     .getRawMany();
-  const stats: EnrichmentStats = { success: 0, mapped: 0, failed: 0, pending: 0, noUrl: 0, notFound: 0, authRequired: 0 };
+  const stats: EnrichmentStats = {
+    authRequired: 0,
+    failed: 0,
+    mapped: 0,
+    notFound: 0,
+    noUrl: 0,
+    pending: 0,
+    success: 0,
+  };
   for (const row of rows) {
-    const count = parseInt(row.count, 10);
-    if (row.status === 'success') stats.success = count;
-    else if (row.status === 'mapped') stats.mapped = count;
-    else if (row.status === 'failed') stats.failed = count;
-    else if (row.status === 'no_url') stats.noUrl = count;
-    else if (row.status === 'not_found') stats.notFound = count;
-    else if (row.status === 'auth_required') stats.authRequired = count;
-    else if (row.status === 'job_deleted') stats.notFound += count;
-    else if (row.status === 'build_pruned') stats.success += count;
-    else if (row.status === 'regex_mapped') stats.mapped += count;
-    else stats.pending += count;
+    const count = parseInt(String(row.count), 10);
+    if (row.status === 'success') {
+      stats.success = count;
+    } else if (row.status === 'mapped') {
+      stats.mapped = count;
+    } else if (row.status === 'failed') {
+      stats.failed = count;
+    } else if (row.status === 'no_url') {
+      stats.noUrl = count;
+    } else if (row.status === 'not_found') {
+      stats.notFound = count;
+    } else if (row.status === 'auth_required') {
+      stats.authRequired = count;
+    } else if (row.status === 'job_deleted') {
+      stats.notFound += count;
+    } else if (row.status === 'build_pruned') {
+      stats.success += count;
+    } else if (row.status === 'regex_mapped') {
+      stats.mapped += count;
+    } else {
+      stats.pending += count;
+    }
   }
   return stats;
 };
 
 export const getLaunchesWithFailedEnrichment = async (limit = 500): Promise<LaunchRecord[]> => {
   const rows = await launches().find({
-    where: { jenkins_status: 'failed' },
     order: { start_time: 'DESC' },
     take: limit,
+    where: { jenkins_status: 'failed' },
   });
   return rows.map(toLaunchRecord);
 };
 
 export const getLaunchesPendingEnrichment = async (limit = 50000): Promise<LaunchRecord[]> => {
   const rows = await launches().find({
-    where: { jenkins_status: 'pending' },
     order: { start_time: 'DESC' },
     take: limit,
+    where: { jenkins_status: 'pending' },
   });
   return rows.map(toLaunchRecord);
 };
@@ -71,13 +113,16 @@ export const getDistinctJenkinsTeams = async (): Promise<string[]> => {
   return rows.map((row: { jenkins_team: string }) => row.jenkins_team);
 };
 
-export const updateComponentByJenkinsTeam = async (jenkinsTeam: string, component: string): Promise<number> => {
+export const updateComponentByJenkinsTeam = async (
+  jenkinsTeam: string,
+  component: string,
+): Promise<number> => {
   const result = await launches().update({ jenkins_team: jenkinsTeam }, { component });
   return result.affected ?? 0;
 };
 
 export const backfillComponentFromSiblings = async (): Promise<number> => {
-  const componentResult = await AppDataSource.query(`
+  const componentResult: [unknown, number] = await AppDataSource.query(`
     UPDATE launches target
     SET component = source.component
     FROM (
@@ -88,20 +133,27 @@ export const backfillComponentFromSiblings = async (): Promise<number> => {
     WHERE target.name = source.name
       AND target.component IS NULL
   `);
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: DB query result shape
   const siblingCount = componentResult[1] ?? 0;
 
   let regexCount = 0;
   try {
     const { resolveComponent } = await import('../../componentMap');
-    const unmapped = await launches().find({ where: { component: IsNull() }, select: ['rp_id', 'name', 'jenkins_team'] });
+    const unmapped = await launches().find({
+      select: ['rp_id', 'name', 'jenkins_team'],
+      where: { component: IsNull() },
+    });
     for (const launch of unmapped) {
       const resolved = resolveComponent(launch.jenkins_team, launch.name);
       if (resolved) {
+        // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
         await launches().update({ rp_id: launch.rp_id }, { component: resolved });
         regexCount++;
       }
     }
-  } catch { /* mapping cache not ready */ }
+  } catch {
+    /* Mapping cache not ready */
+  }
 
   await AppDataSource.query(`
     UPDATE launches

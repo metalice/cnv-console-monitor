@@ -1,11 +1,19 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { type NextFunction, type Request, type Response, Router } from 'express';
+
 import { CreateSubscriptionSchema, UpdateSubscriptionSchema } from '@cnv-monitor/shared';
-import { getAllSubscriptions, getSubscription, createSubscription, updateSubscription, deleteSubscription } from '../../db/store';
+
 import { buildDailyReport } from '../../analyzer';
+import {
+  createSubscription,
+  deleteSubscription,
+  getAllSubscriptions,
+  getSubscription,
+  updateSubscription,
+} from '../../db/store';
+import { logger } from '../../logger';
 import { dispatchToSubscription } from '../../notifiers/dispatch';
 import { setupSubscriptionCrons } from '../../serve-cron';
-import { requireOwnerOrAdmin, getSubscriptionOwner } from '../middleware/auth';
-import { logger } from '../../logger';
+import { getSubscriptionOwner, requireOwnerOrAdmin } from '../middleware/auth';
 
 const log = logger.child({ module: 'Subscriptions' });
 const router = Router();
@@ -29,9 +37,9 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     const createdBy = req.user?.email || 'unknown';
     const sub = await createSubscription({
       ...parsed.data,
-      slackWebhook: parsed.data.slackWebhook ?? null,
-      jiraWebhook: parsed.data.jiraWebhook ?? null,
       createdBy,
+      jiraWebhook: parsed.data.jiraWebhook ?? null,
+      slackWebhook: parsed.data.slackWebhook ?? null,
     });
     setupSubscriptionCrons().catch(err => log.warn({ err }, 'Failed to refresh crons'));
     res.status(201).json(sub);
@@ -40,54 +48,81 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-router.put('/:id', requireOwnerOrAdmin(getSubscriptionOwner), async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const id = parseInt(req.params.id as string, 10);
-    if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+router.put(
+  '/:id',
+  requireOwnerOrAdmin(getSubscriptionOwner),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (isNaN(id)) {
+        res.status(400).json({ error: 'Invalid id' });
+        return;
+      }
 
-    const parsed = UpdateSubscriptionSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.issues.map(issue => issue.message).join(', ') });
-      return;
+      const parsed = UpdateSubscriptionSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ error: parsed.error.issues.map(issue => issue.message).join(', ') });
+        return;
+      }
+
+      const updated = await updateSubscription(id, parsed.data);
+      if (!updated) {
+        res.status(404).json({ error: 'Subscription not found' });
+        return;
+      }
+      setupSubscriptionCrons().catch(err => log.warn({ err }, 'Failed to refresh crons'));
+      res.json(updated);
+    } catch (err) {
+      next(err);
     }
+  },
+);
 
-    const updated = await updateSubscription(id, parsed.data);
-    if (!updated) { res.status(404).json({ error: 'Subscription not found' }); return; }
-    setupSubscriptionCrons().catch(err => log.warn({ err }, 'Failed to refresh crons'));
-    res.json(updated);
-  } catch (err) {
-    next(err);
-  }
-});
+router.delete(
+  '/:id',
+  requireOwnerOrAdmin(getSubscriptionOwner),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (isNaN(id)) {
+        res.status(400).json({ error: 'Invalid id' });
+        return;
+      }
+      await deleteSubscription(id);
+      setupSubscriptionCrons().catch(err => log.warn({ err }, 'Failed to refresh crons'));
+      res.json({ success: true });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
-router.delete('/:id', requireOwnerOrAdmin(getSubscriptionOwner), async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const id = parseInt(req.params.id as string, 10);
-    if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
-    await deleteSubscription(id);
-    setupSubscriptionCrons().catch(err => log.warn({ err }, 'Failed to refresh crons'));
-    res.json({ success: true });
-  } catch (err) {
-    next(err);
-  }
-});
+router.post(
+  '/:id/test',
+  requireOwnerOrAdmin(getSubscriptionOwner),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (isNaN(id)) {
+        res.status(400).json({ error: 'Invalid id' });
+        return;
+      }
 
-router.post('/:id/test', requireOwnerOrAdmin(getSubscriptionOwner), async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const id = parseInt(req.params.id as string, 10);
-    if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+      const sub = await getSubscription(id);
+      if (!sub) {
+        res.status(404).json({ error: 'Subscription not found' });
+        return;
+      }
 
-    const sub = await getSubscription(id);
-    if (!sub) { res.status(404).json({ error: 'Subscription not found' }); return; }
+      const report = await buildDailyReport(24);
+      const results = await dispatchToSubscription(report, sub);
 
-    const report = await buildDailyReport(24);
-    const results = await dispatchToSubscription(report, sub);
-
-    log.info({ subId: id, results }, 'Test notification sent');
-    res.json({ success: true, message: results.join('; ') });
-  } catch (err) {
-    next(err);
-  }
-});
+      log.info({ results, subId: id }, 'Test notification sent');
+      res.json({ message: results.join('; '), success: true });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 export default router;

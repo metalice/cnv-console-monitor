@@ -1,4 +1,5 @@
 import React from 'react';
+
 import { Card, CardBody, Content, Tooltip } from '@patternfly/react-core';
 import { OutlinedQuestionCircleIcon } from '@patternfly/react-icons';
 
@@ -11,20 +12,27 @@ type StatCardProps = {
   isActive?: boolean;
 };
 
-export const StatCard: React.FC<StatCardProps> = ({ value, label, help, color, onClick, isActive }) => (
+export const StatCard: React.FC<StatCardProps> = ({
+  color,
+  help,
+  isActive,
+  label,
+  onClick,
+  value,
+}) => (
   <Card
     isCompact
-    isClickable={!!onClick}
-    isSelectable={!!onClick}
+    className={onClick ? 'app-cursor-pointer' : undefined}
+    isClickable={Boolean(onClick)}
+    isSelectable={Boolean(onClick)}
     isSelected={isActive}
     onClick={onClick}
-    className={onClick ? 'app-cursor-pointer' : undefined}
   >
     <CardBody>
-      <Content component="h2" className="app-text-center" style={{ color }}>
+      <Content className="app-text-center" component="h2" style={{ color }}>
         {value}
       </Content>
-      <Content component="small" className="app-text-block-center">
+      <Content className="app-text-block-center" component="small">
         {label}
         {help && (
           <>

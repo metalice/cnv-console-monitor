@@ -1,5 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+
 import type { UserPreferences } from '@cnv-monitor/shared';
+
 import { apiFetch } from '../api/client';
 
 type PreferencesContextValue = {
@@ -17,44 +19,55 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const pendingRef = useRef<UserPreferences>({});
 
   useEffect(() => {
-    apiFetch<UserPreferences>('/user/preferences')
-      .then((prefs) => {
+    void apiFetch<UserPreferences>('/user/preferences')
+      .then(prefs => {
         setPreferences(prefs);
         pendingRef.current = prefs;
+        return undefined;
       })
-      .catch(() => {})
+      .catch(() => {
+        // no-op
+      })
       .finally(() => setLoaded(true));
   }, []);
 
-  useEffect(() => {
-    return () => clearTimeout(saveTimer.current ?? undefined);
-  }, []);
+  useEffect(() => () => clearTimeout(saveTimer.current ?? undefined), []);
 
-  const setPreference = useCallback(<K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => {
-    setPreferences(prev => {
-      const next = { ...prev, [key]: value };
-      pendingRef.current = next;
-      return next;
-    });
+  const setPreference = useCallback(
+    <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => {
+      setPreferences(prev => {
+        const next = { ...prev, [key]: value };
+        pendingRef.current = next;
+        return next;
+      });
 
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      apiFetch('/user/preferences', {
-        method: 'PUT',
-        body: JSON.stringify(pendingRef.current),
-      }).catch(() => {});
-    }, 1000);
-  }, []);
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+      }
+      saveTimer.current = setTimeout(() => {
+        apiFetch('/user/preferences', {
+          body: JSON.stringify(pendingRef.current),
+          method: 'PUT',
+        }).catch(() => {
+          // no-op
+        });
+      }, 1000);
+    },
+    [],
+  );
 
   return (
-    <PreferencesContext.Provider value={{ preferences, loaded, setPreference }}>
+    <PreferencesContext.Provider value={{ loaded, preferences, setPreference }}>
       {children}
     </PreferencesContext.Provider>
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const usePreferences = (): PreferencesContextValue => {
   const ctx = useContext(PreferencesContext);
-  if (!ctx) throw new Error('usePreferences must be used within PreferencesProvider');
+  if (!ctx) {
+    throw new Error('usePreferences must be used within PreferencesProvider');
+  }
   return ctx;
 };

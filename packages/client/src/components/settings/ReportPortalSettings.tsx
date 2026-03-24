@@ -1,16 +1,19 @@
 import React from 'react';
+
 import {
+  Alert,
+  Button,
+  Content,
+  Flex,
+  FlexItem,
   Form,
   FormGroup,
   TextInput,
-  Button,
-  Alert,
-  Flex,
-  FlexItem,
-  Content,
 } from '@patternfly/react-core';
+
 import { SearchableSelect } from '../common/SearchableSelect';
-import type { SettingsSectionProps, TokenEditHandlers, AlertMessage } from './types';
+
+import type { AlertMessage, SettingsSectionProps, TokenEditHandlers } from './types';
 import { toOptions } from './types';
 
 type ReportPortalSettingsProps = SettingsSectionProps &
@@ -22,40 +25,80 @@ type ReportPortalSettingsProps = SettingsSectionProps &
   };
 
 export const ReportPortalSettings: React.FC<ReportPortalSettingsProps> = ({
-  val,
-  set,
   adminOnly,
-  tokenEditing,
-  startTokenEdit,
   endTokenEdit,
+  isTestPending,
+  onTestConnection,
   rpProjectOptions,
   rpTestMsg,
-  onTestConnection,
-  isTestPending,
+  set,
+  startTokenEdit,
+  tokenEditing,
+  val,
 }) => (
   <>
-    <Content component="small" className="app-text-muted app-mb-md">
-      Connection to your ReportPortal instance for fetching test launches and results. Get your API token from ReportPortal &gt; User Profile &gt; API Keys.
+    <Content className="app-text-muted app-mb-md" component="small">
+      Connection to your ReportPortal instance for fetching test launches and results. Get your API
+      token from ReportPortal &gt; User Profile &gt; API Keys.
     </Content>
     <Form>
-      <FormGroup label="URL" fieldId="rp-url">
-        <TextInput id="rp-url" value={val('reportportal.url')} onChange={(_e, v) => set('reportportal.url', v)} placeholder="https://reportportal.example.com" isDisabled={adminOnly} />
+      <FormGroup fieldId="rp-url" label="URL">
+        <TextInput
+          id="rp-url"
+          isDisabled={adminOnly}
+          placeholder="https://reportportal.example.com"
+          value={val('reportportal.url')}
+          onChange={(_e, v) => set('reportportal.url', v)}
+        />
       </FormGroup>
-      <FormGroup label="Project" fieldId="rp-project">
-        <SearchableSelect id="rp-project" value={val('reportportal.project')} options={toOptions(rpProjectOptions)} onChange={(v) => set('reportportal.project', v)} placeholder="Select project" isDisabled={adminOnly} />
+      <FormGroup fieldId="rp-project" label="Project">
+        <SearchableSelect
+          id="rp-project"
+          isDisabled={adminOnly}
+          options={toOptions(rpProjectOptions)}
+          placeholder="Select project"
+          value={val('reportportal.project')}
+          onChange={v => set('reportportal.project', v)}
+        />
       </FormGroup>
-      <FormGroup label="Token" fieldId="rp-token">
-        <Flex alignItems={{ default: 'alignItemsFlexEnd' }} spaceItems={{ default: 'spaceItemsSm' }}>
+      <FormGroup fieldId="rp-token" label="Token">
+        <Flex
+          alignItems={{ default: 'alignItemsFlexEnd' }}
+          spaceItems={{ default: 'spaceItemsSm' }}
+        >
           <FlexItem className="app-flex-1">
-            <TextInput id="rp-token" type={tokenEditing['reportportal.token'] ? 'text' : 'password'} value={val('reportportal.token')}
-              onFocus={() => startTokenEdit('reportportal.token')} onBlur={() => endTokenEdit('reportportal.token')}
-              onChange={(_e, v) => set('reportportal.token', v)} placeholder="Bearer token" isDisabled={adminOnly} />
+            <TextInput
+              id="rp-token"
+              isDisabled={adminOnly}
+              placeholder="Bearer token"
+              type={tokenEditing['reportportal.token'] ? 'text' : 'password'}
+              value={val('reportportal.token')}
+              onBlur={() => endTokenEdit('reportportal.token')}
+              onChange={(_e, v) => set('reportportal.token', v)}
+              onFocus={() => startTokenEdit('reportportal.token')}
+            />
           </FlexItem>
           <FlexItem>
-            <Button variant="secondary" size="sm" onClick={onTestConnection} isLoading={isTestPending} isDisabled={adminOnly}>Test Connection</Button>
+            <Button
+              isDisabled={adminOnly}
+              isLoading={isTestPending}
+              size="sm"
+              variant="secondary"
+              onClick={onTestConnection}
+            >
+              Test Connection
+            </Button>
           </FlexItem>
         </Flex>
-        {rpTestMsg && <Alert variant={rpTestMsg.type} isInline isPlain title={rpTestMsg.text} className="app-mt-sm" />}
+        {rpTestMsg && (
+          <Alert
+            isInline
+            isPlain
+            className="app-mt-sm"
+            title={rpTestMsg.text}
+            variant={rpTestMsg.type}
+          />
+        )}
       </FormGroup>
     </Form>
   </>

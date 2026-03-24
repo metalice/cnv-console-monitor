@@ -2,13 +2,14 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 
 export type LookbackMode = '24h' | '48h' | '7d' | '1m' | '3m' | '6m' | 'range';
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const LOOKBACK_HOURS: Record<Exclude<LookbackMode, 'range'>, number> = {
-  '24h': 24,
-  '48h': 48,
-  '7d': 168,
   '1m': 730,
+  '24h': 24,
   '3m': 2190,
+  '48h': 48,
   '6m': 4380,
+  '7d': 168,
 };
 
 type DateContextValue = {
@@ -25,17 +26,13 @@ type DateContextValue = {
   displayLabel: string;
 };
 
-const todayStr = (): string =>
-  new Date().toISOString().split('T')[0];
+const todayStr = (): string => new Date().toISOString().split('T')[0];
 
-const toDateStr = (ts: number): string =>
-  new Date(ts).toISOString().split('T')[0];
+const toDateStr = (ts: number): string => new Date(ts).toISOString().split('T')[0];
 
-const startOfDay = (dateStr: string): number =>
-  new Date(dateStr + 'T00:00:00').getTime();
+const startOfDay = (dateStr: string): number => new Date(`${dateStr}T00:00:00`).getTime();
 
-const endOfDay = (dateStr: string): number =>
-  startOfDay(dateStr) + 24 * 60 * 60 * 1000;
+const endOfDay = (dateStr: string): number => startOfDay(dateStr) + 24 * 60 * 60 * 1000;
 
 const DateContext = createContext<DateContextValue | null>(null);
 
@@ -46,7 +43,9 @@ export const DateProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    if (lookbackMode === 'range') return;
+    if (lookbackMode === 'range') {
+      return;
+    }
     const timer = setInterval(() => setTick(prev => prev + 1), 60_000);
     return () => clearInterval(timer);
   }, [lookbackMode]);
@@ -92,23 +91,27 @@ export const DateProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return {
       dateFrom,
       dateTo,
+      displayLabel,
+      isRangeMode,
       lookbackMode,
+      setCustomRange,
       setDateFrom,
       setDateTo,
       setLookbackMode,
-      setCustomRange,
-      isRangeMode,
       since,
       until,
-      displayLabel,
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tick drives periodic recalculation of since/until for rolling windows
   }, [dateFrom, dateTo, lookbackMode, setLookbackMode, setCustomRange, tick]);
 
   return <DateContext.Provider value={value}>{children}</DateContext.Provider>;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useDate = (): DateContextValue => {
   const ctx = useContext(DateContext);
-  if (!ctx) throw new Error('useDate must be used within DateProvider');
+  if (!ctx) {
+    throw new Error('useDate must be used within DateProvider');
+  }
   return ctx;
 };

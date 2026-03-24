@@ -30,17 +30,27 @@ type PreviewResponse = {
   matches: string[];
   totalCount: number;
   nameCount: number;
-  conflicts?: Array<{ pattern: string; component: string }>;
+  conflicts?: { pattern: string; component: string }[];
 };
 
 export const fetchComponentMappings = (): Promise<MappingsResponse> =>
   apiFetch<MappingsResponse>('/component-mappings');
 
 export const previewPattern = (pattern: string, includeDeleted = false): Promise<PreviewResponse> =>
-  apiFetch<PreviewResponse>(`/component-mappings/preview?pattern=${encodeURIComponent(pattern)}&includeDeleted=${includeDeleted}`);
+  apiFetch<PreviewResponse>(
+    `/component-mappings/preview?pattern=${encodeURIComponent(pattern)}&includeDeleted=${includeDeleted}`,
+  );
 
-export const upsertComponentMapping = (pattern: string, component: string, type?: string, includeDeleted?: boolean): Promise<{ success: boolean }> =>
-  apiFetch('/component-mappings', { method: 'PUT', body: JSON.stringify({ pattern, component, type, includeDeleted }) });
+export const upsertComponentMapping = (
+  pattern: string,
+  component: string,
+  type?: string,
+  includeDeleted?: boolean,
+): Promise<{ success: boolean }> =>
+  apiFetch('/component-mappings', {
+    body: JSON.stringify({ component, includeDeleted, pattern, type }),
+    method: 'PUT',
+  });
 
 export type LaunchDetails = {
   found: boolean;
@@ -64,14 +74,18 @@ export const fetchLaunchDetails = (launchName: string): Promise<LaunchDetails> =
   apiFetch<LaunchDetails>(`/component-mappings/launch-details/${encodeURIComponent(launchName)}`);
 
 export const deleteComponentMapping = async (pattern: string): Promise<{ success: boolean }> => {
-  const response = await fetch(`/api/component-mappings/${encodeURIComponent(pattern)}`, { method: 'DELETE' });
-  if (!response.ok) throw new Error('Failed to delete mapping');
-  return response.json();
+  const response = await fetch(`/api/component-mappings/${encodeURIComponent(pattern)}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    throw new Error('Failed to delete mapping');
+  }
+  return response.json() as Promise<{ success: boolean }>;
 };
 
-export type AutoMapResult = {
+type AutoMapResult = {
   success: boolean;
-  mapped: Array<{ jenkinsTeam: string; jiraComponent: string; score: number }>;
+  mapped: { jenkinsTeam: string; jiraComponent: string; score: number }[];
   unmapped: string[];
 };
 

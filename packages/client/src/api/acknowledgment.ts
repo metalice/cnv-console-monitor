@@ -1,9 +1,20 @@
-import type { AcknowledgmentStatus, AcknowledgeRequest, ApproverStat, AckHistoryEntry } from '@cnv-monitor/shared';
+import type {
+  AckHistoryEntry,
+  AcknowledgeRequest,
+  AcknowledgmentStatus,
+  ApproverStat,
+} from '@cnv-monitor/shared';
+
 import { apiFetch, apiPost } from './client';
 
-export const fetchAckStatus = (date?: string, component?: string): Promise<AcknowledgmentStatus> => {
+export const fetchAckStatus = (
+  date?: string,
+  component?: string,
+): Promise<AcknowledgmentStatus> => {
   const componentParam = component ? `?component=${encodeURIComponent(component)}` : '';
-  if (date) return apiFetch(`/acknowledgment/${date}${componentParam}`);
+  if (date) {
+    return apiFetch(`/acknowledgment/${date}${componentParam}`);
+  }
   return apiFetch(`/acknowledgment/today${componentParam}`);
 };
 
@@ -18,8 +29,11 @@ type AckStatsResponse = {
 export const fetchAckStats = (days = 30): Promise<AckStatsResponse> =>
   apiFetch(`/acknowledgment/stats?days=${days}`);
 
-export const deleteAcknowledgment = (date: string, reviewer: string): Promise<{ success: boolean }> =>
+export const deleteAcknowledgment = (
+  date: string,
+  reviewer: string,
+): Promise<{ success: boolean }> =>
   apiFetch(`/acknowledgment/${date}`, {
-    method: 'DELETE',
     body: JSON.stringify({ reviewer }),
+    method: 'DELETE',
   });

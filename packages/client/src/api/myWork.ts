@@ -13,14 +13,14 @@ export type MyWorkJiraBug = {
   created_at: string;
 };
 
-export type MyWorkSuggestion = {
+type MyWorkSuggestion = {
   name: string;
   unique_id: string;
   occurrences: number;
   consecutiveFailures: number;
 };
 
-export type MyWorkData = {
+type MyWorkData = {
   myComponents: string[];
   untriagedInMyComponents: number;
   myRecentActivity: MyWorkActivity[];
@@ -28,5 +28,4 @@ export type MyWorkData = {
   suggestedWork: MyWorkSuggestion[];
 };
 
-export const fetchMyWork = (): Promise<MyWorkData> =>
-  apiFetch('/my-work');
+export const fetchMyWork = (): Promise<MyWorkData> => apiFetch('/my-work');

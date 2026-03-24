@@ -9,9 +9,9 @@ const escapeCsvField = (value: string | number | null | undefined): string => {
 export const exportCsv = (
   filename: string,
   headers: string[],
-  rows: Array<Array<string | number | null | undefined>>,
+  rows: (string | number | null | undefined)[][],
 ): void => {
-  const header = headers.map(escapeCsvField).join(',') + '\n';
+  const header = `${headers.map(escapeCsvField).join(',')}\n`;
   const body = rows.map(row => row.map(escapeCsvField).join(',')).join('\n');
   const blob = new Blob([header + body], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);

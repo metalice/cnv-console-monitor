@@ -1,5 +1,7 @@
 import React from 'react';
+
 import { Card, CardBody, Content, Spinner, Tooltip } from '@patternfly/react-core';
+
 import { heatmapCellColor, heatmapCellLabel, type HeatmapData } from './trendUtils';
 
 type HeatmapTableProps = {
@@ -7,12 +9,15 @@ type HeatmapTableProps = {
   heatmap: HeatmapData | null;
 };
 
-
-export const HeatmapTable: React.FC<HeatmapTableProps> = ({ isLoading, heatmap }) => (
+export const HeatmapTable: React.FC<HeatmapTableProps> = ({ heatmap, isLoading }) => (
   <Card>
     <CardBody>
-      <Content component="h3" className="app-section-heading">Failure Heatmap (last 14 days)</Content>
-      <Content component="small" className="app-section-subheading">Top failing tests vs dates. Red = failed that day, green = passed.</Content>
+      <Content className="app-section-heading" component="h3">
+        Failure Heatmap (last 14 days)
+      </Content>
+      <Content className="app-section-subheading" component="small">
+        Top failing tests vs dates. Red = failed that day, green = passed.
+      </Content>
       {isLoading ? (
         <Spinner size="md" />
       ) : heatmap && heatmap.tests.length > 0 ? (
@@ -22,7 +27,7 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ isLoading, heatmap }
               <tr>
                 <th className="app-heatmap-th-test app-heatmap-sticky">Test</th>
                 {heatmap.dates.map(d => (
-                  <th key={d} className="app-heatmap-th-date">
+                  <th className="app-heatmap-th-date" key={d}>
                     {d.slice(5)}
                   </th>
                 ))}
@@ -40,9 +45,12 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ isLoading, heatmap }
                   {heatmap.dates.map(date => {
                     const status = heatmap.cellMap.get(`${test.unique_id}|${date}`);
                     return (
-                      <td key={date} className="app-heatmap-td-cell">
+                      <td className="app-heatmap-td-cell" key={date}>
                         <Tooltip content={`${date}: ${heatmapCellLabel(status)}`}>
-                          <span className="app-heatmap-dot" style={{ background: heatmapCellColor(status) }} />
+                          <span
+                            className="app-heatmap-dot"
+                            style={{ background: heatmapCellColor(status) }}
+                          />
                         </Tooltip>
                       </td>
                     );

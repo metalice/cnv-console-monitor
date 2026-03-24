@@ -1,17 +1,19 @@
 import React, { useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useNavigate, useParams } from 'react-router-dom';
+
 import {
-  PageSection,
-  Content,
   Card,
   CardBody,
+  Content,
   EmptyState,
   EmptyStateBody,
   Gallery,
   GalleryItem,
+  PageSection,
   Spinner,
 } from '@patternfly/react-core';
+import { useQuery } from '@tanstack/react-query';
+
 import { fetchReadinessVersions } from '../api/readiness';
 import { ReadinessDetails } from '../components/readiness/ReadinessDetails';
 
@@ -19,12 +21,16 @@ const VersionPicker: React.FC = () => {
   const navigate = useNavigate();
 
   const { data: versions, isLoading } = useQuery({
-    queryKey: ['readinessVersions'],
     queryFn: fetchReadinessVersions,
+    queryKey: ['readinessVersions'],
   });
 
   if (isLoading) {
-    return <div className="app-page-spinner"><Spinner aria-label="Loading versions" /></div>;
+    return (
+      <div className="app-page-spinner">
+        <Spinner aria-label="Loading versions" />
+      </div>
+    );
   }
 
   if (!versions?.length) {
@@ -45,11 +51,13 @@ const VersionPicker: React.FC = () => {
       </PageSection>
       <PageSection>
         <Gallery hasGutter minWidths={{ default: '250px' }}>
-          {versions.map((ver) => (
+          {versions.map(ver => (
             <GalleryItem key={ver}>
               <Card isClickable isSelectable onClick={() => navigate(`/readiness/${ver}`)}>
                 <CardBody>
-                  <Content component="h3" className="app-text-center">{ver}</Content>
+                  <Content className="app-text-center" component="h3">
+                    {ver}
+                  </Content>
                 </CardBody>
               </Card>
             </GalleryItem>
@@ -69,6 +77,8 @@ export const ReadinessPage: React.FC = () => {
     }
   }, [version]);
 
-  if (!version) return <VersionPicker />;
+  if (!version) {
+    return <VersionPicker />;
+  }
   return <ReadinessDetails version={version} />;
 };

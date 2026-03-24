@@ -1,53 +1,68 @@
+import { createTwoFilesPatch } from 'diff';
 import React, { useEffect, useMemo, useState } from 'react';
+
+import { timeAgo } from '@cnv-monitor/shared';
+
 import {
-  Modal,
-  ModalVariant,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  Button,
-  TextInput,
-  TextArea,
-  FormGroup,
-  Form,
   Alert,
+  Button,
   Checkbox,
-  Label,
-  Spinner,
   Content,
   ExpandableSection,
   Flex,
   FlexItem,
+  Form,
+  FormGroup,
+  Label,
+  Modal,
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
+  ModalVariant,
+  Spinner,
+  TextArea,
+  TextInput,
 } from '@patternfly/react-core';
-import { ExternalLinkAltIcon, CheckCircleIcon } from '@patternfly/react-icons';
+import { CheckCircleIcon, ExternalLinkAltIcon } from '@patternfly/react-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { timeAgo } from '@cnv-monitor/shared';
-import { createTwoFilesPatch } from 'diff';
-import { fetchUserDrafts, submitDraftsApi, type DraftInfo } from '../../api/testExplorer';
 
-interface SubmitDraftsModalProps {
+import { type DraftInfo, fetchUserDrafts, submitDraftsApi } from '../../api/testExplorer';
+
+type SubmitDraftsModalProps = {
   isOpen: boolean;
   onClose: () => void;
-}
+};
 
-interface SubmitResult {
+type SubmitResult = {
   prUrl: string;
   prNumber: number;
   filesCommitted: number;
-}
+};
 
 const statusColor = (status: string): 'blue' | 'green' | 'orange' | 'grey' => {
   switch (status) {
-    case 'modified': return 'blue';
-    case 'saved': return 'green';
-    case 'new': return 'orange';
-    default: return 'grey';
+    case 'modified':
+      return 'blue';
+    case 'saved':
+      return 'green';
+    case 'new':
+      return 'orange';
+    default:
+      return 'grey';
   }
 };
 
 const DiffView: React.FC<{ draft: DraftInfo }> = ({ draft }) => {
   const patch = useMemo(
-    () => createTwoFilesPatch(draft.file_path, draft.file_path, draft.original_content, draft.draft_content, 'original', 'modified'),
+    () =>
+      createTwoFilesPatch(
+        draft.file_path,
+        draft.file_path,
+        draft.original_content,
+        draft.draft_content,
+        'original',
+        'modified',
+      ),
     [draft.file_path, draft.original_content, draft.draft_content],
   );
 
@@ -57,11 +72,15 @@ const DiffView: React.FC<{ draft: DraftInfo }> = ({ draft }) => {
     <pre className="app-text-mono app-font-12" style={{ margin: 0, overflowX: 'auto' }}>
       {lines.map((line, i) => {
         let cls = 'app-diff-line--context';
-        if (line.startsWith('+') && !line.startsWith('+++')) cls = 'app-diff-line--add';
-        else if (line.startsWith('-') && !line.startsWith('---')) cls = 'app-diff-line--del';
+        if (line.startsWith('+') && !line.startsWith('+++')) {
+          cls = 'app-diff-line--add';
+        } else if (line.startsWith('-') && !line.startsWith('---')) {
+          cls = 'app-diff-line--del';
+        }
 
         return (
-          <div key={i} className={cls}>
+          // eslint-disable-next-line react/no-array-index-key
+          <div className={cls} key={i}>
             {line}
           </div>
         );
@@ -72,7 +91,9 @@ const DiffView: React.FC<{ draft: DraftInfo }> = ({ draft }) => {
 
 const generateTitle = (drafts: DraftInfo[]): string => {
   const names = drafts.map(d => d.file_path.split('/').pop() ?? d.file_path);
-  if (names.length <= 3) return `docs: update ${names.join(', ')}`;
+  if (names.length <= 3) {
+    return `docs: update ${names.join(', ')}`;
+  }
   return `docs: update ${names.slice(0, 2).join(', ')} and ${names.length - 2} more`;
 };
 
@@ -83,15 +104,15 @@ const generateDescription = (drafts: DraftInfo[]): string => {
 
 export const SubmitDraftsModal: React.FC<SubmitDraftsModalProps> = ({ isOpen, onClose }) => {
   const queryClient = useQueryClient();
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState(new Set<string>());
   const [prTitle, setPrTitle] = useState('');
   const [prDescription, setPrDescription] = useState('');
   const [result, setResult] = useState<SubmitResult | null>(null);
 
   const { data: drafts, isLoading } = useQuery({
-    queryKey: ['userDrafts'],
-    queryFn: fetchUserDrafts,
     enabled: isOpen,
+    queryFn: fetchUserDrafts,
+    queryKey: ['userDrafts'],
   });
 
   useEffect(() => {
@@ -115,15 +136,16 @@ export const SubmitDraftsModal: React.FC<SubmitDraftsModalProps> = ({ isOpen, on
   }, [selectedDrafts]);
 
   const mutation = useMutation({
-    mutationFn: () => submitDraftsApi({
-      draftIds: Array.from(selected),
-      prTitle,
-      prDescription: prDescription.trim() || undefined,
-    }),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['userDrafts'] });
-      queryClient.invalidateQueries({ queryKey: ['draftCount'] });
-      queryClient.invalidateQueries({ queryKey: ['draftPaths'] });
+    mutationFn: () =>
+      submitDraftsApi({
+        draftIds: Array.from(selected),
+        prDescription: prDescription.trim() || undefined,
+        prTitle,
+      }),
+    onSuccess: data => {
+      void queryClient.invalidateQueries({ queryKey: ['userDrafts'] });
+      void queryClient.invalidateQueries({ queryKey: ['draftCount'] });
+      void queryClient.invalidateQueries({ queryKey: ['draftPaths'] });
       setResult(data);
     },
   });
@@ -140,22 +162,30 @@ export const SubmitDraftsModal: React.FC<SubmitDraftsModalProps> = ({ isOpen, on
   const toggleDraft = (id: string) => {
     setSelected(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   };
 
   if (result) {
     return (
-      <Modal variant={ModalVariant.medium} isOpen={isOpen} onClose={handleClose}>
+      <Modal isOpen={isOpen} variant={ModalVariant.medium} onClose={handleClose}>
         <ModalHeader title="Pull Request Created" />
         <ModalBody>
-          <Alert variant="success" isInline title="Drafts submitted successfully" className="app-mb-md" />
+          <Alert
+            isInline
+            className="app-mb-md"
+            title="Drafts submitted successfully"
+            variant="success"
+          />
           <Flex direction={{ default: 'column' }} gap={{ default: 'gapMd' }}>
             <FlexItem>
               <Content component="p">
-                <Label color="green" icon={<CheckCircleIcon />} isCompact className="app-mr-sm">
+                <Label isCompact className="app-mr-sm" color="green" icon={<CheckCircleIcon />}>
                   PR #{result.prNumber}
                 </Label>
                 {result.filesCommitted} file{result.filesCommitted !== 1 ? 's' : ''} committed
@@ -163,13 +193,13 @@ export const SubmitDraftsModal: React.FC<SubmitDraftsModalProps> = ({ isOpen, on
             </FlexItem>
             <FlexItem>
               <Button
-                variant="link"
+                isInline
                 component="a"
                 href={result.prUrl}
-                target="_blank"
-                rel="noreferrer"
                 icon={<ExternalLinkAltIcon />}
-                isInline
+                rel="noreferrer"
+                target="_blank"
+                variant="link"
               >
                 View Pull Request
               </Button>
@@ -177,25 +207,34 @@ export const SubmitDraftsModal: React.FC<SubmitDraftsModalProps> = ({ isOpen, on
           </Flex>
         </ModalBody>
         <ModalFooter>
-          <Button variant="primary" onClick={handleClose}>Done</Button>
+          <Button variant="primary" onClick={handleClose}>
+            Done
+          </Button>
         </ModalFooter>
       </Modal>
     );
   }
 
   return (
-    <Modal variant={ModalVariant.large} isOpen={isOpen} onClose={handleClose}>
-      <ModalHeader title="Submit Drafts" description="Select drafts to include in a pull request." />
+    <Modal isOpen={isOpen} variant={ModalVariant.large} onClose={handleClose}>
+      <ModalHeader
+        description="Select drafts to include in a pull request."
+        title="Submit Drafts"
+      />
       <ModalBody>
         {isLoading ? (
-          <div className="app-card-spinner"><Spinner aria-label="Loading drafts" /></div>
+          <div className="app-card-spinner">
+            <Spinner aria-label="Loading drafts" />
+          </div>
         ) : !drafts?.length ? (
-          <Content component="p" className="app-text-muted app-text-center">No drafts to submit.</Content>
+          <Content className="app-text-muted app-text-center" component="p">
+            No drafts to submit.
+          </Content>
         ) : (
           <Form>
-            <FormGroup label="Drafts" fieldId="draft-list">
+            <FormGroup fieldId="draft-list" label="Drafts">
               {drafts.map(draft => (
-                <div key={draft.id} className="app-mb-sm">
+                <div className="app-mb-sm" key={draft.id}>
                   <Flex alignItems={{ default: 'alignItemsCenter' }} gap={{ default: 'gapSm' }}>
                     <FlexItem>
                       <Checkbox
@@ -208,40 +247,40 @@ export const SubmitDraftsModal: React.FC<SubmitDraftsModalProps> = ({ isOpen, on
                       <span className="app-text-mono app-font-13">{draft.file_path}</span>
                     </FlexItem>
                     <FlexItem>
-                      <span className="app-text-muted app-font-12">{timeAgo(new Date(draft.updated_at).getTime())}</span>
+                      <span className="app-text-muted app-font-12">
+                        {timeAgo(new Date(draft.updated_at).getTime())}
+                      </span>
                     </FlexItem>
                     <FlexItem>
-                      <Label color={statusColor(draft.status)} isCompact>{draft.status}</Label>
+                      <Label isCompact color={statusColor(draft.status)}>
+                        {draft.status}
+                      </Label>
                     </FlexItem>
                   </Flex>
-                  <ExpandableSection toggleText="Show diff" className="app-mt-xs">
+                  <ExpandableSection className="app-mt-xs" toggleText="Show diff">
                     <DiffView draft={draft} />
                   </ExpandableSection>
                 </div>
               ))}
             </FormGroup>
 
-            <FormGroup label="PR Title" isRequired fieldId="pr-title">
-              <TextInput
-                id="pr-title"
-                value={prTitle}
-                onChange={(_e, val) => setPrTitle(val)}
-              />
+            <FormGroup isRequired fieldId="pr-title" label="PR Title">
+              <TextInput id="pr-title" value={prTitle} onChange={(_e, val) => setPrTitle(val)} />
             </FormGroup>
 
-            <FormGroup label="PR Description" fieldId="pr-desc">
+            <FormGroup fieldId="pr-desc" label="PR Description">
               <TextArea
                 id="pr-desc"
+                resizeOrientation="vertical"
+                rows={5}
                 value={prDescription}
                 onChange={(_e, val) => setPrDescription(val)}
-                rows={5}
-                resizeOrientation="vertical"
               />
             </FormGroup>
 
             {mutation.isError && (
-              <Alert variant="danger" isInline title="Failed to submit drafts">
-                {(mutation.error as Error).message}
+              <Alert isInline title="Failed to submit drafts" variant="danger">
+                {mutation.error.message}
               </Alert>
             )}
           </Form>
@@ -249,14 +288,16 @@ export const SubmitDraftsModal: React.FC<SubmitDraftsModalProps> = ({ isOpen, on
       </ModalBody>
       <ModalFooter>
         <Button
-          variant="primary"
-          onClick={() => mutation.mutate()}
           isDisabled={selected.size === 0 || !prTitle.trim() || mutation.isPending}
           isLoading={mutation.isPending}
+          variant="primary"
+          onClick={() => mutation.mutate()}
         >
           Open Pull Request
         </Button>
-        <Button variant="link" onClick={handleClose}>Cancel</Button>
+        <Button variant="link" onClick={handleClose}>
+          Cancel
+        </Button>
       </ModalFooter>
     </Modal>
   );

@@ -1,21 +1,47 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
+
+import type { Subscription } from '@cnv-monitor/shared';
+
 import {
-  Card, CardBody, CardHeader, CardTitle,
-  Button, Switch, Label, Tooltip, Flex, FlexItem,
-  TextInput, Alert, Icon,
-  Dropdown, DropdownItem, DropdownList, MenuToggle,
-  DescriptionList, DescriptionListGroup, DescriptionListTerm, DescriptionListDescription,
+  Alert,
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  CardTitle,
+  DescriptionList,
+  DescriptionListDescription,
+  DescriptionListGroup,
+  DescriptionListTerm,
+  Dropdown,
+  DropdownItem,
+  DropdownList,
   ExpandableSection,
+  Flex,
+  FlexItem,
+  Icon,
+  Label,
+  MenuToggle,
+  Switch,
+  TextInput,
+  Tooltip,
 } from '@patternfly/react-core';
 import {
-  EllipsisVIcon, SlackIcon, EnvelopeIcon,
-  ClockIcon, CalendarAltIcon, UserIcon,
-  CheckCircleIcon, BanIcon, ExternalLinkAltIcon, BugIcon, BellIcon,
+  BanIcon,
+  BellIcon,
+  BugIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  EllipsisVIcon,
+  EnvelopeIcon,
+  SlackIcon,
+  UserIcon,
 } from '@patternfly/react-icons';
-import { ComponentMultiSelect } from '../common/ComponentMultiSelect';
-import { ScheduleEditor } from './ScheduleEditor';
+
 import { formatScheduleLabel } from '../../utils/cronHelpers';
-import type { Subscription } from '@cnv-monitor/shared';
+import { ComponentMultiSelect } from '../common/ComponentMultiSelect';
+
+import { ScheduleEditor } from './ScheduleEditor';
 import type { AlertMessage } from './types';
 
 type SubscriptionCardProps = {
@@ -31,15 +57,25 @@ type SubscriptionCardProps = {
 };
 
 const truncateUrl = (url: string | null | undefined): string => {
-  if (!url) return '';
+  if (!url) {
+    return '';
+  }
   const segments = url.split('/');
   const last = segments[segments.length - 1];
   return last.length > 20 ? `...${last.slice(-18)}` : `.../${last}`;
 };
 
+// eslint-disable-next-line max-lines-per-function
 export const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
-  sub, availableComponents, testingSubId, subTestMessages, canEdit,
-  onUpdate, onToggle, onTest, onDelete,
+  availableComponents,
+  canEdit,
+  onDelete,
+  onTest,
+  onToggle,
+  onUpdate,
+  sub,
+  subTestMessages,
+  testingSubId,
 }) => {
   const [kebabOpen, setKebabOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -47,15 +83,25 @@ export const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
 
   const channelCount = useMemo(() => {
     let count = 0;
-    if (sub.slackWebhook) count++;
-    if (sub.jiraWebhook) count++;
-    if (sub.emailRecipients.length > 0) count++;
+    if (sub.slackWebhook) {
+      count++;
+    }
+    if (sub.jiraWebhook) {
+      count++;
+    }
+    if (sub.emailRecipients.length > 0) {
+      count++;
+    }
     return count;
   }, [sub.slackWebhook, sub.jiraWebhook, sub.emailRecipients]);
 
   const componentLabel = useMemo(() => {
-    if (sub.components.length === 0) return 'All Components';
-    if (sub.components.length === 1) return sub.components[0];
+    if (sub.components.length === 0) {
+      return 'All Components';
+    }
+    if (sub.components.length === 1) {
+      return sub.components[0];
+    }
     return `${sub.components.length} components`;
   }, [sub.components]);
 
@@ -75,57 +121,84 @@ export const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
   const cardClass = `app-sub-card ${sub.enabled ? '' : 'app-sub-card--disabled'}`;
 
   return (
-    <Card className={cardClass} isCompact>
+    <Card isCompact className={cardClass}>
       <CardHeader
         actions={{
           actions: canEdit ? (
-            <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
+            <Flex
+              alignItems={{ default: 'alignItemsCenter' }}
+              spaceItems={{ default: 'spaceItemsSm' }}
+            >
               <FlexItem>
                 <Switch
+                  isReversed
+                  aria-label="Toggle subscription"
                   id={`sub-toggle-${sub.id}`}
                   isChecked={sub.enabled}
                   onChange={(_e, checked) => onToggle(checked)}
-                  aria-label="Toggle subscription"
-                  isReversed
                 />
               </FlexItem>
               <FlexItem>
                 <Dropdown
                   isOpen={kebabOpen}
-                  onOpenChange={setKebabOpen}
-                  onSelect={() => setKebabOpen(false)}
                   popperProps={{ position: 'right' }}
-                  toggle={(ref) => (
-                    <MenuToggle ref={ref} variant="plain" onClick={() => setKebabOpen(!kebabOpen)} isExpanded={kebabOpen} aria-label="Actions">
+                  // eslint-disable-next-line react/no-unstable-nested-components
+                  toggle={ref => (
+                    <MenuToggle
+                      aria-label="Actions"
+                      isExpanded={kebabOpen}
+                      ref={ref}
+                      variant="plain"
+                      onClick={() => setKebabOpen(!kebabOpen)}
+                    >
                       <EllipsisVIcon />
                     </MenuToggle>
                   )}
+                  onOpenChange={setKebabOpen}
+                  onSelect={() => setKebabOpen(false)}
                 >
                   <DropdownList>
-                    <DropdownItem key="edit" onClick={() => { setIsEditing(true); setDraft({}); }}>Edit</DropdownItem>
-                    <DropdownItem key="test" onClick={onTest}>{testingSubId === sub.id ? 'Testing...' : 'Test'}</DropdownItem>
-                    <DropdownItem key="delete" isDanger onClick={onDelete}>Delete</DropdownItem>
+                    <DropdownItem
+                      key="edit"
+                      onClick={() => {
+                        setIsEditing(true);
+                        setDraft({});
+                      }}
+                    >
+                      Edit
+                    </DropdownItem>
+                    <DropdownItem key="test" onClick={onTest}>
+                      {testingSubId === sub.id ? 'Testing...' : 'Test'}
+                    </DropdownItem>
+                    <DropdownItem isDanger key="delete" onClick={onDelete}>
+                      Delete
+                    </DropdownItem>
                   </DropdownList>
                 </Dropdown>
               </FlexItem>
             </Flex>
           ) : (
             <Switch
+              isDisabled
+              isReversed
+              aria-label="Subscription status"
               id={`sub-toggle-${sub.id}`}
               isChecked={sub.enabled}
-              onChange={() => {}}
-              aria-label="Subscription status"
-              isReversed
-              isDisabled
+              onChange={() => {
+                // no-op
+              }}
             />
           ),
           hasNoOffset: true,
         }}
       >
         <CardTitle>
-          <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
+          <Flex
+            alignItems={{ default: 'alignItemsCenter' }}
+            spaceItems={{ default: 'spaceItemsSm' }}
+          >
             <FlexItem>
-              <Icon status={sub.enabled ? 'success' : 'danger'} size="sm">
+              <Icon size="sm" status={sub.enabled ? 'success' : 'danger'}>
                 {sub.enabled ? <CheckCircleIcon /> : <BanIcon />}
               </Icon>
             </FlexItem>
@@ -136,25 +209,42 @@ export const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
 
       <CardBody>
         <div className="app-sub-card-meta">
-          <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
+          <Flex
+            alignItems={{ default: 'alignItemsCenter' }}
+            spaceItems={{ default: 'spaceItemsSm' }}
+          >
             <FlexItem>
               <Tooltip content={componentLabel}>
-                <Label color={sub.components.length === 0 ? 'blue' : 'grey'} isCompact>
+                <Label isCompact color={sub.components.length === 0 ? 'blue' : 'grey'}>
                   {componentLabel}
                 </Label>
               </Tooltip>
             </FlexItem>
             <FlexItem className="app-sub-card-divider">|</FlexItem>
             <FlexItem>
-              <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsXs' }}>
-                <FlexItem><Icon size="sm"><ClockIcon /></Icon></FlexItem>
+              <Flex
+                alignItems={{ default: 'alignItemsCenter' }}
+                spaceItems={{ default: 'spaceItemsXs' }}
+              >
+                <FlexItem>
+                  <Icon size="sm">
+                    <ClockIcon />
+                  </Icon>
+                </FlexItem>
                 <FlexItem className="app-text-sm">{formatScheduleLabel(sub.schedule)}</FlexItem>
               </Flex>
             </FlexItem>
             <FlexItem className="app-sub-card-divider">|</FlexItem>
             <FlexItem>
-              <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsXs' }}>
-                <FlexItem><Icon size="sm"><UserIcon /></Icon></FlexItem>
+              <Flex
+                alignItems={{ default: 'alignItemsCenter' }}
+                spaceItems={{ default: 'spaceItemsXs' }}
+              >
+                <FlexItem>
+                  <Icon size="sm">
+                    <UserIcon />
+                  </Icon>
+                </FlexItem>
                 <FlexItem className="app-text-sm app-text-muted">{owner}</FlexItem>
               </Flex>
             </FlexItem>
@@ -162,9 +252,18 @@ export const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
               <>
                 <FlexItem className="app-sub-card-divider">|</FlexItem>
                 <FlexItem>
-                  <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsXs' }}>
-                    <FlexItem><Icon size="sm"><BellIcon /></Icon></FlexItem>
-                    <FlexItem className="app-text-sm">Reminder {sub.reminderTime || '10:00'}</FlexItem>
+                  <Flex
+                    alignItems={{ default: 'alignItemsCenter' }}
+                    spaceItems={{ default: 'spaceItemsXs' }}
+                  >
+                    <FlexItem>
+                      <Icon size="sm">
+                        <BellIcon />
+                      </Icon>
+                    </FlexItem>
+                    <FlexItem className="app-text-sm">
+                      Reminder {sub.reminderTime || '10:00'}
+                    </FlexItem>
                   </Flex>
                 </FlexItem>
               </>
@@ -203,7 +302,9 @@ export const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
                     <EnvelopeIcon className="app-sub-channel-icon" />
                     <span>Email</span>
                     <span className="app-sub-channel-detail">
-                      {sub.emailRecipients.length === 1 ? sub.emailRecipients[0] : `${sub.emailRecipients.length} recipients`}
+                      {sub.emailRecipients.length === 1
+                        ? sub.emailRecipients[0]
+                        : `${sub.emailRecipients.length} recipients`}
                     </span>
                   </div>
                 </Tooltip>
@@ -217,18 +318,34 @@ export const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
           </Flex>
         </div>
 
+        {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data */}
         {subTestMessages[sub.id] && (
-          <Alert variant={subTestMessages[sub.id].type} isInline isPlain title={subTestMessages[sub.id].text} className="app-mt-sm" />
+          <Alert
+            isInline
+            isPlain
+            className="app-mt-sm"
+            title={subTestMessages[sub.id].text}
+            variant={subTestMessages[sub.id].type}
+          />
         )}
 
         {isEditing && (
-          <ExpandableSection toggleText="Edit subscription" isExpanded isDetached className="app-mt-md">
+          <ExpandableSection
+            isDetached
+            isExpanded
+            className="app-mt-md"
+            toggleText="Edit subscription"
+          >
             <div className="app-sub-edit-form">
               <DescriptionList isCompact isHorizontal columnModifier={{ default: '1Col' }}>
                 <DescriptionListGroup>
                   <DescriptionListTerm>Name</DescriptionListTerm>
                   <DescriptionListDescription>
-                    <TextInput value={draft.name ?? sub.name} onChange={(_e, v) => setDraft(d => ({ ...d, name: v }))} aria-label="Subscription name" />
+                    <TextInput
+                      aria-label="Subscription name"
+                      value={draft.name ?? sub.name}
+                      onChange={(_e, v) => setDraft(d => ({ ...d, name: v }))}
+                    />
                   </DescriptionListDescription>
                 </DescriptionListGroup>
                 <DescriptionListGroup>
@@ -236,58 +353,100 @@ export const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
                   <DescriptionListDescription>
                     <ComponentMultiSelect
                       id={`sub-comp-edit-${sub.id}`}
-                      selected={new Set(draft.components ?? sub.components)}
                       options={availableComponents}
-                      onChange={(s) => setDraft(d => ({ ...d, components: [...s] }))}
+                      selected={new Set(draft.components ?? sub.components)}
+                      onChange={s => setDraft(d => ({ ...d, components: [...s] }))}
                     />
                   </DescriptionListDescription>
                 </DescriptionListGroup>
                 <DescriptionListGroup>
                   <DescriptionListTerm>Slack Webhook</DescriptionListTerm>
                   <DescriptionListDescription>
-                    <TextInput value={draft.slackWebhook ?? sub.slackWebhook ?? ''} onChange={(_e, v) => setDraft(d => ({ ...d, slackWebhook: v }))} placeholder="https://hooks.slack.com/..." aria-label="Slack Webhook" />
+                    <TextInput
+                      aria-label="Slack Webhook"
+                      placeholder="https://hooks.slack.com/..."
+                      value={draft.slackWebhook ?? sub.slackWebhook ?? ''}
+                      onChange={(_e, v) => setDraft(d => ({ ...d, slackWebhook: v }))}
+                    />
                   </DescriptionListDescription>
                 </DescriptionListGroup>
                 <DescriptionListGroup>
                   <DescriptionListTerm>Jira Webhook</DescriptionListTerm>
                   <DescriptionListDescription>
-                    <TextInput value={draft.jiraWebhook ?? sub.jiraWebhook ?? ''} onChange={(_e, v) => setDraft(d => ({ ...d, jiraWebhook: v }))} placeholder="https://hooks.slack.com/..." aria-label="Jira Webhook" />
+                    <TextInput
+                      aria-label="Jira Webhook"
+                      placeholder="https://hooks.slack.com/..."
+                      value={draft.jiraWebhook ?? sub.jiraWebhook ?? ''}
+                      onChange={(_e, v) => setDraft(d => ({ ...d, jiraWebhook: v }))}
+                    />
                   </DescriptionListDescription>
                 </DescriptionListGroup>
                 <DescriptionListGroup>
                   <DescriptionListTerm>Email Recipients</DescriptionListTerm>
                   <DescriptionListDescription>
                     <TextInput
-                      value={draft.emailRecipients !== undefined ? (draft.emailRecipients as string[]).join(', ') : sub.emailRecipients.join(', ')}
-                      onChange={(_e, v) => setDraft(d => ({ ...d, emailRecipients: v.split(',').map(a => a.trim()).filter(Boolean) }))}
-                      placeholder="a@b.com, c@d.com" aria-label="Email Recipients"
+                      aria-label="Email Recipients"
+                      placeholder="a@b.com, c@d.com"
+                      value={
+                        draft.emailRecipients !== undefined
+                          ? draft.emailRecipients.join(', ')
+                          : sub.emailRecipients.join(', ')
+                      }
+                      onChange={(_e, v) =>
+                        setDraft(d => ({
+                          ...d,
+                          emailRecipients: v
+                            .split(',')
+                            .map(a => a.trim())
+                            .filter(Boolean),
+                        }))
+                      }
                     />
                   </DescriptionListDescription>
                 </DescriptionListGroup>
               </DescriptionList>
 
               <ScheduleEditor
-                subId={sub.id}
                 schedule={draft.schedule ?? sub.schedule}
+                subId={sub.id}
                 timezone={sub.timezone}
-                onScheduleChange={(s) => setDraft(d => ({ ...d, schedule: s }))}
-                onTimezoneChange={(tz) => setDraft(d => ({ ...d, timezone: tz }))}
+                onScheduleChange={s => setDraft(d => ({ ...d, schedule: s }))}
+                onTimezoneChange={tz => setDraft(d => ({ ...d, timezone: tz }))}
               />
 
-              <DescriptionList isCompact isHorizontal columnModifier={{ default: '1Col' }} className="app-mt-md">
+              <DescriptionList
+                isCompact
+                isHorizontal
+                className="app-mt-md"
+                columnModifier={{ default: '1Col' }}
+              >
                 <DescriptionListGroup>
                   <DescriptionListTerm>Ack Reminder</DescriptionListTerm>
                   <DescriptionListDescription>
-                    <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
+                    <Flex
+                      alignItems={{ default: 'alignItemsCenter' }}
+                      spaceItems={{ default: 'spaceItemsSm' }}
+                    >
                       <FlexItem>
-                        <Switch id={`sub-reminder-${sub.id}`} isChecked={draft.reminderEnabled ?? sub.reminderEnabled ?? false}
-                          onChange={(_e, checked) => setDraft(d => ({ ...d, reminderEnabled: checked }))} label="Enabled" hasCheckIcon isReversed />
+                        <Switch
+                          hasCheckIcon
+                          isReversed
+                          id={`sub-reminder-${sub.id}`}
+                          isChecked={draft.reminderEnabled ?? sub.reminderEnabled ?? false}
+                          label="Enabled"
+                          onChange={(_e, checked) =>
+                            setDraft(d => ({ ...d, reminderEnabled: checked }))
+                          }
+                        />
                       </FlexItem>
                       {(draft.reminderEnabled ?? sub.reminderEnabled) && (
                         <FlexItem>
-                          <input type="time" className="app-time-input-sm"
+                          <input
+                            className="app-time-input-sm"
+                            type="time"
                             value={draft.reminderTime ?? sub.reminderTime ?? '10:00'}
-                            onChange={(e) => setDraft(d => ({ ...d, reminderTime: e.target.value }))} />
+                            onChange={e => setDraft(d => ({ ...d, reminderTime: e.target.value }))}
+                          />
                         </FlexItem>
                       )}
                     </Flex>
@@ -297,10 +456,14 @@ export const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
 
               <Flex className="app-mt-md" spaceItems={{ default: 'spaceItemsSm' }}>
                 <FlexItem>
-                  <Button variant="primary" size="sm" onClick={handleSave}>Save</Button>
+                  <Button size="sm" variant="primary" onClick={handleSave}>
+                    Save
+                  </Button>
                 </FlexItem>
                 <FlexItem>
-                  <Button variant="link" size="sm" onClick={handleCancel}>Cancel</Button>
+                  <Button size="sm" variant="link" onClick={handleCancel}>
+                    Cancel
+                  </Button>
                 </FlexItem>
               </Flex>
             </div>

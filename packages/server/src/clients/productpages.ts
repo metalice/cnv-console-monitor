@@ -1,4 +1,5 @@
 import axios from 'axios';
+
 import { config } from '../config';
 import { logger } from '../logger';
 import { withRetry } from '../utils/retry';
@@ -12,29 +13,37 @@ let cachedToken: string | null = null;
 let tokenExpiresAt = 0;
 
 const getToken = async (): Promise<string> => {
-  if (cachedToken && Date.now() < tokenExpiresAt) return cachedToken;
+  if (cachedToken && Date.now() < tokenExpiresAt) {
+    return cachedToken;
+  }
 
   const response = await withRetry(
-    () => axios.post(SSO_URL, new URLSearchParams({
-      grant_type: 'client_credentials',
-      client_id: config.productpages.clientId,
-      client_secret: config.productpages.clientSecret,
-    }).toString(), {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      timeout: 10000,
-    }),
+    () =>
+      axios.post(
+        SSO_URL,
+        new URLSearchParams({
+          client_id: config.productpages.clientId,
+          client_secret: config.productpages.clientSecret,
+          grant_type: 'client_credentials',
+        }).toString(),
+        {
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          timeout: 10000,
+        },
+      ),
     'productpages.getToken',
     { maxRetries: 2 },
   );
 
-  cachedToken = response.data.access_token;
-  const expiresIn = (response.data.expires_in || 300) - 30;
+  const tokenData = response.data as { access_token: string; expires_in?: number };
+  cachedToken = tokenData.access_token;
+  const expiresIn = (tokenData.expires_in || 300) - 30;
   tokenExpiresAt = Date.now() + expiresIn * 1000;
 
-  return cachedToken!;
-}
+  return cachedToken;
+};
 
-export type PPTask = {
+type PPTask = {
   main: boolean;
   name: string;
   slug: string;
@@ -42,7 +51,7 @@ export type PPTask = {
   date_finish: string;
 };
 
-export type PPRelease = {
+type PPRelease = {
   id: number;
   shortname: string;
   name: string;
@@ -62,15 +71,17 @@ export const fetchCnvReleases = async (): Promise<PPRelease[]> => {
   try {
     const token = await getToken();
     const response = await withRetry(
-      () => axios.get(`${PP_API}/releases/`, {
-        params: {
-          'product__shortname': 'cnv',
-          ordering: '-ga_date',
-          fields: 'id,shortname,name,ga_date,phase_display,all_ga_tasks,major_milestones,canceled',
-        },
-        headers: { Authorization: `Bearer ${token}` },
-        timeout: 15000,
-      }),
+      () =>
+        axios.get(`${PP_API}/releases/`, {
+          headers: { Authorization: `Bearer ${token}` },
+          params: {
+            fields:
+              'id,shortname,name,ga_date,phase_display,all_ga_tasks,major_milestones,canceled',
+            ordering: '-ga_date',
+            product__shortname: 'cnv',
+          },
+          timeout: 15000,
+        }),
       'productpages.fetchReleases',
       { maxRetries: 2 },
     );
@@ -80,4 +91,4 @@ export const fetchCnvReleases = async (): Promise<PPRelease[]> => {
     log.warn({ err }, 'Failed to fetch Product Pages releases');
     return [];
   }
-}
+};

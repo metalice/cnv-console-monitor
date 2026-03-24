@@ -1,73 +1,80 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity('quarantines')
 export class Quarantine {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  @Column({ nullable: true, type: 'timestamp' })
+  ai_fix_detected_at!: Date | null;
 
-  @Column({ type: 'varchar', length: 1024 })
-  @Index('idx_quarantines_test_name')
-  test_name!: string;
+  @Column({ default: false, type: 'boolean' })
+  ai_suggested!: boolean;
 
-  @Column({ type: 'varchar', length: 1024, nullable: true })
-  test_file_path!: string | null;
-
-  @Column({ type: 'uuid', nullable: true })
-  repo_id!: string | null;
-
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   @Index('idx_quarantines_component')
   component!: string | null;
 
-  @Column({ type: 'varchar', default: 'active' })
-  @Index('idx_quarantines_status')
-  status!: string;
+  @CreateDateColumn()
+  created_at!: Date;
 
-  @Column({ type: 'text' })
-  reason!: string;
+  @PrimaryGeneratedColumn('uuid')
+  id!: string;
 
-  @Column({ type: 'varchar' })
-  quarantined_by!: string;
+  @Column({ length: 50, nullable: true, type: 'varchar' })
+  jira_key!: string | null;
 
   @CreateDateColumn()
   quarantined_at!: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'varchar' })
+  quarantined_by!: string;
+
+  @Column({ type: 'text' })
+  reason!: string;
+
+  @Column({ nullable: true, type: 'uuid' })
+  repo_id!: string | null;
+
+  @Column({ nullable: true, type: 'timestamp' })
   resolved_at!: Date | null;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   resolved_by!: string | null;
 
-  @Column({ type: 'int', default: 14 })
+  @Column({ length: 512, nullable: true, type: 'varchar' })
+  revert_pr_url!: string | null;
+
+  @Column({ default: false, type: 'boolean' })
+  rp_defect_updated!: boolean;
+
+  @Column({ nullable: true, type: 'varchar' })
+  skip_pr_status!: string | null;
+
+  @Column({ length: 512, nullable: true, type: 'varchar' })
+  skip_pr_url!: string | null;
+
+  @Column({ default: 14, type: 'int' })
   sla_days!: number;
 
   @Column({ type: 'timestamp' })
   @Index('idx_quarantines_sla_deadline')
   sla_deadline!: Date;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
-  jira_key!: string | null;
+  @Column({ default: 'active', type: 'varchar' })
+  @Index('idx_quarantines_status')
+  status!: string;
 
-  @Column({ type: 'boolean', default: false })
-  rp_defect_updated!: boolean;
+  @Column({ length: 1024, nullable: true, type: 'varchar' })
+  test_file_path!: string | null;
 
-  @Column({ type: 'varchar', length: 512, nullable: true })
-  skip_pr_url!: string | null;
-
-  @Column({ type: 'varchar', nullable: true })
-  skip_pr_status!: string | null;
-
-  @Column({ type: 'varchar', length: 512, nullable: true })
-  revert_pr_url!: string | null;
-
-  @Column({ type: 'boolean', default: false })
-  ai_suggested!: boolean;
-
-  @Column({ type: 'timestamp', nullable: true })
-  ai_fix_detected_at!: Date | null;
-
-  @CreateDateColumn()
-  created_at!: Date;
+  @Column({ length: 1024, type: 'varchar' })
+  @Index('idx_quarantines_test_name')
+  test_name!: string;
 
   @UpdateDateColumn()
   updated_at!: Date;

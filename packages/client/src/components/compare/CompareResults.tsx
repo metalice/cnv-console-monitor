@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+
+import type { TestItem } from '@cnv-monitor/shared';
+
 import {
   Button,
   Card,
   CardBody,
   Content,
   DescriptionList,
+  DescriptionListDescription,
   DescriptionListGroup,
   DescriptionListTerm,
-  DescriptionListDescription,
   EmptyState,
   EmptyStateBody,
   ExpandableSection,
@@ -19,24 +22,37 @@ import {
   Label,
   Tooltip,
 } from '@patternfly/react-core';
-import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
-import { ArrowDownIcon, ArrowUpIcon, ExclamationCircleIcon, CheckCircleIcon } from '@patternfly/react-icons';
-import type { TestItem } from '@cnv-monitor/shared';
-import { StatCard } from '../common/StatCard';
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  CheckCircleIcon,
+  ExclamationCircleIcon,
+} from '@patternfly/react-icons';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
+
 import type { CompareResult } from '../../api/compare';
+import { StatCard } from '../common/StatCard';
 
 type CompareResultsProps = {
   result: CompareResult;
   onReset: () => void;
 };
 
-const diffField = (valA: string | null, valB: string | null, label: string): React.ReactNode | null => {
-  if (valA === valB) return null;
+const diffField = (
+  valA: string | null,
+  valB: string | null,
+  label: string,
+): React.ReactNode | null => {
+  if (valA === valB) {
+    return null;
+  }
   return (
     <DescriptionListGroup key={label}>
       <DescriptionListTerm>{label}</DescriptionListTerm>
       <DescriptionListDescription>
-        <span className="app-text-muted app-text-line-through">{valA ?? '—'}</span>{' → '}<strong>{valB ?? '—'}</strong>
+        <span className="app-text-muted app-text-line-through">{valA ?? '—'}</span>
+        {' → '}
+        <strong>{valB ?? '—'}</strong>
       </DescriptionListDescription>
     </DescriptionListGroup>
   );
@@ -46,7 +62,7 @@ const TestItemTable: React.FC<{ items: TestItem[]; label: string }> = ({ items, 
   const navigate = useNavigate();
   if (items.length === 0) {
     return (
-      <EmptyState headingLevel="h4" titleText={`No ${label.toLowerCase()}`} icon={CheckCircleIcon}>
+      <EmptyState headingLevel="h4" icon={CheckCircleIcon} titleText={`No ${label.toLowerCase()}`}>
         <EmptyStateBody>Nothing here.</EmptyStateBody>
       </EmptyState>
     );
@@ -54,25 +70,44 @@ const TestItemTable: React.FC<{ items: TestItem[]; label: string }> = ({ items, 
   return (
     <div className="app-table-scroll">
       <Table aria-label={label} variant="compact">
-        <Thead><Tr><Th>Test Name</Th><Th>Error Message</Th></Tr></Thead>
+        <Thead>
+          <Tr>
+            <Th>Test Name</Th>
+            <Th>Error Message</Th>
+          </Tr>
+        </Thead>
         <Tbody>
-          {items.map((item) => {
+          {items.map(item => {
             const shortName = item.name.split('.').pop() || item.name;
             return (
               <Tr key={item.rp_id}>
-                <Td dataLabel="Test Name" className="app-cell-truncate">
+                <Td className="app-cell-truncate" dataLabel="Test Name">
                   <Tooltip content={item.name}>
                     {item.unique_id ? (
-                      <Button variant="link" isInline size="sm" onClick={() => navigate(`/test/${encodeURIComponent(item.unique_id!)}`)}>
+                      <Button
+                        isInline
+                        size="sm"
+                        variant="link"
+                        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                        onClick={() => navigate(`/test/${encodeURIComponent(item.unique_id!)}`)}
+                      >
                         {shortName}
                       </Button>
-                    ) : <span>{shortName}</span>}
+                    ) : (
+                      <span>{shortName}</span>
+                    )}
                   </Tooltip>
                 </Td>
-                <Td dataLabel="Error" className="app-cell-truncate">
+                <Td className="app-cell-truncate" dataLabel="Error">
                   {item.error_message ? (
-                    <Tooltip content={item.error_message}><span className="app-text-xs app-text-muted">{item.error_message.split('\n')[0]}</span></Tooltip>
-                  ) : '—'}
+                    <Tooltip content={item.error_message}>
+                      <span className="app-text-xs app-text-muted">
+                        {item.error_message.split('\n')[0]}
+                      </span>
+                    </Tooltip>
+                  ) : (
+                    '—'
+                  )}
                 </Td>
               </Tr>
             );
@@ -83,7 +118,7 @@ const TestItemTable: React.FC<{ items: TestItem[]; label: string }> = ({ items, 
   );
 };
 
-export const CompareResults: React.FC<CompareResultsProps> = ({ result, onReset }) => {
+export const CompareResults: React.FC<CompareResultsProps> = ({ onReset, result }) => {
   const [regressionsOpen, setRegressionsOpen] = useState(true);
   const [fixesOpen, setFixesOpen] = useState(true);
   const [persistentOpen, setPersistentOpen] = useState(false);
@@ -98,29 +133,73 @@ export const CompareResults: React.FC<CompareResultsProps> = ({ result, onReset 
 
   return (
     <>
-      <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }} className="app-mb-md">
-        <FlexItem><Content component="h3">Run #{result.launchA.rp_id} vs #{result.launchB.rp_id}</Content></FlexItem>
-        <FlexItem><Button variant="link" size="sm" onClick={onReset}>Pick different runs</Button></FlexItem>
+      <Flex
+        alignItems={{ default: 'alignItemsCenter' }}
+        className="app-mb-md"
+        justifyContent={{ default: 'justifyContentSpaceBetween' }}
+      >
+        <FlexItem>
+          <Content component="h3">
+            Run #{result.launchA.rp_id} vs #{result.launchB.rp_id}
+          </Content>
+        </FlexItem>
+        <FlexItem>
+          <Button size="sm" variant="link" onClick={onReset}>
+            Pick different runs
+          </Button>
+        </FlexItem>
       </Flex>
 
-      <Gallery hasGutter minWidths={{ default: '200px' }} className="app-mb-md">
-        <GalleryItem><StatCard value={summary.regressions} label="Regressions" help="Tests that passed in A but failed in B" color="var(--pf-t--global--color--status--danger--default)" /></GalleryItem>
-        <GalleryItem><StatCard value={summary.fixes} label="Fixes" help="Tests that failed in A but passed in B" color="var(--pf-t--global--color--status--success--default)" /></GalleryItem>
-        <GalleryItem><StatCard value={summary.persistent} label="Persistent" help="Tests that failed in both runs" /></GalleryItem>
+      <Gallery hasGutter className="app-mb-md" minWidths={{ default: '200px' }}>
+        <GalleryItem>
+          <StatCard
+            color="var(--pf-t--global--color--status--danger--default)"
+            help="Tests that passed in A but failed in B"
+            label="Regressions"
+            value={summary.regressions}
+          />
+        </GalleryItem>
+        <GalleryItem>
+          <StatCard
+            color="var(--pf-t--global--color--status--success--default)"
+            help="Tests that failed in A but passed in B"
+            label="Fixes"
+            value={summary.fixes}
+          />
+        </GalleryItem>
+        <GalleryItem>
+          <StatCard
+            help="Tests that failed in both runs"
+            label="Persistent"
+            value={summary.persistent}
+          />
+        </GalleryItem>
       </Gallery>
 
       {diffs.length > 0 && (
         <Card isCompact className="app-mb-md">
           <CardBody>
-            <Content component="h4" className="app-mb-sm">Environment Changes</Content>
-            <DescriptionList isHorizontal isCompact>{diffs}</DescriptionList>
+            <Content className="app-mb-sm" component="h4">
+              Environment Changes
+            </Content>
+            <DescriptionList isCompact isHorizontal>
+              {diffs}
+            </DescriptionList>
           </CardBody>
         </Card>
       )}
 
       <Card className="app-mb-md">
         <CardBody>
-          <ExpandableSection toggleContent={<Label color="red" icon={<ArrowDownIcon />} isCompact>Regressions ({summary.regressions})</Label>} isExpanded={regressionsOpen} onToggle={(_e, v) => setRegressionsOpen(v)}>
+          <ExpandableSection
+            isExpanded={regressionsOpen}
+            toggleContent={
+              <Label isCompact color="red" icon={<ArrowDownIcon />}>
+                Regressions ({summary.regressions})
+              </Label>
+            }
+            onToggle={(_e, v) => setRegressionsOpen(v)}
+          >
             <TestItemTable items={result.regressions} label="Regressions" />
           </ExpandableSection>
         </CardBody>
@@ -128,7 +207,15 @@ export const CompareResults: React.FC<CompareResultsProps> = ({ result, onReset 
 
       <Card className="app-mb-md">
         <CardBody>
-          <ExpandableSection toggleContent={<Label color="green" icon={<ArrowUpIcon />} isCompact>Fixes ({summary.fixes})</Label>} isExpanded={fixesOpen} onToggle={(_e, v) => setFixesOpen(v)}>
+          <ExpandableSection
+            isExpanded={fixesOpen}
+            toggleContent={
+              <Label isCompact color="green" icon={<ArrowUpIcon />}>
+                Fixes ({summary.fixes})
+              </Label>
+            }
+            onToggle={(_e, v) => setFixesOpen(v)}
+          >
             <TestItemTable items={result.fixes} label="Fixes" />
           </ExpandableSection>
         </CardBody>
@@ -136,7 +223,15 @@ export const CompareResults: React.FC<CompareResultsProps> = ({ result, onReset 
 
       <Card>
         <CardBody>
-          <ExpandableSection toggleContent={<Label color="grey" icon={<ExclamationCircleIcon />} isCompact>Persistent Failures ({summary.persistent})</Label>} isExpanded={persistentOpen} onToggle={(_e, v) => setPersistentOpen(v)}>
+          <ExpandableSection
+            isExpanded={persistentOpen}
+            toggleContent={
+              <Label isCompact color="grey" icon={<ExclamationCircleIcon />}>
+                Persistent Failures ({summary.persistent})
+              </Label>
+            }
+            onToggle={(_e, v) => setPersistentOpen(v)}
+          >
             <TestItemTable items={result.persistent} label="Persistent failures" />
           </ExpandableSection>
         </CardBody>

@@ -1,17 +1,20 @@
 import React from 'react';
+
 import { Label, Tooltip } from '@patternfly/react-core';
 import { CheckCircleIcon, ExclamationTriangleIcon, InfoCircleIcon } from '@patternfly/react-icons';
 
-interface GapBadgeProps {
+type GapBadgeProps = {
   hasCounterpart?: boolean;
-  type: 'doc' | 'test' | string;
-}
+  type: string;
+};
 
 export const GapBadge: React.FC<GapBadgeProps> = ({ hasCounterpart, type }) => {
   if (hasCounterpart) {
     return (
       <Tooltip content="This file has a matching counterpart (doc ↔ test)">
-        <Label color="green" icon={<CheckCircleIcon />} isCompact>Matched</Label>
+        <Label isCompact color="green" icon={<CheckCircleIcon />}>
+          Matched
+        </Label>
       </Tooltip>
     );
   }
@@ -19,7 +22,9 @@ export const GapBadge: React.FC<GapBadgeProps> = ({ hasCounterpart, type }) => {
   if (type === 'doc') {
     return (
       <Tooltip content="This documentation file has no matching test file">
-        <Label color="orange" icon={<ExclamationTriangleIcon />} isCompact>No test</Label>
+        <Label isCompact color="orange" icon={<ExclamationTriangleIcon />}>
+          No test
+        </Label>
       </Tooltip>
     );
   }
@@ -27,7 +32,9 @@ export const GapBadge: React.FC<GapBadgeProps> = ({ hasCounterpart, type }) => {
   if (type === 'test') {
     return (
       <Tooltip content="This test file has no matching documentation">
-        <Label color="blue" icon={<InfoCircleIcon />} isCompact>No doc</Label>
+        <Label isCompact color="blue" icon={<InfoCircleIcon />}>
+          No doc
+        </Label>
       </Tooltip>
     );
   }

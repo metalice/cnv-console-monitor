@@ -1,22 +1,25 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
 import {
-  Modal,
-  ModalVariant,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
   Button,
   Form,
   FormGroup,
-  TextInput,
-  TextArea,
   HelperText,
   HelperTextItem,
+  Modal,
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
+  ModalVariant,
   Spinner,
+  TextArea,
+  TextInput,
 } from '@patternfly/react-core';
-import { SearchableSelect } from '../common/SearchableSelect';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
 import { fetchChecklistDetail, transitionChecklistTask } from '../../api/releases';
+import { SearchableSelect } from '../common/SearchableSelect';
+
 import { IssueDetailSection } from './IssueDetailSection';
 
 type ChecklistActionModalProps = {
@@ -25,27 +28,32 @@ type ChecklistActionModalProps = {
   onClose: () => void;
 };
 
-export const ChecklistActionModal: React.FC<ChecklistActionModalProps> = ({ issueKey, isOpen, onClose }) => {
+export const ChecklistActionModal: React.FC<ChecklistActionModalProps> = ({
+  isOpen,
+  issueKey,
+  onClose,
+}) => {
   const queryClient = useQueryClient();
   const [selectedTransition, setSelectedTransition] = useState('');
   const [comment, setComment] = useState('');
   const [assignee, setAssignee] = useState('');
 
   const { data: detail, isLoading } = useQuery({
-    queryKey: ['checklistDetail', issueKey],
+    enabled: isOpen && Boolean(issueKey),
     queryFn: () => fetchChecklistDetail(issueKey),
-    enabled: isOpen && !!issueKey,
+    queryKey: ['checklistDetail', issueKey],
   });
 
   const mutation = useMutation({
-    mutationFn: () => transitionChecklistTask(issueKey, {
-      transitionId: selectedTransition,
-      comment: comment.trim() || undefined,
-      assignee: assignee.trim() || undefined,
-    }),
+    mutationFn: () =>
+      transitionChecklistTask(issueKey, {
+        assignee: assignee.trim() || undefined,
+        comment: comment.trim() || undefined,
+        transitionId: selectedTransition,
+      }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['checklist'] });
-      queryClient.invalidateQueries({ queryKey: ['checklistDetail', issueKey] });
+      void queryClient.invalidateQueries({ queryKey: ['checklist'] });
+      void queryClient.invalidateQueries({ queryKey: ['checklistDetail', issueKey] });
       onClose();
       setSelectedTransition('');
       setComment('');
@@ -53,10 +61,10 @@ export const ChecklistActionModal: React.FC<ChecklistActionModalProps> = ({ issu
     },
   });
 
-  const transitionOptions = (detail?.transitions || []).map(t => ({ value: t.id, label: t.name }));
+  const transitionOptions = (detail?.transitions ?? []).map(t => ({ label: t.name, value: t.id }));
 
   return (
-    <Modal variant={ModalVariant.medium} isOpen={isOpen} onClose={onClose}>
+    <Modal isOpen={isOpen} variant={ModalVariant.medium} onClose={onClose}>
       <ModalHeader title={`Update ${issueKey}`} />
       <ModalBody>
         {isLoading || !detail ? (
@@ -64,44 +72,44 @@ export const ChecklistActionModal: React.FC<ChecklistActionModalProps> = ({ issu
         ) : (
           <>
             <IssueDetailSection
-              summary={detail.summary}
-              status={detail.status}
               assignee={detail.assignee}
               fixVersions={detail.fixVersions}
+              status={detail.status}
+              subtaskCount={detail.subtaskCount}
               subtasks={detail.subtasks}
               subtasksDone={detail.subtasksDone}
-              subtaskCount={detail.subtaskCount}
+              summary={detail.summary}
             />
             <Form>
-              <FormGroup label="Transition to" isRequired fieldId="transition">
+              <FormGroup isRequired fieldId="transition" label="Transition to">
                 <SearchableSelect
                   id="transition"
-                  value={selectedTransition}
                   options={transitionOptions}
-                  onChange={setSelectedTransition}
                   placeholder="Select status"
+                  value={selectedTransition}
+                  onChange={setSelectedTransition}
                 />
               </FormGroup>
-              <FormGroup label="Reassign to" fieldId="assignee">
+              <FormGroup fieldId="assignee" label="Reassign to">
                 <TextInput
                   id="assignee"
+                  placeholder={detail.assignee || 'Username (e.g., jdoe)'}
                   value={assignee}
                   onChange={(_e, v) => setAssignee(v)}
-                  placeholder={detail.assignee || 'Username (e.g., jdoe)'}
                 />
               </FormGroup>
-              <FormGroup label="Comment" fieldId="comment">
+              <FormGroup fieldId="comment" label="Comment">
                 <TextArea
                   id="comment"
-                  value={comment}
-                  onChange={(_e, v) => setComment(v)}
                   placeholder="Add a comment..."
                   rows={3}
+                  value={comment}
+                  onChange={(_e, v) => setComment(v)}
                 />
               </FormGroup>
               {mutation.isError && (
                 <HelperText>
-                  <HelperTextItem variant="error">{(mutation.error as Error).message}</HelperTextItem>
+                  <HelperTextItem variant="error">{mutation.error.message}</HelperTextItem>
                 </HelperText>
               )}
             </Form>
@@ -109,10 +117,17 @@ export const ChecklistActionModal: React.FC<ChecklistActionModalProps> = ({ issu
         )}
       </ModalBody>
       <ModalFooter>
-        <Button variant="primary" onClick={() => mutation.mutate()} isDisabled={!selectedTransition} isLoading={mutation.isPending}>
+        <Button
+          isDisabled={!selectedTransition}
+          isLoading={mutation.isPending}
+          variant="primary"
+          onClick={() => mutation.mutate()}
+        >
           Submit
         </Button>
-        <Button variant="link" onClick={onClose}>Cancel</Button>
+        <Button variant="link" onClick={onClose}>
+          Cancel
+        </Button>
       </ModalFooter>
     </Modal>
   );

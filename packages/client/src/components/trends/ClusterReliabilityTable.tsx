@@ -1,7 +1,10 @@
 import React from 'react';
-import { Card, CardBody, Content, Label } from '@patternfly/react-core';
-import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
+
 import type { ClusterReliability } from '@cnv-monitor/shared';
+
+import { Card, CardBody, Content, Label } from '@patternfly/react-core';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
+
 import { rateColor } from './trendUtils';
 
 type ClusterReliabilityTableProps = {
@@ -14,10 +17,14 @@ const barColors: Record<ReturnType<typeof rateColor>, string> = {
   red: '#C9190B',
 };
 
-export const ClusterReliabilityTable: React.FC<ClusterReliabilityTableProps> = ({ clusterData }) => (
+export const ClusterReliabilityTable: React.FC<ClusterReliabilityTableProps> = ({
+  clusterData,
+}) => (
   <Card>
     <CardBody>
-      <Content component="h3" className="app-section-heading">Cluster Reliability (last 30 days)</Content>
+      <Content className="app-section-heading" component="h3">
+        Cluster Reliability (last 30 days)
+      </Content>
       <div className="app-table-scroll">
         <Table aria-label="Cluster reliability" variant="compact">
           <Thead>
@@ -34,14 +41,25 @@ export const ClusterReliabilityTable: React.FC<ClusterReliabilityTableProps> = (
               const color = rateColor(c.passRate);
               return (
                 <Tr key={c.cluster}>
-                  <Td className="app-cell-nowrap"><strong>{c.cluster}</strong></Td>
+                  <Td className="app-cell-nowrap">
+                    <strong>{c.cluster}</strong>
+                  </Td>
                   <Td>{c.total}</Td>
                   <Td>{c.passed}</Td>
                   <Td>{c.failed}</Td>
                   <Td>
-                    <Label color={color} isCompact>{c.passRate}%</Label>
+                    <Label isCompact color={color}>
+                      {c.passRate}%
+                    </Label>
                     <div className="app-cluster-bar-track">
-                      <div style={{ width: `${c.passRate}%`, height: '100%', background: barColors[color], borderRadius: 3 }} />
+                      <div
+                        style={{
+                          background: barColors[color],
+                          borderRadius: 3,
+                          height: '100%',
+                          width: `${c.passRate}%`,
+                        }}
+                      />
                     </div>
                   </Td>
                 </Tr>

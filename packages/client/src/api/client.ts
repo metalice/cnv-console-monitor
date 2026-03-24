@@ -26,13 +26,16 @@ export const apiFetch = async <T>(path: string, options?: RequestInit): Promise<
   });
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: res.statusText }));
-    const message = body.error || body.message || res.statusText || 'Request failed';
+    const body = (await res.json().catch(() => ({ error: res.statusText }))) as {
+      error?: string;
+      message?: string;
+    };
+    const message = body.error ?? body.message ?? (res.statusText || 'Request failed');
     throw new ApiError(res.status, message);
   }
 
-  return res.json();
+  return res.json() as Promise<T>;
 };
 
 export const apiPost = <T>(path: string, body: unknown): Promise<T> =>
-  apiFetch(path, { method: 'POST', body: JSON.stringify(body) });
+  apiFetch(path, { body: JSON.stringify(body), method: 'POST' });

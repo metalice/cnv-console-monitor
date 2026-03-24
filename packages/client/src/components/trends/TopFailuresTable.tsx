@@ -1,9 +1,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardBody, Content, Spinner, Tooltip, Button, Label } from '@patternfly/react-core';
-import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
-import { TrendUpIcon, TrendDownIcon, EqualsIcon } from '@patternfly/react-icons';
+
 import type { TopFailingTest } from '@cnv-monitor/shared';
+
+import { Button, Card, CardBody, Content, Label, Spinner, Tooltip } from '@patternfly/react-core';
+import { EqualsIcon, TrendDownIcon, TrendUpIcon } from '@patternfly/react-icons';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 
 type TopFailuresTableProps = {
   isLoading: boolean;
@@ -16,7 +18,9 @@ export const TopFailuresTable: React.FC<TopFailuresTableProps> = ({ isLoading, t
   return (
     <Card>
       <CardBody>
-        <Content component="h3" className="app-section-heading">Top Failing Tests (last 30 days)</Content>
+        <Content className="app-section-heading" component="h3">
+          Top Failing Tests (last 30 days)
+        </Content>
         {isLoading ? (
           <Spinner size="md" />
         ) : topFailures && topFailures.length > 0 ? (
@@ -35,35 +39,55 @@ export const TopFailuresTable: React.FC<TopFailuresTableProps> = ({ isLoading, t
               <Tbody>
                 {topFailures.map((test, i) => {
                   const shortName = test.name.split('.').pop() || test.name;
-                  const color = test.failure_rate > 70 ? 'red' : test.failure_rate > 30 ? 'orange' : 'grey';
+                  const color =
+                    test.failure_rate > 70 ? 'red' : test.failure_rate > 30 ? 'orange' : 'grey';
                   return (
                     <Tr key={test.unique_id}>
-                      <Td dataLabel="#" className="app-cell-nowrap">{i + 1}</Td>
-                      <Td dataLabel="Test" className="app-cell-truncate">
+                      <Td className="app-cell-nowrap" dataLabel="#">
+                        {i + 1}
+                      </Td>
+                      <Td className="app-cell-truncate" dataLabel="Test">
                         <Tooltip content={test.name}>
-                          <Button variant="link" isInline size="sm" onClick={() => navigate(`/test/${encodeURIComponent(test.unique_id)}`)}>
+                          <Button
+                            isInline
+                            size="sm"
+                            variant="link"
+                            onClick={() => navigate(`/test/${encodeURIComponent(test.unique_id)}`)}
+                          >
                             {shortName}
                           </Button>
                         </Tooltip>
                       </Td>
-                      <Td dataLabel="Failures" className="app-cell-nowrap"><strong>{test.fail_count}</strong></Td>
-                      <Td dataLabel="Runs" className="app-cell-nowrap">{test.total_runs}</Td>
-                      <Td dataLabel="Failure Rate" className="app-cell-nowrap">
-                        <Label color={color} isCompact>{test.failure_rate}%</Label>
+                      <Td className="app-cell-nowrap" dataLabel="Failures">
+                        <strong>{test.fail_count}</strong>
                       </Td>
-                      <Td dataLabel="Trend" className="app-cell-nowrap">
+                      <Td className="app-cell-nowrap" dataLabel="Runs">
+                        {test.total_runs}
+                      </Td>
+                      <Td className="app-cell-nowrap" dataLabel="Failure Rate">
+                        <Label isCompact color={color}>
+                          {test.failure_rate}%
+                        </Label>
+                      </Td>
+                      <Td className="app-cell-nowrap" dataLabel="Trend">
                         {test.recent_trend === 'worsening' && (
                           <Tooltip content="Failing more in the second half of the period">
-                            <Label color="red" isCompact icon={<TrendUpIcon />}>Worse</Label>
+                            <Label isCompact color="red" icon={<TrendUpIcon />}>
+                              Worse
+                            </Label>
                           </Tooltip>
                         )}
                         {test.recent_trend === 'improving' && (
                           <Tooltip content="Failing less in the second half of the period">
-                            <Label color="green" isCompact icon={<TrendDownIcon />}>Better</Label>
+                            <Label isCompact color="green" icon={<TrendDownIcon />}>
+                              Better
+                            </Label>
                           </Tooltip>
                         )}
                         {test.recent_trend === 'stable' && (
-                          <Label color="grey" isCompact icon={<EqualsIcon />}>Stable</Label>
+                          <Label isCompact color="grey" icon={<EqualsIcon />}>
+                            Stable
+                          </Label>
                         )}
                       </Td>
                     </Tr>

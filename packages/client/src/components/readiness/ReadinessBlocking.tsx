@@ -1,17 +1,27 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+
 import {
-  Card, CardBody, Content, EmptyState, EmptyStateBody,
-  Label, Flex, FlexItem, Tooltip, Button,
+  Button,
+  Card,
+  CardBody,
+  Content,
+  EmptyState,
+  EmptyStateBody,
+  Flex,
+  FlexItem,
+  Label,
+  Tooltip,
 } from '@patternfly/react-core';
-import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
-import { CheckCircleIcon, TrendUpIcon, TrendDownIcon, EqualsIcon } from '@patternfly/react-icons';
+import { CheckCircleIcon, EqualsIcon, TrendDownIcon, TrendUpIcon } from '@patternfly/react-icons';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
+
 import type { BlockingFailure } from '../../api/readiness';
 
 const TREND_ICONS: Record<BlockingFailure['recent_trend'], React.ReactNode> = {
-  worsening: <TrendUpIcon color="var(--pf-t--global--color--status--danger--default)" />,
   improving: <TrendDownIcon color="var(--pf-t--global--color--status--success--default)" />,
   stable: <EqualsIcon color="var(--pf-t--global--color--status--info--default)" />,
+  worsening: <TrendUpIcon color="var(--pf-t--global--color--status--danger--default)" />,
 };
 
 export const ReadinessBlocking: React.FC<{ failures: BlockingFailure[] }> = ({ failures }) => {
@@ -20,31 +30,65 @@ export const ReadinessBlocking: React.FC<{ failures: BlockingFailure[] }> = ({ f
   return (
     <Card>
       <CardBody>
-        <Content component="h3" className="app-section-heading">Blocking Failures</Content>
+        <Content className="app-section-heading" component="h3">
+          Blocking Failures
+        </Content>
         {failures.length === 0 ? (
-          <EmptyState icon={CheckCircleIcon} headingLevel="h4" titleText="No blocking failures">
+          <EmptyState headingLevel="h4" icon={CheckCircleIcon} titleText="No blocking failures">
             <EmptyStateBody>All tests are passing for this version.</EmptyStateBody>
           </EmptyState>
         ) : (
-          <Table aria-label="Blocking failures" variant="compact" isStickyHeader>
-            <Thead><Tr><Th>Test Name</Th><Th>Fail Count</Th><Th>Total Runs</Th><Th>Failure Rate</Th><Th>Trend</Th></Tr></Thead>
+          <Table isStickyHeader aria-label="Blocking failures" variant="compact">
+            <Thead>
+              <Tr>
+                <Th>Test Name</Th>
+                <Th>Fail Count</Th>
+                <Th>Total Runs</Th>
+                <Th>Failure Rate</Th>
+                <Th>Trend</Th>
+              </Tr>
+            </Thead>
             <Tbody>
-              {failures.map((failure) => {
+              {failures.map(failure => {
                 const shortName = failure.name.split('.').pop() || failure.name;
                 return (
-                    <Tr key={failure.unique_id}>
-                    <Td dataLabel="Test Name" className="app-cell-truncate">
+                  <Tr key={failure.unique_id}>
+                    <Td className="app-cell-truncate" dataLabel="Test Name">
                       <Tooltip content={failure.name}>
-                        <Button variant="link" isInline size="sm" onClick={() => navigate(`/test/${encodeURIComponent(failure.unique_id)}`)}>{shortName}</Button>
+                        <Button
+                          isInline
+                          size="sm"
+                          variant="link"
+                          onClick={() => navigate(`/test/${encodeURIComponent(failure.unique_id)}`)}
+                        >
+                          {shortName}
+                        </Button>
                       </Tooltip>
                     </Td>
-                    <Td dataLabel="Fail Count" className="app-cell-nowrap"><strong>{failure.fail_count}</strong></Td>
-                    <Td dataLabel="Total Runs" className="app-cell-nowrap">{failure.total_runs}</Td>
-                    <Td dataLabel="Failure Rate" className="app-cell-nowrap">
-                      <Label color={failure.failure_rate >= 50 ? 'red' : failure.failure_rate >= 20 ? 'yellow' : 'blue'}>{failure.failure_rate}%</Label>
+                    <Td className="app-cell-nowrap" dataLabel="Fail Count">
+                      <strong>{failure.fail_count}</strong>
                     </Td>
-                    <Td dataLabel="Trend" className="app-cell-nowrap">
-                      <Flex spaceItems={{ default: 'spaceItemsXs' }} alignItems={{ default: 'alignItemsCenter' }}>
+                    <Td className="app-cell-nowrap" dataLabel="Total Runs">
+                      {failure.total_runs}
+                    </Td>
+                    <Td className="app-cell-nowrap" dataLabel="Failure Rate">
+                      <Label
+                        color={
+                          failure.failure_rate >= 50
+                            ? 'red'
+                            : failure.failure_rate >= 20
+                              ? 'yellow'
+                              : 'blue'
+                        }
+                      >
+                        {failure.failure_rate}%
+                      </Label>
+                    </Td>
+                    <Td className="app-cell-nowrap" dataLabel="Trend">
+                      <Flex
+                        alignItems={{ default: 'alignItemsCenter' }}
+                        spaceItems={{ default: 'spaceItemsXs' }}
+                      >
                         <FlexItem>{TREND_ICONS[failure.recent_trend]}</FlexItem>
                         <FlexItem>{failure.recent_trend}</FlexItem>
                       </Flex>

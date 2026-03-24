@@ -1,36 +1,36 @@
 import { z } from 'zod';
 
 export const AcknowledgmentSchema = z.object({
-  date: z.string(),
-  reviewer: z.string(),
-  notes: z.string().nullish(),
   acknowledged_at: z.string().nullish(),
+  date: z.string(),
+  notes: z.string().nullish(),
+  reviewer: z.string(),
 });
 
 export type Acknowledgment = z.infer<typeof AcknowledgmentSchema>;
 
 export const AcknowledgmentStatusSchema = z.object({
-  date: z.string(),
   acknowledged: z.boolean(),
   acknowledgments: z.array(AcknowledgmentSchema),
+  date: z.string(),
 });
 
 export type AcknowledgmentStatus = z.infer<typeof AcknowledgmentStatusSchema>;
 
 export const ApproverStatSchema = z.object({
-  reviewer: z.string(),
-  totalReviews: z.number(),
   lastReviewDate: z.string(),
   reviewedDates: z.array(z.string()),
+  reviewer: z.string(),
+  totalReviews: z.number(),
 });
 
 export type ApproverStat = z.infer<typeof ApproverStatSchema>;
 
 export const AckHistoryEntrySchema = z.object({
-  date: z.string(),
   acknowledged: z.boolean(),
-  reviewers: z.array(z.string()),
+  date: z.string(),
   firstAckAt: z.string().nullish(),
+  reviewers: z.array(z.string()),
 });
 
 export type AckHistoryEntry = z.infer<typeof AckHistoryEntrySchema>;

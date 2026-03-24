@@ -1,7 +1,11 @@
-import { fetchTestItems, fetchTestItemLogs, type RPTestItem } from '../../clients/reportportal';
-import { upsertTestItem, getLaunchesSince, type LaunchRecord, type TestItemRecord } from '../../db/store';
-import { config } from '../../config';
-import type { PipelinePhase, PhaseContext, PhaseEstimate } from '../types';
+import { fetchTestItemLogs, fetchTestItems, type RPTestItem } from '../../clients/reportportal';
+import {
+  getLaunchesSince,
+  type LaunchRecord,
+  type TestItemRecord,
+  upsertTestItem,
+} from '../../db/store';
+import type { PhaseContext, PhaseEstimate, PipelinePhase } from '../types';
 
 const parseTestItemRecord = (item: RPTestItem, launchRpId: number): TestItemRecord => {
   const polarionAttr = item.attributes.find(attr => attr.key === 'polarion-testcase-id');
@@ -9,79 +13,103 @@ const parseTestItemRecord = (item: RPTestItem, launchRpId: number): TestItemReco
   const aiConfidence = item.attributes.find(attr => attr.key === 'Prediction Score');
 
   return {
-    rp_id: item.id,
-    launch_rp_id: launchRpId,
-    name: item.name,
-    status: item.status,
-    polarion_id: polarionAttr?.value ?? undefined,
-    defect_type: item.issue?.issueType ?? undefined,
-    defect_comment: item.issue?.comment ?? undefined,
+    ai_confidence: aiConfidence
+      ? Number.isFinite(parseInt(aiConfidence.value, 10))
+        ? parseInt(aiConfidence.value, 10)
+        : undefined
+      : undefined,
     ai_prediction: aiPrediction?.value ?? undefined,
-    ai_confidence: aiConfidence ? (Number.isFinite(parseInt(aiConfidence.value, 10)) ? parseInt(aiConfidence.value, 10) : undefined) : undefined,
+    defect_comment: item.issue?.comment ?? undefined,
+    defect_type: item.issue?.issueType ?? undefined,
+    end_time: item.endTime ?? undefined,
     error_message: undefined,
     jira_key: item.issue?.externalSystemIssues?.[0]?.ticketId ?? undefined,
     jira_status: undefined,
-    unique_id: item.uniqueId ?? undefined,
+    launch_rp_id: launchRpId,
+    name: item.name,
+    polarion_id: polarionAttr?.value ?? undefined,
+    rp_id: item.id,
     start_time: item.startTime,
-    end_time: item.endTime ?? undefined,
+    status: item.status,
+    unique_id: item.uniqueId ?? undefined,
   };
 };
 
 export class FetchItemsPhase implements PipelinePhase {
-  readonly name = 'items';
+  private launches: LaunchRecord[] = [];
   readonly displayName = 'Failed Test Items';
 
-  private launches: LaunchRecord[] = [];
+  readonly name = 'items';
 
-  setLaunches(launches: LaunchRecord[]): void {
-    this.launches = launches;
+  private async fetchItemsForLaunch(launchId: number): Promise<TestItemRecord[]> {
+    const allItems: TestItemRecord[] = [];
+    let page = 1;
+    let totalPages = 1;
+
+    while (page <= totalPages) {
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
+      const result = await fetchTestItems({ launchId, page, pageSize: 50, status: 'FAILED' });
+      totalPages = result.page.totalPages;
+
+      for (const rpItem of result.content) {
+        const item = parseTestItemRecord(rpItem, launchId);
+        try {
+          // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
+          const logs = await fetchTestItemLogs(rpItem.id, { level: 'ERROR', pageSize: 1 });
+          if (logs.content.length > 0) {
+            item.error_message = logs.content[0].message.substring(0, 2000);
+          }
+        } catch {
+          /* Non-critical */
+        }
+        // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
+        await upsertTestItem(item);
+        allItems.push(item);
+      }
+      page++;
+    }
+
+    return allItems;
   }
 
-  canSkip(): boolean {
-    return this.getLaunchesWithFailures().length === 0;
+  private getHttpStatus(error: unknown): number | undefined {
+    if (error && typeof error === 'object') {
+      return ((error as Record<string, unknown>).response as Record<string, unknown> | undefined)
+        ?.status as number | undefined;
+    }
+    return undefined;
+  }
+
+  private getLaunchesWithFailures(): LaunchRecord[] {
+    return this.launches.filter(l => l.failed > 0 || l.status === 'FAILED');
   }
 
   canRunParallel(): string[] {
     return [];
   }
 
-  async estimate(): Promise<PhaseEstimate> {
-    const withFailures = this.getLaunchesWithFailures();
-    return {
-      totalItems: withFailures.length,
-      estimatedDurationMs: withFailures.length * 500,
-      connectivity: [{ service: 'ReportPortal (items)', status: 'ok', message: `${withFailures.length} launches with failures` }],
-    };
+  canSkip(): boolean {
+    return this.getLaunchesWithFailures().length === 0;
   }
 
-  async run(ctx: PhaseContext): Promise<void> {
-    if (this.launches.length === 0) {
-      ctx.log('info', 'Loading launches from database');
-      this.launches = await getLaunchesSince(0);
-      ctx.log('info', `Loaded ${this.launches.length} launches (${this.getLaunchesWithFailures().length} with failures)`);
-    }
+  estimate(): Promise<PhaseEstimate> {
     const withFailures = this.getLaunchesWithFailures();
-    if (withFailures.length === 0) return;
+    return Promise.resolve({
+      connectivity: [
+        {
+          message: `${withFailures.length} launches with failures`,
+          service: 'ReportPortal (items)',
+          status: 'ok',
+        },
+      ],
+      estimatedDurationMs: withFailures.length * 500,
+      totalItems: withFailures.length,
+    });
+  }
 
-    ctx.setTotal(withFailures.length);
-    ctx.log('info', `Fetching items for ${withFailures.length} launches with failures`);
-
-    const concurrency = ctx.getConcurrency();
-
-    for (let i = 0; i < withFailures.length; i += concurrency) {
-      if (ctx.isCancelled()) break;
-
-      const batch = withFailures.slice(i, i + concurrency);
-      await Promise.all(batch.map(async (launch) => {
-        try {
-          await this.fetchItemsForLaunch(launch.rp_id);
-          ctx.addSuccess();
-        } catch (err) {
-          ctx.addError(launch.rp_id, launch.name, err);
-        }
-      }));
-      ctx.emit();
-    }
+  isPermanentError(error: unknown): boolean {
+    const status = this.getHttpStatus(error);
+    return status === 404 || status === 410;
   }
 
   async retryItem(itemId: number): Promise<boolean> {
@@ -97,45 +125,47 @@ export class FetchItemsPhase implements PipelinePhase {
     }
   }
 
-  isPermanentError(error: unknown): boolean {
-    const status = this.getHttpStatus(error);
-    return status === 404 || status === 410;
-  }
+  async run(ctx: PhaseContext): Promise<void> {
+    if (this.launches.length === 0) {
+      ctx.log('info', 'Loading launches from database');
+      this.launches = await getLaunchesSince(0);
+      ctx.log(
+        'info',
+        `Loaded ${this.launches.length} launches (${this.getLaunchesWithFailures().length} with failures)`,
+      );
+    }
+    const withFailures = this.getLaunchesWithFailures();
+    if (withFailures.length === 0) {
+      return;
+    }
 
-  private getLaunchesWithFailures(): LaunchRecord[] {
-    return this.launches.filter(l => l.failed > 0 || l.status === 'FAILED');
-  }
+    ctx.setTotal(withFailures.length);
+    ctx.log('info', `Fetching items for ${withFailures.length} launches with failures`);
 
-  private async fetchItemsForLaunch(launchId: number): Promise<TestItemRecord[]> {
-    const allItems: TestItemRecord[] = [];
-    let page = 1;
-    let totalPages = 1;
+    const concurrency = ctx.getConcurrency();
 
-    while (page <= totalPages) {
-      const result = await fetchTestItems({ launchId, status: 'FAILED', pageSize: 50, page });
-      totalPages = result.page.totalPages;
-
-      for (const rpItem of result.content) {
-        const item = parseTestItemRecord(rpItem, launchId);
-        try {
-          const logs = await fetchTestItemLogs(rpItem.id, { level: 'ERROR', pageSize: 1 });
-          if (logs.content.length > 0) {
-            item.error_message = logs.content[0].message.substring(0, 2000);
-          }
-        } catch { /* non-critical */ }
-        await upsertTestItem(item);
-        allItems.push(item);
+    for (let i = 0; i < withFailures.length; i += concurrency) {
+      if (ctx.isCancelled()) {
+        break;
       }
-      page++;
-    }
 
-    return allItems;
+      const batch = withFailures.slice(i, i + concurrency);
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
+      await Promise.all(
+        batch.map(async launch => {
+          try {
+            await this.fetchItemsForLaunch(launch.rp_id);
+            ctx.addSuccess();
+          } catch (err) {
+            ctx.addError(launch.rp_id, launch.name, err);
+          }
+        }),
+      );
+      ctx.emit();
+    }
   }
 
-  private getHttpStatus(error: unknown): number | undefined {
-    if (error && typeof error === 'object') {
-      return ((error as Record<string, unknown>).response as Record<string, unknown> | undefined)?.status as number | undefined;
-    }
-    return undefined;
+  setLaunches(launches: LaunchRecord[]): void {
+    this.launches = launches;
   }
 }

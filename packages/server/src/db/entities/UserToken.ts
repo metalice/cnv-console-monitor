@@ -1,37 +1,45 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, UpdateDateColumn, Unique } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+  Unique,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity('user_tokens')
 @Unique('uq_user_tokens_email_provider', ['user_email', 'provider'])
 export class UserToken {
+  @CreateDateColumn()
+  created_at!: Date;
+
+  @Column({ type: 'text' })
+  encrypted_token!: string;
+
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ type: 'varchar' })
-  @Index('idx_user_tokens_user_email')
-  user_email!: string;
+  @Column({ default: true, type: 'boolean' })
+  is_valid!: boolean;
 
   @Column({ type: 'varchar' })
   @Index('idx_user_tokens_provider')
   provider!: string;
 
-  @Column({ type: 'text' })
-  encrypted_token!: string;
-
-  @Column({ type: 'varchar', nullable: true })
-  provider_username!: string | null;
-
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   provider_email!: string | null;
 
-  @Column({ type: 'timestamp', nullable: true })
-  validated_at!: Date | null;
-
-  @Column({ type: 'boolean', default: true })
-  is_valid!: boolean;
-
-  @CreateDateColumn()
-  created_at!: Date;
+  @Column({ nullable: true, type: 'varchar' })
+  provider_username!: string | null;
 
   @UpdateDateColumn()
   updated_at!: Date;
+
+  @Column({ type: 'varchar' })
+  @Index('idx_user_tokens_user_email')
+  user_email!: string;
+
+  @Column({ nullable: true, type: 'timestamp' })
+  validated_at!: Date | null;
 }

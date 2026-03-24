@@ -1,15 +1,21 @@
 import axios from 'axios';
+
+import { type DailyReport } from '../analyzer';
 import { config } from '../config';
 import { logger } from '../logger';
-import { DailyReport } from '../analyzer';
-import { buildBlocks } from './slack-blocks';
 import { withRetry } from '../utils/retry';
+
+import { buildBlocks } from './slack-blocks';
 
 const log = logger.child({ module: 'Slack' });
 const SLACK_TIMEOUT_MS = 15000;
 
-const postSlack = (url: string, body: Record<string, unknown>): Promise<void> =>
-  withRetry(() => axios.post(url, body, { timeout: SLACK_TIMEOUT_MS }), 'slack.post', { maxRetries: 2, baseDelayMs: 2000 }).then(() => {});
+const postSlack = async (url: string, body: Record<string, unknown>): Promise<void> => {
+  await withRetry(() => axios.post(url, body, { timeout: SLACK_TIMEOUT_MS }), 'slack.post', {
+    baseDelayMs: 2000,
+    maxRetries: 2,
+  });
+};
 
 export const sendSlackReport = async (report: DailyReport, webhookUrl?: string): Promise<void> => {
   if (!webhookUrl) {
@@ -20,18 +26,25 @@ export const sendSlackReport = async (report: DailyReport, webhookUrl?: string):
   try {
     const blocks = buildBlocks(report);
     await postSlack(webhookUrl, {
-      text: `Console Dashboard Report — ${report.date}: ${report.failedLaunches} Failed / ${report.passedLaunches} Passed`,
       blocks,
+      text: `Console Dashboard Report — ${report.date}: ${report.failedLaunches} Failed / ${report.passedLaunches} Passed`,
     });
     log.info('Report sent');
   } catch (err) {
     log.error({ err }, 'Failed to send Slack report');
     throw err;
   }
-}
+};
 
-export const sendSlackAcknowledgment = async (reviewer: string, notes: string, date: string, webhookUrl?: string): Promise<void> => {
-  if (!webhookUrl) return;
+export const sendSlackAcknowledgment = async (
+  reviewer: string,
+  notes: string,
+  date: string,
+  webhookUrl?: string,
+): Promise<void> => {
+  if (!webhookUrl) {
+    return;
+  }
 
   try {
     const dashboardUrl = config.dashboard.url;
@@ -43,10 +56,12 @@ export const sendSlackAcknowledgment = async (reviewer: string, notes: string, d
     log.error({ err }, 'Failed to send Slack acknowledgment');
     throw err;
   }
-}
+};
 
 export const sendSlackReminder = async (webhookUrl?: string): Promise<void> => {
-  if (!webhookUrl) return;
+  if (!webhookUrl) {
+    return;
+  }
 
   try {
     const dashboardUrl = config.dashboard.url;
@@ -58,7 +73,7 @@ export const sendSlackReminder = async (webhookUrl?: string): Promise<void> => {
     log.error({ err }, 'Failed to send Slack reminder');
     throw err;
   }
-}
+};
 
 export const sendSlackJiraNotification = async (params: {
   jiraKey: string;
@@ -71,14 +86,19 @@ export const sendSlackJiraNotification = async (params: {
   webhookUrls?: string[];
 }): Promise<void> => {
   const urls = params.webhookUrls?.filter(Boolean) ?? [];
-  if (config.slack.jiraWebhookUrl) urls.push(config.slack.jiraWebhookUrl);
-  if (urls.length === 0) return;
+  if (config.slack.jiraWebhookUrl) {
+    urls.push(config.slack.jiraWebhookUrl);
+  }
+  if (urls.length === 0) {
+    return;
+  }
 
   const jiraUrl = config.jira.url ? `${config.jira.url}/browse/${params.jiraKey}` : params.jiraKey;
   const polarion = params.polarionId ? `\n*Polarion:* ${params.polarionId}` : '';
   const version = params.cnvVersion ? `\n*CNV Version:* ${params.cnvVersion}` : '';
 
-  const text = `:bug: *New Jira Bug Created*\n` +
+  const text =
+    `:bug: *New Jira Bug Created*\n` +
     `*<${jiraUrl}|${params.jiraKey}>* — ${params.summary}\n` +
     `*Test:* ${params.testName.split('.').pop() || params.testName}${polarion}${version}\n` +
     `*Created by:* ${params.createdBy}\n` +
@@ -86,10 +106,11 @@ export const sendSlackJiraNotification = async (params: {
 
   for (const url of [...new Set(urls)]) {
     try {
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       await postSlack(url, { text });
       log.info({ jiraKey: params.jiraKey }, 'Jira notification sent to Slack');
     } catch (err) {
       log.warn({ err, jiraKey: params.jiraKey }, 'Failed to send Jira Slack notification');
     }
   }
-}
+};

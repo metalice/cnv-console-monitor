@@ -1,4 +1,5 @@
 import React from 'react';
+
 import {
   Button,
   MenuToggle,
@@ -22,22 +23,42 @@ type SearchableSelectToggleProps = {
 };
 
 export const SearchableSelectToggle: React.FC<SearchableSelectToggleProps> = ({
-  id, inputValue, filterValue, placeholder, isOpen, isDisabled,
-  onInputChange, onClearFilter, onOpen, toggleRef,
+  filterValue,
+  id,
+  inputValue,
+  isDisabled,
+  isOpen,
+  onClearFilter,
+  onInputChange,
+  onOpen,
+  placeholder,
+  toggleRef,
 }) => (
-  <MenuToggle ref={toggleRef} variant="typeahead" onClick={onOpen} isExpanded={isOpen} isDisabled={isDisabled} isFullWidth>
+  <MenuToggle
+    isFullWidth
+    isDisabled={isDisabled}
+    isExpanded={isOpen}
+    ref={toggleRef}
+    variant="typeahead"
+    onClick={onOpen}
+  >
     <TextInputGroup isDisabled={isDisabled}>
       <TextInputGroupMain
-        id={`${id}-input`}
-        value={inputValue}
-        placeholder={placeholder}
         aria-label={placeholder || 'Filter options'}
+        id={`${id}-input`}
+        placeholder={placeholder}
+        value={inputValue}
         onChange={(_event, val) => onInputChange(val)}
         onClick={onOpen}
       />
       {isOpen && filterValue && (
         <TextInputGroupUtilities>
-          <Button variant="plain" aria-label="Clear filter" icon={<TimesIcon />} onClick={onClearFilter} />
+          <Button
+            aria-label="Clear filter"
+            icon={<TimesIcon />}
+            variant="plain"
+            onClick={onClearFilter}
+          />
         </TextInputGroupUtilities>
       )}
     </TextInputGroup>

@@ -13,8 +13,11 @@ export const aggregateTestItems = (items: TestItem[]): AggregatedItem[] => {
   for (const item of items) {
     if (item.unique_id) {
       const existing = groups.get(item.unique_id);
-      if (existing) existing.push(item);
-      else groups.set(item.unique_id, [item]);
+      if (existing) {
+        existing.push(item);
+      } else {
+        groups.set(item.unique_id, [item]);
+      }
     } else {
       noUniqueId.push(item);
     }
@@ -25,15 +28,15 @@ export const aggregateTestItems = (items: TestItem[]): AggregatedItem[] => {
   for (const groupItems of groups.values()) {
     const sorted = [...groupItems].sort((a, b) => (b.start_time ?? 0) - (a.start_time ?? 0));
     result.push({
-      representative: sorted[0],
-      allRpIds: sorted.map((item) => item.rp_id),
+      allRpIds: sorted.map(item => item.rp_id),
       occurrences: sorted.length,
+      representative: sorted[0],
     });
   }
 
   for (const item of noUniqueId) {
-    result.push({ representative: item, allRpIds: [item.rp_id], occurrences: 1 });
+    result.push({ allRpIds: [item.rp_id], occurrences: 1, representative: item });
   }
 
   return result;
-}
+};

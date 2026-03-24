@@ -1,34 +1,41 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+
+import type { PublicConfig, TestItem } from '@cnv-monitor/shared';
+
 import {
-  PageSection,
-  Content,
-  Card,
-  CardBody,
-  Button,
   Breadcrumb,
   BreadcrumbItem,
+  Button,
+  Card,
+  CardBody,
+  Content,
+  EmptyState,
+  EmptyStateBody,
   Flex,
   FlexItem,
+  PageSection,
   Spinner,
   Toolbar,
   ToolbarContent,
   ToolbarItem,
-  EmptyState,
-  EmptyStateBody,
 } from '@patternfly/react-core';
-import { SearchIcon, WrenchIcon, ExternalLinkAltIcon } from '@patternfly/react-icons';
-import type { TestItem, PublicConfig } from '@cnv-monitor/shared';
+import { ExternalLinkAltIcon, SearchIcon, WrenchIcon } from '@patternfly/react-icons';
+import { useMutation, useQuery } from '@tanstack/react-query';
+
+import {
+  triggerAutoAnalysis,
+  triggerPatternAnalysis,
+  triggerUniqueErrorAnalysis,
+} from '../api/analysis';
 import { apiFetch } from '../api/client';
 import { fetchTestItems, fetchTestItemsForLaunches } from '../api/testItems';
-import { triggerAutoAnalysis, triggerPatternAnalysis, triggerUniqueErrorAnalysis } from '../api/analysis';
-import { aggregateTestItems } from '../utils/aggregation';
-import { TestItemsTable } from '../components/detail/TestItemsTable';
 import { ArtifactsPanel } from '../components/detail/ArtifactsPanel';
-import { TriageModal } from '../components/modals/TriageModal';
+import { TestItemsTable } from '../components/detail/TestItemsTable';
 import { JiraCreateModal } from '../components/modals/JiraCreateModal';
 import { JiraLinkModal } from '../components/modals/JiraLinkModal';
+import { TriageModal } from '../components/modals/TriageModal';
+import { aggregateTestItems } from '../utils/aggregation';
 
 export const LaunchDetailPage: React.FC = () => {
   const { launchId } = useParams<{ launchId: string }>();
@@ -41,55 +48,85 @@ export const LaunchDetailPage: React.FC = () => {
   const groupTier = searchParams.get('tier');
 
   const launchIds = useMemo(() => {
-    if (!launchIdsParam) return [launchRpId];
-    return launchIdsParam.split(',').map(segment => parseInt(segment.trim())).filter(parsed => !isNaN(parsed));
+    if (!launchIdsParam) {
+      return [launchRpId];
+    }
+    return launchIdsParam
+      .split(',')
+      .map(segment => parseInt(segment.trim()))
+      .filter(parsed => !isNaN(parsed));
   }, [launchIdsParam, launchRpId]);
 
   const isGroupMode = launchIds.length > 1;
-  const title = isGroupMode ? `${groupVersion ?? 'Unknown'} ${groupTier ?? ''} — ${launchIds.length} launches` : `Launch #${launchRpId}`;
+  const title = isGroupMode
+    ? `${groupVersion ?? 'Unknown'} ${groupTier ?? ''} — ${launchIds.length} launches`
+    : `Launch #${launchRpId}`;
 
   const [triageItemIds, setTriageItemIds] = useState<number[] | null>(null);
   const [jiraCreateItem, setJiraCreateItem] = useState<TestItem | null>(null);
   const [jiraLinkItemId, setJiraLinkItemId] = useState<number | null>(null);
 
-  useEffect(() => { document.title = `${title} | CNV Console Monitor`; }, [title]);
+  useEffect(() => {
+    document.title = `${title} | CNV Console Monitor`;
+  }, [title]);
 
-  const { data: config } = useQuery({ queryKey: ['config'], queryFn: () => apiFetch<PublicConfig>('/config'), staleTime: Infinity });
+  const { data: config } = useQuery({
+    queryFn: () => apiFetch<PublicConfig>('/config'),
+    queryKey: ['config'],
+    staleTime: Infinity,
+  });
   const { data: items, isLoading } = useQuery({
-    queryKey: isGroupMode ? ['testItems', 'group', ...launchIds] : ['testItems', launchRpId],
-    queryFn: () => isGroupMode ? fetchTestItemsForLaunches(launchIds) : fetchTestItems(launchRpId),
     enabled: launchIds.length > 0,
+    queryFn: () =>
+      isGroupMode ? fetchTestItemsForLaunches(launchIds) : fetchTestItems(launchRpId),
+    queryKey: isGroupMode ? ['testItems', 'group', ...launchIds] : ['testItems', launchRpId],
   });
 
   const autoAnalysis = useMutation({ mutationFn: () => triggerAutoAnalysis(launchRpId) });
   const patternAnalysis = useMutation({ mutationFn: () => triggerPatternAnalysis(launchRpId) });
   const uniqueAnalysis = useMutation({ mutationFn: () => triggerUniqueErrorAnalysis(launchRpId) });
 
-  const failedItems = useMemo(() => items?.filter((item) => item.status === 'FAILED') ?? [], [items]);
-  const passedItems = useMemo(() => items?.filter((item) => item.status === 'PASSED') ?? [], [items]);
-  const skippedItems = useMemo(() => items?.filter((item) => item.status === 'SKIPPED') ?? [], [items]);
+  const failedItems = useMemo(() => items?.filter(item => item.status === 'FAILED') ?? [], [items]);
+  const passedItems = useMemo(() => items?.filter(item => item.status === 'PASSED') ?? [], [items]);
+  const skippedItems = useMemo(
+    () => items?.filter(item => item.status === 'SKIPPED') ?? [],
+    [items],
+  );
 
   const showAllItems = failedItems.length === 0 && (items?.length ?? 0) > 0;
 
   const displayItems = useMemo(() => {
     const source = showAllItems ? (items ?? []) : failedItems;
-    if (isGroupMode) return aggregateTestItems(source);
-    return source.map(item => ({ representative: item, allRpIds: [item.rp_id], occurrences: 1 }));
+    if (isGroupMode) {
+      return aggregateTestItems(source);
+    }
+    return source.map(item => ({ allRpIds: [item.rp_id], occurrences: 1, representative: item }));
   }, [isGroupMode, failedItems, showAllItems, items]);
 
   return (
     <>
       <PageSection>
         <Breadcrumb className="app-breadcrumb">
-          <BreadcrumbItem onClick={() => navigate('/')} className="app-cursor-pointer">Dashboard</BreadcrumbItem>
+          <BreadcrumbItem className="app-cursor-pointer" onClick={() => navigate('/')}>
+            Dashboard
+          </BreadcrumbItem>
           <BreadcrumbItem isActive>{title}</BreadcrumbItem>
         </Breadcrumb>
-        <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }}>
+        <Flex
+          alignItems={{ default: 'alignItemsCenter' }}
+          justifyContent={{ default: 'justifyContentSpaceBetween' }}
+        >
           <FlexItem>
             <Content component="h1">
               {title}
               {!isGroupMode && config && (
-                <a href={`${config.rpLaunchBaseUrl}/${launchRpId}`} target="_blank" rel="noreferrer" aria-label="Open in ReportPortal" className="app-rp-link">
+                <a
+                  aria-label="Open in ReportPortal"
+                  className="app-rp-link"
+                  href={`${config.rpLaunchBaseUrl}/${launchRpId}`}
+                  rel="noreferrer"
+                  target="_blank"
+                >
                   <ExternalLinkAltIcon /> ReportPortal
                 </a>
               )}
@@ -106,9 +143,35 @@ export const LaunchDetailPage: React.FC = () => {
             <FlexItem>
               <Toolbar>
                 <ToolbarContent>
-                  <ToolbarItem><Button variant="secondary" icon={<SearchIcon />} onClick={() => autoAnalysis.mutate()} isLoading={autoAnalysis.isPending}>Auto-Analysis</Button></ToolbarItem>
-                  <ToolbarItem><Button variant="secondary" icon={<WrenchIcon />} onClick={() => patternAnalysis.mutate()} isLoading={patternAnalysis.isPending}>Pattern Analysis</Button></ToolbarItem>
-                  <ToolbarItem><Button variant="secondary" onClick={() => uniqueAnalysis.mutate()} isLoading={uniqueAnalysis.isPending}>Unique Error</Button></ToolbarItem>
+                  <ToolbarItem>
+                    <Button
+                      icon={<SearchIcon />}
+                      isLoading={autoAnalysis.isPending}
+                      variant="secondary"
+                      onClick={() => autoAnalysis.mutate()}
+                    >
+                      Auto-Analysis
+                    </Button>
+                  </ToolbarItem>
+                  <ToolbarItem>
+                    <Button
+                      icon={<WrenchIcon />}
+                      isLoading={patternAnalysis.isPending}
+                      variant="secondary"
+                      onClick={() => patternAnalysis.mutate()}
+                    >
+                      Pattern Analysis
+                    </Button>
+                  </ToolbarItem>
+                  <ToolbarItem>
+                    <Button
+                      isLoading={uniqueAnalysis.isPending}
+                      variant="secondary"
+                      onClick={() => uniqueAnalysis.mutate()}
+                    >
+                      Unique Error
+                    </Button>
+                  </ToolbarItem>
                 </ToolbarContent>
               </Toolbar>
             </FlexItem>
@@ -117,7 +180,11 @@ export const LaunchDetailPage: React.FC = () => {
       </PageSection>
 
       {isLoading ? (
-        <PageSection isFilled><div className="app-page-spinner"><Spinner aria-label="Loading test items" /></div></PageSection>
+        <PageSection isFilled>
+          <div className="app-page-spinner">
+            <Spinner aria-label="Loading test items" />
+          </div>
+        </PageSection>
       ) : displayItems.length === 0 && items ? (
         <PageSection>
           <Card>
@@ -130,7 +197,14 @@ export const LaunchDetailPage: React.FC = () => {
                     : ' This launch may have failed at the infrastructure level (setup/teardown) before any tests ran.'}
                   {config && !isGroupMode && (
                     <div className="app-mt-md">
-                      <Button variant="link" component="a" href={`${config.rpLaunchBaseUrl}/${launchRpId}`} target="_blank" rel="noreferrer" icon={<ExternalLinkAltIcon />}>
+                      <Button
+                        component="a"
+                        href={`${config.rpLaunchBaseUrl}/${launchRpId}`}
+                        icon={<ExternalLinkAltIcon />}
+                        rel="noreferrer"
+                        target="_blank"
+                        variant="link"
+                      >
                         View in ReportPortal
                       </Button>
                     </div>
@@ -144,17 +218,42 @@ export const LaunchDetailPage: React.FC = () => {
         <PageSection>
           <Card>
             <CardBody>
-              <TestItemsTable displayItems={displayItems} isGroupMode={isGroupMode} launchCount={launchIds.length} config={config} onNavigate={navigate} onTriage={setTriageItemIds} onCreateJira={setJiraCreateItem} onLinkJira={setJiraLinkItemId} />
+              <TestItemsTable
+                config={config}
+                displayItems={displayItems}
+                isGroupMode={isGroupMode}
+                launchCount={launchIds.length}
+                onCreateJira={setJiraCreateItem}
+                onLinkJira={setJiraLinkItemId}
+                onNavigate={navigate}
+                onTriage={setTriageItemIds}
+              />
             </CardBody>
           </Card>
         </PageSection>
       )}
 
-      {!isGroupMode && <PageSection><ArtifactsPanel launchId={launchRpId} /></PageSection>}
+      {!isGroupMode && (
+        <PageSection>
+          <ArtifactsPanel launchId={launchRpId} />
+        </PageSection>
+      )}
 
-      {triageItemIds && <TriageModal isOpen onClose={() => setTriageItemIds(null)} itemIds={triageItemIds} />}
-      {jiraCreateItem && <JiraCreateModal isOpen onClose={() => setJiraCreateItem(null)} testItemId={jiraCreateItem.rp_id} testName={jiraCreateItem.name} polarionId={jiraCreateItem.polarion_id} />}
-      {jiraLinkItemId && <JiraLinkModal isOpen onClose={() => setJiraLinkItemId(null)} testItemId={jiraLinkItemId} />}
+      {triageItemIds && (
+        <TriageModal isOpen itemIds={triageItemIds} onClose={() => setTriageItemIds(null)} />
+      )}
+      {jiraCreateItem && (
+        <JiraCreateModal
+          isOpen
+          polarionId={jiraCreateItem.polarion_id}
+          testItemId={jiraCreateItem.rp_id}
+          testName={jiraCreateItem.name}
+          onClose={() => setJiraCreateItem(null)}
+        />
+      )}
+      {jiraLinkItemId && (
+        <JiraLinkModal isOpen testItemId={jiraLinkItemId} onClose={() => setJiraLinkItemId(null)} />
+      )}
     </>
   );
 };

@@ -1,39 +1,48 @@
 import React, { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+
+import type { PublicConfig } from '@cnv-monitor/shared';
+
 import {
-  PageSection,
   Content,
-  Grid,
-  GridItem,
-  Spinner,
   EmptyState,
   EmptyStateBody,
+  Grid,
+  GridItem,
+  PageSection,
+  Spinner,
 } from '@patternfly/react-core';
-import type { PublicConfig } from '@cnv-monitor/shared';
+import { useQuery } from '@tanstack/react-query';
+
 import { apiFetch } from '../api/client';
 import { fetchMyWork } from '../api/myWork';
-import { useAuth } from '../context/AuthContext';
-import { MyRecentActivityCard } from '../components/mywork/MyRecentActivityCard';
 import { MyJiraBugsCard } from '../components/mywork/MyJiraBugsCard';
+import { MyRecentActivityCard } from '../components/mywork/MyRecentActivityCard';
+import { useAuth } from '../context/AuthContext';
 
 export const MyWorkPage: React.FC = () => {
   const { user } = useAuth();
 
-  useEffect(() => { document.title = 'My Work | CNV Console Monitor'; }, []);
+  useEffect(() => {
+    document.title = 'My Work | CNV Console Monitor';
+  }, []);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['myWork'],
     queryFn: fetchMyWork,
+    queryKey: ['myWork'],
   });
 
   const { data: config } = useQuery({
-    queryKey: ['config'],
     queryFn: () => apiFetch<PublicConfig>('/config'),
+    queryKey: ['config'],
     staleTime: Infinity,
   });
 
   if (isLoading) {
-    return <div className="app-page-spinner"><Spinner aria-label="Loading my work" /></div>;
+    return (
+      <div className="app-page-spinner">
+        <Spinner aria-label="Loading my work" />
+      </div>
+    );
   }
 
   if (!data) {

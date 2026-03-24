@@ -1,22 +1,22 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity('acknowledgments')
 export class Acknowledgment {
-  @PrimaryGeneratedColumn()
-  id!: number;
+  @CreateDateColumn()
+  acknowledged_at!: Date;
+
+  @Column({ nullable: true, type: 'varchar' })
+  component!: string | null;
 
   @Column({ type: 'varchar' })
   date!: string;
 
-  @Column({ type: 'varchar' })
-  reviewer!: string;
+  @PrimaryGeneratedColumn()
+  id!: number;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ nullable: true, type: 'text' })
   notes!: string | null;
 
-  @Column({ type: 'varchar', nullable: true })
-  component!: string | null;
-
-  @CreateDateColumn()
-  acknowledged_at!: Date;
+  @Column({ type: 'varchar' })
+  reviewer!: string;
 }

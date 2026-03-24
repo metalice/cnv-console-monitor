@@ -1,4 +1,5 @@
 import React from 'react';
+
 import { Popover } from '@patternfly/react-core';
 import { HelpIcon } from '@patternfly/react-icons';
 
@@ -7,11 +8,11 @@ type HelpLabelProps = {
   help: string;
 };
 
-export const HelpLabel: React.FC<HelpLabelProps> = ({ label, help }) => (
+export const HelpLabel: React.FC<HelpLabelProps> = ({ help, label }) => (
   <span className="app-help-label">
     {label}
     <Popover bodyContent={help}>
-      <button type="button" className="app-help-label-btn" aria-label={`More info: ${label}`}>
+      <button aria-label={`More info: ${label}`} className="app-help-label-btn" type="button">
         <HelpIcon />
       </button>
     </Popover>

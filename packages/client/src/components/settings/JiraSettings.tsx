@@ -1,16 +1,19 @@
 import React from 'react';
+
 import {
+  Alert,
+  Button,
+  Content,
+  Flex,
+  FlexItem,
   Form,
   FormGroup,
   TextInput,
-  Button,
-  Alert,
-  Flex,
-  FlexItem,
-  Content,
 } from '@patternfly/react-core';
+
 import { SearchableSelect, type SearchableSelectOption } from '../common/SearchableSelect';
-import type { SettingsSectionProps, TokenEditHandlers, AlertMessage } from './types';
+
+import type { AlertMessage, SettingsSectionProps, TokenEditHandlers } from './types';
 
 type JiraSettingsProps = SettingsSectionProps &
   TokenEditHandlers & {
@@ -24,48 +27,100 @@ type JiraSettingsProps = SettingsSectionProps &
   };
 
 export const JiraSettings: React.FC<JiraSettingsProps> = ({
-  val,
-  set,
   adminOnly,
-  tokenEditing,
-  startTokenEdit,
   endTokenEdit,
-  jiraProjectSelectOptions,
   issueTypeSelectOptions,
-  jiraTestMsg,
-  onTokenChange,
-  onTestConnection,
   isTestPending,
+  jiraProjectSelectOptions,
+  jiraTestMsg,
+  onTestConnection,
+  onTokenChange,
+  set,
+  startTokenEdit,
+  tokenEditing,
+  val,
 }) => (
   <>
-    <Content component="small" className="app-text-muted app-mb-md">
+    <Content className="app-text-muted app-mb-md" component="small">
       Jira Cloud integration. Create an API token at id.atlassian.com &gt; Security &gt; API tokens.
     </Content>
     <Form>
-      <FormGroup label="URL" fieldId="jira-url">
-        <TextInput id="jira-url" value={val('jira.url')} onChange={(_e, v) => set('jira.url', v)} placeholder="https://redhat.atlassian.net" isDisabled={adminOnly} />
+      <FormGroup fieldId="jira-url" label="URL">
+        <TextInput
+          id="jira-url"
+          isDisabled={adminOnly}
+          placeholder="https://redhat.atlassian.net"
+          value={val('jira.url')}
+          onChange={(_e, v) => set('jira.url', v)}
+        />
       </FormGroup>
-      <FormGroup label="Email" fieldId="jira-email">
-        <TextInput id="jira-email" value={val('jira.email')} onChange={(_e, v) => set('jira.email', v)} placeholder="you@redhat.com" isDisabled={adminOnly} />
+      <FormGroup fieldId="jira-email" label="Email">
+        <TextInput
+          id="jira-email"
+          isDisabled={adminOnly}
+          placeholder="you@redhat.com"
+          value={val('jira.email')}
+          onChange={(_e, v) => set('jira.email', v)}
+        />
       </FormGroup>
-      <FormGroup label="API Token" fieldId="jira-token">
-        <Flex alignItems={{ default: 'alignItemsFlexEnd' }} spaceItems={{ default: 'spaceItemsSm' }}>
+      <FormGroup fieldId="jira-token" label="API Token">
+        <Flex
+          alignItems={{ default: 'alignItemsFlexEnd' }}
+          spaceItems={{ default: 'spaceItemsSm' }}
+        >
           <FlexItem className="app-flex-1">
-            <TextInput id="jira-token" type={tokenEditing['jira.token'] ? 'text' : 'password'} value={val('jira.token')}
-              onFocus={() => startTokenEdit('jira.token')} onBlur={() => endTokenEdit('jira.token')}
-              onChange={(_e, v) => onTokenChange(v)} placeholder="API token" isDisabled={adminOnly} />
+            <TextInput
+              id="jira-token"
+              isDisabled={adminOnly}
+              placeholder="API token"
+              type={tokenEditing['jira.token'] ? 'text' : 'password'}
+              value={val('jira.token')}
+              onBlur={() => endTokenEdit('jira.token')}
+              onChange={(_e, v) => onTokenChange(v)}
+              onFocus={() => startTokenEdit('jira.token')}
+            />
           </FlexItem>
           <FlexItem>
-            <Button variant="secondary" size="sm" onClick={onTestConnection} isLoading={isTestPending} isDisabled={adminOnly}>Test Connection</Button>
+            <Button
+              isDisabled={adminOnly}
+              isLoading={isTestPending}
+              size="sm"
+              variant="secondary"
+              onClick={onTestConnection}
+            >
+              Test Connection
+            </Button>
           </FlexItem>
         </Flex>
-        {jiraTestMsg && <Alert variant={jiraTestMsg.type} isInline isPlain title={jiraTestMsg.text} className="app-mt-sm" />}
+        {jiraTestMsg && (
+          <Alert
+            isInline
+            isPlain
+            className="app-mt-sm"
+            title={jiraTestMsg.text}
+            variant={jiraTestMsg.type}
+          />
+        )}
       </FormGroup>
-      <FormGroup label="Project" fieldId="jira-project">
-        <SearchableSelect id="jira-project" value={val('jira.projectKey')} options={jiraProjectSelectOptions} onChange={(v) => set('jira.projectKey', v)} placeholder="Select project" isDisabled={adminOnly} />
+      <FormGroup fieldId="jira-project" label="Project">
+        <SearchableSelect
+          id="jira-project"
+          isDisabled={adminOnly}
+          options={jiraProjectSelectOptions}
+          placeholder="Select project"
+          value={val('jira.projectKey')}
+          onChange={v => set('jira.projectKey', v)}
+        />
       </FormGroup>
-      <FormGroup label="Issue Type" fieldId="jira-type">
-        <SearchableSelect id="jira-type" value={val('jira.issueType')} options={issueTypeSelectOptions} onChange={(v) => set('jira.issueType', v)} placeholder="Select issue type" isDisabled={adminOnly} />
+      <FormGroup fieldId="jira-type" label="Issue Type">
+        <SearchableSelect
+          id="jira-type"
+          isDisabled={adminOnly}
+          options={issueTypeSelectOptions}
+          placeholder="Select issue type"
+          value={val('jira.issueType')}
+          onChange={v => set('jira.issueType', v)}
+        />
       </FormGroup>
     </Form>
   </>

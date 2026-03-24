@@ -1,102 +1,139 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import { TriageRequestSchema, CommentRequestSchema, BulkTriageRequestSchema } from '@cnv-monitor/shared';
-import { getTestItemByRpId, updateTestItemDefect, addTriageLog, getLaunchByRpId } from '../../db/store';
-import { updateDefectType, addTestItemComment } from '../../clients/reportportal';
-import { validateBody, parseIntParam } from '../middleware/validate';
-import { requireAdmin } from '../middleware/auth';
+import { type NextFunction, type Request, type Response, Router } from 'express';
+
+import {
+  type BulkTriageRequest,
+  BulkTriageRequestSchema,
+  type CommentRequest,
+  CommentRequestSchema,
+  type TriageRequest,
+  TriageRequestSchema,
+} from '@cnv-monitor/shared';
+
+import { addTestItemComment, updateDefectType } from '../../clients/reportportal';
+import {
+  addTriageLog,
+  getLaunchByRpId,
+  getTestItemByRpId,
+  updateTestItemDefect,
+} from '../../db/store';
 import { broadcast } from '../../ws';
+import { requireAdmin } from '../middleware/auth';
+import { parseIntParam, validateBody } from '../middleware/validate';
 
 const router = Router();
 
-router.post('/:itemId', requireAdmin, validateBody(TriageRequestSchema), async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const itemId = parseIntParam(req.params.itemId, 'itemId', res);
-    if (itemId === null) return;
+router.post(
+  '/:itemId',
+  requireAdmin,
+  validateBody(TriageRequestSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const itemId = parseIntParam(req.params.itemId, 'itemId', res);
+      if (itemId === null) {
+        return;
+      }
 
-    const { defectType, comment } = req.body;
-    const performedBy = req.user?.email || 'unknown';
+      const { comment, defectType } = req.body as TriageRequest;
+      const performedBy = req.user?.email || 'unknown';
 
-    const existing = await getTestItemByRpId(itemId);
-    if (!existing) {
-      res.status(404).json({ error: 'Test item not found' });
-      return;
-    }
-
-    const launch = await getLaunchByRpId(existing.launch_rp_id);
-
-    await updateDefectType([itemId], defectType, comment);
-    await updateTestItemDefect(itemId, defectType, comment || '');
-
-    await addTriageLog({
-      test_item_rp_id: itemId,
-      action: 'classify_defect',
-      old_value: existing.defect_type || 'unset',
-      new_value: defectType,
-      performed_by: performedBy,
-      component: launch?.component,
-    });
-
-    broadcast('data-updated');
-    res.json({ success: true, itemId, defectType });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.post('/bulk', requireAdmin, validateBody(BulkTriageRequestSchema), async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { itemIds, defectType, comment } = req.body;
-    const performedBy = req.user?.email || 'unknown';
-
-    await updateDefectType(itemIds, defectType, comment);
-
-    for (const itemId of itemIds) {
       const existing = await getTestItemByRpId(itemId);
-      const launch = existing ? await getLaunchByRpId(existing.launch_rp_id) : undefined;
-      await updateTestItemDefect(itemId, defectType, comment || '');
+      if (!existing) {
+        res.status(404).json({ error: 'Test item not found' });
+        return;
+      }
+
+      const launch = await getLaunchByRpId(existing.launch_rp_id);
+
+      await updateDefectType([itemId], defectType, comment);
+      await updateTestItemDefect(itemId, defectType, comment ?? '');
+
       await addTriageLog({
-        test_item_rp_id: itemId,
-        action: 'bulk_classify_defect',
-        old_value: existing?.defect_type || 'unset',
-        new_value: defectType,
-        performed_by: performedBy,
+        action: 'classify_defect',
         component: launch?.component,
+        new_value: defectType,
+        old_value: existing.defect_type || 'unset',
+        performed_by: performedBy,
+        test_item_rp_id: itemId,
       });
+
+      broadcast('data-updated');
+      res.json({ defectType, itemId, success: true });
+    } catch (err) {
+      next(err);
     }
+  },
+);
 
-    broadcast('data-updated');
-    res.json({ success: true, count: itemIds.length, defectType });
-  } catch (err) {
-    next(err);
-  }
-});
+router.post(
+  '/bulk',
+  requireAdmin,
+  validateBody(BulkTriageRequestSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { comment, defectType, itemIds } = req.body as BulkTriageRequest;
+      const performedBy = req.user?.email || 'unknown';
 
-router.post('/:itemId/comment', requireAdmin, validateBody(CommentRequestSchema), async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const itemId = parseIntParam(req.params.itemId, 'itemId', res);
-    if (itemId === null) return;
+      await updateDefectType(itemIds, defectType, comment);
 
-    const { comment } = req.body;
-    const performedBy = req.user?.email || 'unknown';
+      for (const itemId of itemIds) {
+        // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
+        const existing = await getTestItemByRpId(itemId);
+        // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
+        const launch = existing ? await getLaunchByRpId(existing.launch_rp_id) : undefined;
+        // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
+        await updateTestItemDefect(itemId, defectType, comment ?? '');
+        // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
+        await addTriageLog({
+          action: 'bulk_classify_defect',
+          component: launch?.component,
+          new_value: defectType,
+          old_value: existing?.defect_type || 'unset',
+          performed_by: performedBy,
+          test_item_rp_id: itemId,
+        });
+      }
 
-    const item = await getTestItemByRpId(itemId);
-    const launch = item ? await getLaunchByRpId(item.launch_rp_id) : undefined;
+      broadcast('data-updated');
+      res.json({ count: itemIds.length, defectType, success: true });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
-    await addTestItemComment(itemId, comment);
+router.post(
+  '/:itemId/comment',
+  requireAdmin,
+  validateBody(CommentRequestSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const itemId = parseIntParam(req.params.itemId, 'itemId', res);
+      if (itemId === null) {
+        return;
+      }
 
-    await addTriageLog({
-      test_item_rp_id: itemId,
-      action: 'add_comment',
-      new_value: comment,
-      performed_by: performedBy,
-      component: launch?.component,
-    });
+      const { comment } = req.body as CommentRequest;
+      const performedBy = req.user?.email || 'unknown';
 
-    broadcast('data-updated');
-    res.json({ success: true, itemId });
-  } catch (err) {
-    next(err);
-  }
-});
+      const item = await getTestItemByRpId(itemId);
+      const launch = item ? await getLaunchByRpId(item.launch_rp_id) : undefined;
+
+      await addTestItemComment(itemId, comment);
+
+      await addTriageLog({
+        action: 'add_comment',
+        component: launch?.component,
+        new_value: comment,
+        performed_by: performedBy,
+        test_item_rp_id: itemId,
+      });
+
+      broadcast('data-updated');
+      res.json({ itemId, success: true });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 export default router;

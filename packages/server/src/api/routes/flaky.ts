@@ -1,4 +1,5 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { type NextFunction, type Request, type Response, Router } from 'express';
+
 import { getFlakyTests } from '../../db/store';
 import { clampInt } from '../middleware/validate';
 

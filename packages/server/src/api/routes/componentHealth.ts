@@ -1,4 +1,5 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { type NextFunction, type Request, type Response, Router } from 'express';
+
 import { AppDataSource } from '../../db/data-source';
 import { getDistinctComponents } from '../../db/store';
 
@@ -21,17 +22,18 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     const until = req.query.until ? parseInt(req.query.until as string) : undefined;
     const days = parseInt(req.query.days as string) || 30;
 
-    const sinceMs = since ?? (Date.now() - days * 24 * 60 * 60 * 1000);
+    const sinceMs = since ?? Date.now() - days * 24 * 60 * 60 * 1000;
     const untilMs = until ?? Date.now();
     const previousSinceMs = sinceMs - (untilMs - sinceMs);
 
     const components = await getDistinctComponents();
 
     const summaries: ComponentHealthSummary[] = await Promise.all(
-      components.map(async (component) => {
-        const [launchStats, prevStats, untriagedRows, flakyRows, worseningRows] = await Promise.all([
-          AppDataSource.query(
-            `SELECT
+      components.map(async component => {
+        const [launchStats, prevStats, untriagedRows, flakyRows, worseningRows] =
+          (await Promise.all([
+            AppDataSource.query(
+              `SELECT
                COUNT(*)::int as launch_count,
                COUNT(*) FILTER (WHERE l.status = 'PASSED')::int as passed_launches,
                COUNT(*) FILTER (WHERE l.status = 'FAILED')::int as failed_launches,
@@ -43,20 +45,20 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
              WHERE l.component = $1
                AND l.start_time >= $2
                AND l.start_time <= $3`,
-            [component, sinceMs, untilMs],
-          ),
-          AppDataSource.query(
-            `SELECT
+              [component, sinceMs, untilMs],
+            ),
+            AppDataSource.query(
+              `SELECT
                COUNT(*)::int as launch_count,
                COUNT(*) FILTER (WHERE l.status = 'PASSED')::int as passed_launches
              FROM launches l
              WHERE l.component = $1
                AND l.start_time >= $2
                AND l.start_time < $3`,
-            [component, previousSinceMs, sinceMs],
-          ),
-          AppDataSource.query(
-            `SELECT COUNT(DISTINCT ti.unique_id)::int as count
+              [component, previousSinceMs, sinceMs],
+            ),
+            AppDataSource.query(
+              `SELECT COUNT(DISTINCT ti.unique_id)::int as count
              FROM test_items ti
              JOIN launches l ON ti.launch_rp_id = l.rp_id
              WHERE ti.status = 'FAILED'
@@ -65,10 +67,10 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
                AND l.start_time >= $2
                AND l.start_time <= $3
                AND ti.unique_id IS NOT NULL`,
-            [component, sinceMs, untilMs],
-          ),
-          AppDataSource.query(
-            `SELECT COUNT(DISTINCT ti.unique_id)::int as count
+              [component, sinceMs, untilMs],
+            ),
+            AppDataSource.query(
+              `SELECT COUNT(DISTINCT ti.unique_id)::int as count
              FROM (
                SELECT ti.unique_id,
                       COUNT(DISTINCT ti.status) as status_count
@@ -81,10 +83,10 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
                GROUP BY ti.unique_id
                HAVING COUNT(DISTINCT ti.status) > 1
              ) ti`,
-            [component, sinceMs, untilMs],
-          ),
-          AppDataSource.query(
-            `WITH test_stats AS (
+              [component, sinceMs, untilMs],
+            ),
+            AppDataSource.query(
+              `WITH test_stats AS (
                SELECT ti.unique_id,
                       COUNT(*) FILTER (WHERE ti.status = 'FAILED') as fail_count,
                       COUNT(*) as total_count
@@ -99,9 +101,15 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
              )
              SELECT COUNT(*) FILTER (WHERE fail_count::float / NULLIF(total_count, 0) > 0.5)::int as count
              FROM test_stats`,
-            [component, sinceMs, untilMs],
-          ),
-        ]);
+              [component, sinceMs, untilMs],
+            ),
+          ])) as [
+            Record<string, unknown>[],
+            Record<string, unknown>[],
+            Record<string, unknown>[],
+            Record<string, unknown>[],
+            Record<string, unknown>[],
+          ];
 
         const row = launchStats[0] ?? {};
         const totalLaunches = Number(row.launch_count ?? 0);
@@ -119,11 +127,23 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
         let trend: 'improving' | 'worsening' | 'stable' = 'stable';
         if (prevTotal > 0 && totalLaunches > 0) {
           const diff = passRate - prevPassRate;
-          if (diff > 3) trend = 'improving';
-          else if (diff < -3) trend = 'worsening';
+          if (diff > 3) {
+            trend = 'improving';
+          } else if (diff < -3) {
+            trend = 'worsening';
+          }
         }
 
-        return { component, passRate, totalLaunches, failedLaunches, untriagedCount, flakyCount, worseningCount, trend };
+        return {
+          component,
+          failedLaunches,
+          flakyCount,
+          passRate,
+          totalLaunches,
+          trend,
+          untriagedCount,
+          worseningCount,
+        };
       }),
     );
 

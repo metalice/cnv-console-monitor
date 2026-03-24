@@ -1,7 +1,9 @@
 import React from 'react';
+
+import type { LaunchGroup } from '@cnv-monitor/shared';
+
 import { Button } from '@patternfly/react-core';
 import { DownloadIcon } from '@patternfly/react-icons';
-import type { LaunchGroup } from '@cnv-monitor/shared';
 
 type ExportButtonProps = {
   groups: LaunchGroup[];
@@ -16,17 +18,26 @@ const escapeCsvField = (value: string | number): string => {
   return str;
 };
 
-export const ExportButton: React.FC<ExportButtonProps> = ({ groups, date }) => {
+export const ExportButton: React.FC<ExportButtonProps> = ({ date, groups }) => {
   const handleExport = (): void => {
     const header = 'Version,Tier,Component,Status,Total,Passed,Failed,Skipped,PassRate,LastRun\n';
     const rows = groups
-      .map((group) => {
-        const lastRun = group.latestLaunch ? new Date(group.latestLaunch.start_time).toISOString() : '';
+      .map(group => {
+        const lastRun = new Date(group.latestLaunch.start_time).toISOString();
         return [
-          group.cnvVersion, group.tier, group.component ?? '',
-          group.latestLaunch?.status ?? '', group.totalTests, group.passedTests,
-          group.failedTests, group.skippedTests, `${group.passRate}%`, lastRun,
-        ].map(escapeCsvField).join(',');
+          group.cnvVersion,
+          group.tier,
+          group.component ?? '',
+          group.latestLaunch.status,
+          group.totalTests,
+          group.passedTests,
+          group.failedTests,
+          group.skippedTests,
+          `${group.passRate}%`,
+          lastRun,
+        ]
+          .map(escapeCsvField)
+          .join(',');
       })
       .join('\n');
 
@@ -40,7 +51,7 @@ export const ExportButton: React.FC<ExportButtonProps> = ({ groups, date }) => {
   };
 
   return (
-    <Button variant="secondary" icon={<DownloadIcon />} onClick={handleExport}>
+    <Button icon={<DownloadIcon />} variant="secondary" onClick={handleExport}>
       Export CSV
     </Button>
   );

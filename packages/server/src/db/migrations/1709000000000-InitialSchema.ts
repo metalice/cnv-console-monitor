@@ -1,7 +1,14 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import { type MigrationInterface, type QueryRunner } from 'typeorm';
 
 export class InitialSchema1709000000000 implements MigrationInterface {
   name = 'InitialSchema1709000000000';
+
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`DROP TABLE IF EXISTS "triage_log"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "acknowledgments"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "test_items"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "launches"`);
+  }
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
@@ -73,19 +80,26 @@ export class InitialSchema1709000000000 implements MigrationInterface {
       )
     `);
 
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_launches_start_time" ON "launches" ("start_time")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_launches_name" ON "launches" ("name")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_launches_status" ON "launches" ("status")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_test_items_launch" ON "test_items" ("launch_rp_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_test_items_status" ON "test_items" ("status")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_test_items_unique_id" ON "test_items" ("unique_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_acknowledgments_date" ON "acknowledgments" ("date")`);
-  }
-
-  public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP TABLE IF EXISTS "triage_log"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "acknowledgments"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "test_items"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "launches"`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_launches_start_time" ON "launches" ("start_time")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_launches_name" ON "launches" ("name")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_launches_status" ON "launches" ("status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_test_items_launch" ON "test_items" ("launch_rp_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_test_items_status" ON "test_items" ("status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_test_items_unique_id" ON "test_items" ("unique_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_acknowledgments_date" ON "acknowledgments" ("date")`,
+    );
   }
 }

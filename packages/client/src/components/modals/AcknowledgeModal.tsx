@@ -1,22 +1,25 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+
+import type { LaunchGroup, TestNote } from '@cnv-monitor/shared';
+
 import {
-  Modal,
-  ModalVariant,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
   Button,
-  Label,
-  TextInput,
+  Content,
   HelperText,
   HelperTextItem,
-  Content,
+  Label,
+  Modal,
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
+  ModalVariant,
+  TextInput,
 } from '@patternfly/react-core';
-import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+
 import { submitAcknowledgment } from '../../api/acknowledgment';
 import { useAuth } from '../../context/AuthContext';
-import type { LaunchGroup, TestNote } from '@cnv-monitor/shared';
 
 type AcknowledgeModalProps = {
   isOpen: boolean;
@@ -25,23 +28,30 @@ type AcknowledgeModalProps = {
   component?: string;
 };
 
-export const AcknowledgeModal: React.FC<AcknowledgeModalProps> = ({ isOpen, onClose, groups, component }) => {
+export const AcknowledgeModal: React.FC<AcknowledgeModalProps> = ({
+  component,
+  groups,
+  isOpen,
+  onClose,
+}) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
   const failingTests = useMemo(() => {
     const seen = new Set<string>();
-    const tests: Array<{ name: string; shortName: string; jiraKey?: string; polarionId?: string }> = [];
+    const tests: { name: string; shortName: string; jiraKey?: string; polarionId?: string }[] = [];
     for (const group of groups) {
-      for (const item of (group.failedItems ?? [])) {
+      for (const item of group.failedItems ?? []) {
         const key = item.unique_id || `${item.name}-${item.rp_id}`;
-        if (seen.has(key)) continue;
+        if (seen.has(key)) {
+          continue;
+        }
         seen.add(key);
         tests.push({
-          name: item.name,
-          shortName: item.name.split('.').pop() || item.name,
           jiraKey: item.jira_key ?? undefined,
+          name: item.name,
           polarionId: item.polarion_id ?? undefined,
+          shortName: item.name.split('.').pop() || item.name,
         });
       }
     }
@@ -51,7 +61,9 @@ export const AcknowledgeModal: React.FC<AcknowledgeModalProps> = ({ isOpen, onCl
   const [notes, setNotes] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      return;
+    }
     const initial: Record<string, string> = {};
     for (const test of failingTests) {
       initial[test.name] = test.jiraKey ? `Tracked in ${test.jiraKey}` : '';
@@ -59,28 +71,30 @@ export const AcknowledgeModal: React.FC<AcknowledgeModalProps> = ({ isOpen, onCl
     setNotes(initial);
   }, [isOpen, failingTests]);
 
-  const allFilled = failingTests.length === 0 || failingTests.every(test => (notes[test.name] || '').trim().length > 0);
+  const allFilled =
+    failingTests.length === 0 ||
+    failingTests.every(test => (notes[test.name] || '').trim().length > 0);
 
   const mutation = useMutation({
     mutationFn: () => {
       const testNotes: TestNote[] = failingTests.map(test => ({
-        testName: test.shortName,
         jiraKey: test.jiraKey,
         note: notes[test.name] || '',
+        testName: test.shortName,
       }));
-      return submitAcknowledgment({ reviewer: user.name, testNotes, component });
+      return submitAcknowledgment({ component, reviewer: user.name, testNotes });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['acknowledgment'] });
+      void queryClient.invalidateQueries({ queryKey: ['acknowledgment'] });
       onClose();
     },
   });
 
   return (
-    <Modal variant={ModalVariant.large} isOpen={isOpen} onClose={onClose}>
+    <Modal isOpen={isOpen} variant={ModalVariant.large} onClose={onClose}>
       <ModalHeader title="Acknowledge Today's Report" />
       <ModalBody>
-        <Content component="p" className="app-section-subheading">
+        <Content className="app-section-subheading" component="p">
           Acknowledging as <strong>{user.name}</strong> ({user.email}).
           {failingTests.length > 0
             ? ` Please provide a note for each of the ${failingTests.length} failing test(s).`
@@ -97,24 +111,34 @@ export const AcknowledgeModal: React.FC<AcknowledgeModalProps> = ({ isOpen, onCl
               </Tr>
             </Thead>
             <Tbody>
-              {failingTests.map((test) => (
+              {failingTests.map(test => (
                 <Tr key={test.name}>
                   <Td dataLabel="Test">
                     <span className="app-font-13">{test.shortName}</span>
                     {test.polarionId && (
-                      <div><Label color="blue" isCompact>{test.polarionId}</Label></div>
+                      <div>
+                        <Label isCompact color="blue">
+                          {test.polarionId}
+                        </Label>
+                      </div>
                     )}
                   </Td>
                   <Td dataLabel="Jira">
-                    {test.jiraKey && <Label color="blue" isCompact>{test.jiraKey}</Label>}
+                    {test.jiraKey && (
+                      <Label isCompact color="blue">
+                        {test.jiraKey}
+                      </Label>
+                    )}
                   </Td>
                   <Td dataLabel="Note">
                     <TextInput
-                      value={notes[test.name] || ''}
-                      onChange={(_e, noteValue) => setNotes(prev => ({ ...prev, [test.name]: noteValue }))}
-                      placeholder="Why is this failing? What action is being taken?"
                       aria-label={`Note for ${test.shortName}`}
+                      placeholder="Why is this failing? What action is being taken?"
                       validated={!(notes[test.name] || '').trim() ? 'error' : 'default'}
+                      value={notes[test.name] || ''}
+                      onChange={(_e, noteValue) =>
+                        setNotes(prev => ({ ...prev, [test.name]: noteValue }))
+                      }
                     />
                   </Td>
                 </Tr>
@@ -125,20 +149,22 @@ export const AcknowledgeModal: React.FC<AcknowledgeModalProps> = ({ isOpen, onCl
 
         {mutation.isError && (
           <HelperText className="app-mt-sm">
-            <HelperTextItem variant="error">{(mutation.error as Error).message}</HelperTextItem>
+            <HelperTextItem variant="error">{mutation.error.message}</HelperTextItem>
           </HelperText>
         )}
       </ModalBody>
       <ModalFooter>
         <Button
-          variant="primary"
-          onClick={() => mutation.mutate()}
           isDisabled={!allFilled}
           isLoading={mutation.isPending}
+          variant="primary"
+          onClick={() => mutation.mutate()}
         >
           Acknowledge{failingTests.length > 0 ? ` (${failingTests.length} tests)` : ''}
         </Button>
-        <Button variant="link" onClick={onClose}>Cancel</Button>
+        <Button variant="link" onClick={onClose}>
+          Cancel
+        </Button>
       </ModalFooter>
     </Modal>
   );

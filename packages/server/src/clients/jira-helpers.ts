@@ -1,5 +1,3 @@
-import { config } from '../config';
-
 export const buildBugDescription = (params: {
   testName: string;
   polarionId?: string;
@@ -12,11 +10,7 @@ export const buildBugDescription = (params: {
   rpLaunchUrl: string;
   rpItemUrl: string;
 }): string => {
-  const lines = [
-    `h2. Automated Test Failure`,
-    ``,
-    `*Test:* ${params.testName}`,
-  ];
+  const lines = [`h2. Automated Test Failure`, ``, `*Test:* ${params.testName}`];
 
   if (params.polarionId) {
     const polarionLink = params.polarionUrl
@@ -25,9 +19,15 @@ export const buildBugDescription = (params: {
     lines.push(`*Polarion ID:* ${polarionLink}`);
   }
   lines.push(`*Launch:* ${params.launchName}`);
-  if (params.cnvVersion) lines.push(`*CNV Version:* ${params.cnvVersion}`);
-  if (params.ocpVersion) lines.push(`*OCP Version:* ${params.ocpVersion}`);
-  if (params.clusterName) lines.push(`*Cluster:* ${params.clusterName}`);
+  if (params.cnvVersion) {
+    lines.push(`*CNV Version:* ${params.cnvVersion}`);
+  }
+  if (params.ocpVersion) {
+    lines.push(`*OCP Version:* ${params.ocpVersion}`);
+  }
+  if (params.clusterName) {
+    lines.push(`*Cluster:* ${params.clusterName}`);
+  }
   lines.push('');
   lines.push(`*ReportPortal:* [Launch|${params.rpLaunchUrl}] | [Test Item|${params.rpItemUrl}]`);
 
@@ -40,4 +40,4 @@ export const buildBugDescription = (params: {
   }
 
   return lines.join('\n');
-}
+};
