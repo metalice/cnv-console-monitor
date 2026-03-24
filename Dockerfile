@@ -6,7 +6,7 @@ COPY packages/server/package*.json ./packages/server/
 COPY packages/client/package*.json ./packages/client/
 
 FROM base AS deps
-RUN npm ci
+RUN npm ci --ignore-scripts
 
 FROM deps AS build-shared
 COPY packages/shared/ ./packages/shared/
@@ -28,7 +28,7 @@ COPY package*.json ./
 COPY packages/shared/package*.json ./packages/shared/
 COPY packages/server/package*.json ./packages/server/
 COPY packages/client/package*.json ./packages/client/
-RUN npm ci --omit=dev && chown -R appuser:appgroup /app
+RUN npm ci --omit=dev --ignore-scripts && chown -R appuser:appgroup /app
 
 COPY --from=build-shared /app/packages/shared/dist/ ./packages/shared/dist/
 COPY --from=build-server /app/packages/server/dist/ ./packages/server/dist/
