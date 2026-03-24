@@ -25,7 +25,7 @@ const ComponentFilterContext = createContext<ComponentFilterContextValue | null>
 
 export const ComponentFilterProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { loaded: prefsLoaded, preferences, setPreference } = usePreferences();
-  const [selectedComponents, setSelectedComponentsRaw] = useState(new Set());
+  const [selectedComponents, setSelectedComponentsRaw] = useState(new Set<string>());
 
   const initializedRef = useRef(false);
   useEffect(() => {

@@ -121,7 +121,7 @@ export const ReleaseChecklist: React.FC<ReleaseChecklistProps> = ({
 }) => {
   const { selectedComponents } = useComponentFilter();
   const [search, setSearch] = useState('');
-  const [selectedVersions, setSelectedVersions] = useState(new Set());
+  const [selectedVersions, setSelectedVersions] = useState(new Set<string>());
 
   useEffect(() => {
     if (!activeVersion || !checklist) {

@@ -104,7 +104,7 @@ const generateDescription = (drafts: DraftInfo[]): string => {
 
 export const SubmitDraftsModal: React.FC<SubmitDraftsModalProps> = ({ isOpen, onClose }) => {
   const queryClient = useQueryClient();
-  const [selected, setSelected] = useState(new Set());
+  const [selected, setSelected] = useState(new Set<string>());
   const [prTitle, setPrTitle] = useState('');
   const [prDescription, setPrDescription] = useState('');
   const [result, setResult] = useState<SubmitResult | null>(null);

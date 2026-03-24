@@ -330,7 +330,7 @@ export const MonacoViewer: React.FC<MonacoViewerProps> = ({
             automaticLayout: true,
             folding: true,
             fontSize: 13,
-            glyphMargin: Boolean(testBlocks) && testBlocks.length > 0,
+            glyphMargin: Boolean(testBlocks?.length),
             lineNumbers: 'on',
             minimap: { enabled: false },
             readOnly,

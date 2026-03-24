@@ -76,7 +76,7 @@ export const FailuresTable: React.FC<FailuresTableProps> = ({
   rawCount,
   streaks,
 }) => {
-  const [selectedIds, setSelectedIds] = React.useState(new Set());
+  const [selectedIds, setSelectedIds] = React.useState(new Set<number>());
   const [tableSearch, setTableSearch] = React.useState('');
   const colMgmt = useColumnManagement('failures', COLUMNS);
   const { getSortParams, sorted } = useTableSort(aggregated, SORT_ACCESSORS, {

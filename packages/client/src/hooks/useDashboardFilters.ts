@@ -39,7 +39,7 @@ export const useDashboardFilters = (
   const { loaded: prefsLoaded, preferences, setPreference } = usePreferences();
   const { selectedComponents } = useComponentFilter();
   const [versionFilter, setVersionFilterState] = useState('all');
-  const [selectedTiers, setSelectedTiersState] = useState(new Set());
+  const [selectedTiers, setSelectedTiersState] = useState(new Set<string>());
   const [statusFilter, setStatusFilterState] = useState<string | null>(null);
   const [tableSearch, setTableSearch] = useState('');
 
