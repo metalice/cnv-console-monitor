@@ -11,7 +11,12 @@ export const getFlakyTests = async (
   if (component) {
     params.push(component);
   }
-  const rows = await AppDataSource.query(
+  const rows: {
+    name: string;
+    unique_id: string;
+    flip_count: number;
+    total_runs: number;
+  }[] = await AppDataSource.query(
     `
     WITH failed_tests AS (
       SELECT DISTINCT ti.unique_id, ti.name

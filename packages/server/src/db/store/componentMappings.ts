@@ -12,6 +12,7 @@ const mappings = () => AppDataSource.getRepository(ComponentMapping);
 
 const toRecord = (row: ComponentMapping): ComponentMappingRecord => ({
   component: row.component,
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: DB data
   createdAt: row.created_at?.toISOString() ?? new Date().toISOString(),
   pattern: row.pattern,
   type: row.type,
@@ -63,10 +64,11 @@ export const applyRegexMapping = async (
     const statusFilter = includeDeleted
       ? ''
       : " AND jenkins_status NOT IN ('job_deleted', 'not_found')";
-    const result = await AppDataSource.query(
+    const result: [unknown, number] = await AppDataSource.query(
       `UPDATE launches SET component = $1, jenkins_status = 'regex_mapped' WHERE component IS NULL AND jenkins_team IS NULL${statusFilter} AND name ~* $2`,
       [component, pattern],
     );
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: DB query result shape
     return result[1] ?? 0;
   } catch {
     return 0;
@@ -75,10 +77,11 @@ export const applyRegexMapping = async (
 
 export const clearRegexMapping = async (pattern: string, component: string): Promise<number> => {
   try {
-    const result = await AppDataSource.query(
+    const result: [unknown, number] = await AppDataSource.query(
       `UPDATE launches SET component = NULL, jenkins_status = 'pending' WHERE jenkins_status = 'regex_mapped' AND jenkins_team IS NULL AND name ~* $1 AND component = $2`,
       [pattern, component],
     );
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: DB query result shape
     return result[1] ?? 0;
   } catch {
     return 0;
@@ -97,7 +100,7 @@ export const getMatchCountForPattern = async (
     .where(baseWhere)
     .andWhere('l.name ~* :pattern', { pattern })
     .getCount();
-  const nameResult = await AppDataSource.getRepository('Launch')
+  const nameResult: { count: string } | undefined = await AppDataSource.getRepository('Launch')
     .createQueryBuilder('l')
     .select('COUNT(DISTINCT l.name)', 'count')
     .where(baseWhere)

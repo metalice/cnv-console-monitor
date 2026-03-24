@@ -144,16 +144,14 @@ let lastPollSummary: PollSummary | null = null;
 
 export const setLastPollSummary = (summary: PollSummary): void => {
   lastPollSummary = summary;
-  import('./db/store')
-    .then(({ setSetting }) => {
-      void setSetting('_lastPollSummary', JSON.stringify(summary), 'system').catch(() => {
-        // no-op
-      });
-      return undefined;
-    })
-    .catch(() => {
-      // no-op
-    });
+  void (async () => {
+    try {
+      const { setSetting } = await import('./db/store');
+      await setSetting('_lastPollSummary', JSON.stringify(summary), 'system');
+    } catch {
+      // no-op: dynamic import or persist failed
+    }
+  })();
 };
 
 export const getLastPollSummary = (): PollSummary | null => lastPollSummary;
@@ -163,7 +161,7 @@ export const loadLastPollSummary = async (): Promise<void> => {
     const { getSetting } = await import('./db/store');
     const raw = await getSetting('_lastPollSummary');
     if (raw) {
-      lastPollSummary = JSON.parse(raw);
+      lastPollSummary = JSON.parse(raw) as PollSummary;
     }
   } catch {
     /* DB not ready or invalid JSON */

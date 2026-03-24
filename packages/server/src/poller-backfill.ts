@@ -44,6 +44,7 @@ export const fetchFailedItemsForLaunch = async (launchId: number): Promise<TestI
   let totalPages = 1;
 
   while (page <= totalPages) {
+    // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
     const result = await fetchTestItems({ launchId, page, pageSize: 50, status: 'FAILED' });
     totalPages = result.page.totalPages;
 
@@ -57,6 +58,7 @@ export const fetchFailedItemsForLaunch = async (launchId: number): Promise<TestI
   const itemConcurrency = config.schedule.rpConcurrency;
   for (let i = 0; i < allRpItems.length; i += itemConcurrency) {
     const batch = allRpItems.slice(i, i + itemConcurrency);
+    // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
     await Promise.all(
       batch.map(async ({ item, rpItemId }) => {
         try {
@@ -88,12 +90,14 @@ export const backfillTestItems = async (
 
   for (let launchIdx = 0; launchIdx < failedLaunches.length; launchIdx++) {
     const launch = failedLaunches[launchIdx];
+    // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
     const existing = await getFailedTestItems(launch.rp_id);
     if (existing.length > 0) {
       continue;
     }
 
     try {
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       await fetchFailedItemsForLaunch(launch.rp_id);
     } catch (err) {
       log.warn({ err, launchRpId: launch.rp_id }, 'Failed to backfill test items');
@@ -118,6 +122,7 @@ export const fetchAllItemsForLaunch = async (launchId: number): Promise<TestItem
   let totalPages = 1;
 
   while (page <= totalPages) {
+    // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
     const result = await fetchTestItems({ launchId, page, pageSize: 50 });
     totalPages = result.page.totalPages;
     for (const rpItem of result.content) {
@@ -130,6 +135,7 @@ export const fetchAllItemsForLaunch = async (launchId: number): Promise<TestItem
   for (const { item, rpItemId } of allRpItems) {
     if (item.status === 'FAILED') {
       try {
+        // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
         const logs = await fetchTestItemLogs(rpItemId, { level: 'ERROR', pageSize: 1 });
         if (logs.content.length > 0) {
           item.error_message = logs.content[0].message.substring(0, 2000);
@@ -138,6 +144,7 @@ export const fetchAllItemsForLaunch = async (launchId: number): Promise<TestItem
         /* Non-critical */
       }
     }
+    // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
     await upsertTestItem(item);
     items.push(item);
   }

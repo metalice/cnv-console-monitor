@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { Repository } from '@cnv-monitor/shared';
@@ -36,20 +37,28 @@ type RepositoryModalProps = {
   existing?: Repository;
 };
 
+function stripTrailingSlashes(s: string): string {
+  let t = s;
+  while (t.endsWith('/')) {
+    t = t.slice(0, -1);
+  }
+  return t;
+}
+
 function cleanRepoUrl(repoUrl: string): { repoRoot: string; subPath: string } {
   const gitlabSep = repoUrl.indexOf('/-/');
   if (gitlabSep !== -1) {
     const root = repoUrl.slice(0, gitlabSep);
     const rest = repoUrl.slice(gitlabSep + 3);
-    const pathMatch = /^(?:tree|blob)\/[^/]+\/(\S+?)\/?\s*$/.exec(rest);
+    const pathMatch = /^(?:tree|blob)\/[^/]+\/([^/?#\s]+)\/?\s*$/.exec(rest);
     return { repoRoot: root, subPath: pathMatch?.[1] || '' };
   }
   const githubMatch =
-    /^(https:\/\/github\.com\/[^/]+\/[^/]+)(?:\/tree\/[^/]+\/(\S+?)\/?\s*)?$/.exec(repoUrl);
+    /^(https:\/\/github\.com\/[^/]+\/[^/]+)(?:\/tree\/[^/]+\/([^/?#\s]+)\/?\s*)?$/.exec(repoUrl);
   if (githubMatch) {
     return { repoRoot: githubMatch[1], subPath: githubMatch[2] || '' };
   }
-  return { repoRoot: repoUrl.replace(/\/+$/, ''), subPath: '' };
+  return { repoRoot: stripTrailingSlashes(repoUrl), subPath: '' };
 }
 
 function deriveApiUrl(provider: string, repoUrl: string): string {
@@ -111,6 +120,7 @@ function deriveDisplayName(repoUrl: string): string {
   return '';
 }
 
+// eslint-disable-next-line max-lines-per-function
 export const RepositoryModal: React.FC<RepositoryModalProps> = ({ existing, isOpen, onClose }) => {
   const [provider, setProvider] = useState<'gitlab' | 'github'>('gitlab');
   const [url, setUrl] = useState('');
@@ -140,7 +150,7 @@ export const RepositoryModal: React.FC<RepositoryModalProps> = ({ existing, isOp
   const componentOptions = useMemo(() => {
     const jiraComps = mappingsData?.jiraComponents ?? [];
     const mappedComps = (mappingsData?.mappings ?? []).map(m => m.component);
-    return [...new Set([...jiraComps, ...mappedComps])].sort();
+    return [...new Set([...jiraComps, ...mappedComps])].toSorted((a, b) => a.localeCompare(b));
   }, [mappingsData]);
 
   useEffect(() => {

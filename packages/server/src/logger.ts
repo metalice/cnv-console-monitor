@@ -14,13 +14,29 @@ const prettyOptions = {
 export const logger = pino({
   level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
   serializers: {
-    err: err => ({
+    err: (
+      err: {
+        code?: string;
+        constructor?: { name?: string };
+        message?: string;
+        status?: number;
+        statusCode?: number;
+      } | null,
+    ) => ({
       code: err?.code,
       message: err?.message,
       status: err?.status || err?.statusCode,
       type: err?.constructor?.name || 'Error',
     }),
-    error: err => ({
+    error: (
+      err: {
+        code?: string;
+        constructor?: { name?: string };
+        message?: string;
+        status?: number;
+        statusCode?: number;
+      } | null,
+    ) => ({
       code: err?.code,
       message: err?.message,
       status: err?.status || err?.statusCode,
@@ -60,11 +76,11 @@ export const httpLogger = pinoHttp({
   logger,
   serializers: {
     err: () => undefined,
-    req: req => ({
+    req: (req: { method?: string; url?: string }) => ({
       method: req.method,
       url: req.url,
     }),
-    res: res => ({
+    res: (res: { statusCode?: number }) => ({
       statusCode: res.statusCode,
     }),
   },

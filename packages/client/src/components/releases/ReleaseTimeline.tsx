@@ -104,7 +104,7 @@ const fmtDate = (dateStr: string | null): string =>
     : '--';
 
 const extractVersion = (name: string): string => {
-  const match = /(\d+\.\d+\.?\d*)/.exec(name);
+  const match = /(\d{1,20}\.\d{1,20}(?:\.\d{1,20})?)/.exec(name);
   return match
     ? match[1]
     : name
@@ -131,7 +131,7 @@ export const ReleaseTimeline: React.FC<ReleaseTimelineProps> = ({
   const colMgmt = useColumnManagement('releaseTimeline', TIMELINE_COLUMNS);
 
   const filtered = useMemo(() => {
-    const list = releases || [];
+    const list = releases ?? [];
     if (!search) {
       return list;
     }
@@ -179,7 +179,7 @@ export const ReleaseTimeline: React.FC<ReleaseTimelineProps> = ({
           resultCount={sorted.length}
           searchPlaceholder="Search by version or phase..."
           searchValue={search}
-          totalCount={(releases || []).length}
+          totalCount={(releases ?? []).length}
           visibleIds={colMgmt.visibleIds}
           onResetColumns={colMgmt.resetColumns}
           onSaveColumns={colMgmt.setColumns}
@@ -332,6 +332,7 @@ export const ReleaseTimeline: React.FC<ReleaseTimelineProps> = ({
                                     <Flex
                                       alignItems={{ default: 'alignItemsCenter' }}
                                       className="app-rh-item"
+                                      // eslint-disable-next-line react/no-array-index-key
                                       key={i}
                                       spaceItems={{ default: 'spaceItemsSm' }}
                                     >
@@ -357,6 +358,7 @@ export const ReleaseTimeline: React.FC<ReleaseTimelineProps> = ({
                                     <Flex
                                       alignItems={{ default: 'alignItemsCenter' }}
                                       className="app-rh-item app-rh-past"
+                                      // eslint-disable-next-line react/no-array-index-key
                                       key={i}
                                       spaceItems={{ default: 'spaceItemsSm' }}
                                     >

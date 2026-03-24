@@ -72,10 +72,16 @@ router.get('/report', async (req: Request, res: Response, next: NextFunction) =>
 router.get('/stats', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const { AppDataSource } = await import('../../db/data-source');
+    const testItemCountQuery: Promise<{ count: string }[]> = AppDataSource.query(
+      'SELECT COUNT(*) as count FROM test_items',
+    );
+    const earliestQuery: Promise<{ min_time: string | null }[]> = AppDataSource.query(
+      'SELECT MIN(start_time) as min_time FROM launches',
+    );
     const [launches, testItems, earliest] = await Promise.all([
       getLaunchCount(),
-      AppDataSource.query('SELECT COUNT(*) as count FROM test_items'),
-      AppDataSource.query('SELECT MIN(start_time) as min_time FROM launches'),
+      testItemCountQuery,
+      earliestQuery,
     ]);
     const minTime = earliest[0]?.min_time;
     const days = minTime ? Math.ceil((Date.now() - Number(minTime)) / (24 * 60 * 60 * 1000)) : 0;
@@ -135,7 +141,20 @@ router.get('/progress/:launchId', async (req: Request, res: Response, _next: Nex
       /\/artifact\/?$/,
       '/api/json?tree=building,result,duration,estimatedDuration,timestamp,fullDisplayName,url',
     );
-    const jenkinsRes = await axios.get(buildApiUrl, { httpsAgent: jenkinsAgent, timeout: 8000 });
+    type JenkinsBuildData = {
+      building: boolean;
+      result: string | null;
+      duration: number;
+      estimatedDuration: number;
+      timestamp: number;
+      fullDisplayName: string;
+      url: string;
+    };
+
+    const jenkinsRes = await axios.get<JenkinsBuildData>(buildApiUrl, {
+      httpsAgent: jenkinsAgent,
+      timeout: 8000,
+    });
     const buildData = jenkinsRes.data;
 
     const elapsed = Date.now() - buildData.timestamp;
@@ -147,11 +166,15 @@ router.get('/progress/:launchId', async (req: Request, res: Response, _next: Nex
 
     let currentStage: string | null = null;
     try {
-      const wfRes = await axios.get(`${buildData.url}wfapi/describe`, {
-        httpsAgent: jenkinsAgent,
-        timeout: 5000,
-      });
-      const stages: { name: string; status: string }[] = wfRes.data?.stages || [];
+      const wfRes = await axios.get<{ stages?: { name: string; status: string }[] }>(
+        `${buildData.url}wfapi/describe`,
+        {
+          httpsAgent: jenkinsAgent,
+          timeout: 5000,
+        },
+      );
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime API data
+      const stages = wfRes.data?.stages ?? [];
       const running = stages.find(stage => stage.status === 'IN_PROGRESS');
       currentStage = running?.name || stages[stages.length - 1]?.name || null;
     } catch {

@@ -93,6 +93,7 @@ export const withRetry = async <T>(
 
   for (let attempt = 0; attempt <= opts.maxRetries; attempt++) {
     try {
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       return await fn();
     } catch (error) {
       const isLast = attempt === opts.maxRetries;
@@ -110,6 +111,7 @@ export const withRetry = async <T>(
         { attempt: attempt + 1, delayMs: delay, label, maxRetries: opts.maxRetries },
         'Retrying after transient error',
       );
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       await new Promise<void>(resolve => {
         setTimeout(resolve, delay);
       });

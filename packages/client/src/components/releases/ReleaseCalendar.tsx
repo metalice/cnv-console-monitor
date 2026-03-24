@@ -37,16 +37,14 @@ export const ReleaseCalendar: React.FC<ReleaseCalendarProps> = ({ onSelectVersio
     const label = target.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
     const evtMap = new Map<string, CalendarEvent[]>();
-    const versionColors = new Map<string, string>();
     releases.forEach((r, i) => {
       const color = VERSION_COLORS[i % VERSION_COLORS.length];
-      versionColors.set(r.shortname, color);
       for (const ms of r.milestones) {
         const key = ms.date;
         if (!evtMap.has(key)) {
           evtMap.set(key, []);
         }
-        evtMap.get(key)!.push({
+        evtMap.get(key)?.push({
           color,
           milestone: ms.name
             .replace(/^Batch\s+/, '')
@@ -61,14 +59,15 @@ export const ReleaseCalendar: React.FC<ReleaseCalendarProps> = ({ onSelectVersio
     const firstDay = new Date(y, m, 1);
     const startCol = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
     const daysInMonth = new Date(y, m + 1, 0).getDate();
-    const wks: ({ day: number; dateStr: string } | null)[][] = [];
-    let week: ({ day: number; dateStr: string } | null)[] = new Array(7).fill(null);
+    type DayEntry = { day: number; dateStr: string };
+    const wks: (DayEntry | null)[][] = [];
+    let week: (DayEntry | null)[] = Array.from<DayEntry | null>({ length: 7 }).fill(null);
 
     for (let d = 1; d <= daysInMonth; d++) {
       const col = (startCol + d - 1) % 7;
       if (col === 0 && d > 1) {
         wks.push(week);
-        week = new Array(7).fill(null);
+        week = Array.from<DayEntry | null>({ length: 7 }).fill(null);
       }
       const dt = new Date(y, m, d);
       week[col] = { dateStr: toDateStr(dt), day: d };
@@ -140,9 +139,11 @@ export const ReleaseCalendar: React.FC<ReleaseCalendarProps> = ({ onSelectVersio
             ))}
           </div>
           {weeks.map((week, wi) => (
+            // eslint-disable-next-line react/no-array-index-key
             <div className="app-rel-cal-row" key={wi}>
               {week.map((cell, ci) => {
                 if (!cell) {
+                  // eslint-disable-next-line react/no-array-index-key
                   return <div className="app-rel-cal-cell app-rel-cal-empty" key={ci} />;
                 }
                 const dayEvents = events.get(cell.dateStr) ?? [];
@@ -150,20 +151,33 @@ export const ReleaseCalendar: React.FC<ReleaseCalendarProps> = ({ onSelectVersio
                 return (
                   <div
                     className={`app-rel-cal-cell ${isToday ? 'app-rel-cal-today' : ''}`}
+                    // eslint-disable-next-line react/no-array-index-key
                     key={ci}
                   >
                     <span className="app-rel-cal-day">{cell.day}</span>
                     {dayEvents.slice(0, 3).map((evt, ei) => (
+                      // eslint-disable-next-line react/no-array-index-key
                       <Tooltip content={`${evt.version}: ${evt.milestone}`} key={ei}>
                         <div
                           className={`app-rel-cal-event ${onSelectVersion ? 'app-rel-cal-event-clickable' : ''}`}
                           style={{ borderLeftColor: evt.color }}
-                          onClick={e => {
-                            e.stopPropagation();
-                            if (onSelectVersion) {
-                              onSelectVersion(evt.shortname);
-                            }
-                          }}
+                          {...(onSelectVersion
+                            ? {
+                                onClick: (e: React.MouseEvent) => {
+                                  e.stopPropagation();
+                                  onSelectVersion(evt.shortname);
+                                },
+                                onKeyDown: (e: React.KeyboardEvent) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    onSelectVersion(evt.shortname);
+                                  }
+                                },
+                                role: 'button' as const,
+                                tabIndex: 0,
+                              }
+                            : {})}
                         >
                           <span className="app-text-xs">
                             {evt.version} {evt.milestone.substring(0, 12)}

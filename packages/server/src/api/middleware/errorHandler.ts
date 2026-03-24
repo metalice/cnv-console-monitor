@@ -8,7 +8,7 @@ const log = logger.child({ module: 'API' });
 export function errorHandler(err: Error, _req: Request, res: Response, _next: NextFunction): void {
   if (err instanceof AxiosError) {
     const status = err.response?.status;
-    const upstream = err.response?.data;
+    const upstream: unknown = err.response?.data;
     const url = err.config?.url;
 
     log.error(

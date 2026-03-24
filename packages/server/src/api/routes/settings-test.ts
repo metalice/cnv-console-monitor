@@ -10,25 +10,28 @@ import { requireAdmin } from '../middleware/auth';
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 const router = Router();
 
+function stripTrailingSlashes(url: string): string {
+  let s = url;
+  while (s.endsWith('/')) {
+    s = s.slice(0, -1);
+  }
+  return s;
+}
+
 router.post('/test-rp', requireAdmin, async (req: Request, res: Response) => {
   try {
     const payload = (req.body || {}) as { url?: string; project?: string; token?: string };
     const dbSettings = await getAllSettings();
-    const rpUrl = (
-      payload.url !== undefined
-        ? payload.url
-        : (dbSettings['reportportal.url'] ?? config.reportportal.url)
-    ).replace(/\/+$/, '');
+    const db = dbSettings as Record<string, string | undefined>;
+    const rpUrl = stripTrailingSlashes(
+      payload.url ?? db['reportportal.url'] ?? config.reportportal.url,
+    );
     const rpProject = (
-      payload.project !== undefined
-        ? payload.project
-        : (dbSettings['reportportal.project'] ?? config.reportportal.project)
+      payload.project ??
+      db['reportportal.project'] ??
+      config.reportportal.project
     ).trim();
-    const rpToken = (
-      payload.token !== undefined
-        ? payload.token
-        : (dbSettings['reportportal.token'] ?? config.reportportal.token)
-    ).trim();
+    const rpToken = (payload.token ?? db['reportportal.token'] ?? config.reportportal.token).trim();
 
     if (!rpUrl || !rpToken) {
       res.status(400).json({ error: 'ReportPortal URL and token are required.' });
@@ -45,8 +48,10 @@ router.post('/test-rp', requireAdmin, async (req: Request, res: Response) => {
       httpsAgent,
       timeout: 10000,
     });
-    const response = await client.get('/launch', { params: { 'page.size': 1 } });
-    const total = response.data?.page?.totalElements ?? 0;
+    const response = await client.get<{ page?: { totalElements?: number } }>('/launch', {
+      params: { 'page.size': 1 },
+    });
+    const total = response.data.page?.totalElements ?? 0;
 
     let projects: string[] = [];
     let launchNames: string[] = [];
@@ -58,19 +63,25 @@ router.post('/test-rp', requireAdmin, async (req: Request, res: Response) => {
         httpsAgent,
         timeout: 10000,
       });
-      const projectsRes = await rpRoot.get('/api/v1/project/list', {
-        params: { 'page.size': 100 },
-      });
-      projects = (projectsRes.data?.content || [])
-        .map((project: { projectName: string }) => project.projectName)
-        .sort();
+      const projectsRes = await rpRoot.get<{ content?: { projectName: string }[] }>(
+        '/api/v1/project/list',
+        {
+          params: { 'page.size': 100 },
+        },
+      );
+      projects = (projectsRes.data.content ?? [])
+        .map(project => project.projectName)
+        .sort((a, b) => a.localeCompare(b));
     } catch {
       // Optional
     }
 
     try {
-      const namesRes = await client.get('/launch/names');
-      launchNames = (namesRes.data?.content || namesRes.data || []).sort();
+      const namesRes = await client.get<{ content?: string[] } | string[]>('/launch/names');
+      const namesData = namesRes.data;
+      launchNames = (
+        Array.isArray(namesData) ? namesData : ((namesData as { content?: string[] }).content ?? [])
+      ).sort((a, b) => a.localeCompare(b));
     } catch {
       // Optional
     }
@@ -104,7 +115,7 @@ router.post('/test-jira', requireAdmin, async (req: Request, res: Response) => {
       ? String(payload[key as keyof typeof payload])
       : (dbSettings[`jira.${key}`] ?? fallback)
     ).trim();
-  const jiraUrl = resolve('url', config.jira.url).replace(/\/+$/, '');
+  const jiraUrl = stripTrailingSlashes(resolve('url', config.jira.url));
   const jiraToken = resolve('token', config.jira.token);
   const jiraEmail = resolve('email', config.jira.email);
   const jiraProject = resolve('projectKey', config.jira.projectKey);
@@ -121,7 +132,9 @@ router.post('/test-jira', requireAdmin, async (req: Request, res: Response) => {
     const { createJiraClient } = await import('../../clients/jira-auth');
     const client = createJiraClient({ email: jiraEmail, token: jiraToken, url: jiraUrl });
     await client.get('/myself');
-    const projectResponse = jiraProject ? await client.get(`/project/${jiraProject}`) : null;
+    const projectResponse = jiraProject
+      ? await client.get<{ key: string; name: string }>(`/project/${jiraProject}`)
+      : null;
 
     const [projectsRes, issueTypeRes, componentRes] = await Promise.allSettled([
       client.get('/project'),
@@ -147,7 +160,9 @@ router.post('/test-jira', requireAdmin, async (req: Request, res: Response) => {
 
     const components =
       componentRes.status === 'fulfilled'
-        ? (componentRes.value.data as { name: string }[]).map(component => component.name).sort()
+        ? (componentRes.value.data as { name: string }[])
+            .map(component => component.name)
+            .toSorted((a, b) => a.localeCompare(b))
         : [];
 
     const message = projectResponse
@@ -168,12 +183,9 @@ router.post('/test-jira', requireAdmin, async (req: Request, res: Response) => {
 router.post('/test-jenkins', requireAdmin, async (req: Request, res: Response) => {
   const payload = (req.body || {}) as { user?: string; token?: string };
   const dbSettings = await getAllSettings();
-  const jenkinsUser = (payload.user ?? dbSettings['jenkins.user'] ?? config.jenkins.user).trim();
-  const jenkinsToken = (
-    payload.token ??
-    dbSettings['jenkins.token'] ??
-    config.jenkins.token
-  ).trim();
+  const db = dbSettings as Record<string, string | undefined>;
+  const jenkinsUser = (payload.user ?? db['jenkins.user'] ?? config.jenkins.user).trim();
+  const jenkinsToken = (payload.token ?? db['jenkins.token'] ?? config.jenkins.token).trim();
 
   if (!jenkinsUser || !jenkinsToken) {
     res
@@ -206,7 +218,8 @@ router.post('/test-jenkins', requireAdmin, async (req: Request, res: Response) =
 router.post('/test-gitlab', requireAdmin, async (req: Request, res: Response) => {
   const payload = (req.body || {}) as { token?: string };
   const dbSettings = await getAllSettings();
-  const token = (payload.token ?? dbSettings['gitlab.token'] ?? '').trim();
+  const db = dbSettings as Record<string, string | undefined>;
+  const token = (payload.token ?? db['gitlab.token'] ?? '').trim();
 
   if (!token) {
     res.status(400).json({ message: 'GitLab access token is required.', success: false });
@@ -223,7 +236,7 @@ router.post('/test-gitlab', requireAdmin, async (req: Request, res: Response) =>
       });
       return;
     }
-    const apiRes = await axios.get(`${baseUrl}/user`, {
+    const apiRes = await axios.get<{ username: string; email?: string }>(`${baseUrl}/user`, {
       headers: { 'Private-Token': token },
       httpsAgent,
       timeout: 10000,
@@ -251,17 +264,21 @@ router.post('/test-gitlab', requireAdmin, async (req: Request, res: Response) =>
 router.post('/test-github', requireAdmin, async (req: Request, res: Response) => {
   const payload = (req.body || {}) as { token?: string };
   const dbSettings = await getAllSettings();
-  const token = (payload.token ?? dbSettings['github.token'] ?? '').trim();
+  const db = dbSettings as Record<string, string | undefined>;
+  const token = (payload.token ?? db['github.token'] ?? '').trim();
 
   if (!token) {
     res.status(400).json({ message: 'GitHub access token is required.', success: false });
     return;
   }
   try {
-    const apiRes = await axios.get('https://api.github.com/user', {
-      headers: { Authorization: `Bearer ${token}` },
-      timeout: 10000,
-    });
+    const apiRes = await axios.get<{ login: string; email?: string }>(
+      'https://api.github.com/user',
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000,
+      },
+    );
     res.json({
       message: `Connected to GitHub as ${apiRes.data.login} (${apiRes.data.email || 'no email'}).`,
       success: true,

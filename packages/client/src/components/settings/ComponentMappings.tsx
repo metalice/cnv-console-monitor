@@ -73,7 +73,7 @@ export const ComponentMappings: React.FC = () => {
     const jiraComps = data?.jiraComponents ?? [];
     const mappedComps = (data?.mappings ?? []).map(item => item.component);
     return [...new Set([...jiraComps, ...mappedComps])]
-      .sort()
+      .toSorted((a, b) => a.localeCompare(b))
       .map(comp => ({ label: comp, value: comp }));
   }, [data?.jiraComponents, data?.mappings]);
 

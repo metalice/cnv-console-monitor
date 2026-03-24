@@ -79,20 +79,21 @@ export const extractUser = async (
   }
 
   const userEmail = email || `${username}@redhat.com`;
-  const userName = username || email!.split('@')[0];
+  const userName = username || email?.split('@')[0] || '';
+  const userId = username || email || '';
 
   try {
     const dbUser = await upsertUser(userEmail, userName);
     req.user = {
       email: userEmail,
-      id: username || email!,
+      id: userId,
       name: userName,
       role: dbUser.role,
     };
   } catch {
     req.user = {
       email: userEmail,
-      id: username || email!,
+      id: userId,
       name: userName,
       role: 'user',
     };

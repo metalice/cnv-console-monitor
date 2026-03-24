@@ -47,12 +47,14 @@ export class FetchItemsPhase implements PipelinePhase {
     let totalPages = 1;
 
     while (page <= totalPages) {
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       const result = await fetchTestItems({ launchId, page, pageSize: 50, status: 'FAILED' });
       totalPages = result.page.totalPages;
 
       for (const rpItem of result.content) {
         const item = parseTestItemRecord(rpItem, launchId);
         try {
+          // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
           const logs = await fetchTestItemLogs(rpItem.id, { level: 'ERROR', pageSize: 1 });
           if (logs.content.length > 0) {
             item.error_message = logs.content[0].message.substring(0, 2000);
@@ -60,6 +62,7 @@ export class FetchItemsPhase implements PipelinePhase {
         } catch {
           /* Non-critical */
         }
+        // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
         await upsertTestItem(item);
         allItems.push(item);
       }
@@ -147,6 +150,7 @@ export class FetchItemsPhase implements PipelinePhase {
       }
 
       const batch = withFailures.slice(i, i + concurrency);
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       await Promise.all(
         batch.map(async launch => {
           try {

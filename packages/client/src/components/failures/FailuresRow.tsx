@@ -57,6 +57,7 @@ export const FailuresRow: React.FC<FailuresRowProps> = ({
                 isInline
                 size="sm"
                 variant="link"
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                 onClick={() => onNavigate(`/test/${encodeURIComponent(item.unique_id!)}`)}
               >
                 {shortName}

@@ -33,6 +33,7 @@ export const VersionTrendChart: React.FC<VersionTrendChartProps> = ({
             containerComponent={
               <ChartVoronoiContainer
                 labels={({ datum }: { datum: { x: string; y: number; childName: string } }) => {
+                  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data
                   const version = datum.childName?.replace('chart-line-', '') || '';
                   return `${version}: ${datum.y}%`;
                 }}
@@ -57,7 +58,8 @@ export const VersionTrendChart: React.FC<VersionTrendChartProps> = ({
             <ChartAxis dependentAxis domain={[0, 100]} tickFormat={(t: number) => `${t}%`} />
             <ChartGroup>
               {versionGroups.versions.map((version, idx) => {
-                const versionData = versionGroups.byVersion.get(version)!;
+                const versionData =
+                  versionGroups.byVersion.get(version) ?? new Map<string, number>();
                 return (
                   <ChartLine
                     data={versionGroups.dates

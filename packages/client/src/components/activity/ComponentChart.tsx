@@ -23,7 +23,19 @@ export const ComponentChart: React.FC<ComponentChartProps> = ({ data, onComponen
             <div
               className={`app-comp-row ${onComponentClick ? 'app-comp-clickable' : ''}`}
               key={comp}
-              onClick={onComponentClick ? () => onComponentClick(comp) : undefined}
+              {...(onComponentClick
+                ? {
+                    onClick: () => onComponentClick(comp),
+                    onKeyDown: (e: React.KeyboardEvent) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onComponentClick(comp);
+                      }
+                    },
+                    role: 'button' as const,
+                    tabIndex: 0,
+                  }
+                : {})}
             >
               <span className="app-comp-label app-text-xs">{comp}</span>
               <div className="app-comp-bar-track">

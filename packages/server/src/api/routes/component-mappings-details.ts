@@ -1,31 +1,33 @@
 import { type NextFunction, type Request, type Response, Router } from 'express';
 
 import { AppDataSource } from '../../db/data-source';
+import { Launch } from '../../db/entities/Launch';
 
 const router = Router();
 
 router.get('/:name', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const launchName = decodeURIComponent(req.params.name as string);
-    const repo = AppDataSource.getRepository('Launch');
+    const repo = AppDataSource.getRepository(Launch);
 
-    const stats = (await repo
-      .createQueryBuilder('l')
-      .select('COUNT(*)', 'totalRuns')
-      .addSelect("COUNT(CASE WHEN l.status = 'PASSED' THEN 1 END)", 'passed')
-      .addSelect("COUNT(CASE WHEN l.status = 'FAILED' THEN 1 END)", 'failed')
-      .addSelect("COUNT(CASE WHEN l.status = 'IN_PROGRESS' THEN 1 END)", 'inProgress')
-      .addSelect('MIN(l.start_time)', 'firstRun')
-      .addSelect('MAX(l.start_time)', 'lastRun')
-      .where('l.name = :launchName', { launchName })
-      .getRawOne())!;
+    const stats: Record<string, string> =
+      (await repo
+        .createQueryBuilder('l')
+        .select('COUNT(*)', 'totalRuns')
+        .addSelect("COUNT(CASE WHEN l.status = 'PASSED' THEN 1 END)", 'passed')
+        .addSelect("COUNT(CASE WHEN l.status = 'FAILED' THEN 1 END)", 'failed')
+        .addSelect("COUNT(CASE WHEN l.status = 'IN_PROGRESS' THEN 1 END)", 'inProgress')
+        .addSelect('MIN(l.start_time)', 'firstRun')
+        .addSelect('MAX(l.start_time)', 'lastRun')
+        .where('l.name = :launchName', { launchName })
+        .getRawOne()) ?? {};
 
-    const latest = (await repo
+    const latest = await repo
       .createQueryBuilder('l')
       .where('l.name = :launchName', { launchName })
       .orderBy('l.start_time', 'DESC')
       .limit(1)
-      .getMany()) as Record<string, unknown>[];
+      .getMany();
 
     if (latest.length === 0) {
       res.json({ found: false });

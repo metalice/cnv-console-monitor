@@ -53,7 +53,11 @@ const fetchJenkinsData = async (artifactsUrl: string): Promise<JenkinsResult> =>
   try {
     const requestConfig = buildJenkinsRequestConfig();
     const response = await withRetry(
-      () => axios.get(buildApiUrl, requestConfig),
+      () =>
+        axios.get<{ actions?: { parameters?: { name: string; value: string }[] }[] }>(
+          buildApiUrl,
+          requestConfig,
+        ),
       'fetchJenkinsData',
       {
         baseDelayMs: 2000,
@@ -64,7 +68,7 @@ const fetchJenkinsData = async (artifactsUrl: string): Promise<JenkinsResult> =>
           if (s === 403 || s === 404 || s === 410) {
             return false;
           }
-          const code = (err as Record<string, unknown>)?.code as string | undefined;
+          const code = (err as Record<string, unknown>).code as string | undefined;
           if (code === 'ECONNRESET' || code === 'ETIMEDOUT' || code === 'ENOTFOUND') {
             return true;
           }
@@ -73,13 +77,12 @@ const fetchJenkinsData = async (artifactsUrl: string): Promise<JenkinsResult> =>
       },
     );
 
-    const actions: { parameters?: { name: string; value: string }[] }[] =
-      response.data?.actions || [];
+    const actions = response.data.actions ?? [];
     const params: Record<string, string> = {};
     for (const action of actions) {
       for (const param of action.parameters ?? []) {
         if (param.name) {
-          params[param.name] = param.value ?? '';
+          params[param.name] = param.value;
         }
       }
     }
@@ -89,8 +92,8 @@ const fetchJenkinsData = async (artifactsUrl: string): Promise<JenkinsResult> =>
     const jobMetaStr = params.JOB_METADATA;
     if (jobMetaStr) {
       try {
-        metadata = JSON.parse(jobMetaStr);
-        if (metadata && typeof metadata.team === 'string') {
+        metadata = JSON.parse(jobMetaStr) as Record<string, unknown>;
+        if (typeof metadata.team === 'string') {
           team = metadata.team;
         }
       } catch {
@@ -99,6 +102,7 @@ const fetchJenkinsData = async (artifactsUrl: string): Promise<JenkinsResult> =>
     }
 
     const tier =
+      // eslint-disable-next-line @typescript-eslint/no-base-to-string
       (metadata?.tier != null ? `TIER-${String(metadata.tier)}` : null) ||
       params.DATA_TIER_NAME ||
       params.CNV_TIER_NAME ||

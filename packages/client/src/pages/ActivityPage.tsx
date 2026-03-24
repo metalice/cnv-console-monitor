@@ -118,6 +118,7 @@ const TrendSparkline: React.FC<{ dates: string[] }> = ({ dates }) => {
               ? 'var(--pf-t--global--color--status--success--default)'
               : 'var(--pf-t--global--border--color--default)'
           }
+          // eslint-disable-next-line react/no-array-index-key
           key={i}
           r={0.8}
         />
@@ -185,7 +186,7 @@ export const ActivityPage: React.FC = () => {
     if (lookbackMode === 'range') {
       return Math.max(30, Math.ceil((until - since) / (24 * 60 * 60 * 1000)));
     }
-    const hours = LOOKBACK_HOURS[lookbackMode] ?? 24;
+    const hours = LOOKBACK_HOURS[lookbackMode];
     return Math.max(30, Math.ceil(hours / 24));
   }, [lookbackMode, since, until]);
 
@@ -420,7 +421,7 @@ export const ActivityPage: React.FC = () => {
               selectedId={selectedEntry?.id}
               toolbar={
                 <ActivityToolbar
-                  currentUser={user?.name}
+                  currentUser={user.name}
                   entries={activityData?.entries}
                   filters={localFilters}
                   hasActiveFilters={hasActiveLocalFilters}

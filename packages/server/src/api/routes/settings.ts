@@ -49,10 +49,12 @@ router.get('/', requireAdmin, async (_req: Request, res: Response, next: NextFun
       'slack.jiraWebhookUrl': maskToken(config.slack.jiraWebhookUrl),
     };
 
+    const db = dbSettings as Record<string, string | undefined>;
+    const configVals = configValues as Record<string, string | undefined>;
     for (const key of EDITABLE_KEYS) {
       editableSettings[key] = {
-        source: dbSettings[key] !== undefined ? 'db' : 'env',
-        value: configValues[key] ?? dbSettings[key] ?? '',
+        source: Object.hasOwn(dbSettings, key) ? 'db' : 'env',
+        value: configVals[key] ?? db[key] ?? '',
       };
     }
 
@@ -84,6 +86,7 @@ router.put('/', requireAdmin, async (req: Request, res: Response, next: NextFunc
         res.status(400).json({ error: `Setting '${key}' is not editable` });
         return;
       }
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       await setSetting(key, value, updatedBy);
     }
 
@@ -109,6 +112,7 @@ router.post('/reset', requireAdmin, async (_req: Request, res: Response, next: N
   try {
     const dbSettings = await getAllSettings();
     for (const key of Object.keys(dbSettings)) {
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       await deleteSetting(key);
     }
     applySettingsOverrides({});

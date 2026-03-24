@@ -245,7 +245,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         }
         return undefined;
       };
-      const node = findNode(tree, item.id!);
+      const node = item.id ? findNode(tree, item.id) : undefined;
       if (node) {
         onSelect(node);
       }
@@ -303,7 +303,9 @@ export const FileTree: React.FC<FileTreeProps> = ({
         </ToolbarContent>
       </Toolbar>
       <div
+        aria-label="Test file tree"
         className="app-file-tree-content"
+        role="application"
         onContextMenu={e => {
           const target = e.target as HTMLElement;
           const nodeEl = target.closest('[data-node-id]');

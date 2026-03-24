@@ -29,16 +29,16 @@ export type GitProvider = {
   }): Promise<GitPRResult>;
 };
 
-export const createGitProvider = (
+export const createGitProvider = async (
   provider: 'gitlab' | 'github',
   apiBaseUrl: string,
   projectId: string,
   token: string,
-): GitProvider => {
+): Promise<GitProvider> => {
   if (provider === 'gitlab') {
-    const { GitLabProvider } = require('./gitlab');
+    const { GitLabProvider } = await import('./gitlab');
     return new GitLabProvider(apiBaseUrl, projectId, token);
   }
-  const { GitHubProvider } = require('./github-repo');
+  const { GitHubProvider } = await import('./github-repo');
   return new GitHubProvider(apiBaseUrl, projectId, token);
 };

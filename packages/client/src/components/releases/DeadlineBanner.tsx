@@ -83,6 +83,7 @@ export const DeadlineBanner: React.FC<DeadlineBannerProps> = ({ releases }) => {
     >
       <Flex flexWrap={{ default: 'wrap' }} spaceItems={{ default: 'spaceItemsMd' }}>
         {deadlines.slice(0, 5).map((d, i) => (
+          // eslint-disable-next-line react/no-array-index-key
           <FlexItem key={i}>
             <Label isCompact color={urgencyColor(d.daysLeft)}>
               {d.version} {d.milestone} —{' '}

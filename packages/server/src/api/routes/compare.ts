@@ -11,7 +11,7 @@ router.get('/launches', async (req: Request, res: Response, next: NextFunction) 
     const days = parseInt(req.query.days as string) || 30;
     const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
 
-    const rows = await AppDataSource.query(
+    const rows: Record<string, unknown>[] = await AppDataSource.query(
       `
       SELECT l.rp_id, l.name, l.number, l.status, l.cnv_version, l.tier,
              l.cluster_name, l.start_time, l.total, l.passed, l.failed, l.component
@@ -28,7 +28,7 @@ router.get('/launches', async (req: Request, res: Response, next: NextFunction) 
       if (!grouped.has(name)) {
         grouped.set(name, []);
       }
-      grouped.get(name)!.push(row);
+      grouped.get(name)?.push(row);
     }
 
     const result = Array.from(grouped.entries()).map(([name, runs]) => ({
@@ -84,10 +84,14 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     }
 
     const mapA = new Map(
-      itemsA.filter(item => item.unique_id).map(item => [item.unique_id!, item]),
+      itemsA
+        .filter((item): item is typeof item & { unique_id: string } => Boolean(item.unique_id))
+        .map(item => [item.unique_id, item]),
     );
     const mapB = new Map(
-      itemsB.filter(item => item.unique_id).map(item => [item.unique_id!, item]),
+      itemsB
+        .filter((item): item is typeof item & { unique_id: string } => Boolean(item.unique_id))
+        .map(item => [item.unique_id, item]),
     );
 
     const regressions = [];

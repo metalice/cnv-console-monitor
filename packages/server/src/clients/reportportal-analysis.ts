@@ -25,9 +25,19 @@ export const updateDefectType = async (
 export const addTestItemComment = async (testItemId: number, comment: string): Promise<void> => {
   const client = createRPClient();
   const item = await withRetry(() => client.get(`/item/${testItemId}`), 'rp.getItem');
-  const existingIssue = item.data?.issue || {};
+  const itemData = item.data as
+    | {
+        issue?: {
+          comment?: string;
+          issueType?: string;
+          ignoreAnalyzer?: boolean;
+          autoAnalyzed?: boolean;
+        };
+      }
+    | undefined;
+  const existingIssue = itemData?.issue ?? {};
 
-  const existingComment = existingIssue.comment || '';
+  const existingComment = existingIssue.comment ?? '';
   const newComment = existingComment ? `${existingComment}\n---\n${comment}` : comment;
 
   await withRetry(

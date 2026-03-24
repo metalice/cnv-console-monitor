@@ -28,7 +28,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 
 router.get('/meta', async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const [users, components] = await Promise.all([
+    const [users, components] = (await Promise.all([
       AppDataSource.query(`
         SELECT DISTINCT performed_by FROM triage_log WHERE performed_by IS NOT NULL
         UNION
@@ -41,10 +41,10 @@ router.get('/meta', async (_req: Request, res: Response, next: NextFunction) => 
         SELECT DISTINCT component FROM acknowledgments WHERE component IS NOT NULL
         ORDER BY component
       `),
-    ]);
+    ])) as [Record<string, string>[], Record<string, string>[]];
     res.json({
-      components: components.map((r: Record<string, string>) => r.component).filter(Boolean),
-      users: users.map((r: Record<string, string>) => r.performed_by || r.reviewer).filter(Boolean),
+      components: components.map(r => r.component).filter(Boolean),
+      users: users.map(r => r.performed_by || r.reviewer).filter(Boolean),
     });
   } catch (err) {
     next(err);
@@ -83,7 +83,7 @@ router.get('/summary', async (req: Request, res: Response, next: NextFunction) =
       params.push(until);
     }
 
-    const [actionRows, componentRows, userRows, latestRow] = await Promise.all([
+    const [actionRows, componentRows, userRows, latestRow] = (await Promise.all([
       AppDataSource.query(
         `
         SELECT action, COUNT(*)::int as count FROM (
@@ -121,19 +121,24 @@ router.get('/summary', async (req: Request, res: Response, next: NextFunction) =
           (SELECT a.acknowledged_at as ts FROM acknowledgments a)
         ) combined
       `),
-    ]);
+    ])) as [
+      Record<string, unknown>[],
+      Record<string, unknown>[],
+      Record<string, unknown>[],
+      Record<string, unknown>[],
+    ];
 
     const byAction: Record<string, number> = {};
     let total = 0;
     for (const r of actionRows) {
-      byAction[r.action] = r.count;
-      total += r.count;
+      byAction[r.action as string] = r.count as number;
+      total += Number(r.count);
     }
 
     res.json({
       byAction,
-      byComponent: componentRows.map((r: Record<string, unknown>) => [r.component, r.count]),
-      byUser: userRows.map((r: Record<string, unknown>) => [r.performed_by, r.count]),
+      byComponent: componentRows.map(r => [r.component, r.count]),
+      byUser: userRows.map(r => [r.performed_by, r.count]),
       latestActivityAt: latestRow[0]?.latest
         ? new Date(latestRow[0].latest as string).getTime()
         : null,
@@ -151,7 +156,7 @@ router.get('/related/:testItemId', async (req: Request, res: Response, next: Nex
       res.status(400).json({ error: 'Invalid id' });
       return;
     }
-    const rows = await AppDataSource.query(
+    const rows: Record<string, unknown>[] = await AppDataSource.query(
       `
       SELECT tl.id, tl.action, tl.old_value, tl.new_value, tl.performed_by, tl.performed_at, tl.component
       FROM triage_log tl
@@ -174,7 +179,7 @@ router.post('/:id/pin', requireAdmin, async (req: Request, res: Response, next: 
       res.status(400).json({ error: 'Invalid id' });
       return;
     }
-    const note = (req.body.note as string) || null;
+    const note = ((req.body as Record<string, unknown>).note as string) || null;
     await AppDataSource.getRepository(TriageLog).update({ id }, { pin_note: note, pinned: true });
     res.json({ success: true });
   } catch (err) {
@@ -198,7 +203,7 @@ router.post('/:id/unpin', requireAdmin, async (req: Request, res: Response, next
 
 router.get('/pinned', async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const rows = await AppDataSource.query(`
+    const rows: Record<string, unknown>[] = await AppDataSource.query(`
       SELECT tl.id, tl.test_item_rp_id, ti.launch_rp_id, tl.action, tl.old_value, tl.new_value,
              tl.performed_by, tl.performed_at, ti.name as test_name, tl.component,
              NULL as notes, tl.pinned, tl.pin_note

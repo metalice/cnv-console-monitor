@@ -3,6 +3,10 @@ import { AppDataSource } from '../data-source';
 import { Setting } from '../entities/Setting';
 import { SettingsLog } from '../entities/SettingsLog';
 
+function mask(v: string): string {
+  return v.length > 4 ? `••••${v.substring(v.length - 4)}` : '(set)';
+}
+
 const settings = () => AppDataSource.getRepository(Setting);
 const settingsLog = () => AppDataSource.getRepository(SettingsLog);
 
@@ -84,7 +88,6 @@ export const cleanupInternalSettingsLogs = async (): Promise<number> => {
 };
 
 export const scrubSensitiveSettingsLogs = async (): Promise<number> => {
-  const mask = (v: string) => (v.length > 4 ? `••••${v.substring(v.length - 4)}` : '(set)');
   const sensitivePatterns = ['token', 'pass', 'secret', 'key', 'webhook'];
 
   const allLogs = await settingsLog().find();
@@ -104,6 +107,7 @@ export const scrubSensitiveSettingsLogs = async (): Promise<number> => {
       changed = true;
     }
     if (changed) {
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       await settingsLog().save(entry);
       scrubbed++;
     }

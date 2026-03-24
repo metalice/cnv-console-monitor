@@ -134,6 +134,7 @@ export const NewSubscriptionForm: React.FC<NewSubscriptionFormProps> = ({
                 <ComponentMultiSelect
                   id="new-sub-comp"
                   options={availableComponents}
+                  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data
                   selected={new Set(newRow.components || [])}
                   onChange={selected => updateField('components', [...selected])}
                 />
@@ -234,6 +235,7 @@ export const NewSubscriptionForm: React.FC<NewSubscriptionFormProps> = ({
                     onChange={(_e, checked) => updateField('reminderEnabled', checked)}
                   />
                 </FlexItem>
+                {}
                 {newRow.reminderEnabled && (
                   <FlexItem>
                     <input
@@ -265,6 +267,7 @@ export const NewSubscriptionForm: React.FC<NewSubscriptionFormProps> = ({
           </DescriptionListGroup>
         </DescriptionList>
 
+        {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data */}
         {subTestMessages.new && (
           <Alert
             isInline

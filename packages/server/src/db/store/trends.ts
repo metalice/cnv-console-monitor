@@ -24,12 +24,12 @@ export const getPassRateTrend = async (
     queryBuilder.andWhere('l.component = :component', { component });
   }
 
-  const rows = await queryBuilder
+  const rows: Record<string, unknown>[] = await queryBuilder
     .groupBy("TO_CHAR(TO_TIMESTAMP(l.start_time / 1000), 'YYYY-MM-DD')")
     .orderBy('date', 'ASC')
     .getRawMany();
   return rows.map(row => ({
-    date: row.date,
+    date: row.date as string,
     passed: Number(row.passed),
     rate: Number(row.rate),
     total: Number(row.total),
@@ -46,7 +46,7 @@ export const getPassRateTrendByVersion = async (
   if (component) {
     params.push(component);
   }
-  const rows = await AppDataSource.query(
+  const rows: Record<string, unknown>[] = await AppDataSource.query(
     `
     SELECT
       TO_CHAR(TO_TIMESTAMP(l.start_time / 1000), 'YYYY-MM-DD') as date,
@@ -90,7 +90,7 @@ export const getErrorPatterns = async (
   if (component) {
     params.push(component);
   }
-  const rows = await AppDataSource.query(
+  const rows: Record<string, unknown>[] = await AppDataSource.query(
     `
     SELECT
       LEFT(ti.error_message, 100) as pattern,
@@ -135,7 +135,7 @@ export const getDefectTypesTrend = async (
   if (component) {
     params.push(component);
   }
-  const rows = await AppDataSource.query(
+  const rows: Record<string, unknown>[] = await AppDataSource.query(
     `
     SELECT
       TO_CHAR(DATE_TRUNC('week', TO_TIMESTAMP(ti.start_time / 1000)), 'YYYY-MM-DD') as week,

@@ -21,6 +21,7 @@ const dispatchSubscriptionNotifications = async (): Promise<void> => {
       if (!sub.enabled) {
         continue;
       }
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       await dispatchToSubscription(report, sub);
     }
   } catch (err) {
@@ -91,12 +92,14 @@ export const setupAckReminder = (): void => {
       }
 
       const today = now.toLocaleDateString('en-CA', { timeZone: tz });
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       const acks = await getAcknowledgmentsForDate(today);
       if (acks.length > 0) {
         continue;
       }
 
       try {
+        // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
         await sendSlackReminder(sub.slackWebhook);
         log.info({ date: today, subId: sub.id }, 'Ack reminder sent');
       } catch (err) {

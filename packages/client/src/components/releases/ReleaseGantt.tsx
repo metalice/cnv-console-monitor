@@ -39,7 +39,7 @@ const MILESTONE_SHAPES: Record<MilestoneType, { color: string; symbol: string }>
 };
 
 const extractShortVersion = (name: string): string => {
-  const match = /(\d+\.\d+\.?\d*)/.exec(name);
+  const match = /(\d{1,20}\.\d{1,20}(?:\.\d{1,20})?)/.exec(name);
   return match
     ? match[1]
     : name
@@ -68,6 +68,7 @@ type ReleaseGanttProps = {
   onSelectVersion: (shortname: string) => void;
 };
 
+// eslint-disable-next-line max-lines-per-function
 export const ReleaseGantt: React.FC<ReleaseGanttProps> = ({
   isLoading,
   onSelectVersion,
@@ -178,6 +179,7 @@ export const ReleaseGantt: React.FC<ReleaseGanttProps> = ({
         <div className="app-gantt-scroll" ref={scrollRef}>
           <svg className="app-gantt-svg" height={svgHeight} width={totalWidth}>
             {monthMarkers.map((m, i) => (
+              // eslint-disable-next-line react/no-array-index-key
               <g key={`m-${i}`}>
                 <line className="app-gantt-month-line" x1={m.x} x2={m.x} y1={0} y2={svgHeight} />
                 <text className="app-gantt-month-text" x={m.x + 4} y={14}>
@@ -187,6 +189,7 @@ export const ReleaseGantt: React.FC<ReleaseGanttProps> = ({
             ))}
 
             {dayMarkers.map((d, i) => (
+              // eslint-disable-next-line react/no-array-index-key
               <g key={`d-${i}`}>
                 <line
                   className="app-gantt-day-tick"
@@ -263,6 +266,7 @@ export const ReleaseGantt: React.FC<ReleaseGanttProps> = ({
                     })
                     .map((m, mi) => {
                       const mx = posX(m.date);
+                      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data
                       const shape = MILESTONE_SHAPES[m.type] || MILESTONE_SHAPES.batch;
                       const shortVer = extractShortVersion(m.name);
                       const isBatchOrGa = m.type === 'batch' || m.type === 'ga';
@@ -272,6 +276,7 @@ export const ReleaseGantt: React.FC<ReleaseGanttProps> = ({
                         year: 'numeric',
                       });
                       return (
+                        // eslint-disable-next-line react/no-array-index-key
                         <g key={mi}>
                           {isBatchOrGa && (
                             <line

@@ -23,14 +23,12 @@ export const ExportButton: React.FC<ExportButtonProps> = ({ date, groups }) => {
     const header = 'Version,Tier,Component,Status,Total,Passed,Failed,Skipped,PassRate,LastRun\n';
     const rows = groups
       .map(group => {
-        const lastRun = group.latestLaunch
-          ? new Date(group.latestLaunch.start_time).toISOString()
-          : '';
+        const lastRun = new Date(group.latestLaunch.start_time).toISOString();
         return [
           group.cnvVersion,
           group.tier,
           group.component ?? '',
-          group.latestLaunch?.status ?? '',
+          group.latestLaunch.status,
           group.totalTests,
           group.passedTests,
           group.failedTests,

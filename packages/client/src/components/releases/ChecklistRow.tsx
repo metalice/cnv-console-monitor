@@ -13,7 +13,7 @@ const toMajorMinor = (v: string): string => {
     .replace(/^cnv[\s\-_]*v?/i, '')
     .trim()
     .toLowerCase();
-  const match = /(\d+\.\d+)/.exec(stripped);
+  const match = /(\d{1,20}\.\d{1,20})/.exec(stripped);
   return match ? match[1] : stripped;
 };
 
@@ -237,6 +237,7 @@ export const ChecklistRow: React.FC<ChecklistRowProps> = ({
     {isColumnVisible('status') && <Td className="app-cell-nowrap">{statusBadge(task.status)}</Td>}
     {showComponentCol && (
       <Td className="app-cell-nowrap">
+        {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data */}
         {task.components?.[0] || <span className="app-text-muted">--</span>}
       </Td>
     )}

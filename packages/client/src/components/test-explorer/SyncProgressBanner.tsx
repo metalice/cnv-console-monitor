@@ -62,6 +62,7 @@ export const SyncProgressBanner: React.FC = () => {
         >
           <div className="app-sync-log">
             {sync.log.map((entry, i) => (
+              // eslint-disable-next-line react/no-array-index-key
               <div className="app-sync-log-entry" key={i}>
                 {entry}
               </div>

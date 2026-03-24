@@ -2,6 +2,7 @@ import { type NextFunction, type Request, type Response, Router } from 'express'
 
 import { autoGenerateMappings, fetchJiraComponents, refreshMappingCache } from '../../componentMap';
 import { AppDataSource } from '../../db/data-source';
+import { Launch } from '../../db/entities/Launch';
 import {
   deleteComponentMapping,
   getAllComponentMappings,
@@ -27,19 +28,20 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
       fetchJiraComponents(),
     ]);
 
-    const componentCounts = await AppDataSource.getRepository('Launch')
-      .createQueryBuilder('l')
-      .select('l.component', 'component')
-      .addSelect('COUNT(*)', 'count')
-      .where('l.component IS NOT NULL')
-      .groupBy('l.component')
-      .getRawMany();
+    const componentCounts: { component: string; count: string }[] =
+      await AppDataSource.getRepository(Launch)
+        .createQueryBuilder('l')
+        .select('l.component', 'component')
+        .addSelect('COUNT(*)', 'count')
+        .where('l.component IS NOT NULL')
+        .groupBy('l.component')
+        .getRawMany();
     const countMap = new Map(componentCounts.map(row => [row.component, parseInt(row.count, 10)]));
 
     const mappingsWithCounts = await Promise.all(
       mappings.map(async mapping => {
         if (mapping.type === 'manual') {
-          const appliedCount = await AppDataSource.getRepository('Launch')
+          const appliedCount = await AppDataSource.getRepository(Launch)
             .createQueryBuilder('l')
             .where("l.jenkins_status = 'regex_mapped'")
             .andWhere('l.name ~* :pattern', { pattern: mapping.pattern })
@@ -53,7 +55,7 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
     const [launchCount, componentList, mappedCount] = await Promise.all([
       getLaunchCount(),
       getDistinctComponents(),
-      AppDataSource.getRepository('Launch')
+      AppDataSource.getRepository(Launch)
         .createQueryBuilder('l')
         .where('l.component IS NOT NULL')
         .getCount(),
@@ -93,6 +95,7 @@ router.get('/preview', async (req: Request, res: Response, next: NextFunction) =
       .filter(mapping => mapping.type === 'manual' && mapping.pattern !== pattern)
       .filter(mapping => {
         try {
+          // eslint-disable-next-line security/detect-non-literal-regexp -- pattern from validated config, not user input
           return matches.some(name => new RegExp(mapping.pattern, 'i').test(name));
         } catch {
           return false;

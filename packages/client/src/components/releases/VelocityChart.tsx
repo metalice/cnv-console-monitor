@@ -41,6 +41,7 @@ export const VelocityChart: React.FC = () => {
     return null;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const max = Math.max(...withAvg.map(d => d.avgDaysBetweenReleases!));
 
   return (
@@ -65,7 +66,9 @@ export const VelocityChart: React.FC = () => {
                 >
                   <div
                     className="app-comp-bar"
-                    style={{ width: `${Math.max(2, (m.avgDaysBetweenReleases! / max) * 100)}%` }}
+                    style={{
+                      width: `${Math.max(2, ((m.avgDaysBetweenReleases ?? 0) / max) * 100)}%`,
+                    }}
                   />
                 </Tooltip>
               </div>

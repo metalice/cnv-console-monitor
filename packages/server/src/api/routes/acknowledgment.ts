@@ -1,6 +1,11 @@
 import { type NextFunction, type Request, type Response, Router } from 'express';
 
-import { AcknowledgeRequestSchema, DeleteAckRequestSchema } from '@cnv-monitor/shared';
+import {
+  type AcknowledgeRequest,
+  AcknowledgeRequestSchema,
+  type DeleteAckRequest,
+  DeleteAckRequestSchema,
+} from '@cnv-monitor/shared';
 
 import {
   addAcknowledgment,
@@ -39,7 +44,8 @@ router.get('/stats', async (req: Request, res: Response, next: NextFunction) => 
       if (!dateMap.has(entry.date)) {
         dateMap.set(entry.date, { firstAckAt: null, reviewers: [] });
       }
-      const day = dateMap.get(entry.date)!;
+      const day = dateMap.get(entry.date);
+      if (!day) continue;
       day.reviewers.push(entry.reviewer);
       if (entry.acknowledged_at && (!day.firstAckAt || entry.acknowledged_at < day.firstAckAt)) {
         day.firstAckAt = entry.acknowledged_at;
@@ -51,7 +57,7 @@ router.get('/stats', async (req: Request, res: Response, next: NextFunction) => 
       if (!reviewerDates.has(entry.reviewer)) {
         reviewerDates.set(entry.reviewer, []);
       }
-      reviewerDates.get(entry.reviewer)!.push(entry.date);
+      reviewerDates.get(entry.reviewer)?.push(entry.date);
     }
 
     res.json({
@@ -88,14 +94,15 @@ router.post(
   validateBody(AcknowledgeRequestSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const reviewer = req.user?.name || req.user?.email || req.body.reviewer;
-      const { notes, testNotes } = req.body;
+      const body = req.body as AcknowledgeRequest;
+      const reviewer = req.user?.name || req.user?.email || body.reviewer;
+      const { notes, testNotes } = body;
       const date = todayDate();
 
       let combinedNotes = notes || '';
       if (testNotes && testNotes.length > 0) {
         const testNotesText = testNotes
-          .map((tn: { testName: string; jiraKey?: string; note: string }) => {
+          .map(tn => {
             const jira = tn.jiraKey ? ` [${tn.jiraKey}]` : '';
             return `• ${tn.testName}${jira}: ${tn.note}`;
           })
@@ -103,7 +110,7 @@ router.post(
         combinedNotes = combinedNotes ? `${combinedNotes}\n\n${testNotesText}` : testNotesText;
       }
 
-      const component = req.body.component as string | undefined;
+      const component = body.component;
       await addAcknowledgment({ component, date, notes: combinedNotes || undefined, reviewer });
 
       try {
@@ -111,6 +118,7 @@ router.post(
         const subs = await getAllSubscriptions();
         for (const sub of subs) {
           if (sub.enabled && sub.slackWebhook) {
+            // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
             await sendSlackAcknowledgment(reviewer, combinedNotes || '', date, sub.slackWebhook);
           }
         }
@@ -133,7 +141,8 @@ router.delete(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const date = req.params.date as string;
-      const { reviewer } = req.body;
+      const body = req.body as DeleteAckRequest;
+      const { reviewer } = body;
 
       if (
         reviewer !== req.user?.name &&
@@ -144,7 +153,7 @@ router.delete(
         return;
       }
 
-      const component = req.body.component as string | undefined;
+      const component = (req.body as Record<string, unknown>).component as string | undefined;
       await deleteAcknowledgment(date, reviewer, component);
 
       const acks = await getAcknowledgmentsForDate(date, component);

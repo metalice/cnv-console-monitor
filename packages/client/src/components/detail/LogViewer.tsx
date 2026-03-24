@@ -34,6 +34,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({ itemId }) => {
     );
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data
   if (!data?.content?.length) {
     return (
       <EmptyState>

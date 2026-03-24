@@ -56,7 +56,7 @@ const buildFailedGroupBlocks = (group: LaunchGroup): SlackBlock[] => {
     const polarion = item.polarion_id ? `${item.polarion_id}: ` : '';
     const shortName = item.name.split('.').pop() || item.name;
     const jira = item.jira_key ? ` | ${item.jira_key}` : '';
-    if (enriched.recentStatuses) {
+    if (enriched.recentStatuses.length > 0) {
       const bar = streakBar(enriched.recentStatuses);
       const failInfo = `Failing ${enriched.consecutiveFailures}/${enriched.totalRuns}`;
       const lastPass = formatLastPass(enriched.lastPassDate, enriched.lastPassTime);
@@ -94,7 +94,7 @@ export const buildBlocks = (report: DailyReport): SlackBlock[] => {
     if (!groupsByComponent.has(component)) {
       groupsByComponent.set(component, []);
     }
-    groupsByComponent.get(component)!.push(group);
+    groupsByComponent.get(component)?.push(group);
   }
 
   for (const [component, groups] of [...groupsByComponent.entries()].sort((a, b) =>

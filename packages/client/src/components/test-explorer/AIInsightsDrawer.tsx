@@ -89,6 +89,7 @@ export const AIInsightsDrawer: React.FC<AIInsightsDrawerProps> = ({
               </Thead>
               <Tbody>
                 {data?.gaps.map((gap: Record<string, unknown>, i: number) => (
+                  // eslint-disable-next-line react/no-array-index-key
                   <Tr key={i}>
                     <Td>
                       <Label isCompact>{String(gap.type).replace('_', ' ')}</Label>

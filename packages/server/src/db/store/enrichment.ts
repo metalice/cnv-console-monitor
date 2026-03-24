@@ -43,7 +43,7 @@ export type EnrichmentStats = {
 };
 
 export const getEnrichmentStats = async (): Promise<EnrichmentStats> => {
-  const rows = await launches()
+  const rows: Record<string, unknown>[] = await launches()
     .createQueryBuilder('l')
     .select('l.jenkins_status', 'status')
     .addSelect('COUNT(*)', 'count')
@@ -59,7 +59,7 @@ export const getEnrichmentStats = async (): Promise<EnrichmentStats> => {
     success: 0,
   };
   for (const row of rows) {
-    const count = parseInt(row.count, 10);
+    const count = parseInt(String(row.count), 10);
     if (row.status === 'success') {
       stats.success = count;
     } else if (row.status === 'mapped') {
@@ -122,7 +122,7 @@ export const updateComponentByJenkinsTeam = async (
 };
 
 export const backfillComponentFromSiblings = async (): Promise<number> => {
-  const componentResult = await AppDataSource.query(`
+  const componentResult: [unknown, number] = await AppDataSource.query(`
     UPDATE launches target
     SET component = source.component
     FROM (
@@ -133,6 +133,7 @@ export const backfillComponentFromSiblings = async (): Promise<number> => {
     WHERE target.name = source.name
       AND target.component IS NULL
   `);
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: DB query result shape
   const siblingCount = componentResult[1] ?? 0;
 
   let regexCount = 0;
@@ -145,6 +146,7 @@ export const backfillComponentFromSiblings = async (): Promise<number> => {
     for (const launch of unmapped) {
       const resolved = resolveComponent(launch.jenkins_team, launch.name);
       if (resolved) {
+        // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
         await launches().update({ rp_id: launch.rp_id }, { component: resolved });
         regexCount++;
       }

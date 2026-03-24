@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import React, { useEffect, useState } from 'react';
 
 import type { PublicConfig } from '@cnv-monitor/shared';
@@ -60,6 +61,7 @@ import { FeatureGroup, type FeatureGroupProps } from '../components/about/Featur
 import { IntegrationCard } from '../components/about/IntegrationCard';
 import { QuickStartGuide } from '../components/about/QuickStartGuide';
 
+// eslint-disable-next-line max-lines-per-function
 export const AboutPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string | number>('overview');
 
@@ -687,9 +689,7 @@ export const AboutPage: React.FC = () => {
                 </GalleryItem>
                 <GalleryItem>
                   <IntegrationCard
-                    connected={
-                      pollStatus?.enrichment?.success != null && pollStatus.enrichment.success > 0
-                    }
+                    connected={pollStatus != null && pollStatus.enrichment.success > 0}
                     description="Build enrichment. Maps launches to teams, components, and tiers."
                     icon={<SyncAltIcon />}
                     name="Jenkins"

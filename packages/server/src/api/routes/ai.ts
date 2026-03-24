@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import { type NextFunction, type Request, type Response, Router } from 'express';
 
 import { getAIService } from '../../ai';
@@ -9,6 +10,78 @@ import { requireAdmin } from '../middleware/auth';
 const log = logger.child({ module: 'AI-API' });
 const router = Router();
 
+type TokenInfoResponse = {
+  expires_in: string;
+  email: string;
+};
+
+type ChatBody = {
+  messages: ChatMessage[];
+  provider?: string;
+  temperature?: number;
+  maxTokens?: number;
+  json?: boolean;
+};
+
+type StreamBody = {
+  messages: ChatMessage[];
+  provider?: string;
+  temperature?: number;
+  maxTokens?: number;
+};
+
+type PromptBody = {
+  vars?: Record<string, unknown>;
+  provider?: string;
+  temperature?: number;
+  maxTokens?: number;
+};
+
+type ConfigureBody = {
+  enabled?: boolean;
+  defaultModel?: string;
+  defaultModelId?: string;
+  geminiKey?: string;
+  openaiKey?: string;
+  anthropicKey?: string;
+  ollamaUrl?: string;
+  vertexProjectId?: string;
+  vertexRegion?: string;
+  vertexAccessToken?: string;
+};
+
+type TestConnectionBody = {
+  provider: string;
+};
+
+type AnalyzeFailureBody = {
+  testName: string;
+  errorMessage: string;
+  component?: string;
+  status?: string;
+  recentRuns?: unknown[];
+  triageHistory?: unknown[];
+};
+
+type SuggestTriageBody = {
+  testName: string;
+  errorMessage: string;
+  component?: string;
+  consecutiveFailures?: number;
+};
+
+type GenerateBugReportBody = {
+  testName: string;
+  errorMessage?: string;
+  component?: string;
+  version?: string;
+  recentRuns?: unknown[];
+};
+
+type NlSearchBody = {
+  query: string;
+};
+
 const parseAIJson = (content: string): Record<string, unknown> => {
   let cleaned = content.trim();
   cleaned = cleaned
@@ -16,7 +89,7 @@ const parseAIJson = (content: string): Record<string, unknown> => {
     .replace(/\n?```\s*$/, '')
     .trim();
   try {
-    return JSON.parse(cleaned);
+    return JSON.parse(cleaned) as Record<string, unknown>;
   } catch {
     return { raw: content };
   }
@@ -64,12 +137,13 @@ router.get('/status', async (_req: Request, res: Response) => {
     vertexTokenInfo.hasManualToken = authInfo.hasManualToken;
   }
   if (tokenCheck?.data) {
-    const expiresIn = parseInt(tokenCheck.data.expires_in, 10);
+    const tokenData = tokenCheck.data as TokenInfoResponse;
+    const expiresIn = parseInt(tokenData.expires_in, 10);
     vertexTokenInfo.expiresIn = isNaN(expiresIn) ? null : expiresIn;
     vertexTokenInfo.expiresAt = isNaN(expiresIn)
       ? null
       : new Date(Date.now() + expiresIn * 1000).toISOString();
-    vertexTokenInfo.email = tokenCheck.data.email || null;
+    vertexTokenInfo.email = tokenData.email || null;
   } else if (vertexToken) {
     vertexTokenInfo.expiresIn = 0;
   }
@@ -103,7 +177,8 @@ router.post('/chat', requireAdmin, async (req: Request, res: Response, _next: Ne
       return;
     }
 
-    const { json, maxTokens, messages, provider, temperature } = req.body;
+    const { json, maxTokens, messages, provider, temperature } = req.body as ChatBody;
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime request body
     if (!messages || !Array.isArray(messages)) {
       res.status(400).json({ error: 'messages array required' });
       return;
@@ -125,7 +200,8 @@ router.post('/stream', requireAdmin, async (req: Request, res: Response) => {
     return;
   }
 
-  const { maxTokens, messages, provider, temperature } = req.body;
+  const { maxTokens, messages, provider, temperature } = req.body as StreamBody;
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime request body
   if (!messages || !Array.isArray(messages)) {
     res.status(400).json({ error: 'messages array required' });
     return;
@@ -163,9 +239,9 @@ router.post(
       }
 
       const { name } = req.params;
-      const { maxTokens, provider, temperature, vars } = req.body;
+      const { maxTokens, provider, temperature, vars } = req.body as PromptBody;
 
-      const response = await ai.runPrompt(name as string, vars || {}, {
+      const response = await ai.runPrompt(name as string, vars ?? {}, {
         maxTokens,
         provider,
         temperature,
@@ -192,7 +268,7 @@ router.post('/configure', requireAdmin, async (req: Request, res: Response, next
       vertexAccessToken,
       vertexProjectId,
       vertexRegion,
-    } = req.body;
+    } = req.body as ConfigureBody;
     const by = req.user?.name || 'system';
 
     if (enabled !== undefined) {
@@ -230,22 +306,16 @@ router.post('/configure', requireAdmin, async (req: Request, res: Response, next
     const load = async (key: string, fallback: string) => (await getSetting(key)) || fallback;
 
     ai.configure({
-      anthropicKey: anthropicKey !== undefined ? anthropicKey : await load('ai.anthropicKey', ''),
-      defaultModel: defaultModel || (await load('ai.defaultModel', 'gemini')),
-      defaultModelId:
-        defaultModelId !== undefined ? defaultModelId : await load('ai.defaultModelId', ''),
+      anthropicKey: anthropicKey ?? (await load('ai.anthropicKey', '')),
+      defaultModel: defaultModel ?? (await load('ai.defaultModel', 'gemini')),
+      defaultModelId: defaultModelId ?? (await load('ai.defaultModelId', '')),
       enabled: enabled ?? ai.isEnabled(),
-      geminiKey: geminiKey !== undefined ? geminiKey : await load('ai.geminiKey', ''),
-      ollamaUrl: ollamaUrl !== undefined ? ollamaUrl : await load('ai.ollamaUrl', ''),
-      openaiKey: openaiKey !== undefined ? openaiKey : await load('ai.openaiKey', ''),
-      vertexAccessToken:
-        vertexAccessToken !== undefined
-          ? vertexAccessToken
-          : await load('ai.vertexAccessToken', ''),
-      vertexProjectId:
-        vertexProjectId !== undefined ? vertexProjectId : await load('ai.vertexProjectId', ''),
-      vertexRegion:
-        vertexRegion !== undefined ? vertexRegion : await load('ai.vertexRegion', 'us-east5'),
+      geminiKey: geminiKey ?? (await load('ai.geminiKey', '')),
+      ollamaUrl: ollamaUrl ?? (await load('ai.ollamaUrl', '')),
+      openaiKey: openaiKey ?? (await load('ai.openaiKey', '')),
+      vertexAccessToken: vertexAccessToken ?? (await load('ai.vertexAccessToken', '')),
+      vertexProjectId: vertexProjectId ?? (await load('ai.vertexProjectId', '')),
+      vertexRegion: vertexRegion ?? (await load('ai.vertexRegion', 'us-east5')),
     });
 
     res.json({ providers: ai.getAvailableProviders(), success: true });
@@ -257,7 +327,7 @@ router.post('/configure', requireAdmin, async (req: Request, res: Response, next
 router.post('/test-connection', requireAdmin, async (req: Request, res: Response) => {
   try {
     const ai = getAIService();
-    const { provider } = req.body;
+    const { provider } = req.body as TestConnectionBody;
     if (!provider) {
       res.status(400).json({ error: 'provider required' });
       return;
@@ -288,7 +358,8 @@ router.post('/analyze-failure', async (req: Request, res: Response) => {
       return;
     }
 
-    const { component, errorMessage, recentRuns, status, testName, triageHistory } = req.body;
+    const { component, errorMessage, recentRuns, status, testName, triageHistory } =
+      req.body as AnalyzeFailureBody;
     if (!testName || !errorMessage) {
       res.status(400).json({ error: 'testName and errorMessage required' });
       return;
@@ -299,10 +370,10 @@ router.post('/analyze-failure', async (req: Request, res: Response) => {
       {
         component: component || 'Unknown',
         errorMessage: errorMessage.substring(0, 3000),
-        recentRuns: recentRuns || [],
-        status: status || 'FAILED',
+        recentRuns: recentRuns ?? [],
+        status: status ?? 'FAILED',
         testName,
-        triageHistory: triageHistory || [],
+        triageHistory: triageHistory ?? [],
       },
       { cacheTtlMs: 60 * 60 * 1000, json: true },
     );
@@ -327,7 +398,8 @@ router.post('/suggest-triage', async (req: Request, res: Response) => {
       return;
     }
 
-    const { component, consecutiveFailures, errorMessage, testName } = req.body;
+    const { component, consecutiveFailures, errorMessage, testName } =
+      req.body as SuggestTriageBody;
     if (!testName || !errorMessage) {
       res.status(400).json({ error: 'testName and errorMessage required' });
       return;
@@ -361,7 +433,8 @@ router.post('/generate-bug-report', async (req: Request, res: Response) => {
       return;
     }
 
-    const { component, errorMessage, recentRuns, testName, version } = req.body;
+    const { component, errorMessage, recentRuns, testName, version } =
+      req.body as GenerateBugReportBody;
     const messages: ChatMessage[] = [
       {
         content:
@@ -369,7 +442,7 @@ router.post('/generate-bug-report', async (req: Request, res: Response) => {
         role: 'system',
       },
       {
-        content: `Test: ${testName}\nComponent: ${component || 'Unknown'}\nVersion: ${version || 'Unknown'}\nError:\n${(errorMessage || '').substring(0, 3000)}\n\nRecent runs: ${JSON.stringify(recentRuns || []).substring(0, 500)}`,
+        content: `Test: ${testName}\nComponent: ${component ?? 'Unknown'}\nVersion: ${version ?? 'Unknown'}\nError:\n${(errorMessage ?? '').substring(0, 3000)}\n\nRecent runs: ${JSON.stringify(recentRuns ?? []).substring(0, 500)}`,
         role: 'user',
       },
     ];
@@ -392,7 +465,8 @@ router.post('/daily-digest', requireAdmin, async (req: Request, res: Response) =
       return;
     }
 
-    const response = await ai.runPrompt('daily-digest', req.body || {}, {
+    const body = (req.body || {}) as Record<string, unknown>;
+    const response = await ai.runPrompt('daily-digest', body, {
       cacheTtlMs: 30 * 60 * 1000,
     });
     res.json({ cached: response.cached, digest: response.content, model: response.model });
@@ -411,7 +485,7 @@ router.post('/nl-search', async (req: Request, res: Response) => {
       return;
     }
 
-    const { query } = req.body;
+    const { query } = req.body as NlSearchBody;
     if (!query) {
       res.status(400).json({ error: 'query required' });
       return;
@@ -437,7 +511,8 @@ router.post('/risk-assessment', requireAdmin, async (req: Request, res: Response
       return;
     }
 
-    const response = await ai.runPrompt('risk-assessment', req.body || {}, {
+    const riskBody = (req.body || {}) as Record<string, unknown>;
+    const response = await ai.runPrompt('risk-assessment', riskBody, {
       cacheTtlMs: 60 * 60 * 1000,
       json: true,
     });
@@ -457,7 +532,8 @@ const genericPromptHandler =
         res.status(400).json({ error: 'AI is not enabled' });
         return;
       }
-      const response = await ai.runPrompt(promptName, req.body || {}, { cacheTtlMs, json: true });
+      const promptBody = (req.body || {}) as Record<string, unknown>;
+      const response = await ai.runPrompt(promptName, promptBody, { cacheTtlMs, json: true });
       const parsed = parseAIJson(response.content);
       res.json({
         cached: response.cached,
@@ -490,7 +566,8 @@ router.post('/chat-explorer', async (req: Request, res: Response) => {
       res.status(400).json({ error: 'AI is not enabled' });
       return;
     }
-    const response = await ai.runPrompt('chat-explorer', req.body || {}, {
+    const chatBody = (req.body || {}) as Record<string, unknown>;
+    const response = await ai.runPrompt('chat-explorer', chatBody, {
       cacheTtlMs: 5 * 60 * 1000,
     });
     res.json({

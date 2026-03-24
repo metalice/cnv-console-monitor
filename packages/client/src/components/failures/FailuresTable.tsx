@@ -257,6 +257,7 @@ export const FailuresTable: React.FC<FailuresTableProps> = ({
                             size="sm"
                             variant="link"
                             onClick={() =>
+                              // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                               onNavigate(`/test/${encodeURIComponent(item.unique_id!)}`)
                             }
                           >

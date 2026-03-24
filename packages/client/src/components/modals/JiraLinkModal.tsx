@@ -92,7 +92,15 @@ export const JiraLinkModal: React.FC<JiraLinkModalProps> = ({ isOpen, onClose, t
                   <div
                     className={`app-jira-search-item${jiraKey === result.key ? ' app-jira-search-item--selected' : ''}`}
                     key={result.key}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => setJiraKey(result.key)}
+                    onKeyDown={(e: React.KeyboardEvent) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setJiraKey(result.key);
+                      }
+                    }}
                   >
                     <strong>{result.key}</strong> — {result.summary}{' '}
                     <Label isCompact>{result.status}</Label>

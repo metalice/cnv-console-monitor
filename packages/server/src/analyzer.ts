@@ -72,19 +72,19 @@ export const groupByLaunchName = (launches: LaunchRecord[]): LauncherRow[] => {
     if (!byName.has(launch.name)) {
       byName.set(launch.name, []);
     }
-    byName.get(launch.name)!.push(launch);
+    byName.get(launch.name)?.push(launch);
   }
 
   const rows: LauncherRow[] = [];
   for (const [name, nameLaunches] of byName) {
-    const sorted = nameLaunches.sort((first, second) => second.start_time - first.start_time);
+    const sorted = nameLaunches.toSorted((first, second) => second.start_time - first.start_time);
     const latest = sorted[0];
     const passedCount = sorted.filter(item => item.status === 'PASSED').length;
     const failedCount = sorted.filter(item => item.status === 'FAILED').length;
     const inProgressCount = sorted.filter(item => item.status === 'IN_PROGRESS').length;
 
     const metadata = latest.jenkins_metadata;
-    const description = (metadata?.name as string) ?? null;
+    const description = typeof metadata?.name === 'string' ? metadata.name : null;
     const componentVotes = sorted.map(item => item.component).filter(Boolean);
     const resolvedComponent = componentVotes.length > 0 ? componentVotes[0] : null;
 
@@ -119,16 +119,21 @@ export const groupLaunches = async (launches: LaunchRecord[]): Promise<LaunchGro
     if (!groups.has(key)) {
       groups.set(key, []);
     }
-    groups.get(key)!.push(launch);
+    groups.get(key)?.push(launch);
   }
 
   const result: LaunchGroup[] = [];
   for (const [key, versionLaunches] of groups) {
     const [_component, version, tier, _variant] = key.split('|');
-    const sorted = versionLaunches.sort((first, second) => second.start_time - first.start_time);
+    const sorted = versionLaunches.toSorted(
+      (first, second) => second.start_time - first.start_time,
+    );
     const latest = sorted[0];
+    // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
     const failedItems = await getFailedTestItems(latest.rp_id);
+    // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
     const enrichedFailedItems = await enrichFailedItems(failedItems);
+    // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
     const lastPassedTime = await getLastPassedLaunchTime(latest.name);
     const totalTests = sorted.reduce((sum, launch) => sum + launch.total, 0);
     const passedTests = sorted.reduce((sum, launch) => sum + launch.passed, 0);
@@ -179,7 +184,7 @@ export const buildDailyReport = async (
   const untriagedCount = (await getUntriagedItems(sinceMs, untilMs)).length;
   const components = [
     ...new Set(launches.map(item => item.component).filter(Boolean) as string[]),
-  ].sort();
+  ].toSorted((a, b) => a.localeCompare(b));
 
   return {
     components,

@@ -61,7 +61,7 @@ export const ChecklistActionModal: React.FC<ChecklistActionModalProps> = ({
     },
   });
 
-  const transitionOptions = (detail?.transitions || []).map(t => ({ label: t.name, value: t.id }));
+  const transitionOptions = (detail?.transitions ?? []).map(t => ({ label: t.name, value: t.id }));
 
   return (
     <Modal isOpen={isOpen} variant={ModalVariant.medium} onClose={onClose}>

@@ -45,7 +45,10 @@ export const fetchLaunches = async (params: {
     () => client.get('/launch', { params: queryParams }),
     'fetchLaunches',
   );
-  return response.data;
+  return response.data as {
+    content: RPLaunch[];
+    page: { totalElements: number; totalPages: number };
+  };
 };
 
 export const fetchLaunchById = async (launchId: number): Promise<RPLaunch> => {
@@ -54,7 +57,7 @@ export const fetchLaunchById = async (launchId: number): Promise<RPLaunch> => {
     () => client.get(`/launch/${launchId}`),
     `fetchLaunchById(${launchId})`,
   );
-  return response.data;
+  return response.data as RPLaunch;
 };
 
 export const fetchTestItems = async (params: {
@@ -80,7 +83,10 @@ export const fetchTestItems = async (params: {
     () => client.get('/item', { params: queryParams }),
     `fetchTestItems(launch=${params.launchId})`,
   );
-  return response.data;
+  return response.data as {
+    content: RPTestItem[];
+    page: { totalElements: number; totalPages: number };
+  };
 };
 
 export const fetchTestItemLogs = async (
@@ -107,11 +113,12 @@ export const fetchTestItemLogs = async (
     () => client.get('/log', { params: queryParams }),
     `fetchTestItemLogs(${itemId})`,
   );
-  return response.data;
+  return response.data as { content: RPLogEntry[]; page: { totalElements: number } };
 };
 
 export const fetchDefectTypes = async (): Promise<Record<string, RPDefectType[]>> => {
   const client = createRPClient();
   const response = await withRetry(() => client.get('/settings'), 'fetchDefectTypes');
-  return response.data?.subTypes || {};
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime RP API data
+  return (response.data as { subTypes?: Record<string, RPDefectType[]> })?.subTypes ?? {};
 };

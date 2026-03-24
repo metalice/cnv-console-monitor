@@ -50,7 +50,7 @@ export class VertexClaudeProvider implements ModelProvider {
   private async getToken(): Promise<string> {
     if (this.manualToken) {
       try {
-        const resp = await axios.get(
+        const resp = await axios.get<{ expires_in: string }>(
           `https://oauth2.googleapis.com/tokeninfo?access_token=${this.manualToken}`,
           { timeout: 3000 },
         );
@@ -104,10 +104,13 @@ export class VertexClaudeProvider implements ModelProvider {
       timeout: options?.timeout ?? 120000,
     });
 
-    const { data } = response;
-    const text = (data.content || [])
-      .filter((b: Record<string, unknown>) => b.type === 'text')
-      .map((b: Record<string, unknown>) => b.text)
+    const data = response.data as {
+      content?: { type: string; text: string }[];
+      usage?: { input_tokens?: number; output_tokens?: number };
+    };
+    const text = (data.content ?? [])
+      .filter(b => b.type === 'text')
+      .map(b => b.text)
       .join('');
 
     const tokens = (data.usage?.input_tokens ?? 0) + (data.usage?.output_tokens ?? 0);
@@ -137,8 +140,8 @@ export class VertexClaudeProvider implements ModelProvider {
     });
 
     let buffer = '';
-    for await (const chunk of response.data) {
-      buffer += chunk.toString();
+    for await (const chunk of response.data as AsyncIterable<Buffer>) {
+      buffer += String(chunk);
       const lines = buffer.split('\n');
       buffer = lines.pop() || '';
       for (const line of lines) {
@@ -150,7 +153,7 @@ export class VertexClaudeProvider implements ModelProvider {
           return;
         }
         try {
-          const parsed = JSON.parse(payload);
+          const parsed = JSON.parse(payload) as { type?: string; delta?: { text?: string } };
           if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
             yield parsed.delta.text;
           }

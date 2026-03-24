@@ -136,7 +136,7 @@ router.post('/:id/reject', async (req: Request, res: Response, next: NextFunctio
       resolved_by: req.user?.email || 'unknown',
     });
     await addQuarantineLog(q.id, 'rejected', req.user?.email || 'unknown', {
-      reason: req.body.reason || '',
+      reason: ((req.body as Record<string, unknown>).reason as string) || '',
     });
     res.json({ status: 'resolved', success: true });
   } catch (err) {

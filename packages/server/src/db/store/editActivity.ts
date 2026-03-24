@@ -16,7 +16,7 @@ export const logEditActivity = async (data: {
     file_path: data.filePath,
     repo_id: data.repoId || null,
   });
-  (entry as unknown as Record<string, unknown>).details = data.details || null;
+  (entry as unknown as Record<string, unknown>).details = data.details ?? null;
   await editActivities().save(entry);
 };
 

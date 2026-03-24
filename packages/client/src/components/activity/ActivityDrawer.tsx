@@ -83,6 +83,7 @@ export const ActivityDrawerPanel: React.FC<ActivityDrawerProps> = ({ entry, onCl
 
   const { data: related } = useQuery({
     enabled: Boolean(entry.test_item_rp_id),
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     queryFn: () => fetchRelatedActivity(entry.test_item_rp_id!),
     queryKey: ['relatedActivity', entry.test_item_rp_id],
   });

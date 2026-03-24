@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import {
   extractAttribute,
   fetchLaunchById,
@@ -110,6 +111,8 @@ export const pollReportPortal = async (
   lookbackHours: number,
   fetchDetails: boolean,
   pollId: number,
+  // TODO: Refactor to reduce cognitive complexity
+  // eslint-disable-next-line sonarjs/cognitive-complexity
 ): Promise<PollResult> => {
   activePollId = pollId;
   const sinceTime = Date.now() - lookbackHours * 60 * 60 * 1000;
@@ -161,6 +164,7 @@ export const pollReportPortal = async (
     }
     let result;
     try {
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       result = await fetchLaunches({ page, pageSize: config.schedule.rpPageSize, sinceTime });
     } catch (err: unknown) {
       const info = getErrorInfo(err);
@@ -182,6 +186,7 @@ export const pollReportPortal = async (
 
     for (const rpLaunch of result.content) {
       const launch = parseLaunchRecord(rpLaunch);
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       await upsertLaunch(launch);
       allLaunches.push(launch);
       emitProgress(
@@ -223,6 +228,7 @@ export const pollReportPortal = async (
           break;
         }
         const batch = needItems.slice(i, i + config.schedule.rpConcurrency);
+        // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
         const results = await Promise.all(
           batch.map(async ({ name, rpId }) => {
             try {
@@ -299,13 +305,13 @@ export const pollReportPortal = async (
   };
 };
 
-const JENKINS_RESULT_MAP: Record<string, string> = {
+const JENKINS_RESULT_MAP = {
   ABORTED: 'INTERRUPTED',
   FAILURE: 'FAILED',
   NOT_BUILT: 'STOPPED',
   SUCCESS: 'PASSED',
   UNSTABLE: 'FAILED',
-};
+} as const;
 
 const checkJenkinsResult = async (artifactsUrl: string): Promise<string | null> => {
   try {
@@ -320,9 +326,15 @@ const checkJenkinsResult = async (artifactsUrl: string): Promise<string | null> 
     if (appConfig.jenkins.user && appConfig.jenkins.token) {
       requestConfig.auth = { password: appConfig.jenkins.token, username: appConfig.jenkins.user };
     }
-    const response = await axios.get(buildUrl, requestConfig);
-    const jenkinsResult = response.data?.result;
-    return jenkinsResult ? (JENKINS_RESULT_MAP[jenkinsResult] ?? 'INTERRUPTED') : null;
+    const response = await axios.get<{ result?: string }>(buildUrl, requestConfig);
+    const jenkinsResult = response.data.result;
+    if (!jenkinsResult || typeof jenkinsResult !== 'string') {
+      return null;
+    }
+    if (jenkinsResult in JENKINS_RESULT_MAP) {
+      return JENKINS_RESULT_MAP[jenkinsResult as keyof typeof JENKINS_RESULT_MAP];
+    }
+    return 'INTERRUPTED';
   } catch {
     return null;
   }
@@ -344,8 +356,10 @@ export const refreshStaleInProgress = async (): Promise<number> => {
   let updated = 0;
   for (const row of staleRows) {
     try {
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       const rpLaunch = await fetchLaunchById(row.rp_id);
       if (rpLaunch.status !== 'IN_PROGRESS') {
+        // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
         await repo.update(
           { rp_id: row.rp_id },
           {
@@ -364,8 +378,10 @@ export const refreshStaleInProgress = async (): Promise<number> => {
       /* RP unreachable */
     }
     if (row.artifacts_url) {
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       const jenkinsStatus = await checkJenkinsResult(row.artifacts_url);
       if (jenkinsStatus) {
+        // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
         await repo.update({ rp_id: row.rp_id }, { status: jenkinsStatus });
         updated++;
         log.info(
@@ -392,12 +408,15 @@ export type EnrichmentResult = {
 
 export const enrichLaunchesFromJenkins = async (
   launchList: LaunchRecord[],
+  // TODO: Refactor to reduce cognitive complexity
+  // eslint-disable-next-line sonarjs/cognitive-complexity
 ): Promise<EnrichmentResult> => {
   const withArtifacts = launchList.filter(launch => launch.artifacts_url);
   const withoutArtifacts = launchList.length - withArtifacts.length;
 
   for (const launch of launchList.filter(item => !item.artifacts_url)) {
     launch.jenkins_status = 'no_url';
+    // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
     await upsertLaunch(launch);
   }
 
@@ -437,6 +456,7 @@ export const enrichLaunchesFromJenkins = async (
       break;
     }
     const batch = withArtifacts.slice(idx, idx + config.schedule.jenkinsConcurrency);
+    // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
     const results = await Promise.all(
       batch.map(async launch => {
         const error = await enrichLaunchFromJenkins(launch);
@@ -486,6 +506,7 @@ export const enrichLaunchesFromJenkins = async (
       `Jenkins: ${processed}/${withArtifacts.length} (${parts.join(', ')})`,
     );
     if (idx + config.schedule.jenkinsConcurrency < withArtifacts.length) {
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       await new Promise<void>(resolve => {
         setTimeout(resolve, JENKINS_BATCH_DELAY_MS);
       });

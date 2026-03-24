@@ -90,7 +90,7 @@ export const PersonalTokensSection: React.FC = () => {
         )}
 
         <DescriptionList isHorizontal>
-          {(tokens || []).map((t: UserTokenInfo) => (
+          {(tokens ?? []).map((t: UserTokenInfo) => (
             <DescriptionListGroup key={t.provider}>
               <DescriptionListTerm>{providerLabels[t.provider] || t.provider}</DescriptionListTerm>
               <DescriptionListDescription>

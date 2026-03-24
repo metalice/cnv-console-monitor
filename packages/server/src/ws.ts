@@ -8,37 +8,40 @@ const log = logger.child({ module: 'WebSocket' });
 
 const HEARTBEAT_INTERVAL_MS = 30000;
 
-let wss: WebSocketServer;
+let wss: WebSocketServer | undefined;
 let heartbeatTimer: ReturnType<typeof setInterval>;
 
 export const initWebSocket = (server: Server): void => {
-  wss = new WebSocketServer({ path: '/ws', server });
+  const socketServer = new WebSocketServer({ path: '/ws', server });
+  wss = socketServer;
 
-  wss.on('connection', ws => {
+  socketServer.on('connection', ws => {
     (ws as WebSocket & { isAlive: boolean }).isAlive = true;
-    log.info({ clients: wss.clients.size }, 'Client connected');
+    log.info({ clients: socketServer.clients.size }, 'Client connected');
 
-    try {
-      const { getPipelineManager } = require('./pipeline');
-      const state = getPipelineManager().getState();
-      if (state.active) {
-        ws.send(JSON.stringify({ event: 'pipeline-state', ...state }));
+    void (async () => {
+      try {
+        const { getPipelineManager } = await import('./pipeline');
+        const state = getPipelineManager().getState();
+        if (state.active) {
+          ws.send(JSON.stringify({ event: 'pipeline-state', ...state }));
+        }
+      } catch {
+        /* Pipeline not initialized yet */
       }
-    } catch {
-      /* Pipeline not initialized yet */
-    }
+    })();
 
     ws.on('pong', () => {
       (ws as WebSocket & { isAlive: boolean }).isAlive = true;
     });
 
     ws.on('close', () => {
-      log.info({ clients: wss.clients.size }, 'Client disconnected');
+      log.info({ clients: socketServer.clients.size }, 'Client disconnected');
     });
   });
 
   heartbeatTimer = setInterval(() => {
-    for (const client of wss.clients) {
+    for (const client of socketServer.clients) {
       const socket = client as WebSocket & { isAlive: boolean };
       if (!socket.isAlive) {
         socket.terminate();
@@ -49,7 +52,7 @@ export const initWebSocket = (server: Server): void => {
     }
   }, HEARTBEAT_INTERVAL_MS);
 
-  wss.on('close', () => {
+  socketServer.on('close', () => {
     clearInterval(heartbeatTimer);
   });
 

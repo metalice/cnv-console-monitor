@@ -40,7 +40,7 @@ export class OpenAIProvider implements ModelProvider {
 
     return {
       cached: false,
-      content: choice?.message?.content ?? '',
+      content: choice.message.content ?? '',
       durationMs: Date.now() - start,
       model: modelId,
       provider: 'openai',

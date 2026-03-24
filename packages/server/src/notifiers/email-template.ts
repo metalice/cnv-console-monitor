@@ -28,7 +28,7 @@ const buildComponentSections = (report: DailyReport): string => {
     if (!groupsByComponent.has(component)) {
       groupsByComponent.set(component, []);
     }
-    groupsByComponent.get(component)!.push(group);
+    groupsByComponent.get(component)?.push(group);
   }
 
   let html = '';
@@ -69,7 +69,7 @@ const buildFailedSection = (group: LaunchGroup): string => {
       : '';
     let streakHtml = '';
     let metaHtml = '';
-    if (enriched.recentRuns) {
+    if (enriched.recentRuns.length > 0) {
       streakHtml = streakBarHtml(enriched.recentRuns);
       metaHtml =
         `<span>Failing ${enriched.consecutiveFailures}/${enriched.totalRuns} runs</span>` +

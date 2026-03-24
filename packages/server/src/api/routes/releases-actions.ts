@@ -7,6 +7,33 @@ import { requireAdmin } from '../middleware/auth';
 
 import { createJiraClient, isValidJiraKey } from './releases-helpers';
 
+type JiraIssueFields = {
+  summary: string;
+  status: { name: string };
+  assignee: { displayName: string } | null;
+  components: { name: string }[];
+  labels: string[];
+  fixVersions: { name: string }[];
+  priority: { name: string };
+  created: string;
+  updated: string;
+  resolutiondate: string | null;
+  subtasks: {
+    key: string;
+    fields: { summary: string; status: { name: string } };
+  }[];
+  description: string | null;
+};
+
+type JiraIssueResponse = {
+  key: string;
+  fields: JiraIssueFields;
+};
+
+type JiraTransitionsResponse = {
+  transitions: { id: string; name: string }[];
+};
+
 const router = Router();
 
 router.get('/:key', async (req: Request, res: Response, next: NextFunction) => {
@@ -23,46 +50,41 @@ router.get('/:key', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const client = createJiraClient();
     const [issueRes, transRes] = await Promise.all([
-      client.get(`/issue/${key}`, {
+      client.get<JiraIssueResponse>(`/issue/${key}`, {
         params: {
           fields:
             'summary,status,assignee,components,labels,fixVersions,priority,created,updated,resolutiondate,subtasks,description',
         },
       }),
-      client.get(`/issue/${key}/transitions`),
+      client.get<JiraTransitionsResponse>(`/issue/${key}/transitions`),
     ]);
 
     const { fields } = issueRes.data;
-    const subtasks = (fields.subtasks || []) as {
-      key: string;
-      fields: { summary: string; status: { name: string } };
-    }[];
+    const subtasks = fields.subtasks;
 
     const detail: ChecklistDetail = {
       assignee: fields.assignee?.displayName || null,
-      components: (fields.components || []).map((component: { name: string }) => component.name),
+      components: fields.components.map(component => component.name),
       created: fields.created || '',
       description: fields.description || null,
-      fixVersions: (fields.fixVersions || []).map((version: { name: string }) => version.name),
+      fixVersions: fields.fixVersions.map(version => version.name),
       key: issueRes.data.key,
-      labels: fields.labels || [],
-      priority: fields.priority?.name || '',
+      labels: fields.labels,
+      priority: fields.priority.name,
       resolved: fields.resolutiondate || null,
-      status: fields.status?.name || '',
+      status: fields.status.name,
       subtaskCount: subtasks.length,
       subtasks: subtasks.map(subtask => ({
         key: subtask.key,
         status: subtask.fields.status.name,
         summary: subtask.fields.summary,
       })),
-      subtasksDone: subtasks.filter(subtask => subtask.fields?.status?.name === 'Closed').length,
+      subtasksDone: subtasks.filter(subtask => subtask.fields.status.name === 'Closed').length,
       summary: fields.summary || '',
-      transitions: (transRes.data.transitions || []).map(
-        (transition: { id: string; name: string }) => ({
-          id: transition.id,
-          name: transition.name,
-        }),
-      ),
+      transitions: transRes.data.transitions.map(transition => ({
+        id: transition.id,
+        name: transition.name,
+      })),
       updated: fields.updated || '',
     };
 

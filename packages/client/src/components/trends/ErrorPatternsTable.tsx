@@ -31,6 +31,7 @@ export const ErrorPatternsTable: React.FC<ErrorPatternsTableProps> = ({ errorPat
           </Thead>
           <Tbody>
             {errorPatterns.map((e, i) => (
+              // eslint-disable-next-line react/no-array-index-key
               <Tr key={i}>
                 <Td className="app-cell-truncate" dataLabel="Error">
                   <Tooltip content={e.pattern}>

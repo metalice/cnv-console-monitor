@@ -79,6 +79,7 @@ const DiffView: React.FC<{ draft: DraftInfo }> = ({ draft }) => {
         }
 
         return (
+          // eslint-disable-next-line react/no-array-index-key
           <div className={cls} key={i}>
             {line}
           </div>

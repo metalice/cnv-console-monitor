@@ -95,6 +95,7 @@ export const RiskFlags: React.FC<RiskFlagsProps> = ({ checklist, readiness, rele
           isInline
           isPlain
           className="app-mb-xs"
+          // eslint-disable-next-line react/no-array-index-key
           key={i}
           title={flag.message}
           variant={flag.severity}

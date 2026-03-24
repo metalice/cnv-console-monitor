@@ -346,7 +346,9 @@ export const streamAIChat = (
       const decoder = new TextDecoder();
       let buffer = '';
 
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- intentional infinite loop
       while (true) {
+        // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
         const { done, value } = await reader.read();
         if (done) {
           break;
@@ -359,13 +361,18 @@ export const streamAIChat = (
             continue;
           }
           try {
-            const data = JSON.parse(line.slice(6));
+            const data = JSON.parse(line.slice(6)) as {
+              chunk?: string;
+              content?: string;
+              done?: boolean;
+              error?: string;
+            };
             if (data.error) {
               onError(data.error);
               return undefined;
             }
             if (data.done) {
-              onDone(data.content || '');
+              onDone(data.content ?? '');
               return undefined;
             }
             if (data.chunk) {
@@ -378,8 +385,8 @@ export const streamAIChat = (
       }
       return undefined;
     })
-    .catch(err => {
-      if (err.name !== 'AbortError') {
+    .catch((err: unknown) => {
+      if (err instanceof Error && err.name !== 'AbortError') {
         onError(err.message || 'Stream failed');
       }
     });

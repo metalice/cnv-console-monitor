@@ -7,6 +7,7 @@ import type { TestItemRecord } from './types';
 
 const testItems = () => AppDataSource.getRepository(TestItem);
 
+/* eslint-disable @typescript-eslint/no-unnecessary-condition -- defensive: DB data */
 const toTestItemRecord = (row: TestItem | Record<string, unknown>): TestItemRecord => ({
   ai_confidence:
     (row as Record<string, unknown>).ai_confidence != null
@@ -33,6 +34,7 @@ const toTestItemRecord = (row: TestItem | Record<string, unknown>): TestItemReco
   status: (row as Record<string, unknown>).status as string,
   unique_id: ((row as Record<string, unknown>).unique_id as string) ?? undefined,
 });
+/* eslint-enable @typescript-eslint/no-unnecessary-condition */
 
 export const upsertTestItem = async (item: TestItemRecord): Promise<void> => {
   await testItems().upsert(
@@ -133,7 +135,7 @@ export const getUntriagedItems = async (
   if (component) {
     params.push(component);
   }
-  const rows = await AppDataSource.query(query, params);
+  const rows: Record<string, unknown>[] = await AppDataSource.query(query, params);
   return rows.map(toTestItemRecord);
 };
 

@@ -72,6 +72,7 @@ export const ReadinessDetails: React.FC<{ version: string }> = ({ version }) => 
   });
 
   const trendData = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data
     if (!data?.trend?.length) {
       return [];
     }
@@ -120,7 +121,7 @@ export const ReadinessDetails: React.FC<{ version: string }> = ({ version }) => 
               </FlexItem>
               {(versions?.length ?? 0) > 1 && (
                 <FlexItem>
-                  {versions!
+                  {(versions ?? [])
                     .filter(ver => ver !== version)
                     .slice(0, 3)
                     .map(ver => (

@@ -2,6 +2,7 @@ import https from 'https';
 
 import axios from 'axios';
 import { type NextFunction, type Request, type Response, Router } from 'express';
+import type { Readable } from 'stream';
 
 import { getLaunchByRpId } from '../../db/store';
 import { logger } from '../../logger';
@@ -32,8 +33,12 @@ router.get('/launch/:launchId', async (req: Request, res: Response, _next: NextF
       '/api/json?tree=artifacts[relativePath,fileName]',
     );
 
-    const response = await axios.get(apiUrl, { httpsAgent, timeout: 15000 });
-    const artifacts: { relativePath: string; fileName: string }[] = response.data.artifacts || [];
+    const response = await axios.get<{ artifacts: { relativePath: string; fileName: string }[] }>(
+      apiUrl,
+      { httpsAgent, timeout: 15000 },
+    );
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime API data
+    const artifacts = response.data.artifacts || [];
 
     const baseUrl = launch.artifacts_url.replace(/\/?$/, '/');
 
@@ -100,18 +105,18 @@ router.get('/proxy', async (req: Request, res: Response, _next: NextFunction) =>
       return;
     }
 
-    const response = await axios.get(url, {
+    const response = await axios.get<Readable>(url, {
       httpsAgent,
       responseType: 'stream',
       timeout: 30000,
     });
 
-    const contentType = response.headers['content-type'];
+    const contentType = response.headers['content-type'] as string | undefined;
     if (contentType) {
       res.setHeader('Content-Type', contentType);
     }
 
-    const contentLength = response.headers['content-length'];
+    const contentLength = response.headers['content-length'] as string | undefined;
     if (contentLength) {
       res.setHeader('Content-Length', contentLength);
     }

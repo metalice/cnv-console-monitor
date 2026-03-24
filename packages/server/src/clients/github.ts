@@ -29,7 +29,7 @@ export type GitHubPR = {
 };
 
 const extractJiraKeys = (text: string): string[] => {
-  const matches = text.match(/[A-Z]+-\d+/g);
+  const matches = text.match(/[A-Z]{1,20}-\d{1,12}/g);
   return matches ? [...new Set(matches)] : [];
 };
 
@@ -46,7 +46,8 @@ export const fetchMergedPRs = async (
   const prs: GitHubPR[] = [];
   let page = 1;
 
-  while (true) {
+  for (;;) {
+    // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
     const { data } = await octokit.pulls.list({
       direction: 'desc',
       owner,
@@ -77,7 +78,7 @@ export const fetchMergedPRs = async (
       prs.push({
         author: pr.user?.login ?? 'unknown',
         jiraKeys: extractJiraKeys(`${pr.title} ${pr.body ?? ''}`),
-        labels: pr.labels.map(l => (typeof l === 'string' ? l : (l.name ?? ''))),
+        labels: pr.labels.map(l => (typeof l === 'string' ? l : l.name)),
         mergedAt: pr.merged_at,
         number: pr.number,
         repo: `${owner}/${repo}`,
@@ -107,12 +108,12 @@ export type RepoMapping = {
 
 export const parseRepoMappings = (json: string): RepoMapping[] => {
   try {
-    const data = JSON.parse(json);
+    const data: unknown = JSON.parse(json);
     if (Array.isArray(data)) {
-      return data;
+      return data as RepoMapping[];
     }
-    if (typeof data === 'object') {
-      return Object.entries(data).map(([component, repoStr]) => {
+    if (typeof data === 'object' && data !== null) {
+      return Object.entries(data as Record<string, unknown>).map(([component, repoStr]) => {
         const [owner, repo] = (repoStr as string).split('/');
         return { component, owner, repo };
       });

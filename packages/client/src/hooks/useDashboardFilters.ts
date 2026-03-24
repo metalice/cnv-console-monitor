@@ -139,7 +139,9 @@ export const useDashboardFilters = (
     if (!report) {
       return [];
     }
-    return [...new Set(componentFilteredGroups.map(group => group.tier))].sort();
+    return [...new Set(componentFilteredGroups.map(group => group.tier))].toSorted((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }),
+    );
   }, [report, componentFilteredGroups]);
 
   const filteredGroups = useMemo(() => {
@@ -155,7 +157,7 @@ export const useDashboardFilters = (
     } else if (statusFilter === 'FAILED') {
       groups = groups.filter(group => group.health === 'red');
     } else if (statusFilter === 'IN_PROGRESS') {
-      groups = groups.filter(group => group.latestLaunch?.status === 'IN_PROGRESS');
+      groups = groups.filter(group => group.latestLaunch.status === 'IN_PROGRESS');
     }
     return groups;
   }, [componentFilteredGroups, selectedTiers, versionFilter, statusFilter]);
@@ -178,13 +180,13 @@ export const useDashboardFilters = (
         newFailures: newFailuresCount,
         passed: report.passedLaunches,
         total: report.totalLaunches,
-        untriaged: report.untriagedCount ?? 0,
+        untriaged: report.untriagedCount,
       };
     }
 
     const hasLaunchData = filteredGroups.length > 0 && Array.isArray(filteredGroups[0]?.launches);
     if (hasLaunchData) {
-      const allLaunches = filteredGroups.flatMap(group => group.launches!);
+      const allLaunches = filteredGroups.flatMap(group => group.launches ?? []);
       return {
         failed: allLaunches.filter(launch => launch.status === 'FAILED').length,
         inProgress: allLaunches.filter(launch => launch.status === 'IN_PROGRESS').length,
@@ -198,7 +200,7 @@ export const useDashboardFilters = (
     const totalLaunches = filteredGroups.reduce((sum, g) => sum + (g.launchCount ?? 1), 0);
     const passedGroups = filteredGroups.filter(g => g.health === 'green');
     const failedGroups = filteredGroups.filter(g => g.health === 'red');
-    const inProgressGroups = filteredGroups.filter(g => g.latestLaunch?.status === 'IN_PROGRESS');
+    const inProgressGroups = filteredGroups.filter(g => g.latestLaunch.status === 'IN_PROGRESS');
 
     return {
       failed: failedGroups.reduce((sum, g) => sum + (g.launchCount ?? 1), 0),

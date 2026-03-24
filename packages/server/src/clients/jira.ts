@@ -35,7 +35,7 @@ export const searchIssues = async (jql: string, maxResults = 10): Promise<JiraSe
     () => jiraSearch(client, jql, fields, maxResults, 0),
     'jira.searchIssues',
   );
-  return response.data;
+  return response.data as JiraSearchResult;
 };
 
 let useNewSearchEndpoint = false;
@@ -46,12 +46,12 @@ export const jiraSearch = async (
   fields: string[],
   maxResults: number,
   startAt: number,
-): Promise<{ data: { issues: any[]; total: number } }> => {
+): Promise<{ data: { issues: unknown[]; total: number } }> => {
   if (!useNewSearchEndpoint) {
     try {
       return await client.post('/search', { fields, jql, maxResults, startAt });
     } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
+      const status = (err as { response?: { status?: number } }).response?.status;
       if (status === 410) {
         useNewSearchEndpoint = true;
       } else {
@@ -67,8 +67,8 @@ async function jiraSearchPaginated(
   jql: string,
   fields: string[],
   maxResults: number,
-): Promise<{ data: { issues: any[]; total: number } }> {
-  const allIssues: any[] = [];
+): Promise<{ data: { issues: unknown[]; total: number } }> {
+  const allIssues: unknown[] = [];
   let nextPageToken: string | undefined;
   let total: number;
 
@@ -81,10 +81,16 @@ async function jiraSearchPaginated(
     if (nextPageToken) {
       params.set('nextPageToken', nextPageToken);
     }
+    // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
     const response = await client.get(`/search/jql?${params.toString()}`);
-    const { data } = response;
-    total = data.total || 0;
-    const issues = data.issues || data.values || [];
+    const data = response.data as {
+      total?: number;
+      issues?: unknown[];
+      values?: unknown[];
+      nextPageToken?: string;
+    };
+    total = data.total ?? 0;
+    const issues = data.issues ?? data.values ?? [];
     allIssues.push(...issues);
     nextPageToken = data.nextPageToken;
     if (issues.length === 0) {
@@ -182,7 +188,7 @@ export const getIssue = async (key: string): Promise<JiraIssue> => {
       }),
     `jira.getIssue(${key})`,
   );
-  return response.data;
+  return response.data as JiraIssue;
 };
 
 export const getIssueStatus = async (key: string): Promise<string> => {

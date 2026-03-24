@@ -76,7 +76,8 @@ export class GitLabProvider implements GitProvider {
     let page = 1;
     const perPage = 100;
 
-    while (true) {
+    for (;;) {
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       const res = await this.client.get(`/projects/${this.projectId}/repository/tree`, {
         params: { page, per_page: perPage, recursive: true, ref: branch },
       });

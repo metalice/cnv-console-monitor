@@ -96,13 +96,13 @@ export const ReviewCalendar: React.FC<ReviewCalendarProps> = ({ days: rawDays, h
     }
 
     const wks: (DayCell | null)[][] = [];
-    let currentWeek: (DayCell | null)[] = new Array(7).fill(null);
+    let currentWeek: (DayCell | null)[] = Array.from<DayCell | null>({ length: 7 }).fill(null);
     for (const day of allDays) {
       const col = day.dayOfWeek === 0 ? 6 : day.dayOfWeek - 1;
       currentWeek[col] = day;
       if (col === 6) {
         wks.push(currentWeek);
-        currentWeek = new Array(7).fill(null);
+        currentWeek = Array.from<DayCell | null>({ length: 7 }).fill(null);
       }
     }
     if (currentWeek.some(d => d !== null)) {
@@ -206,6 +206,7 @@ export const ReviewCalendar: React.FC<ReviewCalendarProps> = ({ days: rawDays, h
             {weeks.map((_w, wi) => {
               const ml = monthLabels.find(m => m.weekIdx === wi);
               return (
+                // eslint-disable-next-line react/no-array-index-key
                 <div className="app-cal-month-label" key={wi}>
                   {ml ? ml.label : ''}
                 </div>
@@ -215,6 +216,7 @@ export const ReviewCalendar: React.FC<ReviewCalendarProps> = ({ days: rawDays, h
           <div className="app-cal-grid">
             <div className="app-cal-labels">
               {DAY_LABELS.map((label, i) => (
+                // eslint-disable-next-line react/no-array-index-key
                 <div className="app-cal-label" key={i}>
                   {label}
                 </div>
@@ -222,6 +224,7 @@ export const ReviewCalendar: React.FC<ReviewCalendarProps> = ({ days: rawDays, h
             </div>
             <div className="app-cal-weeks">
               {weeks.map((week, wi) => (
+                // eslint-disable-next-line react/no-array-index-key
                 <div className="app-cal-week" key={wi}>
                   {week.map((day, di) =>
                     day ? (
@@ -236,6 +239,7 @@ export const ReviewCalendar: React.FC<ReviewCalendarProps> = ({ days: rawDays, h
                         <div className={getCellClass(day)} />
                       </Tooltip>
                     ) : (
+                      // eslint-disable-next-line react/no-array-index-key
                       <div className="app-cal-cell app-cal-none" key={`e-${wi}-${di}`} />
                     ),
                   )}

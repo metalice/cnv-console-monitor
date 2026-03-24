@@ -88,6 +88,7 @@ const TestItemTable: React.FC<{ items: TestItem[]; label: string }> = ({ items, 
                         isInline
                         size="sm"
                         variant="link"
+                        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                         onClick={() => navigate(`/test/${encodeURIComponent(item.unique_id!)}`)}
                       >
                         {shortName}

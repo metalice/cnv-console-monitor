@@ -30,7 +30,8 @@ export const validateBody =
   (schema: ZodSchema) =>
   (req: Request, res: Response, next: NextFunction): void => {
     try {
-      req.body = schema.parse(req.body);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- req.body is inherently `any` in Express; Zod validates at runtime
+      req.body = schema.parse(req.body as unknown);
       next();
     } catch (err) {
       if (err instanceof ZodError) {
@@ -51,7 +52,8 @@ export const validateQuery =
   (schema: ZodSchema) =>
   (req: Request, res: Response, next: NextFunction): void => {
     try {
-      req.query = schema.parse(req.query);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- req.query is inherently `any` in Express; Zod validates at runtime
+      req.query = schema.parse(req.query as unknown);
       next();
     } catch (err) {
       if (err instanceof ZodError) {
@@ -72,7 +74,8 @@ export const validateParams =
   (schema: ZodSchema) =>
   (req: Request, res: Response, next: NextFunction): void => {
     try {
-      req.params = schema.parse(req.params);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- req.params is inherently `any` in Express; Zod validates at runtime
+      req.params = schema.parse(req.params as unknown);
       next();
     } catch (err) {
       if (err instanceof ZodError) {

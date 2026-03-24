@@ -28,6 +28,7 @@ import { TestProfileTables } from './TestProfileTables';
 const streakBar = (statuses: string[]): React.ReactNode => (
   <Flex spaceItems={{ default: 'spaceItemsNone' }}>
     {statuses.map((s, i) => (
+      // eslint-disable-next-line react/no-array-index-key
       <FlexItem key={i}>
         <Tooltip content={s}>
           <div

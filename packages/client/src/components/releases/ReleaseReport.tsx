@@ -58,7 +58,7 @@ export const ReleaseReport: React.FC<ReleaseReportProps> = ({ checklist, readine
       if (!map.has(p)) {
         map.set(p, []);
       }
-      map.get(p)!.push(item);
+      map.get(p)?.push(item);
     }
     return [...map.entries()].sort((a, b) => {
       const order = ['Blocker', 'Critical', 'Major', 'Minor', 'Trivial', 'Unset'];

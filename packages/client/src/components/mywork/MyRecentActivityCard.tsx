@@ -44,6 +44,7 @@ export const MyRecentActivityCard: React.FC<MyRecentActivityCardProps> = ({ acti
               : [];
 
             return (
+              // eslint-disable-next-line react/no-array-index-key
               <div className="app-activity-item" key={index}>
                 <Flex alignItems={{ default: 'alignItemsCenter' }} gap={{ default: 'gapSm' }}>
                   <FlexItem>
@@ -76,6 +77,7 @@ export const MyRecentActivityCard: React.FC<MyRecentActivityCardProps> = ({ acti
                 {isAck && noteLines.length > 0 && (
                   <div className="app-activity-notes">
                     {noteLines.map((line: string, lineIdx: number) => (
+                      // eslint-disable-next-line react/no-array-index-key
                       <div className="app-activity-note-line" key={lineIdx}>
                         {line}
                       </div>

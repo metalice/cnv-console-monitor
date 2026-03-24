@@ -163,7 +163,7 @@ export const NotificationSubscriptions: React.FC = () => {
     },
   });
 
-  const subList = subs || [];
+  const subList = subs ?? [];
 
   return (
     <Card>

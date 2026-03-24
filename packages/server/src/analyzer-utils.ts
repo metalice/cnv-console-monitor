@@ -126,6 +126,7 @@ export const enrichFailedItems = async (items: TestItemRecord[]): Promise<Enrich
     };
 
     if (item.unique_id) {
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       streak = await getTestFailureStreak(item.unique_id);
     }
 

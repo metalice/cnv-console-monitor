@@ -25,7 +25,7 @@ jobs:
         run: npm ci
 
       - name: Lint
-        run: npx eslint . --max-warnings 1342
+        run: npx eslint . --max-warnings 0
 
       - name: Format check
         run: npm run format:check

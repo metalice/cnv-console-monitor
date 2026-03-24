@@ -65,6 +65,7 @@ const truncateUrl = (url: string | null | undefined): string => {
   return last.length > 20 ? `...${last.slice(-18)}` : `.../${last}`;
 };
 
+// eslint-disable-next-line max-lines-per-function
 export const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
   availableComponents,
   canEdit,
@@ -317,6 +318,7 @@ export const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
           </Flex>
         </div>
 
+        {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data */}
         {subTestMessages[sub.id] && (
           <Alert
             isInline

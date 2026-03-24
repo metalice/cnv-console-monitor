@@ -50,7 +50,7 @@ router.post('/', requireAdmin, async (req: Request, res: Response, next: NextFun
     }
 
     const inlineToken = (req.body as Record<string, unknown>).token as string | undefined;
-    const tokenKey = parsed.data.globalTokenKey || `${parsed.data.provider}.token`;
+    const tokenKey = parsed.data.globalTokenKey;
 
     if (inlineToken) {
       const { setSetting } = await import('../../db/store');
@@ -65,12 +65,12 @@ router.post('/', requireAdmin, async (req: Request, res: Response, next: NextFun
       components: parsed.data.components as unknown as string,
       doc_paths: parsed.data.docPaths as unknown as string,
       enabled: parsed.data.enabled ?? true,
-      frontmatter_schema: (parsed.data.frontmatterSchema || null) as unknown as string,
+      frontmatter_schema: (parsed.data.frontmatterSchema ?? null) as unknown as string,
       global_token_key: tokenKey,
       name: parsed.data.name,
       project_id: parsed.data.projectId,
       provider: parsed.data.provider,
-      skip_annotations: (parsed.data.skipAnnotations || []) as unknown as string,
+      skip_annotations: (parsed.data.skipAnnotations ?? []) as unknown as string,
       test_paths: parsed.data.testPaths as unknown as string,
       url: parsed.data.url,
       webhook_secret: parsed.data.webhookSecret || null,
@@ -190,7 +190,7 @@ router.post('/:id/test', requireAdmin, async (req: Request, res: Response, next:
     }
 
     const { createGitProvider } = await import('../../clients/git-provider');
-    const provider = createGitProvider(
+    const provider = await createGitProvider(
       repo.provider as 'gitlab' | 'github',
       repo.api_base_url,
       repo.project_id,
@@ -264,7 +264,7 @@ router.post(
         projectId: String(project.id),
       });
     } catch (err) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
+      const status = (err as { response?: { status?: number } }).response?.status;
       if (status === 404) {
         res
           .status(404)
@@ -307,7 +307,8 @@ router.post(
       if (provider === 'gitlab') {
         const encodedId = encodeURIComponent(projectId);
         let page = 1;
-        while (true) {
+        for (;;) {
+          // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
           const apiRes = await axios.get(
             `${apiBaseUrl}/projects/${encodedId}/repository/branches`,
             {
@@ -330,7 +331,8 @@ router.post(
       } else if (provider === 'github') {
         const [owner, repo] = projectId.split('/');
         let page = 1;
-        while (true) {
+        for (;;) {
+          // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
           const apiRes = await axios.get(`${apiBaseUrl}/repos/${owner}/${repo}/branches`, {
             headers: { Accept: 'application/vnd.github.v3+json', Authorization: `Bearer ${token}` },
             params: { page, per_page: 100 },

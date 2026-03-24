@@ -49,7 +49,7 @@ const toMajorMinor = (v: string): string => {
     .replace(/^cnv[\s\-_]*v?/i, '')
     .trim()
     .toLowerCase();
-  const match = /(\d+\.\d+)/.exec(stripped);
+  const match = /(\d{1,20}\.\d{1,20})/.exec(stripped);
   return match ? match[1] : stripped;
 };
 
@@ -92,6 +92,7 @@ const buildSortAccessors = (
   2: task => task.key,
   3: task => task.summary,
   4: task => task.status,
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data
   5: task => task.components?.[0] || '',
   6: task => task.assignee,
   7: task => task.priority,
@@ -221,7 +222,7 @@ export const ReleaseChecklist: React.FC<ReleaseChecklistProps> = ({
           resultCount={sorted.length}
           searchPlaceholder="Search by key, summary, assignee, version..."
           searchValue={search}
-          totalCount={(checklist || []).length}
+          totalCount={(checklist ?? []).length}
           visibleIds={colMgmt.visibleIds}
           onResetColumns={colMgmt.resetColumns}
           onSaveColumns={colMgmt.setColumns}

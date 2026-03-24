@@ -80,7 +80,7 @@ export const deleteComponentMapping = async (pattern: string): Promise<{ success
   if (!response.ok) {
     throw new Error('Failed to delete mapping');
   }
-  return response.json();
+  return response.json() as Promise<{ success: boolean }>;
 };
 
 export type AutoMapResult = {

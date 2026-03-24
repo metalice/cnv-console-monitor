@@ -114,6 +114,7 @@ export const FeatureGroup: React.FC<FeatureGroupProps> = ({ features, icon, titl
                       iconPosition="end"
                       size="sm"
                       variant="link"
+                      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                       onClick={() => navigate(f.path!)}
                     >
                       Open

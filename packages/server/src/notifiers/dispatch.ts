@@ -35,7 +35,7 @@ export const filterReportForSubscription = (
     .flatMap(group => group.failedItems)
     .filter(
       item =>
-        !item.defect_type || item.defect_type === 'ti001' || item.defect_type?.startsWith('ti_'),
+        !item.defect_type || item.defect_type === 'ti001' || item.defect_type.startsWith('ti_'),
     ).length;
 
   return filtered;

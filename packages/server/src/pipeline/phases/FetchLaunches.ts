@@ -142,6 +142,7 @@ export class FetchLaunchesPhase implements PipelinePhase {
         break;
       }
 
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       const result = await fetchLaunches({ page, pageSize, sinceTime });
       totalPages = result.page.totalPages;
 
@@ -151,6 +152,7 @@ export class FetchLaunchesPhase implements PipelinePhase {
 
       for (const rpLaunch of result.content) {
         const launch = parseLaunchRecord(rpLaunch);
+        // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
         await upsertLaunch(launch);
         this.launches.push(launch);
         ctx.addSuccess();

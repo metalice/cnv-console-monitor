@@ -42,6 +42,7 @@ export const resolveComponent = (
   const manualMappings = mappingCache.filter(item => item.type === 'manual');
   for (const entry of manualMappings) {
     try {
+      // eslint-disable-next-line security/detect-non-literal-regexp -- pattern from validated config, not user input
       if (new RegExp(entry.pattern, 'i').test(launchName)) {
         return entry.component;
       }
@@ -59,7 +60,9 @@ export const fetchJiraComponents = async (): Promise<string[]> => {
   try {
     const client = createJiraClient();
     const response = await client.get(`/project/${config.jira.projectKey}/components`);
-    return (response.data as { name: string }[]).map(comp => comp.name).sort();
+    return (response.data as { name: string }[])
+      .map(comp => comp.name)
+      .toSorted((a, b) => a.localeCompare(b));
   } catch (error) {
     log.warn({ error }, 'Failed to fetch Jira components');
     return [];
@@ -96,7 +99,9 @@ export const autoGenerateMappings = async (): Promise<AutoMappingResult> => {
       const jiraName =
         jiraComponents.find(comp => comp.toLowerCase() === team.toLowerCase()) ?? team;
       mapped.push({ jenkinsTeam: team, jiraComponent: jiraName });
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       await upsertComponentMapping(team, jiraName, 'auto');
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       await updateComponentByJenkinsTeam(team, jiraName);
     } else {
       unmapped.push(team);

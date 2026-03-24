@@ -145,10 +145,10 @@ export const getActivityLog = async (
     ) combined
   `;
 
-  const [rows, countResult] = await Promise.all([
+  const [rows, countResult] = (await Promise.all([
     AppDataSource.query(query, params),
     AppDataSource.query(countQuery, countParams),
-  ]);
+  ])) as [ActivityLogEntry[], Record<string, string>[]];
 
   return { entries: rows, total: parseInt(countResult[0]?.total ?? '0', 10) };
 };

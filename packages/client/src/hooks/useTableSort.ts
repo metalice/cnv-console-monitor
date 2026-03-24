@@ -25,9 +25,6 @@ export const useTableSort = <T>(
 
   const sorted = useMemo(() => {
     const accessor = accessors[sortBy.index];
-    if (!accessor) {
-      return items;
-    }
 
     return [...items].sort((a, b) => {
       const valA = accessor(a);

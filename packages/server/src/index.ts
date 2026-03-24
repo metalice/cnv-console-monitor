@@ -23,6 +23,7 @@ const dispatchToSubscriptions = async (): Promise<void> => {
     if (!sub.enabled) {
       continue;
     }
+    // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
     await dispatchToSubscription(report, sub);
   }
 };

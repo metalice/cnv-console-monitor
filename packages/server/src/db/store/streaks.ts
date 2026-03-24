@@ -2,6 +2,7 @@ import { AppDataSource } from '../data-source';
 
 import type { FailureStreakInfo, RunStatus, TestItemRecord } from './types';
 
+/* eslint-disable @typescript-eslint/no-unnecessary-condition -- defensive: DB data */
 const toTestItemRecord = (row: Record<string, unknown>): TestItemRecord => ({
   ai_confidence: row.ai_confidence != null ? Number(row.ai_confidence) : undefined,
   ai_prediction: (row.ai_prediction as string) ?? undefined,
@@ -19,6 +20,7 @@ const toTestItemRecord = (row: Record<string, unknown>): TestItemRecord => ({
   status: row.status as string,
   unique_id: (row.unique_id as string) ?? undefined,
 });
+/* eslint-enable @typescript-eslint/no-unnecessary-condition */
 
 export const getTestFailureStreak = async (
   uniqueId: string,
@@ -86,7 +88,7 @@ export const getTestFailureStreak = async (
 };
 
 export const getCurrentlyFailingTests = async (): Promise<TestItemRecord[]> => {
-  const rows = await AppDataSource.query(`
+  const rows: Record<string, unknown>[] = await AppDataSource.query(`
     SELECT * FROM (
       SELECT DISTINCT ON (ti.unique_id) ti.*
       FROM test_items ti
@@ -108,7 +110,7 @@ export const getFailuresByHour = async (
   if (component) {
     params.push(component);
   }
-  const rows = await AppDataSource.query(
+  const rows: Record<string, unknown>[] = await AppDataSource.query(
     `
     SELECT
       EXTRACT(HOUR FROM TO_TIMESTAMP(start_time / 1000))::int as hour,
@@ -142,7 +144,7 @@ export const getClusterReliability = async (
   if (component) {
     params.push(component);
   }
-  const rows = await AppDataSource.query(
+  const rows: Record<string, unknown>[] = await AppDataSource.query(
     `
     SELECT
       cluster_name as cluster,

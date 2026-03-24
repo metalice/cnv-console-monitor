@@ -19,7 +19,7 @@
     "test": "npm run test -w packages/server",
     "typecheck": "npm run typecheck -w packages/shared && npm run typecheck -w packages/server",
     "poll": "npm run poll -w packages/server",
-    "lint": "eslint . --max-warnings 1342",
+    "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"packages/**/*.{ts,tsx,js,json,css}\"",
     "format:check": "prettier --check \"packages/**/*.{ts,tsx,js,json,css}\"",

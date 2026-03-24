@@ -119,7 +119,7 @@ export const DashboardPage: React.FC = () => {
             {upcomingReleases.map(release => (
               <Label
                 className="app-mr-sm app-cursor-pointer"
-                color={release.daysUntilNext! <= 3 ? 'red' : 'orange'}
+                color={(release.daysUntilNext ?? 0) <= 3 ? 'red' : 'orange'}
                 key={release.shortname}
                 onClick={() => navigate('/releases')}
               >

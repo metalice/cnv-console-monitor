@@ -33,7 +33,18 @@ export const ScreenshotGallery: React.FC<ScreenshotGalleryProps> = ({ onSelect, 
       <Gallery hasGutter minWidths={{ default: '200px' }}>
         {screenshots.map(screenshot => (
           <GalleryItem key={screenshot.path || screenshot.name}>
-            <div className="app-screenshot-thumb" onClick={() => onSelect(screenshot)}>
+            <div
+              className="app-screenshot-thumb"
+              role="button"
+              tabIndex={0}
+              onClick={() => onSelect(screenshot)}
+              onKeyDown={(e: React.KeyboardEvent) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onSelect(screenshot);
+                }
+              }}
+            >
               <img
                 alt={screenshot.name}
                 className="app-screenshot-img"

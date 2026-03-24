@@ -125,12 +125,12 @@ const PollIndicator: React.FC = () => {
   let tooltipText: string;
 
   if (isActive) {
-    const activePoll = jenkinsActive ? wsJenkins : poll;
+    const activePoll = (jenkinsActive ? wsJenkins : poll) ?? { current: 0, message: '', total: 0 };
     const percentage =
-      activePoll!.total > 0 ? Math.round((activePoll!.current / activePoll!.total) * 100) : 0;
-    statusText = activePoll!.total > 0 ? `Syncing ${percentage}%` : 'Syncing...';
+      activePoll.total > 0 ? Math.round((activePoll.current / activePoll.total) * 100) : 0;
+    statusText = activePoll.total > 0 ? `Syncing ${percentage}%` : 'Syncing...';
     tooltipText =
-      activePoll!.message ||
+      activePoll.message ||
       (jenkinsActive ? 'Jenkins enrichment...' : 'Syncing with ReportPortal...');
   } else if (lastPoll) {
     statusText = `Synced ${formatTimeAgo(lastPoll)}`;
@@ -206,7 +206,7 @@ const AISearchIndicator: React.FC = () => {
 
   React.useEffect(() => {
     fetch('/api/ai/status')
-      .then(r => r.json())
+      .then(r => r.json() as Promise<{ enabled: boolean }>)
       .then(setAiStatus)
       .catch(() => {
         // no-op
@@ -223,9 +223,11 @@ const AISearchIndicator: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         method: 'POST',
       });
-      const data = await res.json();
+      const data = (await res.json()) as {
+        result?: { page?: string; filters?: Record<string, string> };
+      };
       if (data.result?.page) {
-        const params = new URLSearchParams(data.result.filters || {});
+        const params = new URLSearchParams(data.result.filters ?? {});
         navigate(`/${data.result.page}?${params.toString()}`);
         setSearchOpen(false);
         setSearchValue('');

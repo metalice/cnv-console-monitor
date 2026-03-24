@@ -106,6 +106,7 @@ export const sendSlackJiraNotification = async (params: {
 
   for (const url of [...new Set(urls)]) {
     try {
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       await postSlack(url, { text });
       log.info({ jiraKey: params.jiraKey }, 'Jira notification sent to Slack');
     } catch (err) {

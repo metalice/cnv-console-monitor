@@ -60,6 +60,7 @@ export const QuickStartGuide: React.FC<QuickStartGuideProps> = ({
         >
           <div className="app-about-steps">
             {steps.map((step, i) => (
+              // eslint-disable-next-line react/no-array-index-key
               <div className="app-about-step" key={i}>
                 <Flex
                   alignItems={{ default: 'alignItemsFlexStart' }}
@@ -82,7 +83,7 @@ export const QuickStartGuide: React.FC<QuickStartGuideProps> = ({
                           iconPosition="end"
                           size="sm"
                           variant="link"
-                          onClick={() => navigate(step.link!.path)}
+                          onClick={() => navigate(step.link?.path ?? '')}
                         >
                           {step.link.label}
                         </Button>

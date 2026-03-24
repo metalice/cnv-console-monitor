@@ -112,7 +112,7 @@ export const getQuarantineStats = async (): Promise<{
   resolvedLast30d: number;
   avgDurationDays: number;
 }> => {
-  const rows = await AppDataSource.query(`
+  const rows: Record<string, string>[] = await AppDataSource.query(`
     SELECT
       COUNT(*) FILTER (WHERE status = 'active') AS active,
       COUNT(*) FILTER (WHERE status = 'proposed') AS proposed,
@@ -123,6 +123,7 @@ export const getQuarantineStats = async (): Promise<{
     FROM quarantines
   `);
   const r = rows[0] || {};
+  /* eslint-disable @typescript-eslint/no-unnecessary-condition -- defensive: DB aggregate result shape */
   return {
     active: parseInt(r.active ?? '0', 10),
     avgDurationDays: parseFloat(r.avg_duration_days ?? '0'),
@@ -131,6 +132,7 @@ export const getQuarantineStats = async (): Promise<{
     proposed: parseInt(r.proposed ?? '0', 10),
     resolvedLast30d: parseInt(r.resolved_last_30d ?? '0', 10),
   };
+  /* eslint-enable @typescript-eslint/no-unnecessary-condition */
 };
 
 export const getQuarantineHistory = async (days = 30): Promise<Quarantine[]> =>

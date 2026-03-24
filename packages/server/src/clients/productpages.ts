@@ -35,11 +35,12 @@ const getToken = async (): Promise<string> => {
     { maxRetries: 2 },
   );
 
-  cachedToken = response.data.access_token;
-  const expiresIn = (response.data.expires_in || 300) - 30;
+  const tokenData = response.data as { access_token: string; expires_in?: number };
+  cachedToken = tokenData.access_token;
+  const expiresIn = (tokenData.expires_in || 300) - 30;
   tokenExpiresAt = Date.now() + expiresIn * 1000;
 
-  return cachedToken!;
+  return cachedToken;
 };
 
 export type PPTask = {

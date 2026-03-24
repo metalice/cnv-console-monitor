@@ -159,7 +159,7 @@ export const MonacoViewer: React.FC<MonacoViewerProps> = ({
       editor.onMouseDown(e => {
         const lineNum = e.target.position?.lineNumber;
         if (lineNum && blockByLine.has(lineNum)) {
-          setSelectedBlock(blockByLine.get(lineNum)!);
+          setSelectedBlock(blockByLine.get(lineNum) ?? null);
           setAiInsight(null);
           const top = editor.getTopForLineNumber(lineNum) - editor.getScrollTop();
           setActionBarTop(top);
@@ -175,7 +175,7 @@ export const MonacoViewer: React.FC<MonacoViewerProps> = ({
     setHoveredLine(null);
   }, [content, fileName]);
 
-  const activeBlock = selectedBlock || (hoveredLine ? blockByLine.get(hoveredLine) : null);
+  const activeBlock = selectedBlock ?? (hoveredLine ? blockByLine.get(hoveredLine) : null);
 
   const aiMutation = useMutation({
     mutationFn: async (block: TestBlock) => {

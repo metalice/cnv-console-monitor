@@ -1,6 +1,11 @@
 import { type NextFunction, type Request, type Response, Router } from 'express';
 
-import { JiraCreateRequestSchema, JiraLinkRequestSchema } from '@cnv-monitor/shared';
+import {
+  type JiraCreateRequest,
+  JiraCreateRequestSchema,
+  type JiraLinkRequest,
+  JiraLinkRequestSchema,
+} from '@cnv-monitor/shared';
 
 import {
   buildBugDescription,
@@ -35,7 +40,7 @@ router.post(
         return;
       }
 
-      const { testItemId } = req.body;
+      const { testItemId } = req.body as JiraCreateRequest;
       const performedBy = req.user?.email || 'unknown';
 
       const item = await getTestItemByRpId(testItemId);
@@ -132,7 +137,8 @@ router.post(
   validateBody(JiraLinkRequestSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { jiraKey, testItemId } = req.body;
+      const body = req.body as JiraLinkRequest;
+      const { jiraKey, testItemId } = body;
       const performedBy = req.user?.email || 'unknown';
 
       const item = await getTestItemByRpId(testItemId);

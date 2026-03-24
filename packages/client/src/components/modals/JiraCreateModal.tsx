@@ -152,7 +152,7 @@ export const JiraCreateModal: React.FC<JiraCreateModalProps> = ({
           If a matching issue already exists, it will be linked instead of creating a duplicate.
         </Content>
 
-        {mutation.isSuccess && mutation.data && (
+        {mutation.isSuccess && (
           <Alert
             className="app-mt-md"
             title={mutation.data.existing ? 'Found existing issue' : 'Issue created'}

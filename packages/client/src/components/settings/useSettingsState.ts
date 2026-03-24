@@ -37,6 +37,7 @@ export const useSettingsState = () => {
   const [jiraMetaOverride, setJiraMetaOverride] = useState<JiraMeta | null>(null);
   const [jiraTestMode, setJiraTestMode] = useState(false);
 
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data
   const val = (key: string): string => draft[key] ?? data?.settings[key]?.value ?? '';
   const set = useCallback(
     (key: string, value: string): void => {
@@ -51,6 +52,7 @@ export const useSettingsState = () => {
     data?.settings[key] !== undefined && draft[key] !== data.settings[key].value;
   const hasChanges = (): boolean => (data ? Object.keys(draft).some(k => isDirty(k)) : false);
 
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data
   const jiraProject = draft['jira.projectKey'] ?? data?.settings['jira.projectKey']?.value ?? '';
   const jiraTokenDirty = isDirty('jira.token') || tokenEditing['jira.token'];
   const prevJiraProjectRef = useRef('');
@@ -160,9 +162,9 @@ export const useSettingsState = () => {
         projects: result.projects ?? [],
       });
       if (!val('jira.issueType')) {
-        const bugType = (result.issueTypes || []).find(type => type.toLowerCase() === 'bug');
+        const bugType = (result.issueTypes ?? []).find(type => type.toLowerCase() === 'bug');
         if (bugType || result.issueTypes?.[0]) {
-          set('jira.issueType', bugType || result.issueTypes![0]);
+          set('jira.issueType', bugType || (result.issueTypes?.[0] ?? ''));
         }
       }
     },

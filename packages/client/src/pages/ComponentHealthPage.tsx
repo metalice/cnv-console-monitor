@@ -72,13 +72,12 @@ export const ComponentHealthPage: React.FC = () => {
                 <AIActionButton
                   apiCall={() =>
                     generateHealthNarrative({
-                      components:
-                        components?.map(c => ({
-                          failedTests: c.failedLaunches,
-                          launches: c.totalLaunches,
-                          name: c.component,
-                          passRate: c.passRate,
-                        })) ?? [],
+                      components: components.map(c => ({
+                        failedTests: c.failedLaunches,
+                        launches: c.totalLaunches,
+                        name: c.component,
+                        passRate: c.passRate,
+                      })),
                       days: Math.round((until - since) / (24 * 60 * 60 * 1000)),
                     })
                   }
@@ -93,23 +92,20 @@ export const ComponentHealthPage: React.FC = () => {
                     generateStandupSummary({
                       acks: 0,
                       classifications: 0,
-                      components:
-                        components?.map(c => ({
-                          failed: c.failedLaunches,
-                          launches: c.totalLaunches,
-                          name: c.component,
-                          passRate: c.passRate,
-                        })) ?? [],
+                      components: components.map(c => ({
+                        failed: c.failedLaunches,
+                        launches: c.totalLaunches,
+                        name: c.component,
+                        passRate: c.passRate,
+                      })),
                       date: new Date().toLocaleDateString(),
                       jiraCreated: 0,
-                      passRate: components
-                        ? Math.round(
-                            components.reduce((s, c) => s + c.passRate, 0) / components.length,
-                          )
-                        : 0,
+                      passRate: Math.round(
+                        components.reduce((s, c) => s + c.passRate, 0) / components.length,
+                      ),
                       passRateDelta: 0,
                       recentFailures: [],
-                      totalLaunches: components?.reduce((s, c) => s + c.totalLaunches, 0) ?? 0,
+                      totalLaunches: components.reduce((s, c) => s + c.totalLaunches, 0),
                       upcoming: [],
                     })
                   }

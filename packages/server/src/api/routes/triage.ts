@@ -1,8 +1,11 @@
 import { type NextFunction, type Request, type Response, Router } from 'express';
 
 import {
+  type BulkTriageRequest,
   BulkTriageRequestSchema,
+  type CommentRequest,
   CommentRequestSchema,
+  type TriageRequest,
   TriageRequestSchema,
 } from '@cnv-monitor/shared';
 
@@ -30,7 +33,7 @@ router.post(
         return;
       }
 
-      const { comment, defectType } = req.body;
+      const { comment, defectType } = req.body as TriageRequest;
       const performedBy = req.user?.email || 'unknown';
 
       const existing = await getTestItemByRpId(itemId);
@@ -42,7 +45,7 @@ router.post(
       const launch = await getLaunchByRpId(existing.launch_rp_id);
 
       await updateDefectType([itemId], defectType, comment);
-      await updateTestItemDefect(itemId, defectType, comment || '');
+      await updateTestItemDefect(itemId, defectType, comment ?? '');
 
       await addTriageLog({
         action: 'classify_defect',
@@ -67,15 +70,19 @@ router.post(
   validateBody(BulkTriageRequestSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { comment, defectType, itemIds } = req.body;
+      const { comment, defectType, itemIds } = req.body as BulkTriageRequest;
       const performedBy = req.user?.email || 'unknown';
 
       await updateDefectType(itemIds, defectType, comment);
 
       for (const itemId of itemIds) {
+        // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
         const existing = await getTestItemByRpId(itemId);
+        // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
         const launch = existing ? await getLaunchByRpId(existing.launch_rp_id) : undefined;
-        await updateTestItemDefect(itemId, defectType, comment || '');
+        // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
+        await updateTestItemDefect(itemId, defectType, comment ?? '');
+        // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
         await addTriageLog({
           action: 'bulk_classify_defect',
           component: launch?.component,
@@ -105,7 +112,7 @@ router.post(
         return;
       }
 
-      const { comment } = req.body;
+      const { comment } = req.body as CommentRequest;
       const performedBy = req.user?.email || 'unknown';
 
       const item = await getTestItemByRpId(itemId);

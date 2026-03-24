@@ -43,6 +43,8 @@ export class EnrichJenkinsPhase implements PipelinePhase {
     }
   }
 
+  // TODO: Refactor to reduce cognitive complexity
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private async enrichLaunch(launch: LaunchRecord): Promise<void> {
     if (!launch.artifacts_url) {
       launch.jenkins_status = 'no_url';
@@ -56,8 +58,13 @@ export class EnrichJenkinsPhase implements PipelinePhase {
     const requestConfig = buildJenkinsRequestConfig();
 
     try {
+      type JenkinsBuildResponse = {
+        result?: string;
+        actions: { parameters?: { name: string; value: string }[] }[];
+      };
+
       const response = await withRetry(
-        () => axios.get(buildApiUrl, requestConfig),
+        () => axios.get<JenkinsBuildResponse>(buildApiUrl, requestConfig),
         `jenkins(${launch.rp_id})`,
         {
           baseDelayMs: 1000,
@@ -68,7 +75,7 @@ export class EnrichJenkinsPhase implements PipelinePhase {
             if (s === 403 || s === 404 || s === 410) {
               return false;
             }
-            const code = (err as Record<string, unknown>)?.code as string | undefined;
+            const code = (err as Record<string, unknown>).code as string | undefined;
             if (
               code === 'ECONNRESET' ||
               code === 'ETIMEDOUT' ||
@@ -80,7 +87,8 @@ export class EnrichJenkinsPhase implements PipelinePhase {
             ) {
               return true;
             }
-            const msg = (((err as Record<string, unknown>)?.message as string) || '').toLowerCase();
+            // eslint-disable-next-line @typescript-eslint/no-base-to-string
+            const msg = String((err as Record<string, unknown>).message ?? '').toLowerCase();
             if (msg.includes('aborted') || msg.includes('socket hang up')) {
               return true;
             }
@@ -89,13 +97,13 @@ export class EnrichJenkinsPhase implements PipelinePhase {
         },
       );
 
-      const actions: { parameters?: { name: string; value: string }[] }[] =
-        response.data?.actions || [];
+      /* eslint-disable @typescript-eslint/no-unnecessary-condition -- defensive: Jenkins API data */
+      const actions = response.data?.actions || [];
       const params: Record<string, string> = {};
       for (const action of actions) {
         for (const param of action.parameters ?? []) {
           if (param.name) {
-            params[param.name] = param.value ?? '';
+            params[param.name] = param.value;
           }
         }
       }
@@ -105,7 +113,7 @@ export class EnrichJenkinsPhase implements PipelinePhase {
       const jobMetaStr = params.JOB_METADATA;
       if (jobMetaStr) {
         try {
-          metadata = JSON.parse(jobMetaStr);
+          metadata = JSON.parse(jobMetaStr) as Record<string, unknown>;
           if (metadata && typeof metadata.team === 'string') {
             team = metadata.team;
           }
@@ -115,7 +123,8 @@ export class EnrichJenkinsPhase implements PipelinePhase {
       }
 
       launch.jenkins_status = 'success';
-      const jenkinsResult = response.data?.result as string | undefined;
+      const jenkinsResult = response.data?.result;
+      /* eslint-enable @typescript-eslint/no-unnecessary-condition */
       if (team) {
         launch.jenkins_team = team;
         launch.component = team;
@@ -135,6 +144,7 @@ export class EnrichJenkinsPhase implements PipelinePhase {
         }
       }
       const tier =
+        // eslint-disable-next-line @typescript-eslint/no-base-to-string
         (metadata?.tier != null ? `TIER-${String(metadata.tier)}` : null) ||
         params.DATA_TIER_NAME ||
         params.CNV_TIER_NAME ||
@@ -224,6 +234,7 @@ export class EnrichJenkinsPhase implements PipelinePhase {
 
     if (withArtifacts.length > 0) {
       try {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const url = withArtifacts[0].artifacts_url!.replace(
           /\/artifact\/?$/,
           '/api/json?tree=result',
@@ -303,6 +314,7 @@ export class EnrichJenkinsPhase implements PipelinePhase {
       }
 
       const batch = withArtifacts.slice(i, i + concurrency);
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       await Promise.all(
         batch.map(async launch => {
           try {

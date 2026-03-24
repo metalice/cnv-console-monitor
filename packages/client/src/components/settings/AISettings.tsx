@@ -36,6 +36,7 @@ const PROVIDERS = [
   { label: 'Ollama (Local)', value: 'ollama' },
 ];
 
+// eslint-disable-next-line max-lines-per-function
 export const AISettings: React.FC = () => {
   const queryClient = useQueryClient();
   const [modelSelectOpen, setModelSelectOpen] = useState(false);

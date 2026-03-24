@@ -85,7 +85,7 @@ export const config = {
   },
 };
 
-const SETTINGS_MAP: Record<string, (settingValue: string) => void> = {
+const SETTINGS_MAP = {
   'dashboard.url': settingValue => {
     config.dashboard.url = settingValue;
   },
@@ -178,14 +178,14 @@ const SETTINGS_MAP: Record<string, (settingValue: string) => void> = {
   'slack.jiraWebhookUrl': settingValue => {
     config.slack.jiraWebhookUrl = settingValue;
   },
-};
+} satisfies Record<string, (settingValue: string) => void>;
 
 export const applySettingsOverrides = (dbSettings: Record<string, string>): void => {
   for (const [key, value] of Object.entries(dbSettings)) {
-    const setter = SETTINGS_MAP[key];
-    if (setter) {
-      setter(value);
+    if (!Object.hasOwn(SETTINGS_MAP, key)) {
+      continue;
     }
+    SETTINGS_MAP[key as keyof typeof SETTINGS_MAP](value);
   }
 };
 

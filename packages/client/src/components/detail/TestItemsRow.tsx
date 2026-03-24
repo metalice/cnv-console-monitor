@@ -60,6 +60,7 @@ export const TestItemsRow: React.FC<TestItemsRowProps> = ({
                   variant="link"
                   onClick={event => {
                     event.stopPropagation();
+                    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                     onNavigate(`/test/${encodeURIComponent(item.unique_id!)}`);
                   }}
                 >

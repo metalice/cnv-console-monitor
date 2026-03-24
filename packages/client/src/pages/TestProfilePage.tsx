@@ -32,6 +32,7 @@ export const TestProfilePage: React.FC = () => {
 
   const { data: profile, isLoading } = useQuery<TestProfile>({
     enabled: Boolean(uniqueId),
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     queryFn: () => fetchTestProfile(uniqueId!),
     queryKey: ['testProfile', uniqueId],
   });

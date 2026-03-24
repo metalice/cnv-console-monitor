@@ -21,7 +21,7 @@ router.get('/health', async (_req: Request, res: Response) => {
             params: { 'page.size': 1 },
             timeout: 3000,
           })
-          .then(rpRes => ({
+          .then((rpRes: { data?: { page?: { totalElements?: number } } }) => ({
             message: `${rpRes.data?.page?.totalElements ?? 0} launches`,
             status: 'up' as const,
           }))
@@ -59,11 +59,13 @@ router.get('/rp-projects', async (_req: Request, res: Response) => {
       httpsAgent,
       timeout: 15000,
     });
-    const response = await client.get('/api/v1/project/list', { params: { 'page.size': 100 } });
-    const projects: string[] = (response.data?.content || []).map(
-      (project: { projectName: string }) => project.projectName,
+    const response = await client.get<{ content?: { projectName: string }[] }>(
+      '/api/v1/project/list',
+      { params: { 'page.size': 100 } },
     );
-    res.json(projects.sort());
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime API data
+    const projects: string[] = (response.data?.content ?? []).map(project => project.projectName);
+    res.json(projects.toSorted((a, b) => a.localeCompare(b)));
   } catch (err) {
     log.warn({ err }, 'Failed to fetch RP projects');
     res.json([config.reportportal.project]);
@@ -78,8 +80,12 @@ router.get('/launch-names', async (_req: Request, res: Response) => {
       httpsAgent,
       timeout: 15000,
     });
-    const response = await client.get('/launch/names');
-    res.json((response.data?.content || response.data || []).sort());
+    const response = await client.get<{ content?: string[] } | string[]>('/launch/names');
+    const data = response.data;
+    const launchNames: string[] = Array.isArray(data)
+      ? data
+      : ((data as { content?: string[] }).content ?? []);
+    res.json(launchNames.toSorted((a, b) => a.localeCompare(b)));
   } catch (err) {
     log.warn({ err }, 'Failed to fetch launch names');
     res.json([]);
@@ -114,7 +120,9 @@ router.get('/jira-meta', async (req: Request, res: Response) => {
         : ['Bug', 'Task', 'Story'];
     const components =
       componentRes.status === 'fulfilled'
-        ? (componentRes.value.data as { name: string }[]).map(comp => comp.name).sort()
+        ? (componentRes.value.data as { name: string }[])
+            .map(comp => comp.name)
+            .toSorted((a, b) => a.localeCompare(b))
         : [];
 
     res.json({ components, issueTypes, projects });

@@ -27,7 +27,7 @@ export const fetchBlockingFailures = async (
   sinceMs: number,
   midMs: number,
 ): Promise<BlockingFailure[]> => {
-  const rows = await AppDataSource.query(
+  const rows: Record<string, unknown>[] = await AppDataSource.query(
     `
     WITH test_failures AS (
       SELECT
@@ -79,7 +79,7 @@ export const fetchBlockingFailures = async (
 };
 
 export const fetchTrendData = async (version: string, sinceMs: number): Promise<TrendPoint[]> => {
-  const rows = await AppDataSource.query(
+  const rows: Record<string, unknown>[] = await AppDataSource.query(
     `
     SELECT
       TO_CHAR(TO_TIMESTAMP(l.start_time / 1000), 'YYYY-MM-DD') as date,

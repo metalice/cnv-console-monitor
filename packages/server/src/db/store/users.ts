@@ -8,6 +8,7 @@ const users = () => AppDataSource.getRepository(UserEntity);
 const userPrefs = () => AppDataSource.getRepository(UserPreference);
 
 const toUserRecord = (row: UserEntity): UserRecord => ({
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: DB data
   createdAt: row.created_at?.toISOString() ?? new Date().toISOString(),
   email: row.email,
   lastLogin: row.last_login?.toISOString() ?? null,
@@ -55,7 +56,7 @@ export const getUserPreferences = async (email: string): Promise<UserPreferences
     return {};
   }
   try {
-    return JSON.parse(row.preferences);
+    return JSON.parse(row.preferences) as UserPreferencesData;
   } catch {
     return {};
   }

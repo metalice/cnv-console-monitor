@@ -29,6 +29,7 @@ export const SystemHealth: React.FC = () => {
     <Flex spaceItems={{ default: 'spaceItemsMd' }}>
       {SERVICES.map(({ key, label }) => {
         const check = data[key];
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data
         if (!check) {
           return null;
         }

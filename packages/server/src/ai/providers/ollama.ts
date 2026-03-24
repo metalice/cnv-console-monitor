@@ -31,7 +31,11 @@ export class OllamaProvider implements ModelProvider {
       { timeout: options?.timeout ?? 120000 },
     );
 
-    const { data } = response;
+    const data = response.data as {
+      message?: { content?: string };
+      prompt_eval_count?: number;
+      eval_count?: number;
+    };
 
     return {
       cached: false,

@@ -77,7 +77,7 @@ export const MappingsTable: React.FC<MappingsTableProps> = props => (
                 placeholder="Jenkins team or pattern"
                 value={props.newDraft.pattern}
                 onChange={(_ev, value) =>
-                  props.onNewDraftChange({ ...props.newDraft!, pattern: value })
+                  props.newDraft && props.onNewDraftChange({ ...props.newDraft, pattern: value })
                 }
               />
             </Td>
@@ -87,7 +87,9 @@ export const MappingsTable: React.FC<MappingsTableProps> = props => (
                 options={props.componentOptions}
                 placeholder="Select Jira component"
                 value={props.newDraft.component}
-                onChange={value => props.onNewDraftChange({ ...props.newDraft!, component: value })}
+                onChange={value =>
+                  props.newDraft && props.onNewDraftChange({ ...props.newDraft, component: value })
+                }
               />
             </Td>
             <Td>
@@ -112,7 +114,8 @@ export const MappingsTable: React.FC<MappingsTableProps> = props => (
                       isChecked={props.newDraft.includeDeleted ?? false}
                       label="+ deleted"
                       onChange={(_ev, checked) =>
-                        props.onNewDraftChange({ ...props.newDraft!, includeDeleted: checked })
+                        props.newDraft &&
+                        props.onNewDraftChange({ ...props.newDraft, includeDeleted: checked })
                       }
                     />
                   </Tooltip>
@@ -190,7 +193,7 @@ export const MappingsTable: React.FC<MappingsTableProps> = props => (
         </Tbody>
       )}
     </Table>
-    {props.previewResult && (props.newDraft || props.editingPattern) && (
+    {props.previewResult && (props.newDraft ?? props.editingPattern) && (
       <div className="app-mt-sm">
         {props.previewResult.conflicts && props.previewResult.conflicts.length > 0 && (
           <Alert

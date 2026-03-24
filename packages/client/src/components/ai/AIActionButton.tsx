@@ -101,7 +101,7 @@ export const AIActionButton: React.FC<AIActionButtonProps> = ({
               variant="danger"
             />
           )}
-          {mutation.isSuccess && mutation.data && (
+          {mutation.isSuccess && (
             <div>
               <Flex
                 className="app-mb-md"
@@ -126,6 +126,7 @@ export const AIActionButton: React.FC<AIActionButtonProps> = ({
               {mutation.data.response ? (
                 <div className="app-changelog-raw">
                   {mutation.data.response.split('\n').map((line, i) => (
+                    // eslint-disable-next-line react/no-array-index-key
                     <Content className="app-text-xs" component="p" key={i}>
                       {line || '\u00a0'}
                     </Content>
@@ -158,15 +159,22 @@ export const AIActionButton: React.FC<AIActionButtonProps> = ({
 
 const AIResultDisplay: React.FC<{ data: Record<string, unknown> }> = ({ data }) => {
   if (data.raw) {
+    const rawText =
+      typeof data.raw === 'string'
+        ? data.raw
+        : typeof data.raw === 'number' ||
+            typeof data.raw === 'boolean' ||
+            typeof data.raw === 'bigint'
+          ? String(data.raw)
+          : JSON.stringify(data.raw);
     return (
       <div className="app-changelog-raw">
-        {String(data.raw)
-          .split('\n')
-          .map((line, i) => (
-            <Content className="app-text-xs" component="p" key={i}>
-              {line || '\u00a0'}
-            </Content>
-          ))}
+        {rawText.split('\n').map((line, i) => (
+          // eslint-disable-next-line react/no-array-index-key
+          <Content className="app-text-xs" component="p" key={i}>
+            {line || '\u00a0'}
+          </Content>
+        ))}
       </div>
     );
   }
@@ -195,6 +203,7 @@ const AIResultDisplay: React.FC<{ data: Record<string, unknown> }> = ({ data }) 
               </Content>
               <ul className="app-text-xs">
                 {value.map((item, i) => (
+                  // eslint-disable-next-line react/no-array-index-key
                   <li key={i}>{typeof item === 'string' ? item : JSON.stringify(item)}</li>
                 ))}
               </ul>
@@ -212,7 +221,9 @@ const AIResultDisplay: React.FC<{ data: Record<string, unknown> }> = ({ data }) 
         return (
           <div className="app-mb-sm" key={key}>
             <strong className="app-text-xs">{key}:</strong>{' '}
-            <span className="app-text-xs">{String(value)}</span>
+            <span className="app-text-xs">
+              {String(value as string | number | boolean | bigint | symbol)}
+            </span>
           </div>
         );
       })}

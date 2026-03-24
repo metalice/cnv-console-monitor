@@ -39,6 +39,7 @@ export const MyJiraBugsCard: React.FC<MyJiraBugsCardProps> = ({ bugs, jiraUrl })
           </Thead>
           <Tbody>
             {bugs.map((bug, i) => (
+              // eslint-disable-next-line react/no-array-index-key
               <Tr key={i}>
                 <Td className="app-cell-nowrap" dataLabel="Jira Key">
                   {jiraUrl ? (

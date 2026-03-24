@@ -18,7 +18,7 @@ router.get('/', async (req: Request, res: Response) => {
       slackEnabled = userSubs.some(s => Boolean(s.slackWebhook));
     }
     if (!emailEnabled) {
-      emailEnabled = userSubs.some(s => s.emailRecipients && s.emailRecipients.length > 0);
+      emailEnabled = userSubs.some(s => s.emailRecipients.length > 0);
     }
   } catch {
     /* Ignore */

@@ -23,6 +23,7 @@ export const resolveJiraMeta = (
       }
     : null;
 
+  /* eslint-disable @typescript-eslint/no-unnecessary-condition -- defensive: runtime data */
   const jiraMetaData = jiraTokenDirty
     ? jiraTestMode
       ? {
@@ -45,7 +46,8 @@ export const resolveJiraMeta = (
     value: p.key,
   }));
   const issueTypeOptions = jiraMetaData?.issueTypes?.length
-    ? jiraMetaData.issueTypes
+    ? /* eslint-enable @typescript-eslint/no-unnecessary-condition */
+      jiraMetaData.issueTypes
     : ['Bug', 'Task', 'Story'];
   const issueTypeSelectOptions = toOptions(issueTypeOptions);
 

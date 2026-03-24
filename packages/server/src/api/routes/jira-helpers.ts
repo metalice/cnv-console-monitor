@@ -44,8 +44,8 @@ export const fireSlackJiraNotification = (opts: {
             sub.components.length === 0 ||
             (opts.launchComponent && sub.components.includes(opts.launchComponent)),
         )
-        .map(sub => sub.jiraWebhook!)
-        .filter(Boolean);
+        .map(sub => sub.jiraWebhook)
+        .filter((url): url is string => Boolean(url));
 
       void sendSlackJiraNotification({
         cnvVersion: opts.cnvVersion,

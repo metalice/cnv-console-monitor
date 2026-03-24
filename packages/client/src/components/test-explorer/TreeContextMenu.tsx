@@ -96,7 +96,7 @@ export const TreeContextMenu: React.FC<TreeContextMenuProps> = ({
           <MenuList>
             {node.repoUrl && (
               <MenuItem icon={<ExternalLinkAltIcon />} onClick={() => handleAction(openInRepo)}>
-                Open in {node.repoUrl?.includes('github') ? 'GitHub' : 'GitLab'}
+                Open in {node.repoUrl.includes('github') ? 'GitHub' : 'GitLab'}
               </MenuItem>
             )}
 
@@ -125,6 +125,7 @@ export const TreeContextMenu: React.FC<TreeContextMenuProps> = ({
                   <MenuItem
                     icon={node.type === 'doc' ? <CodeIcon /> : <OutlinedFileAltIcon />}
                     onClick={() =>
+                      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                       handleAction(() => actions.onViewCounterpart?.(node.counterpartPath!))
                     }
                   >
@@ -181,6 +182,7 @@ export const TreeContextMenu: React.FC<TreeContextMenuProps> = ({
               <>
                 <MenuItem
                   icon={<SyncAltIcon />}
+                  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                   onClick={() => handleAction(() => actions.onSyncRepo?.(node.repoId!))}
                 >
                   Sync repository
@@ -192,6 +194,7 @@ export const TreeContextMenu: React.FC<TreeContextMenuProps> = ({
                 )}
                 <MenuItem
                   icon={<CogIcon />}
+                  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                   onClick={() => handleAction(() => actions.onEditRepoSettings?.(node.repoId!))}
                 >
                   Edit settings

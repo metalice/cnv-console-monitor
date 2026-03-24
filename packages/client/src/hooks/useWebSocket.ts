@@ -31,6 +31,41 @@ export type SyncProgressInfo = {
   log: string[];
 };
 
+type WsDataUpdated = { event: 'data-updated' };
+type WsPollProgress = {
+  event: 'poll-progress';
+  current: number;
+  message: string;
+  phase: string;
+  startedAt?: number | null;
+  total: number;
+};
+type WsSyncProgress = {
+  event: 'sync-progress';
+  current?: number;
+  message?: string;
+  phase: string;
+  repoName?: string;
+  total?: number;
+};
+type WsJenkinsProgress = {
+  event: 'jenkins-progress';
+  current: number;
+  message: string;
+  phase: string;
+  total: number;
+};
+type WsPipelineState = {
+  [key: string]: unknown;
+  event: 'pipeline-state';
+};
+type WsMessage =
+  | WsDataUpdated
+  | WsJenkinsProgress
+  | WsPipelineState
+  | WsPollProgress
+  | WsSyncProgress;
+
 type SyncListener = (info: SyncProgressInfo) => void;
 const syncListeners = new Set<SyncListener>();
 let syncState: SyncProgressInfo = {
@@ -100,7 +135,7 @@ export const useWebSocket = (): WebSocketStatus => {
   const handleMessage = useCallback(
     (event: MessageEvent) => {
       try {
-        const data = JSON.parse(event.data);
+        const data = JSON.parse(event.data as string) as WsMessage;
         if (data.event === 'data-updated') {
           void queryClient.invalidateQueries({
             predicate: query => {
@@ -123,7 +158,7 @@ export const useWebSocket = (): WebSocketStatus => {
         }
         if (data.event === 'sync-progress') {
           const isActive = data.phase !== 'complete' && data.phase !== 'error';
-          const logEntry = data.message as string;
+          const logEntry = data.message ?? '';
           const lastLog = syncState.log[syncState.log.length - 1];
           const newLog =
             logEntry && logEntry !== lastLog
@@ -132,12 +167,12 @@ export const useWebSocket = (): WebSocketStatus => {
 
           syncState = {
             active: isActive,
-            current: data.current || 0,
+            current: data.current ?? 0,
             log: newLog,
-            message: logEntry || '',
+            message: logEntry,
             phase: data.phase,
-            repoName: data.repoName || syncState.repoName,
-            total: data.total || 0,
+            repoName: data.repoName ?? syncState.repoName,
+            total: data.total ?? 0,
           };
           for (const listener of syncListeners) {
             listener(syncState);

@@ -13,7 +13,13 @@ export const getFailureHeatmap = async (
   if (component) {
     params.push(component);
   }
-  const rows = await AppDataSource.query(
+  const rows: {
+    unique_id: string;
+    name: string;
+    fail_count: number;
+    date: string;
+    status: string;
+  }[] = await AppDataSource.query(
     `
     WITH top_failures AS (
       SELECT ti.unique_id, ti.name, COUNT(*)::int as fail_count
@@ -67,7 +73,7 @@ export const getTopFailingTests = async (
   if (component) {
     params.push(component);
   }
-  const rows = await AppDataSource.query(
+  const rows: Record<string, unknown>[] = await AppDataSource.query(
     `
     WITH test_failures AS (
       SELECT
@@ -129,7 +135,7 @@ export const getAIPredictionAccuracy = async (
   if (component) {
     params.push(component);
   }
-  const rows = await AppDataSource.query(
+  const rows: { prediction: string; actual: string; count: number }[] = await AppDataSource.query(
     `
     SELECT
       ti.ai_prediction as prediction,

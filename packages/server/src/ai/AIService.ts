@@ -244,7 +244,7 @@ export class AIService {
   }
 
   getAvailableProviders(): string[] {
-    return [...this.providers.keys()].filter(k => this.providers.get(k)!.isAvailable());
+    return [...this.providers.keys()].filter(k => this.providers.get(k)?.isAvailable());
   }
 
   getStreamableProviders(): string[] {
@@ -308,9 +308,7 @@ export class AIService {
 let instance: AIService | null = null;
 
 export const getAIService = (): AIService => {
-  if (!instance) {
-    instance = new AIService();
-  }
+  instance ??= new AIService();
   return instance;
 };
 

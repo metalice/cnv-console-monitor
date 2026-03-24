@@ -40,6 +40,7 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
   promise.configs['flat/recommended'],
   regexp.configs['flat/recommended'],
   sonarjs.configs.recommended,
@@ -222,23 +223,29 @@ export default tseslint.config(
   },
 
   // ── React / Client-specific ──
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   {
     files: ['packages/client/**/*.{ts,tsx}'],
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     ...jsxA11y.flatConfigs.recommended,
     languageOptions: {
       globals: {
         ...globals.browser,
       },
     },
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     plugins: {
       ...(pluginQuery.configs['flat/recommended'][0]?.plugins ?? {}),
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       ...jsxA11y.flatConfigs.recommended.plugins,
       react,
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
     },
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     rules: {
       ...(pluginQuery.configs['flat/recommended'][0]?.rules ?? {}),
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       ...jsxA11y.flatConfigs.recommended.rules,
       '@tanstack/query/infinite-query-property-order': 'off',
       'jsx-a11y/click-events-have-key-events': 'warn',
@@ -266,13 +273,18 @@ export default tseslint.config(
   },
 
   // ── Server / Node.js-specific (security) ──
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   {
     files: ['packages/server/**/*.ts'],
     ...security.configs.recommended,
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     plugins: {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       ...security.configs.recommended.plugins,
     },
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     rules: {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       ...security.configs.recommended.rules,
       'security/detect-object-injection': 'off',
     },

@@ -41,12 +41,17 @@ const SORT_ACCESSORS: Record<number, (g: LaunchGroup) => string | number | null>
   0: group => group.cnvVersion,
   1: group => group.tier,
   2: group => group.component ?? '',
-  3: group => group.latestLaunch?.status ?? '',
+  3: group => group.latestLaunch.status,
   4: group => group.passRate,
   5: group => group.totalTests,
   6: group => group.failedTests,
-  7: group => group.latestLaunch?.start_time ?? 0,
+  7: group => group.latestLaunch.start_time,
 };
+
+function fmtTime(ts: string | number): string {
+  const dateObj = new Date(ts);
+  return `${dateObj.toLocaleDateString()} ${dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+}
 
 type LaunchTableProps = {
   groups: LaunchGroup[];
@@ -94,7 +99,7 @@ export const LaunchTable: React.FC<LaunchTableProps> = ({
         group.cnvVersion.toLowerCase().includes(searchLower) ||
         group.tier.toLowerCase().includes(searchLower) ||
         (group.component ?? '').toLowerCase().includes(searchLower) ||
-        (group.latestLaunch?.status ?? '').toLowerCase().includes(searchLower),
+        group.latestLaunch.status.toLowerCase().includes(searchLower),
     );
   }, [sortedGroupsRaw, tableSearch]);
 
@@ -102,7 +107,7 @@ export const LaunchTable: React.FC<LaunchTableProps> = ({
 
   const navigateToGroup = useCallback(
     (group: LaunchGroup) => {
-      const rpId = group.latestLaunch?.rp_id;
+      const rpId = group.latestLaunch.rp_id;
       if (!rpId) {
         return;
       }
@@ -118,11 +123,6 @@ export const LaunchTable: React.FC<LaunchTableProps> = ({
     },
     [navigate],
   );
-
-  const fmtTime = (ts: string | number) => {
-    const dateObj = new Date(ts);
-    return `${dateObj.toLocaleDateString()} ${dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-  };
 
   return (
     <Card>
@@ -241,10 +241,10 @@ export const LaunchTable: React.FC<LaunchTableProps> = ({
                   )}
                   {vis('status') && (
                     <Td className="app-cell-nowrap" dataLabel="Status">
-                      {group.latestLaunch?.status === 'IN_PROGRESS' ? (
+                      {group.latestLaunch.status === 'IN_PROGRESS' ? (
                         <LaunchProgress launchRpId={group.latestLaunch.rp_id} />
                       ) : (
-                        <StatusBadge status={group.latestLaunch?.status ?? 'UNKNOWN'} />
+                        <StatusBadge status={group.latestLaunch.status} />
                       )}
                     </Td>
                   )}
@@ -253,11 +253,11 @@ export const LaunchTable: React.FC<LaunchTableProps> = ({
                       <PassRateBar
                         failed={group.failedTests}
                         launchCount={group.launchCount ?? group.launches?.length ?? 1}
-                        launchName={group.latestLaunch?.name}
+                        launchName={group.latestLaunch.name}
                         passed={group.passedTests}
                         rate={group.passRate}
                         skipped={group.skippedTests}
-                        startTime={group.latestLaunch?.start_time}
+                        startTime={group.latestLaunch.start_time}
                         total={group.totalTests}
                       />
                     </Td>
@@ -274,20 +274,16 @@ export const LaunchTable: React.FC<LaunchTableProps> = ({
                   )}
                   {vis('lastRun') && (
                     <Td className="app-cell-nowrap" dataLabel="Last Run">
-                      {group.latestLaunch ? (
-                        <Tooltip content={new Date(group.latestLaunch.start_time).toLocaleString()}>
-                          <span className="app-cursor-help">
-                            {fmtTime(group.latestLaunch.start_time)}
-                          </span>
-                        </Tooltip>
-                      ) : (
-                        '--'
-                      )}
+                      <Tooltip content={new Date(group.latestLaunch.start_time).toLocaleString()}>
+                        <span className="app-cursor-help">
+                          {fmtTime(group.latestLaunch.start_time)}
+                        </span>
+                      </Tooltip>
                     </Td>
                   )}
                   {vis('rp') && (
                     <Td dataLabel="RP" onClick={e => e.stopPropagation()}>
-                      {config && group.latestLaunch && (
+                      {config && (
                         <a
                           aria-label="Open in ReportPortal"
                           href={`${config.rpLaunchBaseUrl}/${group.latestLaunch.rp_id}`}

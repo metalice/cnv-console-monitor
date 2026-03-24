@@ -83,7 +83,7 @@ export const getRepoFileStats = async (
   repoId: string,
   branch = 'main',
 ): Promise<{ docs: number; tests: number; matched: number }> => {
-  const rows = await AppDataSource.query(
+  const rows: Record<string, string>[] = await AppDataSource.query(
     `
     SELECT
       COUNT(*) FILTER (WHERE file_type = 'doc') AS docs,
@@ -95,9 +95,11 @@ export const getRepoFileStats = async (
     [repoId, branch],
   );
   const r = rows[0] || {};
+  /* eslint-disable @typescript-eslint/no-unnecessary-condition -- defensive: DB aggregate result shape */
   return {
     docs: parseInt(r.docs ?? '0', 10),
     matched: parseInt(r.matched ?? '0', 10),
     tests: parseInt(r.tests ?? '0', 10),
   };
+  /* eslint-enable @typescript-eslint/no-unnecessary-condition */
 };

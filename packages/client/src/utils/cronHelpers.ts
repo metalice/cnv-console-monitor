@@ -86,7 +86,9 @@ export const TIMEZONE_LIST: string[] = (() => {
     supportedValuesOf?: (key: string) => string[];
   };
   if (typeof supportedValuesOf === 'function') {
-    return supportedValuesOf('timeZone').slice().sort();
+    return supportedValuesOf('timeZone')
+      .slice()
+      .toSorted((a, b) => a.localeCompare(b));
   }
   return [
     'Asia/Jerusalem',

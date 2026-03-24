@@ -45,10 +45,12 @@ router.get('/preferences', async (req: Request, res: Response, next: NextFunctio
       return;
     }
     const prefs = await getUserPreferences(req.user.email);
-    for (const key of DEPRECATED_KEYS) {
-      delete (prefs as Record<string, unknown>)[key];
-    }
-    res.json(prefs);
+    const cleaned = Object.fromEntries(
+      Object.entries(prefs as Record<string, unknown>).filter(
+        ([k]) => !DEPRECATED_KEYS.includes(k),
+      ),
+    );
+    res.json(cleaned);
   } catch (err) {
     next(err);
   }
@@ -66,10 +68,10 @@ router.put('/preferences', async (req: Request, res: Response, next: NextFunctio
       return;
     }
     const existing = await getUserPreferences(req.user.email);
-    const merged = { ...existing, ...parsed.data };
-    for (const key of DEPRECATED_KEYS) {
-      delete (merged as Record<string, unknown>)[key];
-    }
+    const raw = { ...existing, ...parsed.data };
+    const merged = Object.fromEntries(
+      Object.entries(raw as Record<string, unknown>).filter(([k]) => !DEPRECATED_KEYS.includes(k)),
+    );
     await setUserPreferences(req.user.email, merged);
     res.json(merged);
   } catch (err) {

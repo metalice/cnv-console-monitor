@@ -94,7 +94,7 @@ export const quarantineTest = async (input: QuarantineInput): Promise<Record<str
       const personalToken = await getDecryptedToken(input.userEmail, provider);
 
       if (personalToken) {
-        const gitProvider = createGitProvider(
+        const gitProvider = await createGitProvider(
           provider,
           repo.api_base_url,
           repo.project_id,
@@ -106,7 +106,9 @@ export const quarantineTest = async (input: QuarantineInput): Promise<Record<str
         await gitProvider.createBranch(branchName, defaultBranch);
 
         const fileContent = await gitProvider.fetchFileContent(input.testFilePath, defaultBranch);
-        const skipLine = `test.skip('Quarantined: ${String(result.jiraKey || 'pending')} - ${input.reason.slice(0, 100)}');`;
+        // eslint-disable-next-line @typescript-eslint/no-base-to-string
+        const jiraRef = String(result.jiraKey ?? 'pending');
+        const skipLine = `test.skip('Quarantined: ${jiraRef} - ${input.reason.slice(0, 100)}');`;
         const updatedContent = `${skipLine}\n${fileContent.content}`;
 
         await gitProvider.commitFile(
@@ -159,7 +161,7 @@ export const unquarantineTest = async (
     throw new Error('Quarantine not found');
   }
 
-  await addQuarantineLog(quarantineId, 'resolved', resolvedBy, details || {});
+  await addQuarantineLog(quarantineId, 'resolved', resolvedBy, details ?? {});
   broadcast('data-updated');
   return { quarantineId, status: 'resolved' };
 };
@@ -169,10 +171,12 @@ export const checkQuarantineSLA = async (): Promise<{ transitioned: number }> =>
   let transitioned = 0;
 
   for (const q of overdue) {
+    // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
     await updateQuarantineStatus(q.id, 'overdue');
+    // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
     await addQuarantineLog(q.id, 'sla_exceeded', 'system', {
       slaDays: q.sla_days,
-      slaDeadline: q.sla_deadline?.toISOString(),
+      slaDeadline: q.sla_deadline.toISOString(),
     });
     transitioned++;
     log.warn({ quarantineId: q.id, testName: q.test_name }, 'Quarantine SLA exceeded');

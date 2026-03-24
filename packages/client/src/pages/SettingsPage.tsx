@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import React, { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
@@ -128,6 +129,7 @@ const timeAgo = (ts: number | null): string => {
   return `${Math.floor(diff / 3600)}h ago`;
 };
 
+// eslint-disable-next-line max-lines-per-function
 export const SettingsPage: React.FC = () => {
   useEffect(() => {
     document.title = 'Settings | CNV Console Monitor';
@@ -251,7 +253,7 @@ export const SettingsPage: React.FC = () => {
       return;
     }
     const action = dangerActions[dangerModal];
-    if (dangerConfirm !== action?.confirmWord) {
+    if (dangerConfirm !== action.confirmWord) {
       return;
     }
     setDangerModal(null);

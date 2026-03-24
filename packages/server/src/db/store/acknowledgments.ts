@@ -6,6 +6,7 @@ import type { AcknowledgmentRecord } from './types';
 const acknowledgments = () => AppDataSource.getRepository(Acknowledgment);
 
 const toAckRecord = (row: Acknowledgment): AcknowledgmentRecord => ({
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: DB data
   acknowledged_at: row.acknowledged_at?.toISOString() ?? undefined,
   component: row.component ?? undefined,
   date: row.date,
@@ -66,7 +67,7 @@ export const getApproverStats = async (
   days: number,
 ): Promise<{ reviewer: string; totalReviews: number; lastReviewDate: string }[]> => {
   const sinceDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-  const rows = await acknowledgments()
+  const rows: Record<string, unknown>[] = await acknowledgments()
     .createQueryBuilder('a')
     .select('a.reviewer', 'reviewer')
     .addSelect('COUNT(*)', 'totalReviews')
@@ -76,8 +77,8 @@ export const getApproverStats = async (
     .orderBy('"totalReviews"', 'DESC')
     .getRawMany();
   return rows.map(row => ({
-    lastReviewDate: row.lastReviewDate,
-    reviewer: row.reviewer,
+    lastReviewDate: row.lastReviewDate as string,
+    reviewer: row.reviewer as string,
     totalReviews: Number(row.totalReviews),
   }));
 };

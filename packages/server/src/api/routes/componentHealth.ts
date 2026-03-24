@@ -30,8 +30,8 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 
     const summaries: ComponentHealthSummary[] = await Promise.all(
       components.map(async component => {
-        const [launchStats, prevStats, untriagedRows, flakyRows, worseningRows] = await Promise.all(
-          [
+        const [launchStats, prevStats, untriagedRows, flakyRows, worseningRows] =
+          (await Promise.all([
             AppDataSource.query(
               `SELECT
                COUNT(*)::int as launch_count,
@@ -103,8 +103,13 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
              FROM test_stats`,
               [component, sinceMs, untilMs],
             ),
-          ],
-        );
+          ])) as [
+            Record<string, unknown>[],
+            Record<string, unknown>[],
+            Record<string, unknown>[],
+            Record<string, unknown>[],
+            Record<string, unknown>[],
+          ];
 
         const row = launchStats[0] ?? {};
         const totalLaunches = Number(row.launch_count ?? 0);

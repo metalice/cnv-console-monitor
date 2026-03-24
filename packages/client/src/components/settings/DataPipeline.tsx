@@ -46,6 +46,9 @@ const formatDuration = (ms: number): string => {
   return s % 60 > 0 ? `${m}m ${s % 60}s` : `${m}m`;
 };
 
+const levelColor = (level: string) =>
+  level === 'error' ? 'app-text-danger' : level === 'warn' ? '' : 'app-text-muted';
+
 const computeEta = (state: PhaseState): string => {
   if (!state.startedAt || state.total === 0 || state.succeeded === 0) {
     return '';
@@ -256,6 +259,7 @@ const PipelinePhaseRow: React.FC<{
         >
           <div className="app-max-h-200 app-text-xs app-text-muted">
             {state.errors.slice(0, 20).map((err, i) => (
+              // eslint-disable-next-line react/no-array-index-key
               <div className="app-activity-item" key={i}>
                 {err.permanent ? '(permanent) ' : ''}
                 {err.name} — {err.reason} (attempt {err.attempts})
@@ -280,8 +284,6 @@ const PipelineLog: React.FC<{ log: PipelineLogEntry[]; totalEntries?: number }> 
 
   const all = [...log].reverse();
   const total = totalEntries ?? log.length;
-  const levelColor = (level: string) =>
-    level === 'error' ? 'app-text-danger' : level === 'warn' ? '' : 'app-text-muted';
 
   return (
     <ExpandableSection
@@ -292,6 +294,7 @@ const PipelineLog: React.FC<{ log: PipelineLogEntry[]; totalEntries?: number }> 
     >
       <div className="app-max-h-300 app-text-xs app-mono-sm">
         {all.map((entry, i) => (
+          // eslint-disable-next-line react/no-array-index-key
           <div className={levelColor(entry.level)} key={i}>
             {new Date(entry.timestamp).toLocaleTimeString()} [{entry.phase}] {entry.message}
           </div>
@@ -311,6 +314,7 @@ export const DataPipeline: React.FC = () => {
   const { data: pollStatus } = useQuery({
     queryFn: fetchPollStatus,
     queryKey: ['pollStatus'],
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data
     refetchInterval: query => (query.state.data?.pipeline?.active ? 3_000 : 15_000),
   });
   const pipeline = pollStatus?.pipeline;

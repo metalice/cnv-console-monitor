@@ -79,6 +79,7 @@ export const PollProgressBanner: React.FC = () => {
     }
     try {
       const result = await fetchPollStatus();
+      /* eslint-disable @typescript-eslint/no-unnecessary-condition -- defensive: ref mutates at runtime */
       if (activeRef.current) {
         setHttpStatus({
           active: result.active,
@@ -90,12 +91,14 @@ export const PollProgressBanner: React.FC = () => {
           total: result.total,
         });
       }
+      /* eslint-enable @typescript-eslint/no-unnecessary-condition */
       if (result.active) {
         timerRef.current = setTimeout(pollHttp, HTTP_POLL_MS);
       } else if (result.phase) {
         timerRef.current = setTimeout(pollHttp, HTTP_POLL_MS * 3);
       }
     } catch {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: ref mutates at runtime
       if (activeRef.current) {
         timerRef.current = setTimeout(pollHttp, HTTP_POLL_MS * 2);
       }
@@ -165,6 +168,7 @@ export const PollProgressBanner: React.FC = () => {
 
   return (
     <Stack hasGutter className="app-poll-banner">
+      {/* eslint-disable @typescript-eslint/no-unnecessary-condition -- defensive: runtime data */}
       {(hasPoll || hasPollDone) && pollInfo && (
         <StackItem>
           <ProgressLine
@@ -175,6 +179,7 @@ export const PollProgressBanner: React.FC = () => {
         </StackItem>
       )}
       {(hasJenkins || hasJenkinsDone) && jenkinsInfo && (
+        /* eslint-enable @typescript-eslint/no-unnecessary-condition */
         <StackItem>
           <ProgressLine info={jenkinsInfo} />
         </StackItem>

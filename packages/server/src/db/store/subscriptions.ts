@@ -8,7 +8,7 @@ const subscriptions = () => AppDataSource.getRepository(NotificationSubscription
 const toSubscriptionRecord = (row: NotificationSubscription): SubscriptionRecord => {
   let components: string[] = [];
   try {
-    components = JSON.parse(row.components || '[]');
+    components = JSON.parse(row.components || '[]') as string[];
   } catch {
     /* Empty */
   }
@@ -21,6 +21,7 @@ const toSubscriptionRecord = (row: NotificationSubscription): SubscriptionRecord
     jiraWebhook: row.jira_webhook,
     name: row.name,
     reminderDays: row.reminder_days || '1,2,3,4,5',
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: DB data
     reminderEnabled: row.reminder_enabled ?? false,
     reminderTime: row.reminder_time || '10:00',
     schedule: row.schedule,
@@ -50,6 +51,7 @@ export const createSubscription = async (
     jira_webhook: data.jiraWebhook ?? null,
     name: data.name,
     reminder_days: data.reminderDays || '1,2,3,4,5',
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: DB data
     reminder_enabled: data.reminderEnabled ?? false,
     reminder_time: data.reminderTime || '10:00',
     schedule: data.schedule,

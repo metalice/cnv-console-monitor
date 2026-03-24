@@ -48,7 +48,7 @@ export class AnthropicProvider implements ModelProvider {
       .map(b => (b as { type: 'text'; text: string }).text)
       .join('');
 
-    const tokens = (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0);
+    const tokens = response.usage.input_tokens + response.usage.output_tokens;
 
     return {
       cached: false,

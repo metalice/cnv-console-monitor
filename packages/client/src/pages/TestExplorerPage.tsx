@@ -58,6 +58,7 @@ const STATUS_DANGER = 'var(--pf-t--global--color--status--danger--default)';
 const STATUS_WARNING = 'var(--pf-t--global--color--status--warning--default)';
 const STATUS_INFO = 'var(--pf-t--global--color--status--info--default)';
 
+// eslint-disable-next-line max-lines-per-function
 export const TestExplorerPage: React.FC = () => {
   useEffect(() => {
     document.title = 'Test Explorer | CNV Console Monitor';
@@ -90,12 +91,10 @@ export const TestExplorerPage: React.FC = () => {
     staleTime: 10_000,
   });
 
-  const draftPathSet = useMemo(() => new Set(draftPaths || []), [draftPaths]);
+  const draftPathSet = useMemo(() => new Set(draftPaths ?? []), [draftPaths]);
 
   useEffect(() => {
-    if (prevSidebarState.current === undefined) {
-      prevSidebarState.current = preferences.sidebarCollapsed !== true;
-    }
+    prevSidebarState.current ??= preferences.sidebarCollapsed !== true;
     setPreference('sidebarCollapsed', true);
     return () => {
       if (prevSidebarState.current !== undefined) {
@@ -128,7 +127,8 @@ export const TestExplorerPage: React.FC = () => {
     mutationFn: () => syncAllRepos(),
     onSuccess: data => {
       const result = data;
-      const errors = (result.errors as string[]) || [];
+      const rawErrors = result.errors;
+      const errors = Array.isArray(rawErrors) ? rawErrors : [];
       setSyncErrors(errors);
       setTimeout(() => refetch(), 5000);
     },
@@ -270,7 +270,9 @@ export const TestExplorerPage: React.FC = () => {
         <PageSection>
           <Alert isInline title="Sync failed" variant="danger">
             {syncMutation.isError
-              ? syncMutation.error?.message || 'Unknown error'
+              ? syncMutation.error instanceof Error
+                ? syncMutation.error.message
+                : 'Unknown error'
               : syncErrors.join(' ')}
           </Alert>
         </PageSection>
@@ -377,9 +379,6 @@ export const TestExplorerPage: React.FC = () => {
                   highlightInfo={highlightInfo}
                   node={selectedNode}
                   onNavigate={(path, highlight) => {
-                    if (!tree) {
-                      return;
-                    }
                     const findNode = (nodes: TreeNode[], target: string): TreeNode | undefined => {
                       for (const n of nodes) {
                         if (n.path === target) {
@@ -397,7 +396,7 @@ export const TestExplorerPage: React.FC = () => {
                     const target = findNode(tree, path);
                     if (target) {
                       setSelectedNode(target);
-                      setHighlightInfo(highlight || null);
+                      setHighlightInfo(highlight ?? null);
                     }
                   }}
                   onQuarantine={handleQuarantine}
