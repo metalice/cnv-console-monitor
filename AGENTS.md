@@ -32,6 +32,7 @@ Persistent memory for AI agents working on this project. Updated as corrections 
 - **NEVER push directly to `main`** -- all changes go through a feature branch + PR, no exceptions
 - Branch naming: `feat/...`, `fix/...`, `refactor/...`, `chore/...`
 - Always rebase on main before opening PR
+- Before creating a PR, check if one already exists for the branch (`gh pr view`). If it exists and is OPEN, just push -- the PR auto-updates. Never create duplicate PRs.
 - Use the PR workflow in `.cursor/rules/workflows/pr.mdc`
 
 ---
