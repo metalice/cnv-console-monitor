@@ -184,7 +184,7 @@ const extractJson = (text: string): Record<string, unknown> => {
   return { raw: cleaned };
 };
 
-function classifyMilestone(name: string, slug: string): MilestoneType {
+const classifyMilestone = (name: string, slug: string): MilestoneType => {
   const lower = name.toLowerCase();
   const slugLower = slug.toLowerCase();
   if (lower.includes('feature freeze') || slugLower.includes('feature_freeze')) {
@@ -200,7 +200,7 @@ function classifyMilestone(name: string, slug: string): MilestoneType {
     return 'ga';
   }
   return 'batch';
-}
+};
 
 router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
   try {

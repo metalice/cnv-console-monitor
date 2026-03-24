@@ -10,13 +10,13 @@ import { requireAdmin } from '../middleware/auth';
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 const router = Router();
 
-function stripTrailingSlashes(url: string): string {
+const stripTrailingSlashes = (url: string): string => {
   let s = url;
   while (s.endsWith('/')) {
     s = s.slice(0, -1);
   }
   return s;
-}
+};
 
 router.post('/test-rp', requireAdmin, async (req: Request, res: Response) => {
   try {

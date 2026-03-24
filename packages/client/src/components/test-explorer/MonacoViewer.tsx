@@ -27,7 +27,7 @@ type MonacoViewerProps = {
   onQuarantine?: (testName: string, line: number) => void;
 };
 
-function getLanguage(fileName: string): string {
+const getLanguage = (fileName: string): string => {
   if (fileName.endsWith('.ts') || fileName.endsWith('.tsx')) {
     return 'typescript';
   }
@@ -44,9 +44,9 @@ function getLanguage(fileName: string): string {
     return 'yaml';
   }
   return 'plaintext';
-}
+};
 
-function useMonacoTheme(): string {
+const useMonacoTheme = (): string => {
   const [theme, setTheme] = useState(() =>
     document.documentElement.classList.contains('pf-v6-theme-dark') ? 'vs-dark' : 'vs',
   );
@@ -58,7 +58,7 @@ function useMonacoTheme(): string {
     return () => observer.disconnect();
   }, []);
   return theme;
-}
+};
 
 export const MonacoViewer: React.FC<MonacoViewerProps> = ({
   content,

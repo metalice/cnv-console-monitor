@@ -131,7 +131,7 @@ export default tseslint.config(
       // ── Core ESLint (additions beyond recommended) ──
       curly: ['error', 'all'],
       eqeqeq: ['error', 'always', { null: 'ignore' }],
-      'func-style': ['error', 'declaration', { allowArrowFunctions: true }],
+      'func-style': ['error', 'expression'],
       'max-depth': ['warn', 5],
       'max-lines': ['warn', { max: 500, skipBlankLines: true, skipComments: true }],
       'max-lines-per-function': ['warn', { max: 300, skipBlankLines: true, skipComments: true }],

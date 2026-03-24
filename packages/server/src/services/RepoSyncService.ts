@@ -9,24 +9,35 @@ import { logger } from '../logger';
 
 const log = logger.child({ module: 'RepoSync' });
 
-function matchGlob(filePath: string, pattern: string): boolean {
+const matchGlob = (filePath: string, pattern: string): boolean => {
   const regex = pattern
     .replace(/\./g, '\\.')
     .replace(/\*\*\//g, '(.+/)?')
     .replace(/\*/g, '[^/]*');
   // eslint-disable-next-line security/detect-non-literal-regexp -- pattern from validated config, not user input
   return new RegExp(`^${regex}$`).test(filePath);
-}
+};
 
-function matchesAnyGlob(filePath: string, patterns: string[]): boolean {
+const matchesAnyGlob = (filePath: string, patterns: string[]): boolean => {
   return patterns.some(p => matchGlob(filePath, p));
-}
+};
 
-function classifyFile(
+const TEST_EXTENSIONS = /\.(?:spec\.ts|spec\.js|test\.ts|test\.js|cy\.ts|cy\.js|e2e\.ts)$/i;
+
+const isTestFile = (filePath: string): boolean => {
+  return TEST_EXTENSIONS.test(filePath);
+};
+
+const getBaseName = (filePath: string): string => {
+  const name = filePath.split('/').pop() || filePath;
+  return name.replace(/\.(?:md|spec\.ts|spec\.js|test\.ts|test\.js|cy\.ts|cy\.js|e2e\.ts)$/i, '');
+};
+
+const classifyFile = (
   filePath: string,
   docPaths: string[],
   testPaths: string[],
-): 'doc' | 'test' | 'other' | 'maybe-doc' {
+): 'doc' | 'test' | 'other' | 'maybe-doc' => {
   if (docPaths.length > 0 && matchesAnyGlob(filePath, docPaths)) {
     return 'doc';
   }
@@ -40,11 +51,11 @@ function classifyFile(
     return 'maybe-doc';
   }
   return 'other';
-}
+};
 
-async function classifyMdFilesWithAI(
+const classifyMdFilesWithAI = async (
   mdFiles: { path: string; snippet: string }[],
-): Promise<Set<string>> {
+): Promise<Set<string>> => {
   const testDocPaths = new Set<string>();
 
   try {
@@ -112,23 +123,16 @@ If none: []`;
   }
 
   return testDocPaths;
-}
-
-const TEST_EXTENSIONS = /\.(?:spec\.ts|spec\.js|test\.ts|test\.js|cy\.ts|cy\.js|e2e\.ts)$/i;
-
-function isTestFile(filePath: string): boolean {
-  return TEST_EXTENSIONS.test(filePath);
-}
-
-function getBaseName(filePath: string): string {
-  const name = filePath.split('/').pop() || filePath;
-  return name.replace(/\.(?:md|spec\.ts|spec\.js|test\.ts|test\.js|cy\.ts|cy\.js|e2e\.ts)$/i, '');
-}
+};
 
 const TEST_FILE_LINK_SUFFIX = /\.(?:spec|test|cy|e2e)\.(?:ts|js)$/i;
 
 /** Scan for `](url)` where url ends with a test file extension — avoids ReDoS-prone markdown regexes. */
-function collectMarkdownLinksToTestFiles(content: string, refs: string[], maxUrlLen = 2000): void {
+const collectMarkdownLinksToTestFiles = (
+  content: string,
+  refs: string[],
+  maxUrlLen = 2000,
+): void => {
   let pos = 0;
   while (pos < content.length) {
     const open = content.indexOf('](', pos);
@@ -148,12 +152,12 @@ function collectMarkdownLinksToTestFiles(content: string, refs: string[], maxUrl
     }
     pos = urlStart + closeRel + 1;
   }
-}
+};
 
 const QUOTE_CHARS = new Set(['"', "'", '`']);
 
 /** First quoted string on a line (after optional whitespace), for multiline test/describe/it names. */
-function extractQuotedNameFromLine(line: string, maxLen = 8000): string | null {
+const extractQuotedNameFromLine = (line: string, maxLen = 8000): string | null => {
   let i = 0;
   while (i < line.length && /\s/.test(line[i])) {
     i++;
@@ -179,9 +183,9 @@ function extractQuotedNameFromLine(line: string, maxLen = 8000): string | null {
     i++;
   }
   return null;
-}
+};
 
-function extractTestReferences(content: string): string[] {
+const extractTestReferences = (content: string): string[] => {
   const refs: string[] = [];
 
   collectMarkdownLinksToTestFiles(content, refs);
@@ -197,7 +201,7 @@ function extractTestReferences(content: string): string[] {
   }
 
   return refs;
-}
+};
 
 type DocSignals = {
   title: string;
@@ -207,7 +211,7 @@ type DocSignals = {
   headings: string[];
 };
 
-function extractDocSignals(content: string, filePath: string): DocSignals {
+const extractDocSignals = (content: string, filePath: string): DocSignals => {
   const lines = content.split('\n');
 
   let title = '';
@@ -245,7 +249,7 @@ function extractDocSignals(content: string, filePath: string): DocSignals {
   }
 
   return { featureArea, headings, rtmEntries, testRefs, title };
-}
+};
 
 type TestBlock = {
   name: string;
@@ -257,7 +261,7 @@ type TestBlock = {
 
 // TODO: Refactor to reduce cognitive complexity
 // eslint-disable-next-line sonarjs/cognitive-complexity
-function extractTestBlocks(content: string): TestBlock[] {
+const extractTestBlocks = (content: string): TestBlock[] => {
   const blocks: TestBlock[] = [];
   const lines = content.split('\n');
 
@@ -338,9 +342,9 @@ function extractTestBlocks(content: string): TestBlock[] {
   }
 
   return blocks;
-}
+};
 
-function getRelativePath(filePath: string, prefixPatterns: string[]): string {
+const getRelativePath = (filePath: string, prefixPatterns: string[]): string => {
   for (const pattern of prefixPatterns) {
     const prefix = pattern.split('*')[0].replace(/\/$/, '');
     if (filePath.startsWith(prefix)) {
@@ -348,7 +352,7 @@ function getRelativePath(filePath: string, prefixPatterns: string[]): string {
     }
   }
   return filePath;
-}
+};
 
 type SyncResult = {
   repoId: string;
@@ -773,7 +777,7 @@ const STRIP_PREFIXES = new Set([
   'test',
 ]);
 
-function getLogicalPath(filePath: string): string[] {
+const getLogicalPath = (filePath: string): string[] => {
   const parts = filePath.split('/');
   const fileName = parts.pop() || '';
   const baseName = fileName.replace(
@@ -785,12 +789,12 @@ function getLogicalPath(filePath: string): string[] {
     return segments;
   }
   return [...segments, baseName];
-}
+};
 
 type FileNode = Record<string, unknown>;
 type FolderMap = Map<string, { files: FileNode[]; children: FolderMap }>;
 
-function insertIntoTree(root: FolderMap, segments: string[], fileNode: FileNode): void {
+const insertIntoTree = (root: FolderMap, segments: string[], fileNode: FileNode): void => {
   if (segments.length === 0) {
     return;
   }
@@ -812,9 +816,9 @@ function insertIntoTree(root: FolderMap, segments: string[], fileNode: FileNode)
   if (headNode) {
     insertIntoTree(headNode.children, rest, fileNode);
   }
-}
+};
 
-function countFiles(nodes: Record<string, unknown>[]): number {
+const countFiles = (nodes: Record<string, unknown>[]): number => {
   let count = 0;
   for (const n of nodes) {
     if (n.type === 'doc' || n.type === 'test') {
@@ -825,9 +829,9 @@ function countFiles(nodes: Record<string, unknown>[]): number {
     }
   }
   return count;
-}
+};
 
-function countGaps(nodes: Record<string, unknown>[]): number {
+const countGaps = (nodes: Record<string, unknown>[]): number => {
   let count = 0;
   for (const n of nodes) {
     if ((n.type === 'doc' || n.type === 'test') && !n.hasCounterpart) {
@@ -838,9 +842,9 @@ function countGaps(nodes: Record<string, unknown>[]): number {
     }
   }
   return count;
-}
+};
 
-function folderMapToNodes(map: FolderMap, parentPath: string): Record<string, unknown>[] {
+const folderMapToNodes = (map: FolderMap, parentPath: string): Record<string, unknown>[] => {
   const result: Record<string, unknown>[] = [];
 
   for (const [name, { children, files }] of [...map.entries()].sort((a, b) =>
@@ -869,7 +873,7 @@ function folderMapToNodes(map: FolderMap, parentPath: string): Record<string, un
   }
 
   return result;
-}
+};
 
 // TODO: Refactor to reduce cognitive complexity
 // eslint-disable-next-line sonarjs/cognitive-complexity

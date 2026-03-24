@@ -97,7 +97,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../api/client';
 import type { NewFeature } from '@cnv-monitor/shared';
 
-export const NewFeaturePage: React.FC = () => {
+export const NewFeaturePage = () => {
   const { data, isLoading, error } = useQuery<NewFeature[]>({
     queryKey: ['new-feature'],
     queryFn: () => apiFetch('/new-feature'),
@@ -137,21 +137,26 @@ curl http://localhost:8080/api/new-feature
 
 ## 6. Phase 5: Review
 
-Using `team-review.mdc` perspectives:
-- **Developer**: Code quality, patterns, types
-- **QE**: Edge cases, error handling
-- **Security**: Input validation, data safety
-- **Monitoring Expert**: Domain correctness
+The `orchestrator.mdc` automatically runs all 6 personas on implementation prompts:
+- **System Architect**: Scope, boundaries, API contracts
+- **Developer**: Code quality, patterns, types, performance
+- **QE**: Edge cases, error handling, test coverage
+- **UX Expert**: PatternFly components, accessibility, responsive
+- **Security**: Input validation, data safety, tokens
+- **Monitoring Expert**: Domain correctness, RP integration, K8s
 
 ---
 
 ## 7. Phase 6: Prepare PR
 
 ```bash
-npm run typecheck && npm run test && npm run build
+npm run lint && npm run format:check && npm run knip && npm run typecheck && npm run test && npm run build
 ```
 
 Verify:
+- [ ] Lint passes (0 errors, 0 warnings)
+- [ ] Prettier formatting clean
+- [ ] Knip: no unused files, deps, or exports
 - [ ] Shared types exported and built
 - [ ] Server routes validated with Zod
 - [ ] Client handles loading/error/empty states

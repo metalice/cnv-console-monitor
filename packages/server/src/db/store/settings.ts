@@ -3,9 +3,9 @@ import { AppDataSource } from '../data-source';
 import { Setting } from '../entities/Setting';
 import { SettingsLog } from '../entities/SettingsLog';
 
-function mask(v: string): string {
+const mask = (v: string): string => {
   return v.length > 4 ? `••••${v.substring(v.length - 4)}` : '(set)';
-}
+};
 
 const settings = () => AppDataSource.getRepository(Setting);
 const settingsLog = () => AppDataSource.getRepository(SettingsLog);

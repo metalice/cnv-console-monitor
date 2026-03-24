@@ -5,7 +5,12 @@ import { logger, setResponseError } from '../../logger';
 
 const log = logger.child({ module: 'API' });
 
-export function errorHandler(err: Error, _req: Request, res: Response, _next: NextFunction): void {
+export const errorHandler = (
+  err: Error,
+  _req: Request,
+  res: Response,
+  _next: NextFunction,
+): void => {
   if (err instanceof AxiosError) {
     const status = err.response?.status;
     const upstream: unknown = err.response?.data;
@@ -34,4 +39,4 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
     error: 'Internal server error',
     timestamp: new Date().toISOString(),
   });
-}
+};

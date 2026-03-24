@@ -100,10 +100,10 @@ const nodeToTreeItem = (
   };
 };
 
-function filterTreeByPredicate(
+const filterTreeByPredicate = (
   nodes: TreeNode[],
   predicate: (node: TreeNode) => boolean,
-): TreeNode[] {
+): TreeNode[] => {
   const result: TreeNode[] = [];
   for (const node of nodes) {
     if (node.type === 'doc' || node.type === 'test') {
@@ -125,9 +125,9 @@ function filterTreeByPredicate(
     }
   }
   return result;
-}
+};
 
-function countFiles(nodes: TreeNode[]): number {
+const countFiles = (nodes: TreeNode[]): number => {
   let count = 0;
   for (const node of nodes) {
     if (node.type === 'doc' || node.type === 'test') {
@@ -138,9 +138,9 @@ function countFiles(nodes: TreeNode[]): number {
     }
   }
   return count;
-}
+};
 
-function countGaps(nodes: TreeNode[]): number {
+const countGaps = (nodes: TreeNode[]): number => {
   let count = 0;
   for (const node of nodes) {
     if ((node.type === 'doc' || node.type === 'test') && !node.hasCounterpart) {
@@ -151,9 +151,9 @@ function countGaps(nodes: TreeNode[]): number {
     }
   }
   return count;
-}
+};
 
-function countByType(nodes: TreeNode[], type: string): number {
+const countByType = (nodes: TreeNode[], type: string): number => {
   let count = 0;
   for (const node of nodes) {
     if (node.type === type) {
@@ -164,7 +164,7 @@ function countByType(nodes: TreeNode[], type: string): number {
     }
   }
   return count;
-}
+};
 
 export const FileTree: React.FC<FileTreeProps> = ({
   contextActions,

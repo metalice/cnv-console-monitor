@@ -48,10 +48,10 @@ const SORT_ACCESSORS: Record<number, (g: LaunchGroup) => string | number | null>
   7: group => group.latestLaunch.start_time,
 };
 
-function fmtTime(ts: string | number): string {
+const fmtTime = (ts: string | number): string => {
   const dateObj = new Date(ts);
   return `${dateObj.toLocaleDateString()} ${dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-}
+};
 
 type LaunchTableProps = {
   groups: LaunchGroup[];

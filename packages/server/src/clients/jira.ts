@@ -40,34 +40,12 @@ export const searchIssues = async (jql: string, maxResults = 10): Promise<JiraSe
 
 let useNewSearchEndpoint = false;
 
-export const jiraSearch = async (
+const jiraSearchPaginated = async (
   client: ReturnType<typeof createJiraClient>,
   jql: string,
   fields: string[],
   maxResults: number,
-  startAt: number,
 ): Promise<{ data: { issues: unknown[]; total: number } }> => {
-  if (!useNewSearchEndpoint) {
-    try {
-      return await client.post('/search', { fields, jql, maxResults, startAt });
-    } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } }).response?.status;
-      if (status === 410) {
-        useNewSearchEndpoint = true;
-      } else {
-        throw err;
-      }
-    }
-  }
-  return jiraSearchPaginated(client, jql, fields, maxResults);
-};
-
-async function jiraSearchPaginated(
-  client: ReturnType<typeof createJiraClient>,
-  jql: string,
-  fields: string[],
-  maxResults: number,
-): Promise<{ data: { issues: unknown[]; total: number } }> {
   const allIssues: unknown[] = [];
   let nextPageToken: string | undefined;
   let total: number;
@@ -99,7 +77,29 @@ async function jiraSearchPaginated(
   } while (nextPageToken);
 
   return { data: { issues: allIssues, total: total || allIssues.length } };
-}
+};
+
+export const jiraSearch = async (
+  client: ReturnType<typeof createJiraClient>,
+  jql: string,
+  fields: string[],
+  maxResults: number,
+  startAt: number,
+): Promise<{ data: { issues: unknown[]; total: number } }> => {
+  if (!useNewSearchEndpoint) {
+    try {
+      return await client.post('/search', { fields, jql, maxResults, startAt });
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } }).response?.status;
+      if (status === 410) {
+        useNewSearchEndpoint = true;
+      } else {
+        throw err;
+      }
+    }
+  }
+  return jiraSearchPaginated(client, jql, fields, maxResults);
+};
 
 export const findExistingIssue = async (
   testName: string,

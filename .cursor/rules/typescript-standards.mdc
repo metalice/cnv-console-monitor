@@ -86,7 +86,7 @@ Use arrow functions for all declarations:
 const calculateRate = (total: number, passed: number): number =>
   total === 0 ? 0 : (passed / total) * 100;
 
-const MyComponent: React.FC<Props> = ({ title }) => (
+const MyComponent = ({ title }: Props) => (
   <PageSection>{title}</PageSection>
 );
 ```

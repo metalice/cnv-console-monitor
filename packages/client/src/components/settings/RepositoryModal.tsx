@@ -37,15 +37,15 @@ type RepositoryModalProps = {
   existing?: Repository;
 };
 
-function stripTrailingSlashes(s: string): string {
+const stripTrailingSlashes = (s: string): string => {
   let t = s;
   while (t.endsWith('/')) {
     t = t.slice(0, -1);
   }
   return t;
-}
+};
 
-function cleanRepoUrl(repoUrl: string): { repoRoot: string; subPath: string } {
+const cleanRepoUrl = (repoUrl: string): { repoRoot: string; subPath: string } => {
   const gitlabSep = repoUrl.indexOf('/-/');
   if (gitlabSep !== -1) {
     const root = repoUrl.slice(0, gitlabSep);
@@ -59,9 +59,9 @@ function cleanRepoUrl(repoUrl: string): { repoRoot: string; subPath: string } {
     return { repoRoot: githubMatch[1], subPath: githubMatch[2] || '' };
   }
   return { repoRoot: stripTrailingSlashes(repoUrl), subPath: '' };
-}
+};
 
-function deriveApiUrl(provider: string, repoUrl: string): string {
+const deriveApiUrl = (provider: string, repoUrl: string): string => {
   if (provider === 'github') {
     return 'https://api.github.com';
   }
@@ -75,9 +75,9 @@ function deriveApiUrl(provider: string, repoUrl: string): string {
   } catch {
     return '';
   }
-}
+};
 
-function deriveProjectId(provider: string, repoUrl: string): string {
+const deriveProjectId = (provider: string, repoUrl: string): string => {
   if (provider !== 'github' || !repoUrl) {
     return '';
   }
@@ -95,9 +95,9 @@ function deriveProjectId(provider: string, repoUrl: string): string {
     /* Ignore */
   }
   return '';
-}
+};
 
-function deriveDisplayName(repoUrl: string): string {
+const deriveDisplayName = (repoUrl: string): string => {
   if (!repoUrl) {
     return '';
   }
@@ -118,7 +118,7 @@ function deriveDisplayName(repoUrl: string): string {
     /* Ignore */
   }
   return '';
-}
+};
 
 // eslint-disable-next-line max-lines-per-function
 export const RepositoryModal: React.FC<RepositoryModalProps> = ({ existing, isOpen, onClose }) => {

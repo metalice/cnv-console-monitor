@@ -8,7 +8,7 @@ const ALGO = 'aes-256-gcm';
 const IV_LENGTH = 16;
 const ENCRYPTED_PREFIX = 'enc:';
 
-function getEncryptionKey(): Buffer | null {
+const getEncryptionKey = (): Buffer | null => {
   const hex = process.env.SETTINGS_ENCRYPTION_KEY;
   if (!hex) {
     return null;
@@ -18,16 +18,16 @@ function getEncryptionKey(): Buffer | null {
     return null;
   }
   return Buffer.from(hex, 'hex');
-}
+};
 
 const SENSITIVE_PATTERNS = ['token', 'pass', 'secret', 'key', 'webhook'];
 
-export function isSensitiveKey(key: string): boolean {
+export const isSensitiveKey = (key: string): boolean => {
   const lower = key.toLowerCase();
   return SENSITIVE_PATTERNS.some(p => lower.includes(p));
-}
+};
 
-export function encryptValue(plaintext: string): string {
+export const encryptValue = (plaintext: string): string => {
   const key = getEncryptionKey();
   if (!key) {
     return plaintext;
@@ -38,9 +38,9 @@ export function encryptValue(plaintext: string): string {
   const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
   const tag = cipher.getAuthTag();
   return `${ENCRYPTED_PREFIX}${iv.toString('base64')}:${tag.toString('base64')}:${encrypted.toString('base64')}`;
-}
+};
 
-export function decryptValue(stored: string): string {
+export const decryptValue = (stored: string): string => {
   if (!stored.startsWith(ENCRYPTED_PREFIX)) {
     return stored;
   }
@@ -66,4 +66,4 @@ export function decryptValue(stored: string): string {
   return (
     decipher.update(Buffer.from(dataB64, 'base64'), undefined, 'utf8') + decipher.final('utf8')
   );
-}
+};
