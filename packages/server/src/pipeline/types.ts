@@ -65,31 +65,6 @@ export type PipelineOptions = {
   clearData: boolean;
 };
 
-export const createEmptyPhaseState = (concurrency = 20): PhaseState => ({
-  completedAt: null,
-  currentConcurrency: concurrency,
-  errors: [],
-  failed: 0,
-  permanentFailures: 0,
-  retryRound: 0,
-  startedAt: null,
-  status: 'idle',
-  succeeded: 0,
-  total: 0,
-});
-
-export const createEmptyPipelineState = (): PipelineState => ({
-  active: false,
-  cancelled: false,
-  completedAt: null,
-  durationMs: null,
-  log: [],
-  phases: {},
-  runId: '',
-  startedAt: null,
-  trigger: 'manual',
-});
-
 export type PipelinePhase = {
   readonly name: string;
   readonly displayName: string;

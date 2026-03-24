@@ -46,7 +46,7 @@ const streakBar = (statuses: string[]): React.ReactNode => (
   </Flex>
 );
 
-export type TestProfileDetailsProps = {
+type TestProfileDetailsProps = {
   profile: TestProfile;
   config?: PublicConfig;
   latestFailedRpId: number | null;

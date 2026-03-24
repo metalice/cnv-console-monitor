@@ -24,7 +24,7 @@ export type AIStatus = {
   };
 };
 
-export type AIUsage = {
+type AIUsage = {
   total: number;
   last24h: number;
   byProvider: Record<string, number>;
@@ -94,20 +94,7 @@ export type ChangelogResult = {
   };
 };
 
-export type FailureAnalysis = {
-  analysis: {
-    rootCause?: string;
-    classification?: string;
-    confidence?: string;
-    explanation?: string;
-    suggestions?: string[];
-    raw?: string;
-  };
-  model: string;
-  cached: boolean;
-};
-
-export type TriageSuggestion = {
+type TriageSuggestion = {
   suggestion: {
     suggestedType?: string;
     suggestedLabel?: string;
@@ -148,19 +135,7 @@ export type RiskAssessment = {
   cached: boolean;
 };
 
-export type NLSearchResult = {
-  result: {
-    page?: string;
-    filters?: Record<string, string>;
-    explanation?: string;
-    raw?: string;
-  };
-  model: string;
-  cached: boolean;
-};
-
 export const fetchAIStatus = (): Promise<AIStatus> => apiFetch('/ai/status');
-export const fetchAIModels = (): Promise<AIModel[]> => apiFetch('/ai/models');
 export const fetchAIUsage = (): Promise<AIUsage> => apiFetch('/ai/usage');
 
 export const startChangelogJob = (
@@ -201,14 +176,6 @@ export const fetchChangelogStatus = (
   return apiFetch(`/releases/changelog-status?${params.toString()}`);
 };
 
-export const analyzeFailure = (data: {
-  testName: string;
-  component?: string;
-  errorMessage: string;
-  recentRuns?: { date: string; status: string }[];
-  triageHistory?: { testName: string; defectType: string; comment: string }[];
-}): Promise<FailureAnalysis> => apiPost('/ai/analyze-failure', data);
-
 export const suggestTriage = (data: {
   testName: string;
   component?: string;
@@ -222,13 +189,6 @@ export const generateBugReport = (data: {
   errorMessage: string;
   version?: string;
 }): Promise<BugReport> => apiPost('/ai/generate-bug-report', data);
-
-export const generateDailyDigest = (
-  data: Record<string, unknown>,
-): Promise<{ digest: string; model: string }> => apiPost('/ai/daily-digest', data);
-
-export const nlSearch = (query: string): Promise<NLSearchResult> =>
-  apiPost('/ai/nl-search', { query });
 
 export const assessRisk = (data: Record<string, unknown>): Promise<RiskAssessment> =>
   apiPost('/ai/risk-assessment', data);
@@ -244,7 +204,7 @@ export const testAIConnection = (
 
 export const clearAICache = (): Promise<{ success: boolean }> => apiPost('/ai/clear-cache', {});
 
-export type AIPromptResult<T = Record<string, unknown>> = {
+type AIPromptResult<T = Record<string, unknown>> = {
   result: T;
   model: string;
   tokensUsed: number;
@@ -257,42 +217,6 @@ export const generateHealthNarrative = (data: Record<string, unknown>): Promise<
 
 export const generateStandupSummary = (data: Record<string, unknown>): Promise<AIPromptResult> =>
   apiPost('/ai/standup-summary', data);
-
-export const generatePostMortem = (data: Record<string, unknown>): Promise<AIPromptResult> =>
-  apiPost('/ai/post-mortem', data);
-
-export const estimateEffort = (data: Record<string, unknown>): Promise<AIPromptResult> =>
-  apiPost('/ai/effort-estimation', data);
-
-export const analyzeCoverageGaps = (data: Record<string, unknown>): Promise<AIPromptResult> =>
-  apiPost('/ai/coverage-gap', data);
-
-export const clusterFailures = (data: Record<string, unknown>): Promise<AIPromptResult> =>
-  apiPost('/ai/failure-clustering', data);
-
-export const detectRegressions = (data: Record<string, unknown>): Promise<AIPromptResult> =>
-  apiPost('/ai/regression-detection', data);
-
-export const analyzeFlakyTest = (data: Record<string, unknown>): Promise<AIPromptResult> =>
-  apiPost('/ai/flaky-analysis', data);
-
-export const detectAnomalies = (data: Record<string, unknown>): Promise<AIPromptResult> =>
-  apiPost('/ai/anomaly-detection', data);
-
-export const analyzesCrossVersion = (data: Record<string, unknown>): Promise<AIPromptResult> =>
-  apiPost('/ai/cross-version', data);
-
-export const reconstructTimeline = (data: Record<string, unknown>): Promise<AIPromptResult> =>
-  apiPost('/ai/incident-timeline', data);
-
-export const prioritizeTests = (data: Record<string, unknown>): Promise<AIPromptResult> =>
-  apiPost('/ai/test-priority', data);
-
-export const chatExplorer = (
-  query: string,
-  context?: string,
-): Promise<{ response: string; model: string; cached: boolean }> =>
-  apiPost('/ai/chat-explorer', { context, query });
 
 export type ChangelogCorrection = {
   key: string;
@@ -316,80 +240,4 @@ export const saveChangelogEdits = (
     params.set('compareFrom', compareFrom);
   }
   return apiPost(`/releases/${version}/changelog-edit?${params.toString()}`, { corrections });
-};
-
-export const streamAIChat = (
-  messages: { role: string; content: string }[],
-  onChunk: (text: string) => void,
-  onDone: (fullContent: string) => void,
-  onError: (error: string) => void,
-  options?: { provider?: string },
-): (() => void) => {
-  const controller = new AbortController();
-
-  fetch('/api/ai/stream', {
-    body: JSON.stringify({ messages, ...options }),
-    headers: { 'Content-Type': 'application/json' },
-    method: 'POST',
-    signal: controller.signal,
-  })
-    .then(async response => {
-      if (!response.ok) {
-        onError(`HTTP ${response.status}`);
-        return undefined;
-      }
-      const reader = response.body?.getReader();
-      if (!reader) {
-        onError('No readable stream');
-        return undefined;
-      }
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- intentional infinite loop
-      while (true) {
-        // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
-        const { done, value } = await reader.read();
-        if (done) {
-          break;
-        }
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) {
-            continue;
-          }
-          try {
-            const data = JSON.parse(line.slice(6)) as {
-              chunk?: string;
-              content?: string;
-              done?: boolean;
-              error?: string;
-            };
-            if (data.error) {
-              onError(data.error);
-              return undefined;
-            }
-            if (data.done) {
-              onDone(data.content ?? '');
-              return undefined;
-            }
-            if (data.chunk) {
-              onChunk(data.chunk);
-            }
-          } catch {
-            /* Skip */
-          }
-        }
-      }
-      return undefined;
-    })
-    .catch((err: unknown) => {
-      if (err instanceof Error && err.name !== 'AbortError') {
-        onError(err.message || 'Stream failed');
-      }
-    });
-
-  return () => controller.abort();
 };

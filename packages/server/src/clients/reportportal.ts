@@ -8,7 +8,7 @@ import {
   type RPTestItem,
 } from './reportportal-types';
 
-export type { RPDefectType, RPLaunch, RPLogEntry, RPTestItem };
+export type { RPLaunch, RPTestItem };
 
 export {
   addTestItemComment,

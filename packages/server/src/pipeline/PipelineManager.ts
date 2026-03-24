@@ -24,7 +24,7 @@ const log = logger.child({ module: 'Pipeline' });
 const STATE_KEY = '_pipelineState';
 const MAX_LOG_ENTRIES = 2000;
 
-export class PipelineManager {
+class PipelineManager {
   private static readonly EMIT_THROTTLE_MS = 500;
   private emitThrottleTimer: ReturnType<typeof setTimeout> | null = null;
   private lastEmitTime = 0;

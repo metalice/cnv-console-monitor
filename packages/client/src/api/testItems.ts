@@ -10,15 +10,6 @@ export const fetchTestItems = (launchId: number, status?: string): Promise<TestI
 export const fetchTestItemsForLaunches = (launchIds: number[]): Promise<TestItem[]> =>
   apiFetch(`/test-items/launches?ids=${launchIds.join(',')}`);
 
-export const fetchUntriagedItems = (hours = 24): Promise<TestItem[]> =>
-  apiFetch(`/test-items/untriaged?hours=${hours}`);
-
-export const fetchUntriagedForDate = (dateStr: string): Promise<TestItem[]> => {
-  const since = new Date(`${dateStr}T00:00:00`).getTime();
-  const until = since + 24 * 60 * 60 * 1000;
-  return apiFetch(`/test-items/untriaged?since=${since}&until=${until}`);
-};
-
 export const fetchUntriagedForRange = (
   since: number,
   until: number,

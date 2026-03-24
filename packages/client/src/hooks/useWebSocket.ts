@@ -9,7 +9,7 @@ const SHOW_DISCONNECTED_AFTER_MS = 5000;
 
 export type WebSocketStatus = 'connected' | 'disconnected' | 'connecting';
 
-export type ProgressInfo = {
+type ProgressInfo = {
   phase: string;
   current: number;
   total: number;
@@ -21,7 +21,7 @@ type ProgressListener = (progress: ProgressInfo) => void;
 const pollListeners = new Set<ProgressListener>();
 const jenkinsListeners = new Set<ProgressListener>();
 
-export type SyncProgressInfo = {
+type SyncProgressInfo = {
   active: boolean;
   phase: string;
   repoName: string;

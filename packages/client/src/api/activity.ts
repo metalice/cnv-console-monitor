@@ -11,7 +11,7 @@ export type ActivityFilters = {
   search?: string;
 };
 
-export type ActivityResponse = {
+type ActivityResponse = {
   entries: ActivityEntry[];
   total: number;
 };
@@ -43,11 +43,11 @@ export const fetchActivity = (
   return apiFetch(`/activity?${params.toString()}`);
 };
 
-export type ActivityMeta = { users: string[]; components: string[] };
+type ActivityMeta = { users: string[]; components: string[] };
 
 export const fetchActivityMeta = (): Promise<ActivityMeta> => apiFetch('/activity/meta');
 
-export type ActivitySummary = {
+type ActivitySummary = {
   byAction: Record<string, number>;
   byComponent: [string, number][];
   byUser: [string, number][];
@@ -69,7 +69,7 @@ export const fetchActivitySummary = (filters: ActivityFilters = {}): Promise<Act
   return apiFetch(`/activity/summary?${params.toString()}`);
 };
 
-export type RelatedActivity = {
+type RelatedActivity = {
   id: number;
   action: string;
   old_value: string | null;

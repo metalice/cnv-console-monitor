@@ -12,14 +12,6 @@ export const updateSettings = (
     method: 'PUT',
   });
 
-export const testEmail = (): Promise<{ success: boolean; message: string }> =>
-  apiFetch('/settings/test-email', { method: 'POST' });
-
-export const testSlack = (): Promise<{ success: boolean; message: string }> =>
-  apiFetch('/settings/test-slack', { method: 'POST' });
-
-export const fetchLaunchNames = (): Promise<string[]> => apiFetch('/settings/launch-names');
-
 export type JiraMeta = {
   projects: { key: string; name: string }[];
   issueTypes: string[];
@@ -33,13 +25,13 @@ export const fetchJiraMeta = (project?: string): Promise<JiraMeta> => {
 
 export const fetchRpProjects = (): Promise<string[]> => apiFetch('/settings/rp-projects');
 
-export type RpTestPayload = {
+type RpTestPayload = {
   url?: string;
   project?: string;
   token?: string;
 };
 
-export type RpTestResponse = {
+type RpTestResponse = {
   success: boolean;
   message: string;
   projects?: string[];
@@ -49,7 +41,7 @@ export type RpTestResponse = {
 export const testRpConnection = (payload?: RpTestPayload): Promise<RpTestResponse> =>
   apiFetch('/settings/test-rp', { body: JSON.stringify(payload ?? {}), method: 'POST' });
 
-export type JiraTestPayload = {
+type JiraTestPayload = {
   url?: string;
   token?: string;
   projectKey?: string;
@@ -66,7 +58,7 @@ export type JiraTestResponse = {
 export const testJiraConnection = (payload?: JiraTestPayload): Promise<JiraTestResponse> =>
   apiFetch('/settings/test-jira', { body: JSON.stringify(payload ?? {}), method: 'POST' });
 
-export type JenkinsTestResponse = { success: boolean; message: string };
+type JenkinsTestResponse = { success: boolean; message: string };
 
 export const testJenkinsConnection = (payload?: {
   user?: string;

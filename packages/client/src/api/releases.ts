@@ -31,12 +31,6 @@ export const transitionChecklistTask = (
 ): Promise<{ success: boolean }> =>
   apiFetch(`/releases/checklist/${key}/transition`, { body: JSON.stringify(data), method: 'POST' });
 
-export const addChecklistComment = (key: string, comment: string): Promise<{ success: boolean }> =>
-  apiFetch(`/releases/checklist/${key}/comment`, {
-    body: JSON.stringify({ comment }),
-    method: 'POST',
-  });
-
 export type VersionReadiness = {
   totalLaunches: number;
   totalTests: number;
@@ -50,24 +44,12 @@ export type VersionReadiness = {
 export const fetchVersionReadiness = (version: string): Promise<VersionReadiness> =>
   apiFetch(`/releases/${version}/readiness`);
 
-export type ManualMilestone = {
-  id: number;
-  version: string;
-  milestone_type: string;
-  name: string;
-  date: string;
-  notes: string | null;
-};
-
-export const fetchManualMilestones = (): Promise<ManualMilestone[]> =>
-  apiFetch('/releases/milestones');
-
-export type SubVersion = { name: string; released: boolean };
+type SubVersion = { name: string; released: boolean };
 
 export const fetchSubVersions = (version: string): Promise<SubVersion[]> =>
   apiFetch(`/releases/${version}/sub-versions`);
 
-export type BlockerIssue = {
+type BlockerIssue = {
   key: string;
   summary: string;
   status: string;
@@ -80,7 +62,7 @@ export type BlockerIssue = {
 export const fetchBlockers = (version: string): Promise<BlockerIssue[]> =>
   apiFetch(`/releases/${version}/blockers`);
 
-export type VelocityMetric = {
+type VelocityMetric = {
   version: string;
   totalReleases: number;
   avgDaysBetweenReleases: number | null;

@@ -2,7 +2,7 @@ import React from 'react';
 
 import { Tooltip } from '@patternfly/react-core';
 
-export type HealthStatus = 'green' | 'yellow' | 'red' | 'grey';
+type HealthStatus = 'green' | 'yellow' | 'red' | 'grey';
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const computeHealth = (opts: {

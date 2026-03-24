@@ -6,23 +6,12 @@ import type {
   ErrorPattern,
   HeatmapCell,
   HourlyFailure,
-  Launch,
   TopFailingTest,
   TrendPoint,
   VersionTrendPoint,
 } from '@cnv-monitor/shared';
 
 import { apiFetch } from './client';
-
-export const fetchReport = (hours = 24): Promise<DailyReport> =>
-  apiFetch(`/launches/report?hours=${hours}`);
-
-export const fetchReportForDate = (dateStr: string): Promise<DailyReport> => {
-  const since = new Date(`${dateStr}T00:00:00`).getTime();
-  const endOfDay = since + 24 * 60 * 60 * 1000;
-  const until = Math.min(endOfDay, Date.now());
-  return apiFetch(`/launches/report?since=${since}&until=${until}`);
-};
 
 export const fetchReportForRange = (
   since: number,
@@ -76,21 +65,3 @@ export const fetchDefectTypesTrend = (days = 90, component?: string): Promise<De
 
 export const fetchFailuresByHour = (days = 30, component?: string): Promise<HourlyFailure[]> =>
   apiFetch(`/launches/trends/by-hour?days=${days}${compParam(component)}`);
-
-export const fetchLaunchesByName = (
-  name: string,
-  since?: number,
-  until?: number,
-): Promise<Launch[]> => {
-  const params = new URLSearchParams();
-  if (since) {
-    params.set('since', String(since));
-  }
-  if (until) {
-    params.set('until', String(until));
-  }
-  const queryString = params.toString();
-  return apiFetch(
-    `/launches/by-name/${encodeURIComponent(name)}${queryString ? `?${queryString}` : ''}`,
-  );
-};

@@ -1,11 +1,10 @@
 let polling = false;
 let cancelled = false;
-let autoPollPaused = false;
 let jenkinsCancelled = false;
 let currentPollId = 0;
 let clearTimer: ReturnType<typeof setTimeout> | null = null;
 
-export type PollProgress = {
+type PollProgress = {
   active: boolean;
   phase: string;
   current: number;
@@ -62,40 +61,10 @@ export const unlockPoll = (): void => {
   }, COMPLETE_LINGER_MS);
 };
 
-export const forceUnlockPoll = (): void => {
-  polling = false;
-  cancelled = true;
-  if (clearTimer) {
-    clearTimeout(clearTimer);
-    clearTimer = null;
-  }
-  progress = {
-    active: false,
-    current: progress.current,
-    message: 'Poll cancelled',
-    phase: 'cancelled',
-    startedAt: null,
-    total: progress.total,
-  };
-  clearTimer = setTimeout(() => {
-    progress = { ...EMPTY };
-    clearTimer = null;
-  }, COMPLETE_LINGER_MS);
-};
-
 export const isPollCancelled = (): boolean => cancelled;
 
-export const pauseAutoPoll = (): void => {
-  autoPollPaused = true;
-};
-export const resumeAutoPoll = (): void => {
-  autoPollPaused = false;
-};
-export const isAutoPollPaused = (): boolean => autoPollPaused;
+export const isAutoPollPaused = (): boolean => false;
 
-export const cancelJenkins = (): void => {
-  jenkinsCancelled = true;
-};
 export const resetJenkinsCancelled = (): void => {
   jenkinsCancelled = false;
 };
@@ -111,8 +80,6 @@ export const updatePollProgress = (
   Object.assign(progress, update);
 };
 
-export const getPollProgress = (): PollProgress => ({ ...progress });
-
 export const addFailedItemLaunch = (rpId: number, name: string, error: string): void => {
   failedItemLaunches.push({ error, name, rpId });
 };
@@ -120,9 +87,6 @@ export const addFailedItemLaunch = (rpId: number, name: string, error: string): 
 export const getFailedItemLaunches = (): { rpId: number; name: string; error: string }[] => [
   ...failedItemLaunches,
 ];
-export const clearFailedItemLaunches = (): void => {
-  failedItemLaunches = [];
-};
 
 export type PollPhaseSummary = {
   total: number;
@@ -131,39 +95,11 @@ export type PollPhaseSummary = {
   errors: Record<string, number>;
 };
 
-export type PollSummary = {
-  timestamp: number;
-  durationMs: number;
-  cancelled: boolean;
-  launches: PollPhaseSummary;
-  testItems: PollPhaseSummary;
-  jenkins: PollPhaseSummary & { authRequired: number; deleted: number; pruned: number };
-};
-
-let lastPollSummary: PollSummary | null = null;
-
-export const setLastPollSummary = (summary: PollSummary): void => {
-  lastPollSummary = summary;
-  void (async () => {
-    try {
-      const { setSetting } = await import('./db/store');
-      await setSetting('_lastPollSummary', JSON.stringify(summary), 'system');
-    } catch {
-      // no-op: dynamic import or persist failed
-    }
-  })();
-};
-
-export const getLastPollSummary = (): PollSummary | null => lastPollSummary;
-
 export const loadLastPollSummary = async (): Promise<void> => {
   try {
     const { getSetting } = await import('./db/store');
-    const raw = await getSetting('_lastPollSummary');
-    if (raw) {
-      lastPollSummary = JSON.parse(raw) as PollSummary;
-    }
+    await getSetting('_lastPollSummary');
   } catch {
-    /* DB not ready or invalid JSON */
+    /* DB not ready */
   }
 };

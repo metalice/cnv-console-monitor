@@ -1,7 +1,7 @@
 import { type DailyReport, type EnrichedFailedItem, type LaunchGroup } from '../analyzer';
 import { config } from '../config';
 
-export type SlackBlock = {
+type SlackBlock = {
   type: string;
   text?: { type: string; text: string; emoji?: boolean };
   elements?: {

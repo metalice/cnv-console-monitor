@@ -2,7 +2,7 @@ import { logger } from '../logger';
 
 const log = logger.child({ module: 'Retry' });
 
-export type RetryOptions = {
+type RetryOptions = {
   maxRetries?: number;
   baseDelayMs?: number;
   maxDelayMs?: number;

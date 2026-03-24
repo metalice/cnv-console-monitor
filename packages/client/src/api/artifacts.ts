@@ -7,7 +7,7 @@ export type ArtifactFile = {
   path?: string;
 };
 
-export type ArtifactsResponse = {
+type ArtifactsResponse = {
   videos: ArtifactFile[];
   screenshots: ArtifactFile[];
   reports: { name: string; url: string }[];

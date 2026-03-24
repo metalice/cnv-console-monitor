@@ -1,14 +1,6 @@
 import { fetchTestItemLogs, fetchTestItems, type RPTestItem } from './clients/reportportal';
-import {
-  getFailedTestItems,
-  type LaunchRecord,
-  type TestItemRecord,
-  upsertTestItem,
-} from './db/store';
+import { type TestItemRecord, upsertTestItem } from './db/store';
 import { config } from './config';
-import { logger } from './logger';
-
-const log = logger.child({ module: 'PollerBackfill' });
 
 const parseTestItemRecord = (item: RPTestItem, launchRpId: number): TestItemRecord => {
   const polarionAttr = item.attributes.find(attr => attr.key === 'polarion-testcase-id');
@@ -76,41 +68,6 @@ export const fetchFailedItemsForLaunch = async (launchId: number): Promise<TestI
   }
 
   return items;
-};
-
-export const backfillTestItems = async (
-  launches: LaunchRecord[],
-  onBatch?: () => void,
-): Promise<void> => {
-  const failedLaunches = launches
-    .filter(launch => launch.failed > 0 || launch.status === 'FAILED')
-    .sort((a, b) => b.start_time - a.start_time);
-
-  log.info({ total: failedLaunches.length }, 'Starting test item backfill');
-
-  for (let launchIdx = 0; launchIdx < failedLaunches.length; launchIdx++) {
-    const launch = failedLaunches[launchIdx];
-    // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
-    const existing = await getFailedTestItems(launch.rp_id);
-    if (existing.length > 0) {
-      continue;
-    }
-
-    try {
-      // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
-      await fetchFailedItemsForLaunch(launch.rp_id);
-    } catch (err) {
-      log.warn({ err, launchRpId: launch.rp_id }, 'Failed to backfill test items');
-    }
-
-    if ((launchIdx + 1) % 20 === 0) {
-      log.info({ progress: `${launchIdx + 1}/${failedLaunches.length}` }, 'Backfill progress');
-      onBatch?.();
-    }
-  }
-
-  log.info('Backfill complete');
-  onBatch?.();
 };
 
 export const refreshLaunchTestItems = async (launchId: number): Promise<TestItemRecord[]> =>

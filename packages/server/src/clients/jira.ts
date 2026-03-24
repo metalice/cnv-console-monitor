@@ -8,7 +8,7 @@ export { buildBugDescription } from './jira-helpers';
 
 const log = logger.child({ module: 'Jira' });
 
-export type JiraIssue = {
+type JiraIssue = {
   key: string;
   id: string;
   self: string;
@@ -23,7 +23,7 @@ export type JiraIssue = {
   };
 };
 
-export type JiraSearchResult = {
+type JiraSearchResult = {
   issues: JiraIssue[];
   total: number;
 };
@@ -179,7 +179,7 @@ export const createIssue = async (params: {
   };
 };
 
-export const getIssue = async (key: string): Promise<JiraIssue> => {
+const getIssue = async (key: string): Promise<JiraIssue> => {
   const client = createJiraClient();
   const response = await withRetry(
     () =>

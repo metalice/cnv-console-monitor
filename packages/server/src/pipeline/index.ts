@@ -9,9 +9,6 @@ import { getPipelineManager } from './PipelineManager';
 
 const log = logger.child({ module: 'Pipeline' });
 
-export { EnrichJenkinsPhase } from './phases/EnrichJenkins';
-export { FetchItemsPhase } from './phases/FetchItems';
-export { FetchLaunchesPhase } from './phases/FetchLaunches';
 export { getPipelineManager, initPipelineManager } from './PipelineManager';
 
 export const registerDefaultPhases = (): {

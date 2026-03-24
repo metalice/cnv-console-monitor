@@ -127,7 +127,7 @@ export const rateColor = (
   return 'red';
 };
 
-export type VersionHealth = {
+type VersionHealth = {
   best: { version: string; rate: number } | null;
   worst: { version: string; rate: number } | null;
 };
@@ -157,7 +157,7 @@ export const computeVersionHealth = (data: VersionTrendPoint[] | undefined): Ver
   return { best, worst };
 };
 
-export type SummaryStats = {
+type SummaryStats = {
   overallRate: number;
   totalLaunches: number;
   totalTests: number;

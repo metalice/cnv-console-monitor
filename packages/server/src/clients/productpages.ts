@@ -43,7 +43,7 @@ const getToken = async (): Promise<string> => {
   return cachedToken;
 };
 
-export type PPTask = {
+type PPTask = {
   main: boolean;
   name: string;
   slug: string;
@@ -51,7 +51,7 @@ export type PPTask = {
   date_finish: string;
 };
 
-export type PPRelease = {
+type PPRelease = {
   id: number;
   shortname: string;
   name: string;

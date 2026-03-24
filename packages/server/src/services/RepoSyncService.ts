@@ -247,7 +247,7 @@ function extractDocSignals(content: string, filePath: string): DocSignals {
   return { featureArea, headings, rtmEntries, testRefs, title };
 }
 
-export type TestBlock = {
+type TestBlock = {
   name: string;
   line: number;
   type: 'test' | 'describe' | 'it';
@@ -350,7 +350,7 @@ function getRelativePath(filePath: string, prefixPatterns: string[]): string {
   return filePath;
 }
 
-export type SyncResult = {
+type SyncResult = {
   repoId: string;
   branch: string;
   totalFiles: number;
@@ -360,7 +360,7 @@ export type SyncResult = {
   duration: number;
 };
 
-export type SyncProgressCallback = (info: {
+type SyncProgressCallback = (info: {
   phase: string;
   repoName: string;
   current: number;

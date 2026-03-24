@@ -9,14 +9,14 @@ export type BlockingFailure = {
   recent_trend: 'worsening' | 'improving' | 'stable';
 };
 
-export type ReadinessTrendPoint = {
+type ReadinessTrendPoint = {
   date: string;
   total: number;
   passed: number;
   rate: number;
 };
 
-export type ReadinessAssessment = {
+type ReadinessAssessment = {
   version: string;
   passRate: number;
   totalLaunches: number;

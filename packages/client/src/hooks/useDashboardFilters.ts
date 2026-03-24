@@ -5,14 +5,14 @@ import type { DailyReport, LaunchGroup } from '@cnv-monitor/shared';
 import { useComponentFilter } from '../context/ComponentFilterContext';
 import { usePreferences } from '../context/PreferencesContext';
 
-export type DashboardFilterActions = {
+type DashboardFilterActions = {
   setVersionFilter: (value: string) => void;
   setSelectedTiers: (value: Set<string>) => void;
   setStatusFilter: (value: string | null) => void;
   setTableSearch: (value: string) => void;
 };
 
-export type DashboardFilterState = {
+type DashboardFilterState = {
   selectedComponents: Set<string>;
   versionFilter: string;
   selectedTiers: Set<string>;

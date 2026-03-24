@@ -20,7 +20,7 @@ import type {
 
 const log = logger.child({ module: 'AI' });
 
-export class AIService {
+class AIService {
   private cache = new Map<string, { response: AIResponse; expiresAt: number }>();
   private defaultModelId = '';
   private defaultProvider = '';

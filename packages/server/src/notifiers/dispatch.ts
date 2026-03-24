@@ -7,10 +7,7 @@ import { sendSlackReport } from './slack';
 
 const log = logger.child({ module: 'Dispatch' });
 
-export const filterReportForSubscription = (
-  report: DailyReport,
-  sub: SubscriptionRecord,
-): DailyReport => {
+const filterReportForSubscription = (report: DailyReport, sub: SubscriptionRecord): DailyReport => {
   if (sub.components.length === 0) {
     return report;
   }

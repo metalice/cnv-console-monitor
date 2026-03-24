@@ -67,7 +67,3 @@ export function decryptValue(stored: string): string {
     decipher.update(Buffer.from(dataB64, 'base64'), undefined, 'utf8') + decipher.final('utf8')
   );
 }
-
-export function isEncryptionEnabled(): boolean {
-  return getEncryptionKey() !== null;
-}

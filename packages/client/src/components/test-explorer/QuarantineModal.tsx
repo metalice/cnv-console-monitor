@@ -25,7 +25,7 @@ import {
 import { CheckCircleIcon, ExternalLinkAltIcon } from '@patternfly/react-icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { createQuarantineApi, resolveQuarantineApi } from '../../api/quarantine';
+import { createQuarantineApi } from '../../api/quarantine';
 
 type QuarantineResult = {
   quarantineId?: string;
@@ -254,94 +254,6 @@ export const CreateQuarantineModal: React.FC<CreateQuarantineModalProps> = ({
           Quarantine
         </Button>
         <Button variant="link" onClick={handleClose}>
-          Cancel
-        </Button>
-      </ModalFooter>
-    </Modal>
-  );
-};
-
-type ResolveQuarantineModalProps = {
-  isOpen: boolean;
-  onClose: () => void;
-  quarantineId: string;
-  testName: string;
-};
-
-export const ResolveQuarantineModal: React.FC<ResolveQuarantineModalProps> = ({
-  isOpen,
-  onClose,
-  quarantineId,
-  testName,
-}) => {
-  const [fixDescription, setFixDescription] = useState('');
-  const [fixCommitUrl, setFixCommitUrl] = useState('');
-  const queryClient = useQueryClient();
-
-  const shortName =
-    (testName || '').split('/').pop() || (testName || '').split('.').pop() || testName || 'Unknown';
-
-  const mutation = useMutation({
-    mutationFn: () =>
-      resolveQuarantineApi(quarantineId, {
-        fixCommitUrl: fixCommitUrl || undefined,
-        fixDescription,
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['quarantines'] });
-      void queryClient.invalidateQueries({ queryKey: ['quarantineStats'] });
-      onClose();
-      setFixDescription('');
-      setFixCommitUrl('');
-    },
-  });
-
-  return (
-    <Modal isOpen={isOpen} variant={ModalVariant.medium} onClose={onClose}>
-      <ModalHeader
-        description="Resolve this quarantine and re-enable the test."
-        title={`Unquarantine: ${shortName}`}
-      />
-      <ModalBody>
-        <Form>
-          <FormGroup isRequired fieldId="fix-desc" label="What was fixed?">
-            <TextArea
-              id="fix-desc"
-              placeholder="Describe the fix..."
-              resizeOrientation="vertical"
-              rows={3}
-              value={fixDescription}
-              onChange={(_e, val) => setFixDescription(val)}
-            />
-          </FormGroup>
-          <FormGroup fieldId="fix-url" label="Fix Commit or PR URL">
-            <TextInput
-              id="fix-url"
-              placeholder="https://github.com/..."
-              value={fixCommitUrl}
-              onChange={(_e, val) => setFixCommitUrl(val)}
-            />
-            <HelperText>
-              <HelperTextItem>Link to the commit or PR that resolved the issue.</HelperTextItem>
-            </HelperText>
-          </FormGroup>
-          {mutation.isError && (
-            <Alert isInline title="Failed to resolve" variant="danger">
-              {mutation.error.message}
-            </Alert>
-          )}
-        </Form>
-      </ModalBody>
-      <ModalFooter>
-        <Button
-          isDisabled={!fixDescription || mutation.isPending}
-          isLoading={mutation.isPending}
-          variant="primary"
-          onClick={() => mutation.mutate()}
-        >
-          Unquarantine
-        </Button>
-        <Button variant="link" onClick={onClose}>
           Cancel
         </Button>
       </ModalFooter>

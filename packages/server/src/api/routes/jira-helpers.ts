@@ -3,7 +3,7 @@ import { config } from '../../config';
 import { getAllSubscriptions, getSetting } from '../../db/store';
 import { sendSlackJiraNotification } from '../../notifiers/slack';
 
-export const sanitizeJql = (query: string): string =>
+const sanitizeJql = (query: string): string =>
   query
     .replace(/["\\\n\r]/g, ' ')
     .replace(/[{}()[\]]/g, '')

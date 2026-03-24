@@ -11,7 +11,7 @@ export const DAYS = [
 export const WEEKDAY_IDS = new Set(['1', '2', '3', '4', '5']);
 export const ALL_DAY_IDS = new Set(DAYS.map(day => day.id));
 
-export type CronParsed = { hour: number; minute: number; days: Set<string> };
+type CronParsed = { hour: number; minute: number; days: Set<string> };
 
 export const parseCron = (cron: string): CronParsed => {
   const parts = cron.split(' ');

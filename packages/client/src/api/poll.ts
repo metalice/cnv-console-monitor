@@ -80,61 +80,19 @@ export type PipelineRunRecord = {
   summary: string | null;
 };
 
-export type HealthReport = {
-  services: { name: string; status: 'ok' | 'error'; latencyMs: number; message: string }[];
-  allOk: boolean;
-};
-
-export type DryRunReport = {
-  phases: Record<
-    string,
-    {
-      totalItems: number;
-      estimatedDurationMs: number;
-      connectivity: { service: string; status: string; message: string }[];
-    }
-  >;
-  totalEstimatedMs: number;
-  health: { service: string; status: string; message: string }[];
-};
-
 export const fetchPollStatus = (): Promise<PollStatusResponse> =>
   apiFetch<PollStatusResponse>('/poll/status');
 
 export const fetchPipelineHistory = (limit = 10): Promise<PipelineRunRecord[]> =>
   apiFetch<PipelineRunRecord[]>(`/poll/history?limit=${limit}`);
 
-export const startPipeline = (
-  mode: 'incremental' | 'full',
-  lookbackDays?: number,
-): Promise<{ success: boolean }> =>
-  apiPost(`/poll/start?mode=${mode}${lookbackDays ? `&lookbackDays=${lookbackDays}` : ''}`, {});
-
 export const cancelPipeline = (): Promise<{ success: boolean }> => apiPost('/poll/cancel', {});
 
 export const resumePhase = (phaseName: string): Promise<{ success: boolean }> =>
   apiPost(`/poll/resume-phase/${phaseName}`, {});
 
-export const runHealthCheck = (): Promise<HealthReport> => apiPost('/poll/health-check', {});
-
-export const runDryRun = (): Promise<DryRunReport> => apiPost('/poll/dry-run', {});
-
 // Legacy compatibility
 export const triggerPollNow = (): Promise<{ success: boolean }> => apiPost('/poll/now', {});
-
-export const triggerBackfill = (): Promise<{ success: boolean }> => apiPost('/poll/backfill', {});
-
-export const cancelPoll = (): Promise<{ success: boolean }> => cancelPipeline();
-
-export const triggerJenkinsEnrichment = (): Promise<{ success: boolean }> =>
-  apiPost('/poll/enrich', {});
-
-export const retryFailedItems = (): Promise<{
-  success: boolean;
-  retried: number;
-  succeeded: number;
-  stillFailed: number;
-}> => apiPost('/poll/retry-items', {});
 
 export type PollStatusLegacy = {
   active: boolean;

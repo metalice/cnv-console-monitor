@@ -1,17 +1,10 @@
-/* eslint-disable max-lines */
 import {
   extractAttribute,
   fetchLaunchById,
   fetchLaunches,
   type RPLaunch,
 } from './clients/reportportal';
-import {
-  getLaunchesPendingEnrichment,
-  getLaunchesWithFailedEnrichment,
-  type LaunchRecord,
-  type TestItemRecord,
-  upsertLaunch,
-} from './db/store';
+import { type LaunchRecord, type TestItemRecord, upsertLaunch } from './db/store';
 import { getErrorInfo, setGlobalRetryCounter } from './utils/retry';
 import { logger } from './logger';
 import { fetchFailedItemsForLaunch } from './poller-backfill';
@@ -26,11 +19,7 @@ import {
   updatePollProgress,
 } from './pollLock';
 import { broadcast } from './ws';
-export {
-  backfillTestItems,
-  fetchAllItemsForLaunch,
-  refreshLaunchTestItems,
-} from './poller-backfill';
+export { fetchAllItemsForLaunch, refreshLaunchTestItems } from './poller-backfill';
 
 import { config } from './config';
 
@@ -53,7 +42,7 @@ const emitProgress = (
   broadcast(channel, { current, message, phase, startedAt: phaseStartedAt || activePollId, total });
 };
 
-export type PollResult = {
+type PollResult = {
   launches: LaunchRecord[];
   failedItems: Map<number, TestItemRecord[]>;
   timestamp: Date;
@@ -395,7 +384,7 @@ export const refreshStaleInProgress = async (): Promise<number> => {
   return updated;
 };
 
-export type EnrichmentResult = {
+type EnrichmentResult = {
   total: number;
   succeeded: number;
   failed: number;
@@ -533,26 +522,4 @@ export const enrichLaunchesFromJenkins = async (
     succeeded,
     total: launchList.length,
   };
-};
-
-export const enrichRemainingLaunches = async (): Promise<EnrichmentResult> => {
-  const [pending, failed] = await Promise.all([
-    getLaunchesPendingEnrichment(50000),
-    getLaunchesWithFailedEnrichment(50000),
-  ]);
-  const allLaunches = [...pending, ...failed];
-  if (allLaunches.length === 0) {
-    return {
-      authRequired: 0,
-      deleted: 0,
-      errorReasons: {},
-      failed: 0,
-      noUrl: 0,
-      pruned: 0,
-      succeeded: 0,
-      total: 0,
-    };
-  }
-  log.info({ failed: failed.length, pending: pending.length }, 'Enriching remaining launches');
-  return enrichLaunchesFromJenkins(allLaunches);
 };

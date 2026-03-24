@@ -66,7 +66,7 @@ export type DailyReport = {
   components: string[];
 };
 
-export const groupByLaunchName = (launches: LaunchRecord[]): LauncherRow[] => {
+const groupByLaunchName = (launches: LaunchRecord[]): LauncherRow[] => {
   const byName = new Map<string, LaunchRecord[]>();
   for (const launch of launches) {
     if (!byName.has(launch.name)) {

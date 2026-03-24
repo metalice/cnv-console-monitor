@@ -69,7 +69,7 @@ export const fetchJiraComponents = async (): Promise<string[]> => {
   }
 };
 
-export type AutoMappingResult = {
+type AutoMappingResult = {
   mapped: { jenkinsTeam: string; jiraComponent: string }[];
   unmapped: string[];
 };

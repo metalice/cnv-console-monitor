@@ -83,7 +83,7 @@ export const deleteComponentMapping = async (pattern: string): Promise<{ success
   return response.json() as Promise<{ success: boolean }>;
 };
 
-export type AutoMapResult = {
+type AutoMapResult = {
   success: boolean;
   mapped: { jenkinsTeam: string; jiraComponent: string; score: number }[];
   unmapped: string[];

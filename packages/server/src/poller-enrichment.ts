@@ -11,7 +11,7 @@ import { logger } from './logger';
 const log = logger.child({ module: 'PollerEnrichment' });
 const jenkinsHttpsAgent = new https.Agent({ rejectUnauthorized: false });
 
-export type JenkinsResult = {
+type JenkinsResult = {
   status: 'success' | 'failed' | 'not_found' | 'build_pruned' | 'auth_required';
   team: string | null;
   tier: string | null;
