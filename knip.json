@@ -4,7 +4,8 @@
       "project": ["src/**/*.ts"]
     },
     "packages/server": {
-      "project": ["src/**/*.ts"]
+      "project": ["src/**/*.ts"],
+      "ignoreDependencies": ["pino-pretty"]
     },
     "packages/client": {
       "project": ["src/**/*.{ts,tsx}"]
