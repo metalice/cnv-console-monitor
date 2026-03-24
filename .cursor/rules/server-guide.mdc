@@ -247,10 +247,227 @@ FetchLaunches → FetchItems → EnrichJenkins
 
 ## 7. Security (Server-specific)
 
-- `helmet()` middleware for security headers
-- `express-rate-limit` on mutation endpoints
+- `helmet()` middleware for security headers (CSP, HSTS, X-Frame-Options)
+- `express-rate-limit`: 200 req/min on `/api`, 10 req/min on `/api/admin`
 - Input validation via Zod on all POST routes
 - Parameterized SQL queries (no string interpolation)
 - Environment variables for all secrets
 - No sensitive data in error responses or logs
-- CORS configured for production origins
+- CORS restricted to `config.dashboard.url` in production
+
+---
+
+## 8. Authentication & Authorization
+
+### Proxy-Based Auth
+
+Production auth relies on a reverse proxy (OAuth proxy / OpenShift) that sets headers:
+
+```
+x-forwarded-email: user@redhat.com
+x-forwarded-user: username
+```
+
+The `extractUser` middleware reads these headers, upserts the user in DB, and attaches `req.user`:
+
+```typescript
+app.use('/api/launches', extractUser, launchesRouter);
+```
+
+### Dev Mode
+
+When `AUTH_ENABLED=false`:
+- Uses a hardcoded `DEV_USER` (admin role)
+- Supports `?impersonate=other@redhat.com` for testing other roles (development only)
+- Logs a warning on first request
+
+### Authorization Guards
+
+```typescript
+import { requireAdmin, requireOwnerOrAdmin, getSubscriptionOwner } from './middleware/auth';
+
+router.delete('/:id', requireAdmin, handler);
+router.put('/:id', requireOwnerOrAdmin(getSubscriptionOwner), handler);
+```
+
+- `requireAdmin`: returns 403 unless `req.user.role === 'admin'`
+- `requireOwnerOrAdmin(getOwnerId)`: admin passes; others must own the resource
+
+### Express Type Augmentation
+
+`req.user` is typed via namespace augmentation in `auth.ts`:
+
+```typescript
+declare global {
+  namespace Express {
+    interface Request {
+      user?: User;
+    }
+  }
+}
+```
+
+---
+
+## 9. Route Registration
+
+### Adding a New Route
+
+1. Create the route file:
+```typescript
+// api/routes/myResource.ts
+import { Router } from 'express';
+const router = Router();
+router.get('/', async (req, res, next) => { ... });
+export default router;
+```
+
+2. Import and mount in `api/index.ts`:
+```typescript
+import myResourceRouter from './routes/myResource';
+// Mount with extractUser (authenticated routes)
+app.use('/api/my-resource', extractUser, myResourceRouter);
+```
+
+3. Place the mount in alphabetical order among existing routes.
+
+4. For admin-only routes, stack `strictLimiter`:
+```typescript
+app.use('/api/admin/my-resource', strictLimiter, extractUser, myResourceRouter);
+```
+
+5. For public endpoints (webhooks), mount WITHOUT `extractUser`:
+```typescript
+app.use('/api/webhooks/my-hook', myHookRouter);
+```
+
+---
+
+## 10. Configuration
+
+### Environment Variables
+
+`config.ts` loads env vars via `dotenv` from the repo root `.env`:
+
+```typescript
+export const config = {
+  reportportal: {
+    url: process.env.REPORTPORTAL_URL || 'https://...',
+    token: process.env.REPORTPORTAL_TOKEN || '',
+    project: process.env.REPORTPORTAL_PROJECT || 'CNV',
+  },
+  dashboard: {
+    port: parseInt(process.env.DASHBOARD_PORT || '8080', 10),
+    url: process.env.DASHBOARD_URL || '',
+  },
+  // ... other sections
+};
+```
+
+### DB-Driven Config Overrides
+
+Settings stored in the DB can override env var defaults via `SETTINGS_MAP`:
+
+```typescript
+const SETTINGS_MAP = {
+  'reportportal.url': (val) => { config.reportportal.url = val; },
+  'jira.token': (val) => { config.jira.token = val; },
+  // ...
+} satisfies Record<string, (val: string) => void>;
+```
+
+Called at startup: `applySettingsOverrides(dbSettings)`.
+
+### Adding New Config
+
+1. Add env var with default in `config.ts`
+2. Add to `SETTINGS_MAP` if it should be DB-editable
+3. Add to `EDITABLE_KEYS` (auto-derived from `SETTINGS_MAP`)
+4. Update `k8s/configmap.yaml` or `k8s/secret.yaml` for deployment
+
+---
+
+## 11. Encryption
+
+### Settings Encryption (AES-256-GCM)
+
+Sensitive settings (tokens, passwords) are encrypted at rest in the database:
+
+```
+SETTINGS_ENCRYPTION_KEY=<64 hex characters (32 bytes)>
+```
+
+How it works:
+- `isSensitiveKey(key)` checks if key contains: `token`, `pass`, `secret`, `key`, `webhook`
+- On save: `encryptValue(plaintext)` produces `enc:<iv>:<tag>:<ciphertext>` (base64)
+- On read: `decryptValue(stored)` detects `enc:` prefix and decrypts
+- Without `SETTINGS_ENCRYPTION_KEY`: values stored/returned as plaintext (graceful degradation)
+
+### Key Management
+
+- Generate: `openssl rand -hex 32`
+- Store in K8s Secret, not ConfigMap
+- All replicas must use the same key
+- Key rotation: re-encrypt all values after key change
+
+---
+
+## 12. WebSocket Server
+
+### Setup
+
+`ws.ts` creates a WebSocket server on the same HTTP server:
+
+```typescript
+export const initWebSocket = (server: Server): void => {
+  const wss = new WebSocketServer({ path: '/ws', server });
+  // heartbeat, connection handling
+};
+```
+
+### Heartbeat
+
+Server pings every 30s. Clients that don't respond with pong are terminated.
+
+### Broadcasting
+
+```typescript
+import { broadcast } from '../ws';
+
+broadcast('data-updated');
+broadcast('poll-progress', { phase: 'FetchLaunches', current: 5, total: 20 });
+```
+
+- `broadcast(event, data?)` sends to all connected clients
+- Used by: pipeline progress, data refresh notifications, sync progress
+- On new connection: sends current pipeline state if active
+
+---
+
+## 13. Health & SPA Serving
+
+### Health Check
+
+```typescript
+app.get('/health', async (_req, res) => {
+  await AppDataSource.query('SELECT 1');
+  res.json({ status: 'ok', db: 'connected', timestamp: new Date().toISOString() });
+});
+```
+
+- Used for K8s liveness/readiness probes
+- Returns 503 if DB is disconnected
+
+### SPA Catch-All
+
+```typescript
+const clientDistPath = path.join(__dirname, '..', '..', '..', 'client', 'dist');
+app.use(express.static(clientDistPath));
+app.get('{*path}', (_req, res) => {
+  res.sendFile(path.join(clientDistPath, 'index.html'));
+});
+```
+
+- Static files served from client's `dist/`
+- All unmatched GET routes serve `index.html` for client-side routing
+- Must be AFTER all API routes and BEFORE error handler

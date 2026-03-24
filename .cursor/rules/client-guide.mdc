@@ -222,3 +222,265 @@ export const fetchLaunches = (params?: { version?: string }): Promise<Launch[]> 
 - Always include: legend, axis labels, tooltips
 - Handle empty data (don't render empty chart -- show EmptyState instead)
 - Charts must resize with container (responsive)
+
+---
+
+## 8. CSS Conventions
+
+### File Location
+
+All custom CSS lives in `packages/client/src/styles/app.css`. No other CSS files.
+
+### Class Naming
+
+- **Utility classes**: `app-{property}-{size}` -- spacing (`app-mb-md`, `app-mt-lg`, `app-ml-sm`, `app-mr-xs`, `app-p-md`), typography (`app-text-sm`, `app-font-bold`), sizing (`app-min-w-200`, `app-max-w-400`, `app-w-full`), layout (`app-flex-center`, `app-full-height`)
+- **Domain blocks**: `app-{feature}-{element}` -- e.g., `app-table-scroll`, `app-masthead-select`, `app-changelog-content`, `app-settings-vtabs`, `app-danger-zone`
+- **State modifiers**: `app-{element}--{state}` -- e.g., `app-row--selected`, `app-cell--clickable`
+
+### When to Add New CSS
+
+1. Check if a PF utility class already exists (spacing, alignment, display)
+2. Check if an existing `app-*` class covers your need
+3. If neither, add a new class to `app.css` using PF tokens
+4. NEVER create additional CSS files -- everything in `app.css`
+
+### PF Overrides
+
+Sometimes PatternFly components need slight adjustments. Use scoped selectors:
+
+```css
+.app-compact-table .pf-v6-c-table {
+  --pf-v6-c-table--cell--PaddingTop: var(--pf-t--global--spacer--xs);
+  --pf-v6-c-table--cell--PaddingBottom: var(--pf-t--global--spacer--xs);
+}
+```
+
+- ALWAYS scope PF overrides under an `app-*` parent class
+- Use PF component CSS variables (not PF internal class selectors) when possible
+- NEVER use `!important`
+
+---
+
+## 9. Custom Hooks
+
+### Pattern
+
+```typescript
+export const useMyHook = (params: Params): ReturnType => {
+  const [state, setState] = useState<State>(initialState);
+  // ... logic
+  return { state, actions };
+};
+```
+
+Rules:
+- One hook per file in `hooks/`
+- Return a typed object (not a tuple) for readability
+- Only export the hook function -- internal helpers stay module-private
+- Prefix with `use`
+
+### Pub/Sub Hooks (WebSocket listeners)
+
+For hooks that subscribe to external events:
+
+```typescript
+const listeners = new Set<Listener>();
+
+export const useProgress = (): ProgressInfo => {
+  const [progress, setProgress] = useState<ProgressInfo>(initialState);
+
+  useEffect(() => {
+    listeners.add(setProgress);
+    return () => { listeners.delete(setProgress); };
+  }, []);
+
+  return progress;
+};
+```
+
+- Module-level `Set` for listener registration
+- Subscribe in `useEffect`, unsubscribe in cleanup
+- External code (WebSocket handler) iterates listeners to push updates
+
+### Filter Hooks
+
+For hooks that compose multiple filter sources:
+
+```typescript
+export const useDashboardFilters = (report: DailyReport | undefined) => {
+  // URL params, preferences, local state
+  // useMemo chains for derived/filtered data
+  // Return all state + setters + derived values
+};
+```
+
+- Compose context hooks (preferences, component filter) with local state
+- Sync filter state to URL via `window.history.replaceState`
+- Use `useMemo` chains for derived data (filtered groups, scoped stats)
+
+---
+
+## 10. Context Pattern
+
+### Standard Structure
+
+```typescript
+type MyContextValue = { /* ... */ };
+const MyContext = createContext<MyContextValue | null>(null);
+
+export const MyProvider = ({ children }: { children: React.ReactNode }) => {
+  // state, effects, logic
+  const value = useMemo(() => ({ /* ... */ }), [deps]);
+  return <MyContext.Provider value={value}>{children}</MyContext.Provider>;
+};
+
+export const useMy = (): MyContextValue => {
+  const ctx = useContext(MyContext);
+  if (!ctx) {
+    throw new Error('useMy must be used within MyProvider');
+  }
+  return ctx;
+};
+```
+
+Rules:
+- Context value is `null` by default -- the hook throws if used outside provider
+- Memoize the value object to prevent unnecessary re-renders
+- Provider handles its own data fetching and side effects
+- Export only the Provider component and the `useX` hook
+- Nest providers in `main.tsx` in dependency order (outer providers don't depend on inner)
+
+### Existing Contexts
+
+| Context | Purpose |
+|---------|---------|
+| `AuthProvider` | User identity from `/api/user/profile`, `isAdmin` flag |
+| `PreferencesProvider` | User preferences with debounced save (1s) to server |
+| `ComponentFilterProvider` | Component filter state synced to URL params |
+| `ToastProvider` | PF `AlertGroup` toasts with auto-dismiss (6s) |
+| `DateProvider` | Lookback mode and date range for dashboard |
+
+---
+
+## 11. Form Handling
+
+No form library -- use controlled React state with PatternFly form components.
+
+### Pattern
+
+```tsx
+const [name, setName] = useState('');
+const [type, setType] = useState('Bug');
+
+const mutation = useMutation({
+  mutationFn: () => apiPost('/resource', { name, type }),
+  onSuccess: () => {
+    void queryClient.invalidateQueries({ queryKey: ['resources'] });
+    onClose();
+  },
+});
+
+return (
+  <Form onSubmit={e => { e.preventDefault(); mutation.mutate(); }}>
+    <FormGroup fieldId="name" isRequired label="Name">
+      <TextInput id="name" isRequired onChange={(_e, val) => setName(val)} value={name} />
+    </FormGroup>
+    <FormGroup fieldId="type" label="Type">
+      <FormSelect id="type" onChange={(_e, val) => setType(val)} value={type}>
+        <FormSelectOption label="Bug" value="Bug" />
+        <FormSelectOption label="Story" value="Story" />
+      </FormSelect>
+    </FormGroup>
+    <Button isDisabled={mutation.isPending} isLoading={mutation.isPending} type="submit">
+      Submit
+    </Button>
+  </Form>
+);
+```
+
+Rules:
+- Wrap in `<Form onSubmit>` with `e.preventDefault()`
+- Use PF `FormGroup` with `label` and `fieldId` for accessibility
+- PF input `onChange` signature: `(_event, value) => setState(value)`
+- Disable submit button during mutation (`isDisabled={mutation.isPending}`)
+- Show loading state on button (`isLoading={mutation.isPending}`)
+- Invalidate related queries in `onSuccess`
+
+---
+
+## 12. WebSocket Integration
+
+### Client-Side Pattern
+
+`useWebSocket` in `hooks/useWebSocket.ts`:
+- Connects to `ws(s)://host/ws` on mount
+- Auto-reconnects every 3s on disconnect
+- Shows "disconnected" banner only after 5s of disconnect (avoids flicker)
+- Heartbeat via ping/pong (server sends ping every 30s)
+
+### Query Invalidation
+
+On `data-updated` WebSocket events, the hook invalidates all TanStack queries except configuration-related ones:
+
+```typescript
+void queryClient.invalidateQueries({
+  predicate: query => !['config', 'systemHealth', 'rpProjects'].includes(query.queryKey[0] as string),
+});
+```
+
+### Progress Listeners
+
+Components subscribe to progress events via dedicated hooks:
+- `usePollProgress()` -- pipeline poll progress
+- `useJenkinsProgress()` -- Jenkins enrichment progress
+- `useSyncProgress()` -- repository sync progress
+
+---
+
+## 13. Page Conventions
+
+### Standard Page Structure
+
+```tsx
+export const MyPage = () => {
+  useEffect(() => { document.title = 'My Page | CNV Console Monitor'; }, []);
+
+  const { data, isLoading, error } = useQuery({ ... });
+
+  if (isLoading) {
+    return <PageSection isFilled><Spinner /></PageSection>;
+  }
+  if (error) {
+    return <PageSection><EmptyState icon={ExclamationCircleIcon}>Error</EmptyState></PageSection>;
+  }
+  if (!data?.length) {
+    return <PageSection><EmptyState>No data</EmptyState></PageSection>;
+  }
+
+  return (
+    <>
+      <PageSection variant="light"><Title headingLevel="h1">My Page</Title></PageSection>
+      <PageSection>{/* content */}</PageSection>
+    </>
+  );
+};
+```
+
+### Lazy Loading
+
+All pages use `React.lazy` in `App.tsx` for code splitting:
+
+```tsx
+const MyPage = React.lazy(() =>
+  import('./pages/MyPage').then(m => ({ default: m.MyPage })),
+);
+```
+
+Wrapped in `<Suspense fallback={<Spinner />}>` at the route level.
+
+### Adding a New Page
+
+1. Create `pages/MyPage.tsx` with the standard structure above
+2. Add lazy import in `App.tsx`
+3. Add `<Route path="/my-page" element={<MyPage />} />` in `App.tsx`
+4. Add navigation item in `components/layout/AppSidebar.tsx`

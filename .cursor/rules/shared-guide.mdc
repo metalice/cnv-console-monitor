@@ -104,4 +104,77 @@ Rules:
 - No external dependencies beyond `zod`
 - Fully typed with explicit return types
 - Unit-testable in isolation
-- Examples: `computeHealthScore()`, `timeAgo()`
+- Examples: `computeHealthFromRate()`, `timeAgo()`, `healthLabel()`
+
+---
+
+## 5. Constants
+
+### Where to Put Constants
+
+- Constants used by BOTH client and server: `packages/shared/src/utils/` or a dedicated `constants.ts`
+- Constants used by only one package: keep in that package
+
+### Naming Convention
+
+```typescript
+export const HEALTH_GREEN_THRESHOLD = 95;
+export const HEALTH_YELLOW_THRESHOLD = 80;
+export const DEFAULT_POLL_INTERVAL_MINUTES = 15;
+export const MAX_LAUNCHES_PER_PAGE = 100;
+```
+
+- SCREAMING_SNAKE_CASE for all constants
+- Group related constants together
+- Extract inline literals from business logic into named constants
+
+---
+
+## 6. Schema Composition
+
+Schemas can reference other schemas for nested structures:
+
+```typescript
+// testItem.ts
+export const TestItemSchema = z.object({ ... });
+
+// launch.ts
+import { TestItemSchema } from './testItem';
+
+export const LaunchGroupSchema = z.object({
+  failedItems: z.array(TestItemSchema).optional(),
+  latestLaunch: LaunchSchema,
+  // ...
+});
+```
+
+Rules:
+- Import schemas from sibling files within `schemas/`
+- Avoid circular dependencies (if A imports B, B must not import A)
+- If two schemas need each other, extract the shared part into a third schema file
+- Use `.optional()` for fields that may not be present in all API responses
+
+---
+
+## 7. Adding New Schemas
+
+### Decision: New File vs Extend Existing
+
+- **New file**: the schema represents a new domain concept (new API resource, new entity)
+- **Extend existing**: adding fields to an existing concept (new column on launches, new option in triage)
+
+### Checklist for a New Schema
+
+1. Create `packages/shared/src/schemas/myResource.ts`
+2. Define schema with `z.object({...})`
+3. Export inferred type: `export type MyResource = z.infer<typeof MyResourceSchema>`
+4. Add to barrel: `export * from './schemas/myResource'` in `index.ts`
+5. Run `npm run build:shared`
+6. Import in server/client: `import { MyResource, MyResourceSchema } from '@cnv-monitor/shared'`
+
+### Backward Compatibility
+
+When adding fields to existing schemas:
+- Use `.optional()` or `.nullish()` for new fields
+- Never remove or rename existing fields without a migration
+- Consider that old data in the DB won't have the new field

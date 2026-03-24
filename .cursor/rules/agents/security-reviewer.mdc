@@ -74,6 +74,64 @@ You are a **security engineer** following OWASP guidelines and cloud-native secu
 
 ---
 
+### 8. Encryption at Rest
+
+This project uses **AES-256-GCM** for encrypting sensitive settings in the database (`db/crypto.ts`):
+- `SETTINGS_ENCRYPTION_KEY` env var (64 hex chars = 32 bytes)
+- Sensitive keys auto-detected by `isSensitiveKey()` (matches: `token`, `pass`, `secret`, `key`, `webhook`)
+- Encrypted format: `enc:<iv-base64>:<auth-tag-base64>:<ciphertext-base64>`
+- Without the key: values stored as plaintext (graceful degradation)
+
+Review checklist:
+- Is `SETTINGS_ENCRYPTION_KEY` set in production? (stored in K8s Secret)
+- Are all sensitive fields detected by `isSensitiveKey()`?
+- Is the key rotated periodically?
+- Are encrypted values ever logged or returned in API responses?
+
+### 9. Authentication & Authorization Model
+
+Production auth relies on **reverse proxy headers** (OAuth proxy / OpenShift):
+- `x-forwarded-email` and `x-forwarded-user` trusted from proxy
+- No `app.set('trust proxy', ...)` configured -- validate this is set correctly behind ingress
+- Dev mode (`AUTH_ENABLED=false`) uses hardcoded admin user
+- Dev impersonation (`?impersonate=`) restricted to `NODE_ENV === 'development'`
+
+Authorization:
+- `extractUser` middleware on all `/api/*` routes (except `/api/webhooks`)
+- `requireAdmin` for destructive/admin operations
+- `requireOwnerOrAdmin(getOwnerId)` for resource-level access control
+- Roles stored in DB: `admin`, `user`
+
+Review checklist:
+- Are all mutation routes protected by `extractUser`?
+- Are admin-only operations guarded by `requireAdmin`?
+- Could an unauthenticated user reach any sensitive endpoint?
+- Is impersonation truly blocked in production?
+
+### 10. Webhook Security
+
+`/api/webhooks` is mounted WITHOUT `extractUser` (public endpoint):
+- Webhook endpoints should verify request authenticity
+- Use HMAC signature verification (shared secret in header)
+- Validate source IP if possible
+- Rate-limit webhook endpoints independently
+- Never trust webhook payload without validation
+
+### 11. CSP & Security Headers
+
+Current Helmet configuration:
+- CSP allows `'unsafe-inline'` for scripts and styles (required for SPA, but weaker CSP)
+- `crossOriginEmbedderPolicy: false` (needed for cross-origin resources)
+- CORS restricted to `config.dashboard.url` when set
+
+Improvement opportunities:
+- Nonce-based CSP for scripts (eliminates `'unsafe-inline'`)
+- Strict CSP for styles via CSS-in-JS or extracted stylesheets
+- `Strict-Transport-Security` (HSTS) for HTTPS enforcement
+- `Permissions-Policy` to disable unused browser features
+
+---
+
 ## Output Format
 
 ```
