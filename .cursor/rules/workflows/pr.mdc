@@ -158,7 +158,9 @@ Before pushing to an existing PR branch:
 
 ## 10. Important Rules
 
+- **NEVER push directly to `main`** -- ALL changes go through a PR, no exceptions
 - NEVER force push to `main` or `master`
+- ALWAYS create a feature branch first, even for single-line fixes
 - ALWAYS run all quality gates before pushing
 - ALWAYS rebase on latest main before opening PR
 - Use `--force-with-lease` (not `--force`) after rebase

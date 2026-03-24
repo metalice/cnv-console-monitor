@@ -27,6 +27,15 @@ Persistent memory for AI agents working on this project. Updated as corrections 
 
 ---
 
+## Git Workflow
+
+- **NEVER push directly to `main`** -- all changes go through a feature branch + PR, no exceptions
+- Branch naming: `feat/...`, `fix/...`, `refactor/...`, `chore/...`
+- Always rebase on main before opening PR
+- Use the PR workflow in `.cursor/rules/workflows/pr.mdc`
+
+---
+
 ## Quality Gates
 
 - ESLint: `--max-warnings 0` (zero tolerance for warnings)

@@ -128,7 +128,16 @@ Use these consistently across all personas:
 
 ---
 
-## 6. When to Skip
+## 6. Git Workflow Rule
+
+**NEVER push directly to `main`.** ALL changes -- no matter how small -- must go through a feature branch and a pull request. When committing work:
+1. Create a feature branch (`git checkout -b feat/...` or `fix/...`)
+2. Commit to the branch
+3. Open a PR via the PR workflow (`pr.mdc`)
+
+---
+
+## 7. When to Skip
 
 Skip the full persona review for:
 - Pure questions / information requests
