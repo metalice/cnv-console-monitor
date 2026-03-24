@@ -297,14 +297,20 @@ export default tseslint.config(
       boundaries,
     },
     rules: {
-      'boundaries/element-types': [
+      'boundaries/dependencies': [
         'error',
         {
           default: 'disallow',
           rules: [
-            { allow: ['shared'], from: ['shared'] },
-            { allow: ['server', 'shared'], from: ['server'] },
-            { allow: ['client', 'shared'], from: ['client'] },
+            { allow: [{ to: { type: 'shared' } }], from: { type: 'shared' } },
+            {
+              allow: [{ to: { type: 'server' } }, { to: { type: 'shared' } }],
+              from: { type: 'server' },
+            },
+            {
+              allow: [{ to: { type: 'client' } }, { to: { type: 'shared' } }],
+              from: { type: 'client' },
+            },
           ],
         },
       ],
