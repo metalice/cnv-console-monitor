@@ -1,15 +1,13 @@
 ---
-description: Monitoring & ReportPortal Expert agent - domain knowledge and integration patterns
+description: Monitoring & ReportPortal Expert agent - domain knowledge, integrations, deployment
 alwaysApply: false
 ---
 
 # Monitoring & ReportPortal Expert Agent
 
-Invoke with: *"as monitoring expert"*, *"as RP expert"*, *"domain review"*, *"reporting review"*
-
 ## Your Role
 
-You are a **monitoring and test infrastructure expert** with deep knowledge of ReportPortal, test result analysis, Kubernetes deployments, and QE workflow tooling. You ensure code correctly handles test data, follows integration best practices, and properly implements the monitoring pipeline.
+You are a **test infrastructure expert** with deep knowledge of ReportPortal, Jira, Jenkins, Kubernetes deployments, and QE workflow tooling. You ensure code correctly handles test data, follows integration best practices, and properly implements the monitoring pipeline.
 
 ---
 
@@ -17,133 +15,75 @@ You are a **monitoring and test infrastructure expert** with deep knowledge of R
 
 ### 1. ReportPortal Integration
 
-**Launch Data Model**
-- Launches contain: name, number, status, timestamps, stats
-- Name encodes: CNV version, OCP version, tier, cluster info
+**Launch data model:**
+- Launches contain: name, number, status, timestamps, stats (total/passed/failed/skipped)
+- Name encodes: CNV version, OCP version, tier, bundle, cluster
 - Status values: PASSED, FAILED, INTERRUPTED, STOPPED, IN_PROGRESS
 
-**Test Item Data Model**
-- Failed items have: error messages, stack traces, logs
+**Test item data model:**
+- Failed items: error messages, stack traces, logs, defect type, Polarion ID
 - Defect types: PRODUCT_BUG, AUTOMATION_BUG, SYSTEM_ISSUE, TO_INVESTIGATE, NO_DEFECT
-- Polarion ID for traceability; unique_id for cross-launch comparison
+- `unique_id` for cross-launch comparison (flaky detection, trends)
 
-**API Patterns**
-- Pagination: `page.number` and `page.size` — fetch all pages
+**API patterns:**
+- Pagination: `page.number` + `page.size` -- must fetch ALL pages
 - Filters: `filter.eq.name`, `filter.btw.startTime`
 - Auth: `Authorization: Bearer` header
 - Analysis triggers: POST per launch (auto/pattern/uniqueError)
 
----
+### 2. Zod Schema Accuracy
 
-### 2. Zod Schema Correctness
-
-**Shared Schemas**
-- `LaunchSchema` must match actual RP response shape after processing
-- `TestItemSchema` fields must handle nullish values from RP
-- `TriageRequestSchema` validates all mutation inputs
-- `BulkTriageRequestSchema` — minimum 1 item
-- `AcknowledgeRequestSchema` — reviewer required
-
-**Validation Flow**
-- Server: `validateBody(schema)` middleware on POST routes
-- Client: TypeScript types via `z.infer<>` for compile-time safety
-- Runtime: Zod `.parse()` for external API data if needed
-
----
+- Schemas in `@cnv-monitor/shared` must match actual RP/Jira response shapes
+- Handle nullish values from RP (`cnv_version`, `tier` can be null)
+- `validateBody` middleware on ALL POST routes
+- Schema evolution: add new fields as `.optional()` to avoid breaking existing data
 
 ### 3. Test Result Analysis
 
-**Daily Report Logic**
-- Group launches by CNV version and tier
-- Compute pass rates per group and overall
-- Identify new failures vs recurring failures
-- Health scoring: green/yellow/red based on pass rate
+- Group launches by CNV version and tier for daily report
+- Pass rate calculation: `passed / total * 100`
+- New vs recurring failures: compare by `unique_id` across launches
+- Health scoring: green (>95%), yellow (80-95%), red (<80%)
+- Flaky detection: tests alternating pass/fail across runs (minimum sample size)
 
-**Flaky Test Detection**
-- Tests alternating pass/fail across runs via unique_id
-- Threshold-based flip rate detection
-- Needs sufficient data points (sample size consideration)
+### 4. Notification Reliability
 
----
+- Slack: Block Kit format, keep messages concise, include dashboard links
+- Email: HTML formatted with failure details and RP links
+- Notification failure MUST NOT block poll cycle (log and continue)
+- Retry with backoff for transient failures
 
-### 4. Notification Design
+### 5. Database Patterns
 
-**Slack Block Kit**
-- Status summary, version × tier matrix, dashboard links
-- Keep messages concise (Slack limits)
-
-**Email Digest**
-- HTML formatted, failure details, RP links
-
-**Reliability**
-- Notification failure must not block poll cycle
-- Log errors, continue execution
-
----
-
-### 5. SQLite Patterns
-
-**Schema Design**
-- Upsert by `rp_id` (unique constraint)
-- Indexes on `start_time`, `status`, `launch_rp_id`, `unique_id`, `date`
+- Upsert by `rp_id` (unique constraint) for idempotent ingestion
+- Indexes on: `start_time`, `status`, `launch_rp_id`, `unique_id`, `date`
 - WAL journal mode for concurrent read/write
+- Data retention: consider cleanup beyond retention window
+- Trends need 30+ days of data; flaky detection needs cross-launch data
 
-**Data Retention**
-- Consider cleanup beyond retention window
-- Trends need 30+ days; flaky detection needs cross-launch data
+### 6. Pipeline Architecture
 
----
+- Phases: FetchLaunches -> FetchItems -> EnrichJenkins
+- Each phase reports progress via WebSocket
+- Error recovery: failed items can be retried individually
+- Cancellation: pipeline can be cancelled mid-phase
+- Backfill: re-fetch historical data on demand
 
-### 6. Monorepo Deployment
+### 7. Kubernetes Deployment
 
-**Docker Multi-Stage Build**
-- Separate build stages: shared → server → client (parallel)
-- Production image: server dist + client dist served by Express
-- SPA catch-all: `app.get('*', ..., sendFile('index.html'))`
-
-**Kubernetes**
-- CronJob: runs poller, needs PVC for SQLite
+- CronJob: runs poller, needs PVC for data, concurrency policy `Forbid`
 - Deployment: runs dashboard server, same PVC
-- Concurrency policy: `Forbid` to prevent overlapping polls
-- Health check: `/health` endpoint for liveness/readiness
-- Ensure K8s commands match monorepo paths (`packages/server/dist/serve.js`)
-
----
-
-### 7. New API Routes (verify)
-
-- `/api/defect-types` — returns available RP defect types
-- `/api/activity` — returns triage/acknowledgment activity feed
-- `/api/config` — returns public (non-sensitive) configuration
-- `/api/triage/bulk` — bulk triage with array of item IDs
-
----
-
-## Review Checklist
-
-- [ ] RP API calls handle pagination correctly
-- [ ] Launch name parsing handles unexpected formats
-- [ ] Defect types match RP's expected values
-- [ ] Zod schemas match actual data shapes
-- [ ] validateBody middleware on all POST routes
-- [ ] Notifications don't block poll cycle on failure
-- [ ] SQLite queries are indexed and efficient
-- [ ] Docker CMD matches monorepo path
-- [ ] K8s manifests use correct entrypoint paths
+- Health check: `/health` endpoint for liveness/readiness probes
+- Resource limits: set CPU/memory appropriate for Node.js
+- Docker CMD must match monorepo paths (`packages/server/dist/serve.js`)
 
 ---
 
 ## Output Format
 
 ```
-🔴 BLOCKER: [domain issue]
-   Why: [explanation of impact]
-   Fix: [suggestion]
-
-🟡 SUGGESTION: [improvement]
-   Consider: [recommendation with rationale]
-
-🟢 NITPICK: [minor domain improvement]
-
-✅ GOOD: [acknowledge correct implementation]
+DOMAIN: [domain-specific issue -- incorrect RP handling, schema mismatch, etc.]
+RELIABILITY: [notification, pipeline, or deployment concern]
+DATA: [data integrity, retention, or query issue]
+GOOD: [correct domain implementation]
 ```

@@ -1,0 +1,224 @@
+---
+description: Client development guide - React, PatternFly 6, OpenShift styling, accessibility
+globs: "packages/client/**/*.{ts,tsx,css}"
+alwaysApply: false
+---
+
+# Client Development Guide
+
+Comprehensive guide for React, PatternFly 6, and OpenShift-aligned UI development.
+
+---
+
+## 1. Component Architecture
+
+### Component Types
+
+| Type | Location | Purpose |
+|------|----------|---------|
+| **Pages** | `pages/` | Top-level route components. Fetch data via TanStack Query, compose layout. One per route. |
+| **Feature components** | `components/<feature>/` | Domain-specific components grouped by feature (dashboard, releases, test-explorer). |
+| **Common components** | `components/common/` | Reusable UI elements. Receive data via props, minimal internal state. |
+| **Layout components** | `components/layout/` | App shell: Masthead, Sidebar, PageSection wrappers. |
+| **Modals** | `components/modals/` | Self-contained dialogs with own form state and submission. |
+| **Context providers** | `context/` | React contexts for cross-cutting concerns (auth, preferences, toasts). |
+
+### File Structure
+
+```
+packages/client/src/
+├── api/                    # API client functions (one file per resource)
+│   ├── client.ts           # apiFetch, apiPost, ApiError
+│   ├── launches.ts
+│   └── ...
+├── components/
+│   ├── common/             # StatusBadge, PassRateBar, TimeAgo
+│   ├── dashboard/          # DashboardGrid, LaunchCard
+│   ├── detail/             # LogViewer, SimilarFailuresPanel
+│   ├── layout/             # AppLayout, AppMasthead, AppSidebar
+│   ├── modals/             # TriageModal, JiraCreateModal
+│   ├── releases/           # VersionDashboard, ReleaseChecklist
+│   ├── settings/           # ReportPortalSettings, JiraSettings
+│   └── test-explorer/      # FileDetail, MonacoViewer
+├── context/                # AuthContext, PreferencesContext, ToastContext
+├── hooks/                  # useWebSocket, useDashboardFilters
+├── pages/                  # DashboardPage, LaunchDetailPage, SettingsPage
+├── styles/                 # app.css (custom styles using PF tokens)
+└── utils/                  # Pure utility functions (cronHelpers, etc.)
+```
+
+### Naming Conventions
+
+- Component files: **PascalCase** (`DashboardPage.tsx`, `StatusBadge.tsx`)
+- API files: **camelCase** matching resource (`launches.ts`, `triage.ts`)
+- Hook files: **camelCase** with `use` prefix (`useWebSocket.ts`)
+- Context files: **PascalCase** matching context (`AuthContext.tsx`)
+- Utility files: **camelCase** (`cronHelpers.ts`)
+
+---
+
+## 2. React Patterns
+
+### Component Internal Order
+
+1. Router hooks (`useParams`, `useNavigate`, `useSearchParams`)
+2. Context hooks (`useAuth`, `usePreferences`)
+3. Query hooks (`useQuery`, `useMutation`)
+4. Local state (`useState`)
+5. Derived values (`useMemo`)
+6. Callbacks (`useCallback`)
+7. Effects (`useEffect`)
+8. Early returns (loading, error, empty)
+9. Main JSX return
+
+### TanStack Query Conventions
+
+```typescript
+const { data, isLoading, error } = useQuery({
+  queryKey: ['launches', { version, tier }],
+  queryFn: () => apiFetch<Launch[]>('/launches', { params: { version, tier } }),
+  staleTime: 2 * 60 * 1000,
+});
+```
+
+- Query keys: resource name first, params object second
+- Invalidate by prefix: `queryClient.invalidateQueries({ queryKey: ['launches'] })`
+- Mutations must invalidate related queries in `onSuccess`
+- Use `enabled` to conditionally fetch: `enabled: Boolean(launchId)`
+
+### State Management Rules
+
+- **Server state**: TanStack Query only. Never mirror API data in `useState`.
+- **UI state**: `useState` for component-local (modals, toggles, form fields).
+- **Cross-component UI state**: React Context (auth, preferences, toasts).
+- **URL state**: `useSearchParams` for filterable/shareable state.
+- **No Redux, no Zustand.** TanStack Query + Context covers all needs.
+
+### Callback Props
+
+- Prefix with `on`: `onSelect`, `onTriage`, `onAcknowledge`
+- Pass minimal data: `onSelect(itemId)` not `onSelect(entireItem)`
+
+---
+
+## 3. PatternFly 6 Component Guide
+
+### Page Layout
+
+```tsx
+<Page>
+  <Masthead>...</Masthead>
+  <Sidebar><Nav>...</Nav></Sidebar>
+  <PageSection variant="light">
+    <Title headingLevel="h1">Page Title</Title>
+  </PageSection>
+  <PageSection>
+    {/* Main content */}
+  </PageSection>
+</Page>
+```
+
+### Component Selection
+
+| Need | Component | Import from |
+|------|-----------|-------------|
+| Content container | `Card` + `CardHeader` + `CardBody` | `@patternfly/react-core` |
+| Data table | `Table`, `Thead`, `Tbody`, `Tr`, `Th`, `Td` | `@patternfly/react-table` |
+| Key-value pairs | `DescriptionList` | `@patternfly/react-core` |
+| Form dialog | `Modal` + `ModalBody` | `@patternfly/react-core` |
+| Side panel | `Drawer` | `@patternfly/react-core` |
+| Toolbar actions | `Toolbar` + `ToolbarContent` + `ToolbarItem` | `@patternfly/react-core` |
+| Status label | `Label` with variant (`success`, `danger`, `warning`) | `@patternfly/react-core` |
+| Empty state | `EmptyState` + icon + `EmptyStateBody` | `@patternfly/react-core` |
+| Loading | `Spinner` (full) or `Skeleton` (inline) | `@patternfly/react-core` |
+| Tabs | `Tabs` + `Tab` | `@patternfly/react-core` |
+| Dropdown menu | `Select` (single/multi) or `Dropdown` | `@patternfly/react-core` |
+
+### Layout Components
+
+| Need | Component | Usage |
+|------|-----------|-------|
+| Horizontal layout | `Flex` + `FlexItem` | `<Flex gap={{ default: 'gapMd' }}>` |
+| Responsive card grid | `Gallery` | `<Gallery minWidths={{ default: '300px' }}>` |
+| Fixed columns | `Grid` + `GridItem` | `<Grid hasGutter><GridItem span={6}>` |
+| Vertical stack | `Stack` + `StackItem` | `<Stack hasGutter>` |
+| Split (left/right) | `Split` + `SplitItem` | `<Split hasGutter><SplitItem isFilled>` |
+
+---
+
+## 4. Styling Rules
+
+### CSS Token System
+
+All custom styling in `packages/client/src/styles/app.css` using PF tokens:
+
+```css
+.app-status-card {
+  padding: var(--pf-t--global--spacer--md);
+  border-left: 3px solid var(--pf-t--global--color--status--success--default);
+  background: var(--pf-t--global--background--color--secondary--default);
+  border-radius: var(--pf-t--global--border--radius--small);
+}
+```
+
+### Rules
+
+- NO hardcoded `px` for spacing -- use `--pf-t--global--spacer--*`
+- NO hex/rgb colors -- use `--pf-t--global--color--*` tokens
+- NO inline `style` props in JSX
+- Prefix custom classes with `app-` to avoid PF collisions
+- NO targeting PF internal class names in selectors
+- NO `!important` overrides of PF styles
+
+### Dark Mode
+
+- All custom CSS automatically works in dark mode when using PF tokens
+- Toggle dark mode: `document.documentElement.classList.toggle('pf-v6-theme-dark')`
+- Test both themes during development
+
+---
+
+## 5. Accessibility
+
+### Required
+
+- `aria-label` on icon-only buttons: `<Button aria-label="Close" icon={<TimesIcon />} />`
+- Form inputs inside `<FormGroup label="Field name">`
+- Keyboard navigation: all interactive elements reachable via Tab
+- Focus visible: never hide focus outlines
+- Color is not the only indicator: add text or icons alongside status colors
+- Touch targets: minimum 44x44px
+
+### PatternFly Handles
+
+- Modal focus trap and return
+- Table sort announcements
+- Nav keyboard navigation
+- Alert live regions
+
+---
+
+## 6. API Client Layer
+
+```typescript
+import { apiFetch } from './client';
+import type { Launch } from '@cnv-monitor/shared';
+
+export const fetchLaunches = (params?: { version?: string }): Promise<Launch[]> =>
+  apiFetch('/launches', { params });
+```
+
+- One file per resource in `api/`
+- Functions wrap `apiFetch` / `apiPost` only
+- Return typed promises using generics
+- Don't handle errors here -- TanStack Query handles them
+
+---
+
+## 7. Charts
+
+- Use `@patternfly/react-charts` or Victory components
+- Consistent color palette via PF chart tokens
+- Always include: legend, axis labels, tooltips
+- Handle empty data (don't render empty chart -- show EmptyState instead)
+- Charts must resize with container (responsive)

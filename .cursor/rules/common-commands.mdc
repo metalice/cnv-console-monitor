@@ -67,14 +67,37 @@ npm run build:client     # tsc + Vite → dist/ for client
 
 ## 3. Code Quality
 
+### Linting
+```bash
+npm run lint             # ESLint (--max-warnings 0)
+npm run lint:fix         # ESLint autofix
+```
+
+### Formatting
+```bash
+npm run format           # Prettier write
+npm run format:check     # Prettier check (CI)
+```
+
+### Unused Code Detection
+```bash
+npm run knip             # Find unused files, deps, exports
+```
+
 ### Type Checking
 ```bash
 npm run typecheck        # Typecheck shared + server
 ```
 
-### Before Commit
+### Before Commit (automated via Husky)
+Husky pre-commit hook runs automatically:
+1. `lint-staged` -- ESLint fix + Prettier on staged files
+2. `format:check` -- Prettier check on all files
+3. `knip` -- Unused code detection
+
+### Manual Full Check
 ```bash
-npm run typecheck && npm run test && npm run build
+npm run lint && npm run format:check && npm run knip && npm run typecheck && npm run test
 ```
 
 ---

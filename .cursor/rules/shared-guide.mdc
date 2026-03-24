@@ -1,0 +1,107 @@
+---
+description: Shared package guide - Zod schemas, cross-package types, barrel exports
+globs: "packages/shared/**/*.ts"
+alwaysApply: false
+---
+
+# Shared Package Guide
+
+The `@cnv-monitor/shared` package is the single source of truth for types and schemas consumed by both server and client.
+
+---
+
+## 1. Zod Schema Design
+
+### Schema-First Types
+
+ALWAYS define the Zod schema first, then infer the TypeScript type:
+
+```typescript
+import { z } from 'zod';
+
+export const LaunchSchema = z.object({
+  cnv_version: z.string().nullish(),
+  failed: z.number(),
+  name: z.string(),
+  passed: z.number(),
+  rp_id: z.number(),
+  status: z.string(),
+  total: z.number(),
+});
+
+export type Launch = z.infer<typeof LaunchSchema>;
+```
+
+NEVER manually duplicate a type that can be inferred from a schema.
+
+### Nullability
+
+- `.nullish()` -- field can be `null`, `undefined`, or missing (for API data that may not be present)
+- `.optional()` -- field can be `undefined` or missing (for optional config)
+- `.nullable()` -- field can be `null` (for DB columns that are nullable)
+- Prefer `.nullish()` for external API fields since responses are unpredictable
+
+### Naming
+
+- Schema names: `PascalCase` + `Schema` suffix (`LaunchSchema`, `TriageRequestSchema`)
+- Type names: `PascalCase` matching the schema (`Launch`, `TriageRequest`)
+- Enum schemas: `PascalCase` + `Enum` suffix (`LaunchStatusEnum`)
+- Export both schema and type from the same file
+
+### Validation Schemas vs Data Schemas
+
+- **Data schemas** describe response shapes: `LaunchSchema`, `TestItemSchema`
+- **Request schemas** describe mutation inputs: `TriageRequestSchema`, `AcknowledgeRequestSchema`
+- Both live in `packages/shared/src/schemas/`
+- Both are exported from `packages/shared/src/index.ts`
+
+---
+
+## 2. What Belongs in Shared
+
+### YES -- put in shared
+
+- Zod schemas and their inferred types
+- Enums and union types used across packages
+- Pure utility functions (no side effects, no external deps beyond zod)
+- Constants shared between client and server
+
+### NO -- keep in the consuming package
+
+- Express types (Request, Response) -- server only
+- React types (FC, hooks) -- client only
+- Database entity classes -- server only
+- API client functions -- client only
+- PatternFly component wrappers -- client only
+
+---
+
+## 3. Barrel Exports
+
+The `packages/shared/src/index.ts` barrel file exports everything:
+
+```typescript
+export * from './schemas/launch';
+export * from './schemas/testItem';
+export * from './schemas/triage';
+export * from './schemas/acknowledgment';
+// ... all schemas
+
+export * from './utils/healthScore';
+export * from './utils/timeAgo';
+```
+
+Rules:
+- Every new schema/type MUST be added to the barrel
+- Run `npm run build:shared` after changes (other packages depend on compiled output)
+- Import in consuming packages: `import { Launch, LaunchSchema } from '@cnv-monitor/shared'`
+
+---
+
+## 4. Utilities
+
+- Pure functions only (no side effects, no I/O)
+- No external dependencies beyond `zod`
+- Fully typed with explicit return types
+- Unit-testable in isolation
+- Examples: `computeHealthScore()`, `timeAgo()`

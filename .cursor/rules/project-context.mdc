@@ -245,12 +245,27 @@ npm run dev:client            # Client only (Vite)
 npm run build                 # Build shared → server → client
 npm run typecheck             # TypeScript check (shared + server)
 npm run test                  # Vitest (server)
+npm run lint                  # ESLint (0 errors, 0 warnings enforced)
+npm run lint:fix              # ESLint autofix
+npm run format                # Prettier format all files
+npm run format:check          # Prettier check (CI)
+npm run knip                  # Unused code/dependency detection
 npm run poll                  # Run one poll cycle
 ```
 
 ---
 
-## 9. Deployment
+## 9. Code Quality Toolchain
+
+- **ESLint 9** flat config with 14 plugins (typescript-eslint, react, sonarjs, unicorn, jsx-a11y, promise, security, regexp, boundaries, perfectionist, prettier, simple-import-sort, react-refresh, tanstack-query)
+- **Prettier** for formatting (single quotes, trailing commas, 100 char width)
+- **Knip** for unused code/dependency detection
+- **Husky + lint-staged** pre-commit hooks (ESLint autofix + Prettier on staged files, format:check, Knip)
+- **CI**: lint (--max-warnings 0), format:check, knip, typecheck, test, build
+
+---
+
+## 10. Deployment
 
 ### Docker (multi-stage monorepo build)
 ```bash
@@ -263,4 +278,4 @@ kubectl apply -f k8s/ -n cnv-monitor
 ```
 
 ### CI
-GitHub Actions: build all packages → typecheck → test → build Docker → push to Quay.io
+GitHub Actions: lint → format:check → build shared → knip → typecheck → build → test → Docker

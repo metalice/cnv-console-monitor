@@ -197,7 +197,81 @@ npx vitest run src/analyzer.test.ts -w packages/server  # Specific file
 
 ---
 
-## 9. Checklist
+## 9. Pipeline Integration Tests
+
+### Testing Pipeline Phases
+
+```typescript
+describe('FetchLaunches phase', () => {
+  it('should fetch all pages of launches', async () => {
+    mockRPClient.getLaunches
+      .mockResolvedValueOnce({ content: [launch1], page: { number: 1, totalPages: 2 } })
+      .mockResolvedValueOnce({ content: [launch2], page: { number: 2, totalPages: 2 } });
+
+    const result = await phase.execute(context);
+    expect(result.items).toHaveLength(2);
+    expect(mockRPClient.getLaunches).toHaveBeenCalledTimes(2);
+  });
+
+  it('should handle RP API timeout gracefully', async () => {
+    mockRPClient.getLaunches.mockRejectedValue(new Error('timeout'));
+    const result = await phase.execute(context);
+    expect(result.errors).toHaveLength(1);
+  });
+});
+```
+
+### Testing WebSocket Progress
+
+```typescript
+it('should emit progress events during pipeline execution', async () => {
+  const events: string[] = [];
+  mockWs.on('message', (msg: string) => events.push(msg));
+
+  await pipeline.execute();
+
+  expect(events).toContainEqual(expect.objectContaining({ event: 'pipeline-progress' }));
+});
+```
+
+---
+
+## 10. Mock Factory Conventions
+
+Centralize mock data factories for consistency:
+
+```typescript
+// __tests__/factories.ts
+export const createMockLaunch = (overrides: Partial<Launch> = {}): Launch => ({
+  cnv_version: '4.19',
+  failed: 5,
+  name: 'test-kubevirt-console-4.19-tier1',
+  number: 1,
+  passed: 95,
+  rp_id: 1,
+  skipped: 0,
+  start_time: Date.now(),
+  status: 'PASSED',
+  tier: 'tier1',
+  total: 100,
+  uuid: 'uuid-1',
+  ...overrides,
+});
+
+export const createMockTestItem = (overrides: Partial<TestItem> = {}): TestItem => ({
+  defect_type: 'TO_INVESTIGATE',
+  error_message: 'Expected true to be false',
+  launch_rp_id: 1,
+  name: 'should render VM details',
+  rp_id: 100,
+  status: 'FAILED',
+  ...overrides,
+});
+```
+
+---
+
+## 11. Checklist
 
 - [ ] Tests behavior, not implementation
 - [ ] Covers happy path
@@ -206,3 +280,4 @@ npx vitest run src/analyzer.test.ts -w packages/server  # Specific file
 - [ ] Independent (no test order dependency)
 - [ ] Properly mocks external dependencies
 - [ ] Cleans up after itself
+- [ ] Mock factories used for consistent test data

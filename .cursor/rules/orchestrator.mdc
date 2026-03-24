@@ -1,0 +1,138 @@
+---
+description: Master orchestrator - runs all personas on every prompt, auto-detects work type, gates implementation
+alwaysApply: true
+---
+
+# Orchestrator
+
+On EVERY user prompt that involves code changes, follow this protocol before writing any code.
+
+---
+
+## 1. Auto-Detect Work Type
+
+Classify the prompt into one of:
+
+| Type | Trigger signals |
+|------|-----------------|
+| **Feature** | "add", "implement", "create", "new page/component/route/endpoint" |
+| **Bug fix** | "fix", "broken", "not working", "crash", "error", stack traces, CI failures |
+| **Refactor** | "refactor", "clean up", "restructure", "extract", "consolidate" |
+| **Design** | "design", "architecture", "how should we", "what's the best approach" |
+| **Question** | "what is", "how does", "explain", "where is" -- skip persona review, answer directly |
+
+For **Question** type, answer directly without running personas.
+For all other types, proceed to step 2.
+
+---
+
+## 2. Run All 6 Personas
+
+Before ANY implementation, evaluate the request from all six perspectives. Each persona lives in `.cursor/rules/agents/` and defines its focus areas. Consult:
+
+1. **System Architect** (`agents/system-architect.mdc`) -- First responder. Investigates scope, asks clarifying questions, evaluates architectural impact, suggests alternatives.
+2. **Senior Developer** (`agents/developer.mdc`) -- Code correctness, TypeScript patterns, React best practices, performance, monorepo boundaries.
+3. **Senior QE** (`agents/qe-agent.mdc`) -- Edge cases, error/loading/empty states, race conditions, external service failures, test coverage.
+4. **UX Expert** (`agents/ux-expert.mdc`) -- PatternFly 6 component selection, OpenShift console alignment, accessibility, dark mode, responsive, interaction patterns.
+5. **Security Reviewer** (`agents/security-reviewer.mdc`) -- Input validation, token handling, injection prevention, data exposure.
+6. **Monitoring Expert** (`agents/monitoring-expert.mdc`) -- ReportPortal API, Zod schemas, DB patterns, notifications, K8s deployment.
+
+Skip personas that have zero relevance (e.g., UX Expert for a pure backend change). Mark them as "N/A" in the output.
+
+---
+
+## 3. Output Format (Hybrid)
+
+Present findings in this exact format:
+
+```
+## Persona Review
+
+| Persona | Verdict | Key Finding |
+|---------|---------|-------------|
+| Architect | [Approve/Concern/Block] | [one-line summary] |
+| Developer | [Approve/Concern/Block] | [one-line summary] |
+| QE | [Approve/Concern/Block] | [one-line summary] |
+| UX Expert | [Approve/Concern/Block or N/A] | [one-line summary] |
+| Security | [Approve/Concern/Block] | [one-line summary] |
+| Monitoring | [Approve/Concern/Block or N/A] | [one-line summary] |
+
+### Architect
+- [detailed findings, questions, suggestions]
+
+### Developer
+- [detailed findings]
+
+### QE
+- [detailed findings]
+
+### UX Expert
+- [detailed findings, PF component recommendations]
+
+### Security
+- [detailed findings]
+
+### Monitoring
+- [detailed findings]
+```
+
+After presenting, ask: **"Proceed with implementation?"** and wait for confirmation.
+
+---
+
+## 4. Workflow Routing
+
+Based on the detected work type, follow the appropriate workflow:
+
+### Feature workflow
+1. Architect investigates scope and asks clarifying questions
+2. All personas provide initial assessment (step 2-3 above)
+3. User confirms approach
+4. Implement in monorepo order: shared types -> server routes -> client UI
+5. Run quality checks: `npm run typecheck && npm run test && npm run lint`
+
+### Bug-fix workflow
+1. Architect investigates root cause (read code, check logs)
+2. QE identifies reproduction steps and edge cases
+3. Security checks if the bug is exploitable
+4. Developer proposes the fix
+5. User confirms approach
+6. Implement fix with regression test
+
+### Refactor workflow
+1. Architect evaluates scope and risk
+2. Developer proposes approach with before/after
+3. All personas review impact
+4. User confirms
+5. Implement incrementally, verifying after each step
+
+### Design workflow
+1. Architect leads with options and trade-offs (present 2-3 approaches)
+2. Developer evaluates implementation complexity per option
+3. UX Expert designs the user experience (if UI involved)
+4. QE plans test strategy
+5. Security reviews attack surface
+6. Monitoring Expert evaluates observability
+7. Present comparison table and recommend one approach
+
+---
+
+## 5. Severity Levels
+
+Use these consistently across all personas:
+
+- **Block** -- Must address before proceeding (bugs, security, data corruption)
+- **Concern** -- Should address (code quality, missing edge cases, UX issues)
+- **Approve** -- Looks good from this perspective
+- **N/A** -- This persona has nothing relevant to add
+
+---
+
+## 6. When to Skip
+
+Skip the full persona review for:
+- Pure questions / information requests
+- Single-line typo fixes
+- Documentation-only changes
+- Running commands the user explicitly asked for
+- Follow-up implementation after personas already reviewed

@@ -1,0 +1,256 @@
+---
+description: Server development guide - Express 5, TypeORM, API design, logging, pipeline
+globs: "packages/server/**/*.ts"
+alwaysApply: false
+---
+
+# Server Development Guide
+
+Comprehensive guide for Express 5, TypeORM, API design, and backend patterns.
+
+---
+
+## 1. Express 5 Patterns
+
+### Route Structure
+
+```
+packages/server/src/
+├── api/
+│   ├── index.ts              # createApp() -- Express app setup, middleware, route registration
+│   ├── middleware/
+│   │   ├── errorHandler.ts   # Global error handler
+│   │   └── validate.ts       # Zod validateBody middleware
+│   └── routes/
+│       ├── launches.ts       # GET /api/launches, /api/launches/report, /api/launches/trends
+│       ├── testItems.ts      # GET /api/test-items/launch/:id
+│       ├── triage.ts         # POST /api/triage/:itemId, /api/triage/bulk
+│       └── ...               # One file per resource
+├── clients/                  # External API clients (RP, Jira, Jenkins)
+├── db/
+│   ├── entities/             # TypeORM entities
+│   ├── migrations/           # TypeORM migrations
+│   └── store/                # Data access layer (queries, CRUD)
+├── notifiers/                # Slack, email notification senders
+├── pipeline/                 # Data ingestion pipeline (phases, manager)
+├── services/                 # Business logic services
+└── utils/                    # Shared server utilities
+```
+
+### Route Handler Pattern
+
+```typescript
+router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (Number.isNaN(id)) {
+      res.status(400).json({ error: 'Invalid ID' });
+      return;
+    }
+    const data = await store.getById(id);
+    if (!data) {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+});
+```
+
+Rules:
+- ALWAYS wrap async handlers in try/catch with `next(err)`
+- Validate path params (parseInt, check NaN)
+- Return early on validation failures (400) and not-found (404)
+- Use `validateBody(schema)` middleware on ALL POST/PUT routes
+- Keep handlers thin: delegate to store/service layer
+
+### Middleware Chain
+
+```
+helmet() → cors() → express.json() → pinoHttp() → routes → errorHandler
+```
+
+- `helmet`: security headers
+- `cors`: cross-origin configuration
+- `express.json()`: body parsing with size limit
+- `pinoHttp`: structured request logging
+- `errorHandler`: catches all unhandled errors, returns 500
+
+---
+
+## 2. TypeORM Patterns
+
+### Entity Design
+
+```typescript
+@Entity()
+class Launch {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column({ unique: true })
+  rp_id: number;
+
+  @Column()
+  name: string;
+
+  @Column({ nullable: true })
+  cnv_version: string | null;
+
+  @Index()
+  @Column()
+  start_time: number;
+}
+```
+
+- Use `@Index()` on columns used in WHERE clauses
+- Use `nullable: true` for optional fields
+- Use `unique: true` for natural keys (rp_id)
+- Column names use `snake_case` (matching DB convention)
+
+### Query Patterns
+
+```typescript
+const launches = await AppDataSource.getRepository(Launch)
+  .createQueryBuilder('launch')
+  .where('launch.start_time > :since', { since })
+  .orderBy('launch.start_time', 'DESC')
+  .limit(limit)
+  .getMany();
+```
+
+- ALWAYS use parameterized queries (`:param` syntax)
+- NEVER concatenate user input into SQL strings
+- Use query builder for complex queries
+- Use `.getMany()` / `.getOne()` for typed results
+- Add `.limit()` and `.offset()` for pagination
+
+### Migrations
+
+- Create: `npm run migration:create -w packages/server`
+- Apply: `npm run migration:run -w packages/server`
+- Revert: `npm run migration:revert -w packages/server`
+- Migration files use timestamp prefix: `1709000000000-MigrationName.ts`
+
+---
+
+## 3. API Design
+
+### REST Conventions
+
+| Method | Purpose | Status Codes |
+|--------|---------|-------------|
+| GET | Read data | 200, 400, 404, 500 |
+| POST | Create or mutate | 200/201, 400, 500 |
+| PUT | Full update | 200, 400, 404, 500 |
+| DELETE | Remove | 200/204, 404, 500 |
+
+### Response Shapes
+
+```typescript
+// Success
+res.json(data);                    // Direct data
+res.json({ items, total, page }); // Paginated
+
+// Error
+res.status(400).json({ error: 'Validation failed', details: [...] });
+res.status(404).json({ error: 'Not found' });
+res.status(500).json({ error: 'Internal server error' });
+```
+
+### Validation
+
+```typescript
+import { validateBody } from '../middleware/validate';
+import { TriageRequestSchema } from '@cnv-monitor/shared';
+
+router.post('/:itemId', validateBody(TriageRequestSchema), async (req, res, next) => {
+  // req.body is validated and typed
+});
+```
+
+- ALL POST routes MUST use `validateBody(schema)`
+- Schemas live in `@cnv-monitor/shared`
+- Validation errors return 400 with field-level details
+
+---
+
+## 4. Logging
+
+### Pino Structured Logging
+
+```typescript
+import { logger } from '../logger';
+
+logger.info({ launchCount: launches.length }, 'Fetched launches from RP');
+logger.error({ err, launchId }, 'Failed to process launch');
+logger.warn({ field: 'cnv_version' }, 'Missing metadata field');
+```
+
+- Use structured fields (objects), not string interpolation
+- Include context: IDs, counts, durations
+- Log levels: `error` (failures), `warn` (degraded), `info` (operations), `debug` (development)
+- NEVER log tokens, passwords, or PII
+- Use `err` field for error objects (pino serializes them)
+
+---
+
+## 5. External Clients
+
+### Axios Pattern
+
+```typescript
+const response = await axios.get<RPLaunch[]>(url, {
+  headers: { Authorization: `Bearer ${token}` },
+  timeout: 30_000,
+});
+return response.data;
+```
+
+- Type Axios responses: `axios.get<ResponseType>(url)`
+- Set timeouts on ALL external requests
+- Handle specific error codes (401 = re-auth, 429 = rate limit, 5xx = retry)
+- Wrap in try/catch, log failures, throw typed errors
+
+### Client Organization
+
+- One file per external service: `clients/reportportal.ts`, `clients/jira.ts`
+- Export typed functions, not the Axios instance
+- Centralize auth header construction
+
+---
+
+## 6. Pipeline Architecture
+
+### Phase Design
+
+```
+FetchLaunches → FetchItems → EnrichJenkins
+```
+
+- Each phase implements a standard interface: `estimate()`, `execute()`, `retryItem()`
+- Progress reported via WebSocket to connected clients
+- Errors in one item don't stop the entire phase
+- Failed items can be retried individually
+- Pipeline can be cancelled mid-phase
+
+### Error Recovery
+
+- Per-item error handling (don't fail the entire batch)
+- Failed items logged with context for debugging
+- Retry mechanism with exponential backoff for transient failures
+- Pipeline state persisted for resume after crash
+
+---
+
+## 7. Security (Server-specific)
+
+- `helmet()` middleware for security headers
+- `express-rate-limit` on mutation endpoints
+- Input validation via Zod on all POST routes
+- Parameterized SQL queries (no string interpolation)
+- Environment variables for all secrets
+- No sensitive data in error responses or logs
+- CORS configured for production origins

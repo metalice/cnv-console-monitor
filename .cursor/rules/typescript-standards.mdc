@@ -1,0 +1,197 @@
+---
+description: TypeScript standards - naming, type safety, function style, error handling
+globs: "packages/**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# TypeScript Standards
+
+Language-level conventions applied across all packages.
+
+---
+
+## 1. Naming
+
+### Variables and Functions
+
+- Descriptive names, minimum 4 characters
+- camelCase for variables, functions, and parameters
+- PascalCase for types, interfaces, classes, React components, and enum-like constants
+
+```typescript
+// BAD
+const s = 'hello';
+const cb = () => {};
+items.map(e => e.name);
+
+// GOOD
+const message = 'hello';
+const callback = () => {};
+items.map(item => item.name);
+```
+
+Single-letter exceptions allowed ONLY for:
+- Generic type parameters: `<T>`, `<K, V>`
+- Unused params required by API signature: `(_event, value) =>`
+- Loop indices in simple iterations: `for (let i = 0; ...)`
+
+### Files
+
+- Component files: **PascalCase** (`DashboardPage.tsx`)
+- Other TS files: **camelCase** or **kebab-case** (`launches.ts`, `health-score.ts`)
+- Test files: same name + `.test.ts` suffix (`analyzer.test.ts`)
+
+---
+
+## 2. Type Safety
+
+### No `any`
+
+- Use `unknown` and narrow with type guards
+- Use Zod `.parse()` / `.safeParse()` for runtime validation of external data
+- Type Axios responses: `axios.get<ResponseType>(url)`
+- Type Express `req.body`: cast via `validateBody` middleware
+
+### Type Definitions
+
+- Prefer `type` over `interface` (project convention enforced by ESLint)
+- Infer types from Zod schemas: `type Launch = z.infer<typeof LaunchSchema>`
+- Never manually duplicate types that exist in `@cnv-monitor/shared`
+
+### Type Narrowing
+
+```typescript
+if (error instanceof ApiError) {
+  handleApiError(error);
+} else if (error instanceof Error) {
+  handleGenericError(error);
+}
+```
+
+### Non-Null Assertions
+
+- Avoid `!` -- use optional chaining `?.` and explicit checks
+- Use `?? defaultValue` for fallbacks
+- If `!` is truly needed, add an eslint-disable comment with justification
+
+---
+
+## 3. Function Style
+
+### Arrow Functions
+
+Use arrow functions for all declarations:
+
+```typescript
+const calculateRate = (total: number, passed: number): number =>
+  total === 0 ? 0 : (passed / total) * 100;
+
+const MyComponent: React.FC<Props> = ({ title }) => (
+  <PageSection>{title}</PageSection>
+);
+```
+
+The `function` keyword is only allowed for:
+- Class methods
+- Cases requiring `this` binding
+
+### Explicit Return Types on Exports
+
+```typescript
+export const fetchLaunches = async (filter: string): Promise<Launch[]> => { ... };
+```
+
+### Object Parameters for 3+ Arguments
+
+```typescript
+type PollOptions = {
+  filter: string;
+  hoursBack: number;
+  includeSkipped?: boolean;
+};
+
+export const pollWithOptions = async (options: PollOptions): Promise<Launch[]> => { ... };
+```
+
+---
+
+## 4. Constants
+
+No magic numbers or strings. Extract to named constants:
+
+```typescript
+const WARNING_THRESHOLD_DAYS = 7;
+const FIVE_MINUTES_MS = 5 * 60 * 1000;
+const HEALTH_GREEN_THRESHOLD = 95;
+const HEALTH_YELLOW_THRESHOLD = 80;
+```
+
+- SCREAMING_SNAKE_CASE for constants
+- Group related constants in a constants file or at the top of the module
+
+---
+
+## 5. File Size
+
+Maximum **300 lines** per file. When exceeded:
+
+- **Pages**: extract sections into sub-components
+- **Store/route files**: split by domain
+- **Components**: extract complex logic into custom hooks
+- **API files**: split by resource
+
+---
+
+## 6. Error Handling
+
+### Server
+
+```typescript
+try {
+  const result = await riskyOperation();
+  res.json(result);
+} catch (err) {
+  next(err); // Forward to global error handler
+}
+```
+
+- ALWAYS use try/catch in async route handlers
+- ALWAYS call `next(err)` -- never swallow errors silently
+- Log errors with context: `logger.error({ err, launchId }, 'Failed to fetch')`
+
+### Client
+
+```typescript
+const { data, isLoading, error } = useQuery({ ... });
+
+if (error) {
+  return <EmptyState variant="lg" icon={ExclamationCircleIcon}>
+    <EmptyStateBody>Failed to load data. Please try again.</EmptyStateBody>
+  </EmptyState>;
+}
+```
+
+- TanStack Query handles error state via `error` property
+- Show user-friendly messages, not raw error text
+- Provide retry action when appropriate
+
+---
+
+## 7. Imports
+
+### Order (enforced by eslint-plugin-simple-import-sort)
+
+1. Node.js builtins (`fs`, `path`, `crypto`)
+2. Third-party packages (`react`, `express`, `axios`)
+3. Workspace packages (`@cnv-monitor/shared`)
+4. Scoped packages (`@patternfly/*`, `@tanstack/*`)
+5. Side-effect imports
+6. Relative parent imports (`../`)
+7. Relative sibling imports (`./`)
+8. Style imports (`.css`)
+
+### Rules
+
+- Use `type` imports for type-only imports: `import type { Launch } from '@cnv-monitor/shared'`
+- Inline type imports: `import { type Launch, LaunchSchema } from '@cnv-monitor/shared'`
+- No barrel re-exports in client or server (only shared has a barrel)
