@@ -19,12 +19,71 @@ function matchesAnyGlob(filePath: string, patterns: string[]): boolean {
   return patterns.some(p => matchGlob(filePath, p));
 }
 
-function classifyFile(filePath: string, docPaths: string[], testPaths: string[]): 'doc' | 'test' | 'other' {
+function classifyFile(filePath: string, docPaths: string[], testPaths: string[]): 'doc' | 'test' | 'other' | 'maybe-doc' {
   if (docPaths.length > 0 && matchesAnyGlob(filePath, docPaths)) return 'doc';
   if (testPaths.length > 0 && matchesAnyGlob(filePath, testPaths)) return 'test';
   if (testPaths.length === 0 && isTestFile(filePath)) return 'test';
-  if (docPaths.length === 0 && filePath.endsWith('.md')) return 'doc';
+  if (docPaths.length === 0 && filePath.endsWith('.md')) return 'maybe-doc';
   return 'other';
+}
+
+async function classifyMdFilesWithAI(mdFiles: Array<{ path: string; snippet: string }>): Promise<Set<string>> {
+  const testDocPaths = new Set<string>();
+
+  try {
+    const { getAIService } = await import('../ai');
+    const ai = getAIService();
+    if (!ai.isEnabled()) {
+      return new Set(mdFiles.map(f => f.path));
+    }
+
+    const batchSize = 40;
+    for (let i = 0; i < mdFiles.length; i += batchSize) {
+      const batch = mdFiles.slice(i, i + batchSize);
+      const fileList = batch.map((f, idx) => `${idx + 1}. ${f.path}\n   ${f.snippet}`).join('\n\n');
+
+      const prompt = `Classify markdown files as TEST_DOC or NOT_TEST_DOC.
+
+A file IS a TEST_DOC if it has at least 2 of:
+- Numbered test case headings (### 001, ### TC-001)
+- Step/Action/Expected result tables
+- Requirements Traceability Matrix (RTM)
+- References to .spec.ts / .cy.ts / .test.ts files as test subjects
+- Title containing "STD", "Test Description", "Test Plan", "Test Cases"
+
+A file is NOT_TEST_DOC if it is:
+- A README, CONTRIBUTING, CHANGELOG, or LICENSE
+- A setup/install/architecture guide
+- A template or boilerplate
+- A general project document that mentions testing but doesn't define test cases
+
+Files:
+${fileList}
+
+Return ONLY a JSON array of file numbers that are TEST_DOC. Example: [1, 3, 5]
+If none: []`;
+
+      const response = await ai.chat(
+        [{ role: 'user', content: prompt }],
+        { json: true, maxTokens: 200, cacheTtlMs: 24 * 60 * 60 * 1000 },
+      );
+
+      try {
+        let cleaned = response.content.trim().replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+        const indices = JSON.parse(cleaned) as number[];
+        for (const idx of indices) {
+          const file = batch[idx - 1];
+          if (file) testDocPaths.add(file.path);
+        }
+      } catch {
+        for (const f of batch) testDocPaths.add(f.path);
+      }
+    }
+  } catch {
+    return new Set(mdFiles.map(f => f.path));
+  }
+
+  return testDocPaths;
 }
 
 const TEST_EXTENSIONS = /\.(spec\.ts|spec\.js|test\.ts|test\.js|cy\.ts|cy\.js|e2e\.ts)$/i;
@@ -54,6 +113,48 @@ function extractTestReferences(content: string): string[] {
   }
 
   return refs;
+}
+
+interface DocSignals {
+  title: string;
+  featureArea: string;
+  testRefs: string[];
+  rtmEntries: string[];
+  headings: string[];
+}
+
+function extractDocSignals(content: string, filePath: string): DocSignals {
+  const lines = content.split('\n');
+
+  let title = '';
+  for (const line of lines) {
+    const h1 = line.match(/^#\s+(.+)/);
+    if (h1) { title = h1[1].trim(); break; }
+  }
+
+  const pathParts = filePath.split('/').filter(p => !STRIP_PREFIXES.has(p.toLowerCase()));
+  const featureArea = pathParts.slice(0, -1).join('/') || '';
+
+  const testRefs = extractTestReferences(content);
+
+  const rtmEntries: string[] = [];
+  const rtmSection = content.match(/(?:traceability|RTM|requirements.*matrix)[^\n]*\n([\s\S]*?)(?=\n##|\n---|\z)/i);
+  if (rtmSection) {
+    const tableRows = rtmSection[1].match(/\|[^|]+\|[^|]+\|[^|]+\|/g) || [];
+    for (const row of tableRows) {
+      if (row.match(/\.(spec|test|cy|e2e)\.(ts|js)/i)) {
+        rtmEntries.push(row.replace(/\|/g, ' ').replace(/\s+/g, ' ').trim());
+      }
+    }
+  }
+
+  const headings: string[] = [];
+  for (const line of lines) {
+    const h = line.match(/^#{2,3}\s+(.+)/);
+    if (h && headings.length < 10) headings.push(h[1].trim());
+  }
+
+  return { title, featureArea, testRefs, rtmEntries, headings };
 }
 
 export interface TestBlock {
@@ -203,15 +304,58 @@ export const syncRepository = async (repo: Repository, branch?: string, onProgre
   progress('fetching-tree', 0, 0, `Fetching file tree from ${targetBranch}...`);
   const tree = await provider.fetchTree(targetBranch);
 
-  const relevantFiles = tree.filter(
-    (entry: GitTreeEntry) => entry.type === 'blob' && classifyFile(entry.path, docPaths, testPaths) !== 'other',
-  );
+  const classified = tree.filter((e: GitTreeEntry) => e.type === 'blob').map(entry => ({
+    ...entry,
+    classification: classifyFile(entry.path, docPaths, testPaths),
+  }));
+
+  const definiteFiles = classified.filter(f => f.classification === 'doc' || f.classification === 'test');
+  const maybeDocs = classified.filter(f => f.classification === 'maybe-doc');
+
+  let confirmedDocPaths = new Set<string>();
+  if (maybeDocs.length > 0) {
+    progress('classifying', 0, maybeDocs.length, `AI classifying ${maybeDocs.length} markdown files...`);
+    const snippets: Array<{ path: string; snippet: string }> = [];
+    for (const md of maybeDocs) {
+      try {
+        const content = await provider.fetchFileContent(md.path, targetBranch);
+        const raw = content.content;
+        const titleMatch = raw.match(/^#\s+(.+)/m);
+        const title = titleMatch ? titleMatch[1].trim() : '';
+        const headings = (raw.match(/^#{2,3}\s+.+/gm) || []).slice(0, 6).map(h => h.replace(/^#+\s+/, ''));
+        const hasTable = /\|\s*Step\s*\||\|\s*Action\s*\||\|\s*Expected/i.test(raw);
+        const hasTestCases = /###\s+`?\d{3}/.test(raw);
+        const hasRTM = /traceability|RTM/i.test(raw);
+        const refsTestFiles = /\.(spec|test|cy|e2e)\.(ts|js)/i.test(raw);
+
+        const summary = [
+          `Title: ${title || '(none)'}`,
+          `Headings: ${headings.join(', ') || '(none)'}`,
+          hasTable ? 'Has step/action/expected tables' : '',
+          hasTestCases ? 'Has numbered test cases (### 001)' : '',
+          hasRTM ? 'Has Requirements Traceability Matrix' : '',
+          refsTestFiles ? 'References test files (.spec.ts/.cy.ts)' : '',
+        ].filter(Boolean).join(' | ');
+
+        snippets.push({ path: md.path, snippet: summary });
+      } catch {
+        snippets.push({ path: md.path, snippet: '(could not read)' });
+      }
+    }
+    confirmedDocPaths = await classifyMdFilesWithAI(snippets);
+    progress('classifying', maybeDocs.length, maybeDocs.length, `AI classified: ${confirmedDocPaths.size} test docs out of ${maybeDocs.length} markdown files`);
+  }
+
+  const relevantFiles = [
+    ...definiteFiles,
+    ...maybeDocs.filter(f => confirmedDocPaths.has(f.path)).map(f => ({ ...f, classification: 'doc' as const })),
+  ];
 
   progress('processing', 0, relevantFiles.length, `Found ${relevantFiles.length} files to process (${tree.length} total in repo)`);
 
   await clearRepoFiles(repo.id, targetBranch);
 
-  const docFiles: Array<{ path: string; baseName: string; relPath: string; id?: string; testRefs?: string[] }> = [];
+  const docFiles: Array<{ path: string; baseName: string; relPath: string; id?: string; testRefs?: string[]; signals?: DocSignals }> = [];
   const testFiles: Array<{ path: string; baseName: string; relPath: string; id?: string }> = [];
 
   let fileIndex = 0;
@@ -220,7 +364,7 @@ export const syncRepository = async (repo: Repository, branch?: string, onProgre
     if (fileIndex % 5 === 1 || fileIndex === relevantFiles.length) {
       progress('processing', fileIndex, relevantFiles.length, `Processing ${file.path.split('/').pop()} (${fileIndex}/${relevantFiles.length})`);
     }
-    const fileType = classifyFile(file.path, docPaths, testPaths);
+    const fileType = (file as unknown as { classification: string }).classification as 'doc' | 'test';
     const fileName = file.path.split('/').pop() || file.path;
 
     let frontmatterData: Record<string, unknown> | null = null;
@@ -265,54 +409,93 @@ export const syncRepository = async (repo: Repository, branch?: string, onProgre
 
     if (fileType === 'doc') {
       const testRefs = extractTestReferences(docContent);
-      docFiles.push({ path: file.path, baseName, relPath: getBaseName(relPath), id: saved.id, testRefs });
+      const signals = docContent ? extractDocSignals(docContent, file.path) : undefined;
+      docFiles.push({ path: file.path, baseName, relPath: getBaseName(relPath), id: saved.id, testRefs, signals });
     } else if (fileType === 'test') {
       testFiles.push({ path: file.path, baseName, relPath: getBaseName(relPath), id: saved.id });
     }
   }
 
-  progress('matching', 0, docFiles.length, `Matching ${docFiles.length} docs to ${testFiles.length} tests...`);
+  progress('matching', 0, docFiles.length, `AI matching ${docFiles.length} docs to ${testFiles.length} tests...`);
 
   let matchedPairs = 0;
-  const schema = repo.frontmatter_schema as Record<string, string> | null;
-  const testFileField = schema?.testFileField || 'test_file';
 
-  for (const doc of docFiles) {
-    let matchedTest: typeof testFiles[0] | undefined;
+  try {
+    const { getAIService } = await import('../ai');
+    const ai = getAIService();
 
-    // Strategy 1: references extracted from doc content (links, inline paths)
-    if (!matchedTest && doc.testRefs && doc.testRefs.length > 0) {
-      for (const ref of doc.testRefs) {
-        matchedTest = testFiles.find(t => t.path === ref || t.path.endsWith(ref) || ref.endsWith(t.path));
-        if (matchedTest) break;
+    if (ai.isEnabled() && docFiles.length > 0 && testFiles.length > 0) {
+      const docList = docFiles.map((d, i) => {
+        const s = d.signals;
+        let entry = `D${i + 1}: ${d.path}`;
+        if (s?.title) entry += `\n  Title: ${s.title}`;
+        if (s?.featureArea) entry += `\n  Feature: ${s.featureArea}`;
+        if (s?.testRefs && s.testRefs.length > 0) entry += `\n  References test files: ${s.testRefs.join(', ')}`;
+        if (s?.rtmEntries && s.rtmEntries.length > 0) entry += `\n  RTM mappings: ${s.rtmEntries.slice(0, 5).join(' | ')}`;
+        return entry;
+      }).join('\n\n');
+      const testList = testFiles.map((t, i) => `T${i + 1}: ${t.path}`).join('\n');
+
+      const prompt = `Match each documentation file to its corresponding test code file.
+
+MATCHING RULES (strongest signal first):
+1. EXPLICIT REFERENCES: If doc says "References test files: X.spec.ts", match to that exact test file.
+2. RTM TABLE: If doc's RTM mentions a spec filename, that is a definitive match.
+3. DIRECTORY + FEATURE: tier1/bootable-volumes.md matches tier1/*/bootable-volumes.spec.ts (same tier AND same feature).
+4. NAMING VARIATIONS: These are equivalent names — match them:
+   - kebab-case vs camelCase: "instance-types" = "instanceTypes"
+   - singular vs plural: "template" = "templates"
+   - abbreviations: "vm" = "virtualmachines", "acm" = "fleet-virtualization-acm"
+   - with/without suffixes: "catalog" = "catalog-it-filter"
+5. FEATURE CONTEXT: If a doc's title mentions "Bootable Volumes" and a test path contains "bootable-volumes", they match.
+
+CONSTRAINTS:
+- Each doc matches AT MOST one test. Each test matches AT MOST one doc.
+- Prefer matches within the same tier/directory over cross-tier matches.
+- When a doc explicitly references a test file, that ALWAYS wins.
+
+DOCUMENTATION FILES:
+${docList}
+
+TEST FILES:
+${testList}
+
+Return ONLY a JSON array. Each element: [docNumber, testNumber].
+Example: [[1,3],[2,5]]
+If no matches: []`;
+
+      const response = await ai.chat(
+        [{ role: 'user', content: prompt }],
+        { json: true, maxTokens: 2000, cacheTtlMs: 24 * 60 * 60 * 1000 },
+      );
+
+      try {
+        let cleaned = response.content.trim().replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+        const matches = JSON.parse(cleaned) as number[][];
+        const usedDocs = new Set<number>();
+        const usedTests = new Set<number>();
+
+        for (const [dIdx, tIdx] of matches) {
+          if (usedDocs.has(dIdx) || usedTests.has(tIdx)) continue;
+          const doc = docFiles[dIdx - 1];
+          const test = testFiles[tIdx - 1];
+          if (doc?.id && test?.id) {
+            await updateFileCounterpart(doc.id, test.id);
+            await updateFileCounterpart(test.id, doc.id);
+            matchedPairs++;
+            usedDocs.add(dIdx);
+            usedTests.add(tIdx);
+          }
+        }
+      } catch {
+        log.debug('Failed to parse AI matching response');
       }
     }
-
-    // Strategy 2: explicit frontmatter field (e.g. test_file: path/to/test.spec.ts)
-    if (!matchedTest) {
-      const docEntity = await (await import('../db/store')).getFileByPath(repo.id, targetBranch, doc.path);
-      const fm = docEntity?.frontmatter as Record<string, unknown> | null;
-      if (fm && fm[testFileField]) {
-        matchedTest = testFiles.find(t => t.path === fm[testFileField] || t.path.endsWith(fm[testFileField] as string));
-      }
-    }
-
-    // Strategy 3: name convention (doc and test share the same base name)
-    if (!matchedTest) {
-      matchedTest = testFiles.find(t => t.baseName === doc.baseName);
-    }
-
-    // Strategy 4: relative path matching
-    if (!matchedTest) {
-      matchedTest = testFiles.find(t => t.relPath === doc.relPath && t.relPath !== doc.baseName);
-    }
-
-    if (matchedTest && doc.id && matchedTest.id) {
-      await updateFileCounterpart(doc.id, matchedTest.id);
-      await updateFileCounterpart(matchedTest.id, doc.id);
-      matchedPairs++;
-    }
+  } catch (err) {
+    log.debug({ err }, 'AI matching failed');
   }
+
+  progress('matching', docFiles.length, docFiles.length, `Matched ${matchedPairs} doc-test pairs via AI`);
 
   const duration = Date.now() - startTime;
   progress('complete', relevantFiles.length, relevantFiles.length, `Sync complete: ${docFiles.length} docs, ${testFiles.length} tests, ${matchedPairs} matched (${Math.round(duration / 1000)}s)`);
@@ -365,6 +548,9 @@ function getLogicalPath(filePath: string): string[] {
   const fileName = parts.pop() || '';
   const baseName = fileName.replace(/\.(md|spec\.ts|spec\.js|test\.ts|test\.js|cy\.ts|cy\.js|e2e\.ts)$/i, '');
   const segments = parts.filter(p => !STRIP_PREFIXES.has(p.toLowerCase()));
+  if (segments.length > 0 && segments[segments.length - 1] === baseName) {
+    return segments;
+  }
   return [...segments, baseName];
 }
 
@@ -455,6 +641,14 @@ export const buildTreeResponse = async (component?: string): Promise<Record<stri
 
     const root: FolderMap = new Map();
 
+    const counterpartDocPath = new Map<string, string>();
+    for (const file of files) {
+      if (file.file_type === 'test' && file.counterpart_id) {
+        const docPath = fileIdToPath.get(file.counterpart_id);
+        if (docPath) counterpartDocPath.set(file.id, docPath);
+      }
+    }
+
     for (const file of files) {
       const q = quarantineMap.get(file.rp_test_name || file.file_path);
       const counterpartPath = file.counterpart_id ? fileIdToPath.get(file.counterpart_id) : undefined;
@@ -472,7 +666,10 @@ export const buildTreeResponse = async (component?: string): Promise<Record<stri
         quarantine: q ? { id: q.id, status: q.status, since: q.quarantined_at.toISOString(), jiraKey: q.jira_key } : undefined,
       };
 
-      const segments = getLogicalPath(file.file_path);
+      const pathForTree = file.file_type === 'test' && counterpartDocPath.has(file.id)
+        ? counterpartDocPath.get(file.id)!
+        : file.file_path;
+      const segments = getLogicalPath(pathForTree);
       insertIntoTree(root, segments, fileNode);
     }
 
