@@ -28,6 +28,46 @@ const isTestFile = (filePath: string): boolean => {
   return TEST_EXTENSIONS.test(filePath);
 };
 
+const EXCLUDED_MD_DIRS = new Set([
+  '.github',
+  '.gitlab',
+  '.vscode',
+  '.cursor',
+  '.husky',
+  'node_modules',
+  'dist',
+  'build',
+  'coverage',
+  'ai',
+  'copilot-instructions',
+  '.copilot',
+]);
+
+const EXCLUDED_MD_NAMES = new Set([
+  'readme.md',
+  'changelog.md',
+  'contributing.md',
+  'license.md',
+  'licence.md',
+  'code_of_conduct.md',
+  'security.md',
+  'claude.md',
+  'agents.md',
+  'pull_request_template.md',
+  'issue_template.md',
+  'bug_report.md',
+  'feature_request.md',
+]);
+
+const isExcludedMd = (filePath: string): boolean => {
+  const parts = filePath.toLowerCase().split('/');
+  const fileName = parts[parts.length - 1];
+  if (EXCLUDED_MD_NAMES.has(fileName)) {
+    return true;
+  }
+  return parts.some(part => EXCLUDED_MD_DIRS.has(part));
+};
+
 const getBaseName = (filePath: string): string => {
   const name = filePath.split('/').pop() || filePath;
   return name.replace(/\.(?:md|spec\.ts|spec\.js|test\.ts|test\.js|cy\.ts|cy\.js|e2e\.ts)$/i, '');
@@ -47,7 +87,7 @@ const classifyFile = (
   if (testPaths.length === 0 && isTestFile(filePath)) {
     return 'test';
   }
-  if (docPaths.length === 0 && filePath.endsWith('.md')) {
+  if (docPaths.length === 0 && filePath.endsWith('.md') && !isExcludedMd(filePath)) {
     return 'maybe-doc';
   }
   return 'other';
@@ -73,19 +113,24 @@ const classifyMdFilesWithAI = async (
         .join('\n\n');
 
       const prompt = `Classify markdown files as TEST_DOC or NOT_TEST_DOC.
+Be STRICT — when in doubt, classify as NOT_TEST_DOC.
 
-A file IS a TEST_DOC if it has at least 2 of:
-- Numbered test case headings (### 001, ### TC-001)
-- Step/Action/Expected result tables
-- Requirements Traceability Matrix (RTM)
-- References to .spec.ts / .cy.ts / .test.ts files as test subjects
+A file IS a TEST_DOC only if it is a structured test description document with at least 2 of:
+- Numbered test case headings (### 001, ### TC-001, ### Test Case 1)
+- Step/Action/Expected result tables or columns
+- Requirements Traceability Matrix (RTM) linking requirements to test files
+- Explicit references to .spec.ts / .cy.ts / .test.ts files as test subjects
 - Title containing "STD", "Test Description", "Test Plan", "Test Cases"
 
-A file is NOT_TEST_DOC if it is:
-- A README, CONTRIBUTING, CHANGELOG, or LICENSE
-- A setup/install/architecture guide
-- A template or boilerplate
-- A general project document that mentions testing but doesn't define test cases
+A file is NOT_TEST_DOC if ANY of these apply:
+- A README, CONTRIBUTING, CHANGELOG, LICENSE, or CODE_OF_CONDUCT
+- A setup, install, deployment, or architecture guide
+- A template, boilerplate, or configuration doc
+- AI/LLM instructions (CLAUDE.md, copilot instructions, AGENTS.md)
+- A project overview, feature description, or design document
+- A general document that mentions testing but does NOT define individual test cases
+- A meeting notes, decision record, or ADR document
+- Path contains: .github, .gitlab, .cursor, .vscode, ai/, copilot, node_modules
 
 Files:
 ${fileList}
