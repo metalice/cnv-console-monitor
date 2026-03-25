@@ -37,6 +37,7 @@ export class AnthropicProvider implements ModelProvider {
       {
         max_tokens: Math.min(options?.maxTokens ?? 8192, 8192),
         model: modelId,
+        temperature: options?.temperature ?? 0.3,
         ...(systemMsg ? { system: systemMsg } : {}),
         messages: chatMessages,
       },
