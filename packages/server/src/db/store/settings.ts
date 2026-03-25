@@ -3,8 +3,8 @@ import { AppDataSource } from '../data-source';
 import { Setting } from '../entities/Setting';
 import { SettingsLog } from '../entities/SettingsLog';
 
-const mask = (v: string): string => {
-  return v.length > 4 ? `••••${v.substring(v.length - 4)}` : '(set)';
+const mask = (val: string): string => {
+  return val.length > 4 ? `••••${val.substring(val.length - 4)}` : '(set)';
 };
 
 const settings = () => AppDataSource.getRepository(Setting);
@@ -43,8 +43,8 @@ export const setSetting = async (key: string, value: string, updatedBy?: string)
   );
 
   if (oldValue !== value && !key.startsWith('_')) {
-    const maskToken = (v: string | null) =>
-      v && v.length > 4 ? `••••${v.substring(v.length - 4)}` : '(set)';
+    const maskToken = (val: string | null) =>
+      val && val.length > 4 ? `••••${val.substring(val.length - 4)}` : '(set)';
     const sensitive = isSensitiveKey(key);
 
     await settingsLog().insert({
@@ -75,7 +75,7 @@ export const getSettingsLog = async (limit = 50): Promise<SettingsLogEntry[]> =>
     take: limit,
     where: { key: undefined },
   });
-  return rows.filter(r => !r.key.startsWith('_'));
+  return rows.filter(row => !row.key.startsWith('_'));
 };
 
 export const cleanupInternalSettingsLogs = async (): Promise<number> => {
@@ -93,8 +93,8 @@ export const scrubSensitiveSettingsLogs = async (): Promise<number> => {
   const allLogs = await settingsLog().find();
   let scrubbed = 0;
   for (const entry of allLogs) {
-    const lk = entry.key.toLowerCase();
-    if (!sensitivePatterns.some(p => lk.includes(p))) {
+    const lowerKey = entry.key.toLowerCase();
+    if (!sensitivePatterns.some(pat => lowerKey.includes(pat))) {
       continue;
     }
     let changed = false;

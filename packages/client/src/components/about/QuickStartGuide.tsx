@@ -56,7 +56,7 @@ export const QuickStartGuide: React.FC<QuickStartGuideProps> = ({
               </FlexItem>
             </Flex>
           }
-          onToggle={(_e, v) => setExpanded(v)}
+          onToggle={(_e, isExpanded) => setExpanded(isExpanded)}
         >
           <div className="app-about-steps">
             {steps.map((step, i) => (

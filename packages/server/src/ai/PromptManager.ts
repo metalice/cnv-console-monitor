@@ -83,7 +83,7 @@ export const listPrompts = (): string[] => {
   }
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- path constructed from __dirname, not user input
   const entries = fs.readdirSync(PROMPTS_DIR);
-  return entries.filter(f => f.endsWith('.md')).map(f => f.replace('.md', ''));
+  return entries.filter(entry => entry.endsWith('.md')).map(entry => entry.replace('.md', ''));
 };
 
 export const clearTemplateCache = (): void => {

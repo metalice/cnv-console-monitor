@@ -17,17 +17,17 @@ const getUpcomingDeadlines = (releases: ReleaseInfo[], withinDays = 14): Deadlin
   today.setHours(0, 0, 0, 0);
 
   for (const release of releases) {
-    for (const m of release.milestones) {
-      if (m.isPast) {
+    for (const milestone of release.milestones) {
+      if (milestone.isPast) {
         continue;
       }
-      const mDate = new Date(m.date);
+      const mDate = new Date(milestone.date);
       const daysLeft = Math.round((mDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
       if (daysLeft >= 0 && daysLeft <= withinDays) {
         deadlines.push({
-          date: m.date,
+          date: milestone.date,
           daysLeft,
-          milestone: m.name
+          milestone: milestone.name
             .replace(/^Batch\s+/, '')
             .replace(/GA Stable Release|GA Release/g, 'GA')
             .trim(),
@@ -37,7 +37,7 @@ const getUpcomingDeadlines = (releases: ReleaseInfo[], withinDays = 14): Deadlin
     }
   }
 
-  return deadlines.sort((a, b) => a.daysLeft - b.daysLeft);
+  return deadlines.sort((deadlineA, deadlineB) => deadlineA.daysLeft - deadlineB.daysLeft);
 };
 
 const urgencyColor = (days: number): 'red' | 'orange' | 'yellow' => {
@@ -82,13 +82,16 @@ export const DeadlineBanner: React.FC<DeadlineBannerProps> = ({ releases }) => {
       variant={variant}
     >
       <Flex flexWrap={{ default: 'wrap' }} spaceItems={{ default: 'spaceItemsMd' }}>
-        {deadlines.slice(0, 5).map((d, i) => (
+        {deadlines.slice(0, 5).map((deadline, idx) => (
           // eslint-disable-next-line react/no-array-index-key
-          <FlexItem key={i}>
-            <Label isCompact color={urgencyColor(d.daysLeft)}>
-              {d.version} {d.milestone} —{' '}
-              {new Date(d.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} (
-              {d.daysLeft}d)
+          <FlexItem key={idx}>
+            <Label isCompact color={urgencyColor(deadline.daysLeft)}>
+              {deadline.version} {deadline.milestone} —{' '}
+              {new Date(deadline.date).toLocaleDateString(undefined, {
+                day: 'numeric',
+                month: 'short',
+              })}{' '}
+              ({deadline.daysLeft}d)
             </Label>
           </FlexItem>
         ))}

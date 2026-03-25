@@ -206,35 +206,37 @@ export const ActivityDrawerPanel: React.FC<ActivityDrawerProps> = ({ entry, onCl
             </Content>
             <div className="app-text-xs">
               {related
-                .filter(r => r.id !== entry.id)
+                .filter(relatedEntry => relatedEntry.id !== entry.id)
                 .slice(0, 10)
-                .map(r => (
-                  <div className="app-history-row" key={r.id}>
+                .map(relatedEntry => (
+                  <div className="app-history-row" key={relatedEntry.id}>
                     <Flex
                       alignItems={{ default: 'alignItemsCenter' }}
                       spaceItems={{ default: 'spaceItemsSm' }}
                     >
-                      <FlexItem>{actionLabel(r.action)}</FlexItem>
-                      {r.old_value && r.new_value && r.old_value !== r.new_value && (
-                        <FlexItem>
-                          <span className="app-diff-badge">
-                            <Label isCompact color="red">
-                              {r.old_value}
-                            </Label>
-                            <ArrowRightIcon className="app-diff-arrow" />
-                            <Label isCompact color="green">
-                              {r.new_value}
-                            </Label>
-                          </span>
-                        </FlexItem>
-                      )}
+                      <FlexItem>{actionLabel(relatedEntry.action)}</FlexItem>
+                      {relatedEntry.old_value &&
+                        relatedEntry.new_value &&
+                        relatedEntry.old_value !== relatedEntry.new_value && (
+                          <FlexItem>
+                            <span className="app-diff-badge">
+                              <Label isCompact color="red">
+                                {relatedEntry.old_value}
+                              </Label>
+                              <ArrowRightIcon className="app-diff-arrow" />
+                              <Label isCompact color="green">
+                                {relatedEntry.new_value}
+                              </Label>
+                            </span>
+                          </FlexItem>
+                        )}
                       <FlexItem>
-                        <span className="app-text-muted">{r.performed_by}</span>
+                        <span className="app-text-muted">{relatedEntry.performed_by}</span>
                       </FlexItem>
                       <FlexItem>
-                        <Tooltip content={new Date(r.performed_at).toLocaleString()}>
+                        <Tooltip content={new Date(relatedEntry.performed_at).toLocaleString()}>
                           <span className="app-text-muted">
-                            {timeAgo(new Date(r.performed_at).getTime())}
+                            {timeAgo(new Date(relatedEntry.performed_at).getTime())}
                           </span>
                         </Tooltip>
                       </FlexItem>

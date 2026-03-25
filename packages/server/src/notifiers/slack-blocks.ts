@@ -97,8 +97,8 @@ export const buildBlocks = (report: DailyReport): SlackBlock[] => {
     groupsByComponent.get(component)?.push(group);
   }
 
-  for (const [component, groups] of [...groupsByComponent.entries()].sort((a, b) =>
-    a[0].localeCompare(b[0]),
+  for (const [component, groups] of [...groupsByComponent.entries()].sort((entryA, entryB) =>
+    entryA[0].localeCompare(entryB[0]),
   )) {
     const failedGroups = groups.filter(group => group.health === 'red');
     const greenGroups = groups.filter(group => group.health === 'green');

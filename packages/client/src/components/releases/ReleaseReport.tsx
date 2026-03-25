@@ -44,8 +44,8 @@ export const ReleaseReport: React.FC<ReleaseReportProps> = ({ checklist, readine
   const reportRef = useRef<HTMLDivElement>(null);
 
   const version = release.shortname.replace('cnv-', 'CNV ');
-  const openItems = (checklist ?? []).filter(t => t.status !== 'Closed');
-  const closedItems = (checklist ?? []).filter(t => t.status === 'Closed');
+  const openItems = (checklist ?? []).filter(task => task.status !== 'Closed');
+  const closedItems = (checklist ?? []).filter(task => task.status === 'Closed');
   const totalItems = (checklist ?? []).length;
   const checklistPct = totalItems > 0 ? Math.round((closedItems.length / totalItems) * 100) : 100;
   const passRate = readiness?.passRate ?? null;
@@ -54,15 +54,15 @@ export const ReleaseReport: React.FC<ReleaseReportProps> = ({ checklist, readine
   const byPriority = useMemo(() => {
     const map = new Map<string, typeof openItems>();
     for (const item of openItems) {
-      const p = item.priority || 'Unset';
-      if (!map.has(p)) {
-        map.set(p, []);
+      const priority = item.priority || 'Unset';
+      if (!map.has(priority)) {
+        map.set(priority, []);
       }
-      map.get(p)?.push(item);
+      map.get(priority)?.push(item);
     }
-    return [...map.entries()].sort((a, b) => {
+    return [...map.entries()].sort((entryA, entryB) => {
       const order = ['Blocker', 'Critical', 'Major', 'Minor', 'Trivial', 'Unset'];
-      return order.indexOf(a[0]) - order.indexOf(b[0]);
+      return order.indexOf(entryA[0]) - order.indexOf(entryB[0]);
     });
   }, [openItems]);
 
@@ -71,7 +71,7 @@ export const ReleaseReport: React.FC<ReleaseReportProps> = ({ checklist, readine
     for (const item of openItems) {
       map.set(item.assignee || 'Unassigned', (map.get(item.assignee || 'Unassigned') ?? 0) + 1);
     }
-    return [...map.entries()].sort((a, b) => b[1] - a[1]);
+    return [...map.entries()].sort((entryA, entryB) => entryB[1] - entryA[1]);
   }, [openItems]);
 
   const handleDownloadPdf = () => {
@@ -132,8 +132,10 @@ export const ReleaseReport: React.FC<ReleaseReportProps> = ({ checklist, readine
       lines.push(`\n*Open Items (${openItems.length}):*`);
       openItems
         .slice(0, 10)
-        .forEach(t =>
-          lines.push(`• <https://issues.redhat.com/browse/${t.key}|${t.key}> ${t.summary}`),
+        .forEach(task =>
+          lines.push(
+            `• <https://issues.redhat.com/browse/${task.key}|${task.key}> ${task.summary}`,
+          ),
         );
       if (openItems.length > 10) {
         lines.push(`_...and ${openItems.length - 10} more_`);
@@ -256,19 +258,19 @@ export const ReleaseReport: React.FC<ReleaseReportProps> = ({ checklist, readine
                             ({items.length})
                           </span>
                         </Content>
-                        {items.map(t => (
-                          <div className="app-report-item" key={t.key}>
+                        {items.map(task => (
+                          <div className="app-report-item" key={task.key}>
                             <a
                               className="app-report-key"
-                              href={`https://issues.redhat.com/browse/${t.key}`}
+                              href={`https://issues.redhat.com/browse/${task.key}`}
                               rel="noreferrer"
                               target="_blank"
                             >
-                              {t.key}
+                              {task.key}
                             </a>
-                            <span className="app-report-title">{t.summary}</span>
+                            <span className="app-report-title">{task.summary}</span>
                             <span className="app-text-xs app-text-muted">
-                              {t.assignee || 'Unassigned'}
+                              {task.assignee || 'Unassigned'}
                             </span>
                           </div>
                         ))}

@@ -32,8 +32,8 @@ const buildComponentSections = (report: DailyReport): string => {
   }
 
   let html = '';
-  for (const [component, groups] of [...groupsByComponent.entries()].sort((a, b) =>
-    a[0].localeCompare(b[0]),
+  for (const [component, groups] of [...groupsByComponent.entries()].sort((entryA, entryB) =>
+    entryA[0].localeCompare(entryB[0]),
   )) {
     const nonPassed = groups.filter(group => group.latestLaunch.status !== 'PASSED');
     if (nonPassed.length === 0) {

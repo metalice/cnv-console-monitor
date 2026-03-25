@@ -34,11 +34,11 @@ export const HourlyFailuresChart: React.FC<HourlyFailuresChartProps> = ({ hourly
           padding={{ bottom: 60, left: 60, right: 20, top: 20 }}
         >
           <ChartAxis style={{ tickLabels: { angle: -45, fontSize: 9, textAnchor: 'end' } }} />
-          <ChartAxis dependentAxis tickFormat={(t: number) => `${t}%`} />
+          <ChartAxis dependentAxis tickFormat={(tickPercent: number) => `${tickPercent}%`} />
           <ChartBar
-            data={hourlyData.map(h => ({
-              x: `${String(h.hour).padStart(2, '0')}:00`,
-              y: h.failRate,
+            data={hourlyData.map(hourRow => ({
+              x: `${String(hourRow.hour).padStart(2, '0')}:00`,
+              y: hourRow.failRate,
             }))}
             style={{ data: { fill: '#0066CC' } }}
           />

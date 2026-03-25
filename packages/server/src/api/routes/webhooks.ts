@@ -18,14 +18,16 @@ router.post('/git-push', async (req: Request, res: Response, next: NextFunction)
     let matchedRepo = null;
 
     if (gitlabToken) {
-      matchedRepo = repos.find(r => r.provider === 'gitlab' && r.webhook_secret === gitlabToken);
+      matchedRepo = repos.find(
+        repo => repo.provider === 'gitlab' && repo.webhook_secret === gitlabToken,
+      );
     } else if (githubSignature) {
-      const body = JSON.stringify(req.body);
-      matchedRepo = repos.find(r => {
-        if (r.provider !== 'github' || !r.webhook_secret) {
+      const rawBody = JSON.stringify(req.body);
+      matchedRepo = repos.find(repo => {
+        if (repo.provider !== 'github' || !repo.webhook_secret) {
           return false;
         }
-        const expected = `sha256=${crypto.createHmac('sha256', r.webhook_secret).update(body).digest('hex')}`;
+        const expected = `sha256=${crypto.createHmac('sha256', repo.webhook_secret).update(rawBody).digest('hex')}`;
         return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(githubSignature));
       });
     }

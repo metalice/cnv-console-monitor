@@ -25,7 +25,7 @@ export const EmailServerSettings: React.FC<EmailServerSettingsProps> = ({
           isDisabled={adminOnly}
           placeholder="smtp.corp.redhat.com"
           value={val('email.host')}
-          onChange={(_e, v) => set('email.host', v)}
+          onChange={(_e, value) => set('email.host', value)}
         />
       </FormGroup>
       <FormGroup fieldId="email-port" label="SMTP Port">
@@ -34,7 +34,7 @@ export const EmailServerSettings: React.FC<EmailServerSettingsProps> = ({
           isDisabled={adminOnly}
           placeholder="587"
           value={val('email.port')}
-          onChange={(_e, v) => set('email.port', v)}
+          onChange={(_e, value) => set('email.port', value)}
         />
       </FormGroup>
       <FormGroup fieldId="email-user" label="SMTP User">
@@ -43,7 +43,7 @@ export const EmailServerSettings: React.FC<EmailServerSettingsProps> = ({
           isDisabled={adminOnly}
           placeholder="Optional SMTP username"
           value={val('email.user')}
-          onChange={(_e, v) => set('email.user', v)}
+          onChange={(_e, value) => set('email.user', value)}
         />
       </FormGroup>
       <FormGroup fieldId="email-pass" label="SMTP Password">
@@ -53,7 +53,7 @@ export const EmailServerSettings: React.FC<EmailServerSettingsProps> = ({
           placeholder="Optional SMTP password"
           type="password"
           value={val('email.pass')}
-          onChange={(_e, v) => set('email.pass', v)}
+          onChange={(_e, value) => set('email.pass', value)}
         />
       </FormGroup>
       <FormGroup fieldId="email-from" label="From Address">
@@ -62,7 +62,7 @@ export const EmailServerSettings: React.FC<EmailServerSettingsProps> = ({
           isDisabled={adminOnly}
           placeholder="noreply@example.com"
           value={val('email.from')}
-          onChange={(_e, v) => set('email.from', v)}
+          onChange={(_e, value) => set('email.from', value)}
         />
       </FormGroup>
     </Form>

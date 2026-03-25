@@ -50,15 +50,15 @@ const extractShortVersion = (name: string): string => {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const toDay = (d: string | Date): number => {
-  const date = typeof d === 'string' ? new Date(d) : d;
+const toDay = (dateInput: string | Date): number => {
+  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
   date.setHours(0, 0, 0, 0);
   return date.getTime();
 };
 
-const formatMonth = (ts: number): string => {
-  const d = new Date(ts);
-  return d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+const formatMonth = (timestamp: number): string => {
+  const date = new Date(timestamp);
+  return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
 };
 
 type ReleaseGanttProps = {
@@ -79,7 +79,7 @@ export const ReleaseGantt: React.FC<ReleaseGanttProps> = ({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const activeReleases = useMemo(
-    () => (releases ?? []).filter(r => r.phase !== 'Unsupported' && r.startDate),
+    () => (releases ?? []).filter(rel => rel.phase !== 'Unsupported' && rel.startDate),
     [releases],
   );
 
@@ -89,16 +89,19 @@ export const ReleaseGantt: React.FC<ReleaseGanttProps> = ({
       const zoomDays = ZOOM_DAYS[zoom];
       const start = today - Math.floor(zoomDays * 0.3) * DAY_MS;
       const end = today + Math.ceil(zoomDays * 0.7) * DAY_MS;
-      const px = 1200 / zoomDays;
-      const width = Math.max(1200, zoomDays * px);
+      const pixelPerDay = 1200 / zoomDays;
+      const width = Math.max(1200, zoomDays * pixelPerDay);
 
       const months: { x: number; label: string }[] = [];
-      const d = new Date(start);
-      d.setDate(1);
-      d.setMonth(d.getMonth() + 1);
-      while (d.getTime() < end) {
-        months.push({ label: formatMonth(d.getTime()), x: ((d.getTime() - start) / DAY_MS) * px });
-        d.setMonth(d.getMonth() + 1);
+      const cursor = new Date(start);
+      cursor.setDate(1);
+      cursor.setMonth(cursor.getMonth() + 1);
+      while (cursor.getTime() < end) {
+        months.push({
+          label: formatMonth(cursor.getTime()),
+          x: ((cursor.getTime() - start) / DAY_MS) * pixelPerDay,
+        });
+        cursor.setMonth(cursor.getMonth() + 1);
       }
 
       const dayInterval = zoomDays <= 90 ? 7 : zoomDays <= 180 ? 14 : 28;
@@ -109,8 +112,8 @@ export const ReleaseGantt: React.FC<ReleaseGanttProps> = ({
       while (dayStart.getTime() < end) {
         const dayNum = dayStart.getDate();
         if (dayInterval <= 7 || dayNum === 1 || dayNum === 15) {
-          const x = ((dayStart.getTime() - start) / DAY_MS) * px;
-          days.push({ label: `${dayStart.getDate()}`, x });
+          const posX = ((dayStart.getTime() - start) / DAY_MS) * pixelPerDay;
+          days.push({ label: `${dayStart.getDate()}`, x: posX });
         }
         dayStart.setDate(dayStart.getDate() + dayInterval);
       }
@@ -118,10 +121,10 @@ export const ReleaseGantt: React.FC<ReleaseGanttProps> = ({
       return {
         dayMarkers: days,
         monthMarkers: months,
-        pxPerDay: px,
+        pxPerDay: pixelPerDay,
         timelineEnd: end,
         timelineStart: start,
-        todayPos: ((today - start) / DAY_MS) * px,
+        todayPos: ((today - start) / DAY_MS) * pixelPerDay,
         totalWidth: width,
       };
     }, [zoom]);
@@ -163,12 +166,12 @@ export const ReleaseGantt: React.FC<ReleaseGanttProps> = ({
           </FlexItem>
           <FlexItem>
             <ToggleGroup aria-label="Zoom level">
-              {(['3m', '6m', '1y', '2y'] as ZoomLevel[]).map(z => (
+              {(['3m', '6m', '1y', '2y'] as ZoomLevel[]).map(zoomLevel => (
                 <ToggleGroupItem
-                  isSelected={zoom === z}
-                  key={z}
-                  text={z.toUpperCase()}
-                  onChange={() => setZoom(z)}
+                  isSelected={zoom === zoomLevel}
+                  key={zoomLevel}
+                  text={zoomLevel.toUpperCase()}
+                  onChange={() => setZoom(zoomLevel)}
                 />
               ))}
             </ToggleGroup>
@@ -178,33 +181,39 @@ export const ReleaseGantt: React.FC<ReleaseGanttProps> = ({
       <CardBody>
         <div className="app-gantt-scroll" ref={scrollRef}>
           <svg className="app-gantt-svg" height={svgHeight} width={totalWidth}>
-            {monthMarkers.map((m, i) => (
+            {monthMarkers.map((marker, idx) => (
               // eslint-disable-next-line react/no-array-index-key
-              <g key={`m-${i}`}>
-                <line className="app-gantt-month-line" x1={m.x} x2={m.x} y1={0} y2={svgHeight} />
-                <text className="app-gantt-month-text" x={m.x + 4} y={14}>
-                  {m.label}
+              <g key={`m-${idx}`}>
+                <line
+                  className="app-gantt-month-line"
+                  x1={marker.x}
+                  x2={marker.x}
+                  y1={0}
+                  y2={svgHeight}
+                />
+                <text className="app-gantt-month-text" x={marker.x + 4} y={14}>
+                  {marker.label}
                 </text>
               </g>
             ))}
 
-            {dayMarkers.map((d, i) => (
+            {dayMarkers.map((marker, idx) => (
               // eslint-disable-next-line react/no-array-index-key
-              <g key={`d-${i}`}>
+              <g key={`d-${idx}`}>
                 <line
                   className="app-gantt-day-tick"
-                  x1={d.x}
-                  x2={d.x}
+                  x1={marker.x}
+                  x2={marker.x}
                   y1={HEADER_HEIGHT - 8}
                   y2={HEADER_HEIGHT}
                 />
                 <text
                   className="app-gantt-day-text"
                   textAnchor="middle"
-                  x={d.x}
+                  x={marker.x}
                   y={HEADER_HEIGHT - 2}
                 >
-                  {d.label}
+                  {marker.label}
                 </text>
               </g>
             ))}
@@ -260,31 +269,31 @@ export const ReleaseGantt: React.FC<ReleaseGanttProps> = ({
                   />
 
                   {release.milestones
-                    .filter(m => {
-                      const mx = posX(m.date);
-                      return mx >= 0 && mx <= totalWidth;
+                    .filter(milestone => {
+                      const milestoneX = posX(milestone.date);
+                      return milestoneX >= 0 && milestoneX <= totalWidth;
                     })
-                    .map((m, mi) => {
-                      const mx = posX(m.date);
+                    .map((milestone, milestoneIdx) => {
+                      const milestoneX = posX(milestone.date);
                       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data
-                      const shape = MILESTONE_SHAPES[m.type] || MILESTONE_SHAPES.batch;
-                      const shortVer = extractShortVersion(m.name);
-                      const isBatchOrGa = m.type === 'batch' || m.type === 'ga';
-                      const fmtDate = new Date(m.date).toLocaleDateString('en-US', {
+                      const shape = MILESTONE_SHAPES[milestone.type] || MILESTONE_SHAPES.batch;
+                      const shortVer = extractShortVersion(milestone.name);
+                      const isBatchOrGa = milestone.type === 'batch' || milestone.type === 'ga';
+                      const fmtDate = new Date(milestone.date).toLocaleDateString('en-US', {
                         day: 'numeric',
                         month: 'short',
                         year: 'numeric',
                       });
                       return (
                         // eslint-disable-next-line react/no-array-index-key
-                        <g key={mi}>
+                        <g key={milestoneIdx}>
                           {isBatchOrGa && (
                             <line
                               opacity={0.8}
                               stroke={shape.color}
                               strokeWidth={1.5}
-                              x1={mx}
-                              x2={mx}
+                              x1={milestoneX}
+                              x2={milestoneX}
                               y1={barY - 2}
                               y2={barY + BAR_HEIGHT + 2}
                             />
@@ -293,24 +302,24 @@ export const ReleaseGantt: React.FC<ReleaseGanttProps> = ({
                             bodyContent={
                               <div>
                                 <Content className="app-mb-xs" component="p">
-                                  {m.name}
+                                  {milestone.name}
                                 </Content>
                                 <Content className="app-text-muted" component="small">
                                   {fmtDate}
                                 </Content>
-                                {m.type !== 'batch' && (
+                                {milestone.type !== 'batch' && (
                                   <Label
                                     isCompact
                                     className="app-ml-sm"
                                     color={
-                                      m.type === 'ga'
+                                      milestone.type === 'ga'
                                         ? 'red'
-                                        : m.type === 'feature_freeze'
+                                        : milestone.type === 'feature_freeze'
                                           ? 'orange'
                                           : 'blue'
                                     }
                                   >
-                                    {m.type.replace('_', ' ')}
+                                    {milestone.type.replace('_', ' ')}
                                   </Label>
                                 )}
                               </div>
@@ -322,10 +331,10 @@ export const ReleaseGantt: React.FC<ReleaseGanttProps> = ({
                             <text
                               className="app-gantt-milestone"
                               fill={shape.color}
-                              fontSize={m.type === 'ga' ? 16 : 12}
-                              fontWeight={m.type === 'ga' ? 700 : 600}
+                              fontSize={milestone.type === 'ga' ? 16 : 12}
+                              fontWeight={milestone.type === 'ga' ? 700 : 600}
                               textAnchor="middle"
-                              x={mx}
+                              x={milestoneX}
                               y={barY + BAR_HEIGHT / 2 + 5}
                             >
                               {shape.symbol}
@@ -336,7 +345,7 @@ export const ReleaseGantt: React.FC<ReleaseGanttProps> = ({
                               <text
                                 className="app-gantt-date-label app-gantt-date-ver"
                                 textAnchor="middle"
-                                x={mx}
+                                x={milestoneX}
                                 y={barY + BAR_HEIGHT + 13}
                               >
                                 {shortVer}
@@ -344,10 +353,10 @@ export const ReleaseGantt: React.FC<ReleaseGanttProps> = ({
                               <text
                                 className="app-gantt-date-label app-gantt-date-day"
                                 textAnchor="middle"
-                                x={mx}
+                                x={milestoneX}
                                 y={barY + BAR_HEIGHT + 25}
                               >
-                                {new Date(m.date).toLocaleDateString('en-US', {
+                                {new Date(milestone.date).toLocaleDateString('en-US', {
                                   day: 'numeric',
                                   month: 'short',
                                 })}
@@ -369,7 +378,7 @@ export const ReleaseGantt: React.FC<ReleaseGanttProps> = ({
           spaceItems={{ default: 'spaceItemsMd' }}
         >
           {Object.entries(MILESTONE_SHAPES)
-            .filter(([t]) => t !== 'custom')
+            .filter(([shapeType]) => shapeType !== 'custom')
             .map(([type, { color, symbol }]) => (
               <FlexItem key={type}>
                 <span className="app-text-xs" style={{ color }}>

@@ -19,7 +19,7 @@ type DateContextValue = {
   setDateFrom: (date: string) => void;
   setDateTo: (date: string) => void;
   setLookbackMode: (mode: LookbackMode) => void;
-  setCustomRange: (from: string, to: string) => void;
+  setCustomRange: (from: string, endDate: string) => void;
   isRangeMode: boolean;
   since: number;
   until: number;
@@ -28,7 +28,8 @@ type DateContextValue = {
 
 const todayStr = (): string => new Date().toISOString().split('T')[0];
 
-const toDateStr = (ts: number): string => new Date(ts).toISOString().split('T')[0];
+const toDateStr = (timestampMs: number): string =>
+  new Date(timestampMs).toISOString().split('T')[0];
 
 const startOfDay = (dateStr: string): number => new Date(`${dateStr}T00:00:00`).getTime();
 
@@ -60,9 +61,9 @@ export const DateProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const setCustomRange = useCallback((from: string, to: string) => {
+  const setCustomRange = useCallback((from: string, endDate: string) => {
     setDateFrom(from);
-    setDateTo(to);
+    setDateTo(endDate);
     setLookbackModeRaw('range');
   }, []);
 

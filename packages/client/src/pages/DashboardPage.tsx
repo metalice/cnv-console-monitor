@@ -205,9 +205,9 @@ export const DashboardPage: React.FC = () => {
           selectedTiers={filters.selectedTiers}
           tableSearch={filters.tableSearch}
           versionFilter={filters.versionFilter}
-          versionOptions={filters.versions.map(v => ({
-            label: v === 'all' ? 'All Versions' : `CNV ${v}`,
-            value: v,
+          versionOptions={filters.versions.map(version => ({
+            label: version === 'all' ? 'All Versions' : `CNV ${version}`,
+            value: version,
           }))}
           onSearchChange={filters.setTableSearch}
           onTiersChange={filters.setSelectedTiers}

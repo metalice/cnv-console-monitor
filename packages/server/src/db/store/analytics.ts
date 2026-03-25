@@ -101,11 +101,15 @@ export const getTopFailingTests = async (
     params,
   );
 
-  return rows.map((r: Record<string, unknown>) => {
+  return rows.map((row: Record<string, unknown>) => {
     const firstRate =
-      Number(r.first_half_runs) > 0 ? Number(r.first_half_fails) / Number(r.first_half_runs) : 0;
+      Number(row.first_half_runs) > 0
+        ? Number(row.first_half_fails) / Number(row.first_half_runs)
+        : 0;
     const secondRate =
-      Number(r.second_half_runs) > 0 ? Number(r.second_half_fails) / Number(r.second_half_runs) : 0;
+      Number(row.second_half_runs) > 0
+        ? Number(row.second_half_fails) / Number(row.second_half_runs)
+        : 0;
     const diff = secondRate - firstRate;
     const trend =
       diff > 0.1
@@ -115,12 +119,12 @@ export const getTopFailingTests = async (
           : ('stable' as const);
 
     return {
-      fail_count: Number(r.fail_count),
-      failure_rate: Number(r.failure_rate),
-      name: r.name as string,
+      fail_count: Number(row.fail_count),
+      failure_rate: Number(row.failure_rate),
+      name: row.name as string,
       recent_trend: trend,
-      total_runs: Number(r.total_runs),
-      unique_id: r.unique_id as string,
+      total_runs: Number(row.total_runs),
+      unique_id: row.unique_id as string,
     };
   });
 };

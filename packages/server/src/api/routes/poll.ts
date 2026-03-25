@@ -19,7 +19,7 @@ router.get('/status', async (_req: Request, res: Response) => {
 
   const pipelineState = manager.getState();
   const activePhase = Object.entries(pipelineState.phases).find(
-    ([, p]) => p.status === 'running' || p.status === 'retrying',
+    ([, phase]) => phase.status === 'running' || phase.status === 'retrying',
   );
 
   const lightPhases: Record<string, unknown> = {};

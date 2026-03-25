@@ -29,7 +29,10 @@ import { HelpLabel } from '../common/HelpLabel';
 import type { SearchableSelectOption } from '../common/SearchableSelect';
 import { SearchableSelect } from '../common/SearchableSelect';
 
-const TZ_OPTIONS: SearchableSelectOption[] = TIMEZONE_LIST.map(tz => ({ label: tz, value: tz }));
+const TZ_OPTIONS: SearchableSelectOption[] = TIMEZONE_LIST.map(timezone => ({
+  label: timezone,
+  value: timezone,
+}));
 
 type ScheduleEditorProps = {
   subId: number;
@@ -61,9 +64,9 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({
   };
 
   const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const [h, m] = e.target.value.split(':').map(Number);
-    if (!isNaN(h) && !isNaN(m)) {
-      update(h, m, cronParsed.days);
+    const [hours, minutes] = e.target.value.split(':').map(Number);
+    if (!isNaN(hours) && !isNaN(minutes)) {
+      update(hours, minutes, cronParsed.days);
     }
   };
 

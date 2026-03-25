@@ -17,7 +17,7 @@ const VERSION_COLORS = [
 ];
 const DAY_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-const toDateStr = (d: Date): string => d.toISOString().split('T')[0];
+const toDateStr = (date: Date): string => date.toISOString().split('T')[0];
 
 type CalendarEvent = { version: string; shortname: string; milestone: string; color: string };
 
@@ -32,49 +32,49 @@ export const ReleaseCalendar: React.FC<ReleaseCalendarProps> = ({ onSelectVersio
   const { events, monthLabel, weeks } = useMemo(() => {
     const now = new Date();
     const target = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
-    const y = target.getFullYear();
-    const m = target.getMonth();
+    const year = target.getFullYear();
+    const month = target.getMonth();
     const label = target.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
     const evtMap = new Map<string, CalendarEvent[]>();
-    releases.forEach((r, i) => {
-      const color = VERSION_COLORS[i % VERSION_COLORS.length];
-      for (const ms of r.milestones) {
-        const key = ms.date;
+    releases.forEach((rel, idx) => {
+      const color = VERSION_COLORS[idx % VERSION_COLORS.length];
+      for (const milestone of rel.milestones) {
+        const key = milestone.date;
         if (!evtMap.has(key)) {
           evtMap.set(key, []);
         }
         evtMap.get(key)?.push({
           color,
-          milestone: ms.name
+          milestone: milestone.name
             .replace(/^Batch\s+/, '')
             .replace(/GA Stable Release|GA Release/g, 'GA')
             .trim(),
-          shortname: r.shortname,
-          version: r.shortname.replace('cnv-', ''),
+          shortname: rel.shortname,
+          version: rel.shortname.replace('cnv-', ''),
         });
       }
     });
 
-    const firstDay = new Date(y, m, 1);
+    const firstDay = new Date(year, month, 1);
     const startCol = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
-    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
     type DayEntry = { day: number; dateStr: string };
     const wks: (DayEntry | null)[][] = [];
     let week: (DayEntry | null)[] = Array.from<DayEntry | null>({ length: 7 }).fill(null);
 
-    for (let d = 1; d <= daysInMonth; d++) {
-      const col = (startCol + d - 1) % 7;
-      if (col === 0 && d > 1) {
+    for (let day = 1; day <= daysInMonth; day++) {
+      const col = (startCol + day - 1) % 7;
+      if (col === 0 && day > 1) {
         wks.push(week);
         week = Array.from<DayEntry | null>({ length: 7 }).fill(null);
       }
-      const dt = new Date(y, m, d);
-      week[col] = { dateStr: toDateStr(dt), day: d };
+      const dateObj = new Date(year, month, day);
+      week[col] = { dateStr: toDateStr(dateObj), day };
     }
     wks.push(week);
 
-    return { events: evtMap, month: m, monthLabel: label, weeks: wks, year: y };
+    return { events: evtMap, month, monthLabel: label, weeks: wks, year };
   }, [releases, monthOffset]);
 
   const todayStr = toDateStr(new Date());
@@ -103,7 +103,7 @@ export const ReleaseCalendar: React.FC<ReleaseCalendarProps> = ({ onSelectVersio
                   icon={<AngleLeftIcon />}
                   size="sm"
                   variant="plain"
-                  onClick={() => setMonthOffset(o => o - 1)}
+                  onClick={() => setMonthOffset(offset => offset - 1)}
                 />
               </FlexItem>
               <FlexItem>
@@ -115,7 +115,7 @@ export const ReleaseCalendar: React.FC<ReleaseCalendarProps> = ({ onSelectVersio
                   icon={<AngleRightIcon />}
                   size="sm"
                   variant="plain"
-                  onClick={() => setMonthOffset(o => o + 1)}
+                  onClick={() => setMonthOffset(offset => offset + 1)}
                 />
               </FlexItem>
               {monthOffset !== 0 && (
@@ -132,19 +132,19 @@ export const ReleaseCalendar: React.FC<ReleaseCalendarProps> = ({ onSelectVersio
       <CardBody>
         <div className="app-rel-cal">
           <div className="app-rel-cal-header">
-            {DAY_HEADERS.map(d => (
-              <div className="app-rel-cal-hcell" key={d}>
-                {d}
+            {DAY_HEADERS.map(dayHeader => (
+              <div className="app-rel-cal-hcell" key={dayHeader}>
+                {dayHeader}
               </div>
             ))}
           </div>
-          {weeks.map((week, wi) => (
+          {weeks.map((week, weekIndex) => (
             // eslint-disable-next-line react/no-array-index-key
-            <div className="app-rel-cal-row" key={wi}>
-              {week.map((cell, ci) => {
+            <div className="app-rel-cal-row" key={weekIndex}>
+              {week.map((cell, cellIndex) => {
                 if (!cell) {
                   // eslint-disable-next-line react/no-array-index-key
-                  return <div className="app-rel-cal-cell app-rel-cal-empty" key={ci} />;
+                  return <div className="app-rel-cal-cell app-rel-cal-empty" key={cellIndex} />;
                 }
                 const dayEvents = events.get(cell.dateStr) ?? [];
                 const isToday = cell.dateStr === todayStr;
@@ -152,12 +152,12 @@ export const ReleaseCalendar: React.FC<ReleaseCalendarProps> = ({ onSelectVersio
                   <div
                     className={`app-rel-cal-cell ${isToday ? 'app-rel-cal-today' : ''}`}
                     // eslint-disable-next-line react/no-array-index-key
-                    key={ci}
+                    key={cellIndex}
                   >
                     <span className="app-rel-cal-day">{cell.day}</span>
-                    {dayEvents.slice(0, 3).map((evt, ei) => (
+                    {dayEvents.slice(0, 3).map((evt, eventIndex) => (
                       // eslint-disable-next-line react/no-array-index-key
-                      <Tooltip content={`${evt.version}: ${evt.milestone}`} key={ei}>
+                      <Tooltip content={`${evt.version}: ${evt.milestone}`} key={eventIndex}>
                         <div
                           className={`app-rel-cal-event ${onSelectVersion ? 'app-rel-cal-event-clickable' : ''}`}
                           style={{ borderLeftColor: evt.color }}

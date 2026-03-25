@@ -16,7 +16,7 @@ export const LinksSettings: React.FC<SettingsSectionProps> = ({ adminOnly, set, 
           isDisabled={adminOnly}
           placeholder="https://your-dashboard.example.com"
           value={val('dashboard.url')}
-          onChange={(_e, v) => set('dashboard.url', v)}
+          onChange={(_e, value) => set('dashboard.url', value)}
         />
       </FormGroup>
       <FormGroup fieldId="polarion-url" label="Polarion URL">
@@ -25,7 +25,7 @@ export const LinksSettings: React.FC<SettingsSectionProps> = ({ adminOnly, set, 
           isDisabled={adminOnly}
           placeholder="https://polarion.example.com/..."
           value={val('polarion.url')}
-          onChange={(_e, v) => set('polarion.url', v)}
+          onChange={(_e, value) => set('polarion.url', value)}
         />
       </FormGroup>
     </Form>

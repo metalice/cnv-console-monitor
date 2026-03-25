@@ -91,7 +91,10 @@ export const MonacoViewer: React.FC<MonacoViewerProps> = ({
     return map;
   }, [testBlocks]);
 
-  const skippedCount = useMemo(() => testBlocks?.filter(b => b.skipped).length || 0, [testBlocks]);
+  const skippedCount = useMemo(
+    () => testBlocks?.filter(block => block.skipped).length || 0,
+    [testBlocks],
+  );
 
   const handleMount: OnMount = useCallback(
     editor => {
@@ -185,12 +188,12 @@ export const MonacoViewer: React.FC<MonacoViewerProps> = ({
       let braceDepth = 0;
       let foundOpen = false;
       for (let i = startLine; i < lines.length && i < startLine + 100; i++) {
-        for (const ch of lines[i]) {
-          if (ch === '{') {
+        for (const char of lines[i]) {
+          if (char === '{') {
             braceDepth++;
             foundOpen = true;
           }
-          if (ch === '}') {
+          if (char === '}') {
             braceDepth--;
           }
         }

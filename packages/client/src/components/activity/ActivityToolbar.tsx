@@ -101,15 +101,15 @@ export const ActivityToolbar: React.FC<ActivityToolbarProps> = ({
     }
     const header = 'Time,Action,Component,Test,Old Value,New Value,By\n';
     const rows = entries
-      .map(e =>
+      .map(entry =>
         [
-          new Date(e.performed_at).toISOString(),
-          e.action,
-          e.component ?? '',
-          e.test_name ?? '',
-          e.old_value ?? '',
-          e.new_value ?? '',
-          e.performed_by ?? '',
+          new Date(entry.performed_at).toISOString(),
+          entry.action,
+          entry.component ?? '',
+          entry.test_name ?? '',
+          entry.old_value ?? '',
+          entry.new_value ?? '',
+          entry.performed_by ?? '',
         ]
           .map(escapeCsvField)
           .join(','),
@@ -117,10 +117,10 @@ export const ActivityToolbar: React.FC<ActivityToolbarProps> = ({
       .join('\n');
     const blob = new Blob([header + rows], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `activity-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
+    const downloadLink = document.createElement('a');
+    downloadLink.href = url;
+    downloadLink.download = `activity-${new Date().toISOString().split('T')[0]}.csv`;
+    downloadLink.click();
     URL.revokeObjectURL(url);
   };
 
@@ -138,7 +138,7 @@ export const ActivityToolbar: React.FC<ActivityToolbarProps> = ({
                   <MenuToggle
                     isExpanded={actionSelectOpen}
                     ref={toggleRef}
-                    onClick={() => setActionSelectOpen(o => !o)}
+                    onClick={() => setActionSelectOpen(prevOpen => !prevOpen)}
                   >
                     Action {selectedActions.length > 0 && `(${selectedActions.length})`}
                   </MenuToggle>
@@ -170,7 +170,7 @@ export const ActivityToolbar: React.FC<ActivityToolbarProps> = ({
                   <MenuToggle
                     isExpanded={userSelectOpen}
                     ref={toggleRef}
-                    onClick={() => setUserSelectOpen(o => !o)}
+                    onClick={() => setUserSelectOpen(prevOpen => !prevOpen)}
                   >
                     {filters.user || 'User'}
                   </MenuToggle>
@@ -182,9 +182,13 @@ export const ActivityToolbar: React.FC<ActivityToolbarProps> = ({
                 }}
               >
                 <SelectList>
-                  {users.map(u => (
-                    <SelectOption isSelected={filters.user === u} key={u} value={u}>
-                      {u}
+                  {users.map(username => (
+                    <SelectOption
+                      isSelected={filters.user === username}
+                      key={username}
+                      value={username}
+                    >
+                      {username}
                     </SelectOption>
                   ))}
                 </SelectList>
@@ -227,14 +231,14 @@ export const ActivityToolbar: React.FC<ActivityToolbarProps> = ({
                     isExpanded={presetSelectOpen}
                     ref={toggleRef}
                     variant="plain"
-                    onClick={() => setPresetSelectOpen(o => !o)}
+                    onClick={() => setPresetSelectOpen(prevOpen => !prevOpen)}
                   >
                     <BookmarkIcon />
                   </MenuToggle>
                 )}
                 onOpenChange={setPresetSelectOpen}
                 onSelect={(_e, val) => {
-                  const preset = presets.find(p => p.name === val);
+                  const preset = presets.find(entry => entry.name === val);
                   if (preset) {
                     onLoadPreset(preset);
                   }
@@ -242,9 +246,9 @@ export const ActivityToolbar: React.FC<ActivityToolbarProps> = ({
                 }}
               >
                 <SelectList>
-                  {presets.map(p => (
-                    <SelectOption key={p.name} value={p.name}>
-                      {p.name}
+                  {presets.map(preset => (
+                    <SelectOption key={preset.name} value={preset.name}>
+                      {preset.name}
                     </SelectOption>
                   ))}
                 </SelectList>
@@ -306,9 +310,9 @@ export const ActivityToolbar: React.FC<ActivityToolbarProps> = ({
         {hasActiveFilters && (
           <ToolbarItem>
             <LabelGroup numLabels={5}>
-              {selectedActions.map(a => (
-                <Label key={a} onClose={() => toggleAction(a)}>
-                  {ACTION_OPTIONS.find(o => o.value === a)?.label ?? a}
+              {selectedActions.map(actionValue => (
+                <Label key={actionValue} onClose={() => toggleAction(actionValue)}>
+                  {ACTION_OPTIONS.find(opt => opt.value === actionValue)?.label ?? actionValue}
                 </Label>
               ))}
               {filters.user && (

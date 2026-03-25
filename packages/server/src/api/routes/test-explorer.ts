@@ -137,8 +137,8 @@ router.get('/file/:repoId/{*filePath}', async (req: Request, res: Response, next
           const docSummary =
             content.length > 6000 ? `${content.substring(0, 6000)}\n...(truncated)` : content;
           const testList = counterpartTestBlocks
-            .filter(b => b.type === 'test' || b.type === 'it')
-            .map(b => `Line ${b.line}: ${b.name}`)
+            .filter(block => block.type === 'test' || block.type === 'it')
+            .map(block => `Line ${block.line}: ${block.name}`)
             .join('\n');
 
           const prompt = `You are mapping test documentation to actual test code. The documentation is a Software Test Description (STD) with numbered test cases (### 001, ### 002, etc.) and a Requirements Traceability Matrix table.
@@ -203,8 +203,8 @@ router.get('/gaps', async (req: Request, res: Response, next: NextFunction) => {
       await import('../../db/store');
 
     const repos = component
-      ? (await getEnabledRepositories()).filter(r =>
-          (r.components as unknown as string[]).includes(component),
+      ? (await getEnabledRepositories()).filter(repo =>
+          (repo.components as unknown as string[]).includes(component),
         )
       : await getEnabledRepositories();
 
@@ -304,8 +304,8 @@ router.get('/stats', async (req: Request, res: Response, next: NextFunction) => 
     const { getEnabledRepositories } = await import('../../db/store');
     const component = (req.query.component as string) || undefined;
     const repos = component
-      ? (await getEnabledRepositories()).filter(r =>
-          (r.components as unknown as string[]).includes(component),
+      ? (await getEnabledRepositories()).filter(repo =>
+          (repo.components as unknown as string[]).includes(component),
         )
       : await getEnabledRepositories();
 
@@ -496,7 +496,7 @@ router.post('/submit-drafts', async (req: Request, res: Response, next: NextFunc
       markDraftsSubmitting,
     } = await import('../../db/store');
     const allDrafts = await getUserDrafts(email);
-    const selectedDrafts = allDrafts.filter(d => draftIds.includes(d.id));
+    const selectedDrafts = allDrafts.filter(draft => draftIds.includes(draft.id));
 
     if (selectedDrafts.length === 0) {
       res.status(400).json({ error: 'No valid drafts found' });
@@ -562,10 +562,10 @@ router.post('/submit-drafts', async (req: Request, res: Response, next: NextFunc
         );
       }
 
-      const pr = await provider.createPR({
+      const pullRequest = await provider.createPR({
         description:
           prDescription ||
-          `Documentation updates by ${email}\n\nFiles changed:\n${selectedDrafts.map(d => `- ${d.file_path}`).join('\n')}`,
+          `Documentation updates by ${email}\n\nFiles changed:\n${selectedDrafts.map(draft => `- ${draft.file_path}`).join('\n')}`,
         sourceBranch: branchName,
         targetBranch: branch,
         title: prTitle,
@@ -578,7 +578,7 @@ router.post('/submit-drafts', async (req: Request, res: Response, next: NextFunc
         logEditActivity({
           action: 'pr_submitted',
           actor: email,
-          details: { prNumber: pr.number, prUrl: pr.url },
+          details: { prNumber: pullRequest.number, prUrl: pullRequest.url },
           filePath: draft.file_path,
           repoId,
         }).catch(() => {
@@ -588,8 +588,8 @@ router.post('/submit-drafts', async (req: Request, res: Response, next: NextFunc
 
       res.json({
         filesCommitted: selectedDrafts.length,
-        prNumber: pr.number,
-        prUrl: pr.url,
+        prNumber: pullRequest.number,
+        prUrl: pullRequest.url,
         success: true,
       });
     } catch (err) {

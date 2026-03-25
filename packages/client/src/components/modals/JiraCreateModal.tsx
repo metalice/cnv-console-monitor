@@ -110,7 +110,7 @@ export const JiraCreateModal: React.FC<JiraCreateModalProps> = ({
                 className="app-mt-sm"
                 isExpanded={reportExpanded}
                 toggleText="AI-Generated Bug Report"
-                onToggle={(_e, v) => setReportExpanded(v)}
+                onToggle={(_e, isExpanded) => setReportExpanded(isExpanded)}
               >
                 <div className="app-text-xs">
                   {aiReport.report.title && (

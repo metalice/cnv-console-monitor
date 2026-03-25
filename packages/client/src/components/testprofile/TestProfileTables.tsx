@@ -42,8 +42,8 @@ const SimpleTable: React.FC<{
           <Table aria-label={label} variant="compact">
             <Thead>
               <Tr>
-                {headers.map(h => (
-                  <Th key={h}>{h}</Th>
+                {headers.map(header => (
+                  <Th key={header}>{header}</Th>
                 ))}
               </Tr>
             </Thead>
@@ -111,22 +111,24 @@ export const TestProfileTables: React.FC<{
           headers={['Version', 'Tier', 'Cluster', 'Date', 'Link']}
           items={affectedLaunches}
           label="Affected Launches"
-          renderRow={(l: AffectedLaunch) => (
-            <Tr key={l.rp_id}>
-              <Td className="app-cell-nowrap">{l.cnv_version ?? '--'}</Td>
-              <Td className="app-cell-nowrap">{l.tier ?? '--'}</Td>
+          renderRow={(launch: AffectedLaunch) => (
+            <Tr key={launch.rp_id}>
+              <Td className="app-cell-nowrap">{launch.cnv_version ?? '--'}</Td>
+              <Td className="app-cell-nowrap">{launch.tier ?? '--'}</Td>
               <Td className="app-cell-truncate">
-                <Tooltip content={l.cluster_name || '--'}>
-                  <span>{l.cluster_name ?? '--'}</span>
+                <Tooltip content={launch.cluster_name || '--'}>
+                  <span>{launch.cluster_name ?? '--'}</span>
                 </Tooltip>
               </Td>
-              <Td className="app-cell-nowrap">{new Date(l.start_time).toLocaleDateString()}</Td>
+              <Td className="app-cell-nowrap">
+                {new Date(launch.start_time).toLocaleDateString()}
+              </Td>
               <Td className="app-cell-nowrap">
                 <Button
                   isInline
                   size="sm"
                   variant="link"
-                  onClick={() => navigate(`/launch/${l.rp_id}`)}
+                  onClick={() => navigate(`/launch/${launch.rp_id}`)}
                 >
                   View
                 </Button>
@@ -142,28 +144,30 @@ export const TestProfileTables: React.FC<{
           headers={['Date', 'Action', 'Change', 'By']}
           items={triageHistory}
           label="Triage History"
-          renderRow={(t: TriageEntry, i: number) => (
+          renderRow={(triageEntry: TriageEntry, i: number) => (
             <Tr key={i}>
-              <Td className="app-cell-nowrap">{new Date(t.performed_at).toLocaleString()}</Td>
               <Td className="app-cell-nowrap">
-                <Label isCompact>{t.action}</Label>
+                {new Date(triageEntry.performed_at).toLocaleString()}
+              </Td>
+              <Td className="app-cell-nowrap">
+                <Label isCompact>{triageEntry.action}</Label>
               </Td>
               <Td className="app-cell-truncate">
                 <Tooltip
                   content={
-                    t.old_value && t.new_value
-                      ? `${t.old_value} → ${t.new_value}`
-                      : t.new_value || '--'
+                    triageEntry.old_value && triageEntry.new_value
+                      ? `${triageEntry.old_value} → ${triageEntry.new_value}`
+                      : triageEntry.new_value || '--'
                   }
                 >
                   <span>
-                    {t.old_value && t.new_value
-                      ? `${t.old_value} → ${t.new_value}`
-                      : t.new_value || '--'}
+                    {triageEntry.old_value && triageEntry.new_value
+                      ? `${triageEntry.old_value} → ${triageEntry.new_value}`
+                      : triageEntry.new_value || '--'}
                   </span>
                 </Tooltip>
               </Td>
-              <Td className="app-cell-nowrap">{t.performed_by ?? '--'}</Td>
+              <Td className="app-cell-nowrap">{triageEntry.performed_by ?? '--'}</Td>
             </Tr>
           )}
         />

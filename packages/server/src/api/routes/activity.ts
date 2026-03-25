@@ -43,8 +43,8 @@ router.get('/meta', async (_req: Request, res: Response, next: NextFunction) => 
       `),
     ])) as [Record<string, string>[], Record<string, string>[]];
     res.json({
-      components: components.map(r => r.component).filter(Boolean),
-      users: users.map(r => r.performed_by || r.reviewer).filter(Boolean),
+      components: components.map(row => row.component).filter(Boolean),
+      users: users.map(row => row.performed_by || row.reviewer).filter(Boolean),
     });
   } catch (err) {
     next(err);
@@ -55,7 +55,7 @@ router.get('/summary', async (req: Request, res: Response, next: NextFunction) =
   try {
     const params: unknown[] = [];
     let idx = 1;
-    const p = () => `$${idx++}`;
+    const nextParam = () => `$${idx++}`;
 
     const triageWhere: string[] = ['1=1'];
     const ackWhere: string[] = ['1=1'];
@@ -65,21 +65,21 @@ router.get('/summary', async (req: Request, res: Response, next: NextFunction) =
     const until = (req.query.until as string) || undefined;
 
     if (component) {
-      const cp = p();
-      triageWhere.push(`tl.component = ${cp}`);
-      ackWhere.push(`a.component = ${cp}`);
+      const componentParam = nextParam();
+      triageWhere.push(`tl.component = ${componentParam}`);
+      ackWhere.push(`a.component = ${componentParam}`);
       params.push(component);
     }
     if (since) {
-      const sp = p();
-      triageWhere.push(`tl.performed_at >= ${sp}::timestamptz`);
-      ackWhere.push(`a.acknowledged_at >= ${sp}::timestamptz`);
+      const sinceParam = nextParam();
+      triageWhere.push(`tl.performed_at >= ${sinceParam}::timestamptz`);
+      ackWhere.push(`a.acknowledged_at >= ${sinceParam}::timestamptz`);
       params.push(since);
     }
     if (until) {
-      const up = p();
-      triageWhere.push(`tl.performed_at <= ${up}::timestamptz`);
-      ackWhere.push(`a.acknowledged_at <= ${up}::timestamptz`);
+      const untilParam = nextParam();
+      triageWhere.push(`tl.performed_at <= ${untilParam}::timestamptz`);
+      ackWhere.push(`a.acknowledged_at <= ${untilParam}::timestamptz`);
       params.push(until);
     }
 
@@ -130,15 +130,15 @@ router.get('/summary', async (req: Request, res: Response, next: NextFunction) =
 
     const byAction: Record<string, number> = {};
     let total = 0;
-    for (const r of actionRows) {
-      byAction[r.action as string] = r.count as number;
-      total += Number(r.count);
+    for (const row of actionRows) {
+      byAction[row.action as string] = row.count as number;
+      total += Number(row.count);
     }
 
     res.json({
       byAction,
-      byComponent: componentRows.map(r => [r.component, r.count]),
-      byUser: userRows.map(r => [r.performed_by, r.count]),
+      byComponent: componentRows.map(row => [row.component, row.count]),
+      byUser: userRows.map(row => [row.performed_by, row.count]),
       latestActivityAt: latestRow[0]?.latest
         ? new Date(latestRow[0].latest as string).getTime()
         : null,

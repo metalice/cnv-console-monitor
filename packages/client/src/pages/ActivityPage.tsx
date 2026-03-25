@@ -22,7 +22,15 @@ import {
   Tooltip,
 } from '@patternfly/react-core';
 import { ArrowDownIcon, ArrowUpIcon, ExchangeAltIcon } from '@patternfly/react-icons';
-import { SortByDirection, Table, Tbody, Td, Thead, Tr } from '@patternfly/react-table';
+import {
+  SortByDirection,
+  Table,
+  Tbody,
+  Td,
+  Thead,
+  type ThProps,
+  Tr,
+} from '@patternfly/react-table';
 import { useQuery } from '@tanstack/react-query';
 
 import { fetchAckStats } from '../api/acknowledgment';
@@ -55,16 +63,16 @@ const computeReviewerStreak = (
   }
   const set = new Set(dates);
   const today = new Date();
-  const toStr = (d: Date) => d.toISOString().split('T')[0];
+  const toStr = (date: Date) => date.toISOString().split('T')[0];
 
   let current = 0;
-  const d = new Date(today);
-  if (!set.has(toStr(d))) {
-    d.setDate(d.getDate() - 1);
+  const cursorDate = new Date(today);
+  if (!set.has(toStr(cursorDate))) {
+    cursorDate.setDate(cursorDate.getDate() - 1);
   }
-  while (set.has(toStr(d))) {
+  while (set.has(toStr(cursorDate))) {
     current++;
-    d.setDate(d.getDate() - 1);
+    cursorDate.setDate(cursorDate.getDate() - 1);
   }
 
   let longest = 0,
@@ -103,9 +111,9 @@ const TrendSparkline: React.FC<{ dates: string[] }> = ({ dates }) => {
   const today = new Date();
   const dots: boolean[] = [];
   for (let i = 29; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    dots.push(set.has(d.toISOString().split('T')[0]));
+    const dayDate = new Date(today);
+    dayDate.setDate(dayDate.getDate() - i);
+    dots.push(set.has(dayDate.toISOString().split('T')[0]));
   }
   return (
     <svg className="app-sparkline" height="12" viewBox="0 0 60 12" width="60">
@@ -129,12 +137,12 @@ const TrendSparkline: React.FC<{ dates: string[] }> = ({ dates }) => {
 
 type EnrichedApprover = ApproverStat & { current: number; longest: number; coverage: number };
 
-const REVIEWER_ACCESSORS: Record<number, (a: EnrichedApprover) => string | number | null> = {
-  0: a => a.reviewer,
-  1: a => a.totalReviews,
-  2: a => a.coverage,
-  3: a => a.current,
-  4: a => a.lastReviewDate,
+const REVIEWER_ACCESSORS: Record<number, (approver: EnrichedApprover) => string | number | null> = {
+  0: approver => approver.reviewer,
+  1: approver => approver.totalReviews,
+  2: approver => approver.coverage,
+  3: approver => approver.current,
+  4: approver => approver.lastReviewDate,
 };
 
 const DeltaStat: React.FC<{ label: string; value: number; prev?: number }> = ({
@@ -155,6 +163,85 @@ const DeltaStat: React.FC<{ label: string; value: number; prev?: number }> = ({
     </div>
   );
 };
+
+type ReviewerStatsSectionProps = {
+  getApproverSortParams: (columnIndex: number) => ThProps['sort'];
+  sortedApprovers: EnrichedApprover[];
+};
+
+const ReviewerStatsSection = ({
+  getApproverSortParams,
+  sortedApprovers,
+}: ReviewerStatsSectionProps) => (
+  <GridItem md={6} span={12}>
+    <Card>
+      <CardTitle>Reviewer Stats</CardTitle>
+      <CardBody>
+        <div className="app-table-scroll">
+          <Table aria-label="Approver stats" variant="compact">
+            <Thead>
+              <Tr>
+                <ThWithHelp
+                  help="Person who acknowledged daily test results."
+                  label="Reviewer"
+                  sort={getApproverSortParams(0)}
+                />
+                <ThWithHelp
+                  help="Total acknowledgments."
+                  label="Reviews"
+                  sort={getApproverSortParams(1)}
+                />
+                <ThWithHelp
+                  help="Percentage of weekdays covered."
+                  label="Coverage"
+                  sort={getApproverSortParams(2)}
+                />
+                <ThWithHelp
+                  help="Current consecutive days reviewing."
+                  label="Streak"
+                  sort={getApproverSortParams(3)}
+                />
+                <ThWithHelp help="Last 30 days. Filled = reviewed." label="Trend" />
+                <ThWithHelp
+                  help="Most recent acknowledgment."
+                  label="Last"
+                  sort={getApproverSortParams(4)}
+                />
+              </Tr>
+            </Thead>
+            <Tbody>
+              {sortedApprovers.map(approver => (
+                <Tr key={approver.reviewer}>
+                  <Td dataLabel="Reviewer">
+                    <strong>{approver.reviewer.split('@')[0]}</strong>
+                  </Td>
+                  <Td dataLabel="Reviews">{approver.totalReviews}</Td>
+                  <Td dataLabel="Coverage">{approver.coverage}%</Td>
+                  <Td dataLabel="Streak">
+                    <Tooltip content={`Current: ${approver.current}d, Best: ${approver.longest}d`}>
+                      <span>
+                        {approver.current}d
+                        {approver.longest > approver.current ? ` / ${approver.longest}d` : ''}
+                      </span>
+                    </Tooltip>
+                  </Td>
+                  <Td dataLabel="Trend">
+                    <TrendSparkline dates={approver.reviewedDates} />
+                  </Td>
+                  <Td dataLabel="Last">
+                    <Tooltip content={approver.lastReviewDate}>
+                      <span>{timeAgo(new Date(approver.lastReviewDate).getTime())}</span>
+                    </Tooltip>
+                  </Td>
+                </Tr>
+              ))}
+            </Tbody>
+          </Table>
+        </div>
+      </CardBody>
+    </Card>
+  </GridItem>
+);
 
 export const ActivityPage: React.FC = () => {
   const [page, setPage] = useState(1);
@@ -233,9 +320,9 @@ export const ActivityPage: React.FC = () => {
 
   const enrichedApprovers: EnrichedApprover[] = useMemo(
     () =>
-      (ackStats?.approvers ?? []).map(a => ({
-        ...a,
-        ...computeReviewerStreak(a.reviewedDates, calendarDays),
+      (ackStats?.approvers ?? []).map(approver => ({
+        ...approver,
+        ...computeReviewerStreak(approver.reviewedDates, calendarDays),
       })),
     [ackStats, calendarDays],
   );
@@ -253,7 +340,10 @@ export const ActivityPage: React.FC = () => {
       filters: localFilters as Record<string, string | undefined>,
       name,
     };
-    setPreference('activityPresets', [...presets.filter(p => p.name !== name), preset]);
+    setPreference('activityPresets', [
+      ...presets.filter(presetItem => presetItem.name !== name),
+      preset,
+    ]);
   };
   const handleLoadPreset = (preset: ActivityFilterPreset) => {
     setLocalFilters(preset.filters as typeof localFilters);
@@ -273,7 +363,7 @@ export const ActivityPage: React.FC = () => {
             icon={<ExchangeAltIcon />}
             size="sm"
             variant={showComparison ? 'primary' : 'secondary'}
-            onClick={() => setShowComparison(v => !v)}
+            onClick={() => setShowComparison(wasShowing => !wasShowing)}
           >
             Compare
           </Button>
@@ -333,80 +423,19 @@ export const ActivityPage: React.FC = () => {
           )}
 
           {ackStats && sortedApprovers.length > 0 && (
-            <GridItem md={6} span={12}>
-              <Card>
-                <CardTitle>Reviewer Stats</CardTitle>
-                <CardBody>
-                  <div className="app-table-scroll">
-                    <Table aria-label="Approver stats" variant="compact">
-                      <Thead>
-                        <Tr>
-                          <ThWithHelp
-                            help="Person who acknowledged daily test results."
-                            label="Reviewer"
-                            sort={getApproverSortParams(0)}
-                          />
-                          <ThWithHelp
-                            help="Total acknowledgments."
-                            label="Reviews"
-                            sort={getApproverSortParams(1)}
-                          />
-                          <ThWithHelp
-                            help="Percentage of weekdays covered."
-                            label="Coverage"
-                            sort={getApproverSortParams(2)}
-                          />
-                          <ThWithHelp
-                            help="Current consecutive days reviewing."
-                            label="Streak"
-                            sort={getApproverSortParams(3)}
-                          />
-                          <ThWithHelp help="Last 30 days. Filled = reviewed." label="Trend" />
-                          <ThWithHelp
-                            help="Most recent acknowledgment."
-                            label="Last"
-                            sort={getApproverSortParams(4)}
-                          />
-                        </Tr>
-                      </Thead>
-                      <Tbody>
-                        {sortedApprovers.map(a => (
-                          <Tr key={a.reviewer}>
-                            <Td dataLabel="Reviewer">
-                              <strong>{a.reviewer.split('@')[0]}</strong>
-                            </Td>
-                            <Td dataLabel="Reviews">{a.totalReviews}</Td>
-                            <Td dataLabel="Coverage">{a.coverage}%</Td>
-                            <Td dataLabel="Streak">
-                              <Tooltip content={`Current: ${a.current}d, Best: ${a.longest}d`}>
-                                <span>
-                                  {a.current}d{a.longest > a.current ? ` / ${a.longest}d` : ''}
-                                </span>
-                              </Tooltip>
-                            </Td>
-                            <Td dataLabel="Trend">
-                              <TrendSparkline dates={a.reviewedDates} />
-                            </Td>
-                            <Td dataLabel="Last">
-                              <Tooltip content={a.lastReviewDate}>
-                                <span>{timeAgo(new Date(a.lastReviewDate).getTime())}</span>
-                              </Tooltip>
-                            </Td>
-                          </Tr>
-                        ))}
-                      </Tbody>
-                    </Table>
-                  </div>
-                </CardBody>
-              </Card>
-            </GridItem>
+            <ReviewerStatsSection
+              getApproverSortParams={getApproverSortParams}
+              sortedApprovers={sortedApprovers}
+            />
           )}
 
           {summary && summary.byComponent.length > 0 && (
             <GridItem md={6} span={12}>
               <ComponentChart
                 data={summary.byComponent}
-                onComponentClick={comp => setLocalFilters(f => ({ ...f, component: comp }))}
+                onComponentClick={comp =>
+                  setLocalFilters(prevFilters => ({ ...prevFilters, component: comp }))
+                }
               />
             </GridItem>
           )}
@@ -431,8 +460,8 @@ export const ActivityPage: React.FC = () => {
                     clearAll();
                     setPage(1);
                   }}
-                  onFiltersChange={f => {
-                    setLocalFilters(f);
+                  onFiltersChange={nextFilters => {
+                    setLocalFilters(nextFilters);
                     setPage(1);
                   }}
                   onLoadPreset={handleLoadPreset}

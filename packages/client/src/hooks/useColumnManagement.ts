@@ -12,7 +12,7 @@ export const useColumnManagement = (tableId: string, allColumns: ColumnDef[]) =>
   const { loaded, preferences, setPreference } = usePreferences();
 
   const defaultIds = useMemo(
-    () => allColumns.filter(c => c.isDefault !== false).map(c => c.id),
+    () => allColumns.filter(column => column.isDefault !== false).map(column => column.id),
     [allColumns],
   );
 
@@ -24,7 +24,7 @@ export const useColumnManagement = (tableId: string, allColumns: ColumnDef[]) =>
     initializedRef.current = true;
     const saved = preferences.tableColumns?.[tableId];
     if (saved?.length) {
-      return saved.filter((id: string) => allColumns.some(c => c.id === id));
+      return saved.filter((id: string) => allColumns.some(column => column.id === id));
     }
     return defaultIds;
   }, [loaded, defaultIds, tableId, allColumns, preferences.tableColumns]);
@@ -75,7 +75,7 @@ export const useColumnManagement = (tableId: string, allColumns: ColumnDef[]) =>
   }, [defaultIds, persist]);
 
   const visibleColumns = useMemo(
-    () => allColumns.filter(c => visibleIds.includes(c.id)),
+    () => allColumns.filter(column => visibleIds.includes(column.id)),
     [allColumns, visibleIds],
   );
 

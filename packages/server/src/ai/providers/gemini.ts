@@ -31,11 +31,11 @@ export class GeminiProvider implements ModelProvider {
       model: modelId,
     });
 
-    const systemMessage = messages.find(m => m.role === 'system')?.content;
-    const nonSystemMessages = messages.filter(m => m.role !== 'system');
-    const history = nonSystemMessages.slice(0, -1).map(m => ({
-      parts: [{ text: m.content }],
-      role: m.role === 'assistant' ? ('model' as const) : ('user' as const),
+    const systemMessage = messages.find(msg => msg.role === 'system')?.content;
+    const nonSystemMessages = messages.filter(msg => msg.role !== 'system');
+    const history = nonSystemMessages.slice(0, -1).map(msg => ({
+      parts: [{ text: msg.content }],
+      role: msg.role === 'assistant' ? ('model' as const) : ('user' as const),
     }));
 
     const lastUserMsg =

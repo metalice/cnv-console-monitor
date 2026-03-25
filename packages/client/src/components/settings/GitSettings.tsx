@@ -71,8 +71,8 @@ export const GitSettings: React.FC<GitSettingsProps> = ({
                 type={tokenEditing['gitlab.token'] ? 'text' : 'password'}
                 value={val('gitlab.token')}
                 onBlur={() => endTokenEdit('gitlab.token')}
-                onChange={(_e, v) => {
-                  set('gitlab.token', v);
+                onChange={(_e, value) => {
+                  set('gitlab.token', value);
                   setGitlabMsg(null);
                 }}
                 onFocus={() => startTokenEdit('gitlab.token')}
@@ -117,8 +117,8 @@ export const GitSettings: React.FC<GitSettingsProps> = ({
                 type={tokenEditing['github.token'] ? 'text' : 'password'}
                 value={val('github.token')}
                 onBlur={() => endTokenEdit('github.token')}
-                onChange={(_e, v) => {
-                  set('github.token', v);
+                onChange={(_e, value) => {
+                  set('github.token', value);
                   setGithubMsg(null);
                 }}
                 onFocus={() => startTokenEdit('github.token')}

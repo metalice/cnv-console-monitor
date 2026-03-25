@@ -41,9 +41,9 @@ export const resolveJiraMeta = (
     : jiraMeta;
 
   const jiraProjectOptions = jiraMetaData?.projects?.length ? jiraMetaData.projects : [];
-  const jiraProjectSelectOptions: SearchableSelectOption[] = jiraProjectOptions.map(p => ({
-    label: `${p.key} - ${p.name}`,
-    value: p.key,
+  const jiraProjectSelectOptions: SearchableSelectOption[] = jiraProjectOptions.map(project => ({
+    label: `${project.key} - ${project.name}`,
+    value: project.key,
   }));
   const issueTypeOptions = jiraMetaData?.issueTypes?.length
     ? /* eslint-enable @typescript-eslint/no-unnecessary-condition */

@@ -122,15 +122,15 @@ export const getQuarantineStats = async (): Promise<{
       COALESCE(AVG(EXTRACT(EPOCH FROM (COALESCE(resolved_at, NOW()) - quarantined_at)) / 86400) FILTER (WHERE status IN ('active', 'overdue', 'resolved')), 0) AS avg_duration_days
     FROM quarantines
   `);
-  const r = rows[0] || {};
+  const row = rows[0] || {};
   /* eslint-disable @typescript-eslint/no-unnecessary-condition -- defensive: DB aggregate result shape */
   return {
-    active: parseInt(r.active ?? '0', 10),
-    avgDurationDays: parseFloat(r.avg_duration_days ?? '0'),
-    expired: parseInt(r.expired ?? '0', 10),
-    overdue: parseInt(r.overdue ?? '0', 10),
-    proposed: parseInt(r.proposed ?? '0', 10),
-    resolvedLast30d: parseInt(r.resolved_last_30d ?? '0', 10),
+    active: parseInt(row.active ?? '0', 10),
+    avgDurationDays: parseFloat(row.avg_duration_days ?? '0'),
+    expired: parseInt(row.expired ?? '0', 10),
+    overdue: parseInt(row.overdue ?? '0', 10),
+    proposed: parseInt(row.proposed ?? '0', 10),
+    resolvedLast30d: parseInt(row.resolved_last_30d ?? '0', 10),
   };
   /* eslint-enable @typescript-eslint/no-unnecessary-condition */
 };

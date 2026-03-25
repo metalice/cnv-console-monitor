@@ -62,8 +62,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     if (selectedComponents.size > 0) {
       params.set('components', [...selectedComponents].join(','));
     }
-    const qs = params.toString();
-    navigate(qs ? `${path}?${qs}` : path);
+    const searchParams = params.toString();
+    navigate(searchParams ? `${path}?${searchParams}` : path);
   };
   const { loaded: prefsLoaded, preferences, setPreference } = usePreferences();
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);

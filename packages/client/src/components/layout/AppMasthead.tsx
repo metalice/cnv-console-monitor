@@ -44,8 +44,8 @@ type AppMastheadProps = {
   isAdmin: boolean;
 };
 
-const formatTimeAgo = (ts: number): string => {
-  const diffMs = Date.now() - ts;
+const formatTimeAgo = (epochMs: number): string => {
+  const diffMs = Date.now() - epochMs;
   const mins = Math.floor(diffMs / 60000);
   if (mins < 1) {
     return 'just now';
@@ -60,8 +60,8 @@ const formatTimeAgo = (ts: number): string => {
   return `${Math.floor(hours / 24)}d ago`;
 };
 
-const formatTimeUntil = (ts: number): string => {
-  const diffMs = ts - Date.now();
+const formatTimeUntil = (epochMs: number): string => {
+  const diffMs = epochMs - Date.now();
   if (diffMs <= 0) {
     return 'soon';
   }
@@ -92,7 +92,7 @@ const PollIndicator: React.FC = () => {
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [, setTick] = React.useState(0);
   React.useEffect(() => {
-    const timer = setInterval(() => setTick(t => t + 1), 30000);
+    const timer = setInterval(() => setTick(prevTick => prevTick + 1), 30000);
     return () => clearInterval(timer);
   }, []);
 
@@ -206,7 +206,7 @@ const AISearchIndicator: React.FC = () => {
 
   React.useEffect(() => {
     fetch('/api/ai/status')
-      .then(r => r.json() as Promise<{ enabled: boolean }>)
+      .then(response => response.json() as Promise<{ enabled: boolean }>)
       .then(setAiStatus)
       .catch(() => {
         // no-op

@@ -41,7 +41,7 @@ import { deleteDraftApi, fetchFileDetail, saveDraftApi } from '../../api/testExp
 
 import { GapBadge } from './GapBadge';
 const MonacoViewer = React.lazy(() =>
-  import('./MonacoViewer').then(m => ({ default: m.MonacoViewer })),
+  import('./MonacoViewer').then(monacoModule => ({ default: monacoModule.MonacoViewer })),
 );
 
 type TestBlock = {
@@ -152,7 +152,7 @@ export const FileDetail: React.FC<FileDetailProps> = ({
           }
         }
 
-        const words = lower.split(/\s+/).filter(w => w.length > 3);
+        const words = lower.split(/\s+/).filter(word => word.length > 3);
         if (words.length < 2) {
           return null;
         }
@@ -160,7 +160,7 @@ export const FileDetail: React.FC<FileDetailProps> = ({
         let bestScore = 0;
         for (const block of counterpartTestBlocks) {
           const blockLower = block.name.toLowerCase();
-          const score = words.filter(w => blockLower.includes(w)).length / words.length;
+          const score = words.filter(word => blockLower.includes(word)).length / words.length;
           if (score > bestScore && score >= 0.4) {
             bestScore = score;
             bestBlock = block;
@@ -180,8 +180,8 @@ export const FileDetail: React.FC<FileDetailProps> = ({
         );
         html = html.replace(
           quotePattern,
-          (_m, q1, name, q2) =>
-            `${q1}<a class="app-test-link" data-line="${block.line}" data-path="${node.counterpartPath}" title="Jump to test: ${block.name} (line ${block.line})">${name} ${linkIcon}</a>${q2}`,
+          (_match, openQuote, name, closeQuote) =>
+            `${openQuote}<a class="app-test-link" data-line="${block.line}" data-path="${node.counterpartPath}" title="Jump to test: ${block.name} (line ${block.line})">${name} ${linkIcon}</a>${closeQuote}`,
         );
       }
 
@@ -195,7 +195,7 @@ export const FileDetail: React.FC<FileDetailProps> = ({
           }
           const caseId = caseMatch[1];
 
-          const aiLink = testCaseLinks.find(l => l.caseId === caseId);
+          const aiLink = testCaseLinks.find(caseLink => caseLink.caseId === caseId);
           if (aiLink) {
             return `<h3>${innerHtml} <a class="app-test-link app-test-link-heading" data-line="${aiLink.line}" data-path="${node.counterpartPath}" title="Jump to: ${aiLink.testName} (line ${aiLink.line})">${linkIcon} View test</a></h3>`;
           }

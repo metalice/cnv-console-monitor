@@ -52,34 +52,34 @@ type ComponentHealthCardProps = {
 };
 
 export const ComponentHealthCard: React.FC<ComponentHealthCardProps> = ({
-  component: c,
+  component: healthSummary,
   onClick,
 }) => {
-  const barColor = passRateColor(c.passRate);
-  const labelColor = passRateLabelColor(c.passRate);
+  const barColor = passRateColor(healthSummary.passRate);
+  const labelColor = passRateLabelColor(healthSummary.passRate);
 
   return (
     <Card isClickable isSelectable className="app-health-card" onClick={onClick}>
       <CardBody>
         <Flex alignItems={{ default: 'alignItemsCenter' }} flexWrap={{ default: 'nowrap' }}>
           <FlexItem className="app-health-name-col">
-            <div className="app-health-component-name">{c.component}</div>
+            <div className="app-health-component-name">{healthSummary.component}</div>
             <div className="app-mb-xs">
               <Tooltip
-                content={`Trend compares the pass rate in the selected period (${c.passRate}%) against the previous equivalent period. Improving = current is 3%+ higher, Worsening = current is 3%+ lower.`}
+                content={`Trend compares the pass rate in the selected period (${healthSummary.passRate}%) against the previous equivalent period. Improving = current is 3%+ higher, Worsening = current is 3%+ lower.`}
               >
                 <span>
-                  {c.trend === 'improving' && (
+                  {healthSummary.trend === 'improving' && (
                     <Label isCompact color="green" icon={<TrendUpIcon />}>
                       Improving
                     </Label>
                   )}
-                  {c.trend === 'worsening' && (
+                  {healthSummary.trend === 'worsening' && (
                     <Label isCompact color="red" icon={<TrendDownIcon />}>
                       Worsening
                     </Label>
                   )}
-                  {c.trend === 'stable' && (
+                  {healthSummary.trend === 'stable' && (
                     <Label isCompact color="grey" icon={<EqualsIcon />}>
                       Stable
                     </Label>
@@ -91,7 +91,7 @@ export const ComponentHealthCard: React.FC<ComponentHealthCardProps> = ({
 
           <FlexItem className="app-health-rate-col">
             <Tooltip
-              content={`Pass rate = number of launches with PASSED status / total launches for this component in the selected period. ${c.totalLaunches - c.failedLaunches} passed out of ${c.totalLaunches} total.`}
+              content={`Pass rate = number of launches with PASSED status / total launches for this component in the selected period. ${healthSummary.totalLaunches - healthSummary.failedLaunches} passed out of ${healthSummary.totalLaunches} total.`}
             >
               <Flex
                 alignItems={{ default: 'alignItemsCenter' }}
@@ -100,14 +100,14 @@ export const ComponentHealthCard: React.FC<ComponentHealthCardProps> = ({
               >
                 <FlexItem>
                   <Label className="app-health-label-big" color={labelColor}>
-                    {c.passRate}%
+                    {healthSummary.passRate}%
                   </Label>
                 </FlexItem>
                 <FlexItem className="app-flex-1 app-max-w-120">
                   <div className="app-progress-track app-health-progress-track">
                     <div
                       className="app-progress-fill--brand"
-                      style={{ background: barColor, width: `${c.passRate}%` }}
+                      style={{ background: barColor, width: `${healthSummary.passRate}%` }}
                     />
                   </div>
                 </FlexItem>
@@ -124,55 +124,55 @@ export const ComponentHealthCard: React.FC<ComponentHealthCardProps> = ({
               <Stat
                 help="Total number of test launches (runs) for this component in the selected time period."
                 label="Launches"
-                value={c.totalLaunches}
+                value={healthSummary.totalLaunches}
               />
             </FlexItem>
             <FlexItem>
               <Stat
                 color={
-                  c.failedLaunches > 0
+                  healthSummary.failedLaunches > 0
                     ? 'var(--pf-t--global--color--status--danger--default)'
                     : undefined
                 }
                 help="Number of launches with FAILED status. A launch is failed if any test in it failed."
                 label="Failed"
-                value={c.failedLaunches}
+                value={healthSummary.failedLaunches}
               />
             </FlexItem>
             <FlexItem>
               <Stat
                 color={
-                  c.untriagedCount > 0
+                  healthSummary.untriagedCount > 0
                     ? 'var(--pf-t--global--color--status--warning--default)'
                     : undefined
                 }
                 help="Number of unique failing tests that have not been classified yet (no defect type assigned). Each test is counted once regardless of how many launches it failed in."
                 label="Untriaged"
-                value={c.untriagedCount}
+                value={healthSummary.untriagedCount}
               />
             </FlexItem>
             <FlexItem>
               <Stat
                 color={
-                  c.flakyCount > 0
+                  healthSummary.flakyCount > 0
                     ? 'var(--pf-t--global--color--status--warning--default)'
                     : undefined
                 }
                 help="Number of unique tests that flipped between PASSED and FAILED across launches in the selected period. Flaky tests are unreliable and need investigation."
                 label="Flaky"
-                value={c.flakyCount}
+                value={healthSummary.flakyCount}
               />
             </FlexItem>
             <FlexItem>
               <Stat
                 color={
-                  c.worseningCount > 0
+                  healthSummary.worseningCount > 0
                     ? 'var(--pf-t--global--color--status--danger--default)'
                     : undefined
                 }
                 help="Number of failing tests whose failure rate increased in the second half of the period compared to the first half. These tests are getting worse over time."
                 label="Worsening"
-                value={c.worseningCount}
+                value={healthSummary.worseningCount}
               />
             </FlexItem>
           </Flex>

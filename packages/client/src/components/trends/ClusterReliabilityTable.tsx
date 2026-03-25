@@ -37,19 +37,19 @@ export const ClusterReliabilityTable: React.FC<ClusterReliabilityTableProps> = (
             </Tr>
           </Thead>
           <Tbody>
-            {clusterData.map(c => {
-              const color = rateColor(c.passRate);
+            {clusterData.map(cluster => {
+              const color = rateColor(cluster.passRate);
               return (
-                <Tr key={c.cluster}>
+                <Tr key={cluster.cluster}>
                   <Td className="app-cell-nowrap">
-                    <strong>{c.cluster}</strong>
+                    <strong>{cluster.cluster}</strong>
                   </Td>
-                  <Td>{c.total}</Td>
-                  <Td>{c.passed}</Td>
-                  <Td>{c.failed}</Td>
+                  <Td>{cluster.total}</Td>
+                  <Td>{cluster.passed}</Td>
+                  <Td>{cluster.failed}</Td>
                   <Td>
                     <Label isCompact color={color}>
-                      {c.passRate}%
+                      {cluster.passRate}%
                     </Label>
                     <div className="app-cluster-bar-track">
                       <div
@@ -57,7 +57,7 @@ export const ClusterReliabilityTable: React.FC<ClusterReliabilityTableProps> = (
                           background: barColors[color],
                           borderRadius: 3,
                           height: '100%',
-                          width: `${c.passRate}%`,
+                          width: `${cluster.passRate}%`,
                         }}
                       />
                     </div>

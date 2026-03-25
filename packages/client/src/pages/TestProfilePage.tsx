@@ -56,7 +56,7 @@ export const TestProfilePage: React.FC = () => {
     if (!profile?.history.length) {
       return null;
     }
-    const failed = profile.history.find(h => h.status === 'FAILED');
+    const failed = profile.history.find(historyEntry => historyEntry.status === 'FAILED');
     return failed?.rp_id ?? null;
   }, [profile]);
 

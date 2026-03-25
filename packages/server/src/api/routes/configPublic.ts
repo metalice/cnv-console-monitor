@@ -13,12 +13,12 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     const { getAllSubscriptions } = await import('../../db/store');
     const subs = await getAllSubscriptions();
-    const userSubs = userEmail ? subs.filter(s => s.createdBy === userEmail) : [];
+    const userSubs = userEmail ? subs.filter(sub => sub.createdBy === userEmail) : [];
     if (!slackEnabled) {
-      slackEnabled = userSubs.some(s => Boolean(s.slackWebhook));
+      slackEnabled = userSubs.some(sub => Boolean(sub.slackWebhook));
     }
     if (!emailEnabled) {
-      emailEnabled = userSubs.some(s => s.emailRecipients.length > 0);
+      emailEnabled = userSubs.some(sub => sub.emailRecipients.length > 0);
     }
   } catch {
     /* Ignore */

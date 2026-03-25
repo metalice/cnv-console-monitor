@@ -58,36 +58,38 @@ export const BlockerWall: React.FC<BlockerWallProps> = ({ version }) => {
           </Tr>
         </Thead>
         <Tbody>
-          {blockers.map(b => (
-            <Tr className={b.ageDays > 7 ? 'app-blocker-old' : undefined} key={b.key}>
+          {blockers.map(blocker => (
+            <Tr className={blocker.ageDays > 7 ? 'app-blocker-old' : undefined} key={blocker.key}>
               <Td className="app-cell-nowrap">
                 <a
-                  href={`https://issues.redhat.com/browse/${b.key}`}
+                  href={`https://issues.redhat.com/browse/${blocker.key}`}
                   rel="noreferrer"
                   target="_blank"
                 >
-                  {b.key} <ExternalLinkAltIcon className="app-text-xs" />
+                  {blocker.key} <ExternalLinkAltIcon className="app-text-xs" />
                 </a>
               </Td>
               <Td>
-                <Tooltip content={b.summary}>
-                  <span className="app-text-ellipsis">{b.summary}</span>
+                <Tooltip content={blocker.summary}>
+                  <span className="app-text-ellipsis">{blocker.summary}</span>
                 </Tooltip>
               </Td>
               <Td className="app-cell-nowrap">
-                <Label isCompact color={b.priority === 'Blocker' ? 'red' : 'orange'}>
-                  {b.priority}
+                <Label isCompact color={blocker.priority === 'Blocker' ? 'red' : 'orange'}>
+                  {blocker.priority}
                 </Label>
               </Td>
               <Td className="app-cell-nowrap">
-                {b.assignee || <span className="app-text-muted">Unassigned</span>}
+                {blocker.assignee || <span className="app-text-muted">Unassigned</span>}
               </Td>
               <Td className="app-cell-nowrap">
-                <Label isCompact>{b.status}</Label>
+                <Label isCompact>{blocker.status}</Label>
               </Td>
               <Td className="app-cell-nowrap">
-                <Tooltip content={`Created ${new Date(b.created).toLocaleDateString()}`}>
-                  <span className={b.ageDays > 7 ? 'app-text-danger' : ''}>{b.ageDays}d</span>
+                <Tooltip content={`Created ${new Date(blocker.created).toLocaleDateString()}`}>
+                  <span className={blocker.ageDays > 7 ? 'app-text-danger' : ''}>
+                    {blocker.ageDays}d
+                  </span>
                 </Tooltip>
               </Td>
             </Tr>

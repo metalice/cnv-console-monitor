@@ -14,7 +14,7 @@ const detectRisks = (
   readiness?: VersionReadiness | null,
 ): RiskFlag[] => {
   const flags: RiskFlag[] = [];
-  const openItems = (checklist ?? []).filter(t => t.status !== 'Closed');
+  const openItems = (checklist ?? []).filter(task => task.status !== 'Closed');
 
   if (release.daysUntilNext !== null && release.daysUntilNext <= 7 && openItems.length > 5) {
     flags.push({
@@ -44,11 +44,13 @@ const detectRisks = (
   }
 
   if (readiness?.trend && readiness.trend.length >= 2) {
-    const recent = readiness.trend.slice(-3).filter(t => t.passRate !== null);
-    const earlier = readiness.trend.slice(0, -3).filter(t => t.passRate !== null);
+    const recent = readiness.trend.slice(-3).filter(trendPoint => trendPoint.passRate !== null);
+    const earlier = readiness.trend.slice(0, -3).filter(trendPoint => trendPoint.passRate !== null);
     if (recent.length > 0 && earlier.length > 0) {
-      const recentAvg = recent.reduce((s, t) => s + (t.passRate ?? 0), 0) / recent.length;
-      const earlierAvg = earlier.reduce((s, t) => s + (t.passRate ?? 0), 0) / earlier.length;
+      const recentAvg =
+        recent.reduce((sum, trendPoint) => sum + (trendPoint.passRate ?? 0), 0) / recent.length;
+      const earlierAvg =
+        earlier.reduce((sum, trendPoint) => sum + (trendPoint.passRate ?? 0), 0) / earlier.length;
       if (recentAvg < earlierAvg - 3) {
         flags.push({
           message: `Pass rate dropped ${(earlierAvg - recentAvg).toFixed(1)}% in the last 3 days`,
@@ -58,8 +60,8 @@ const detectRisks = (
     }
   }
 
-  const staleItems = openItems.filter(t => {
-    const updated = new Date(t.updated).getTime();
+  const staleItems = openItems.filter(task => {
+    const updated = new Date(task.updated).getTime();
     return Date.now() - updated > 7 * 24 * 60 * 60 * 1000;
   });
   if (staleItems.length > 0) {

@@ -50,7 +50,7 @@ export const startPipeline = async (options: {
   const manager = getPipelineManager();
   const launchesPhase = [
     ...(manager as unknown as { phases: Map<string, unknown> }).phases.values(),
-  ].find((p: unknown) => (p as { name: string }).name === 'launches') as
+  ].find((phase: unknown) => (phase as { name: string }).name === 'launches') as
     | FetchLaunchesPhase
     | undefined;
 

@@ -64,15 +64,17 @@ const fetchJenkinsData = async (artifactsUrl: string): Promise<JenkinsResult> =>
         maxDelayMs: 15000,
         maxRetries: 3,
         retryableCheck: err => {
-          const s = getHttpStatus(err);
-          if (s === 403 || s === 404 || s === 410) {
+          const status = getHttpStatus(err);
+          if (status === 403 || status === 404 || status === 410) {
             return false;
           }
           const code = (err as Record<string, unknown>).code as string | undefined;
           if (code === 'ECONNRESET' || code === 'ETIMEDOUT' || code === 'ENOTFOUND') {
             return true;
           }
-          return s === 429 || s === 500 || s === 502 || s === 503 || s === 504;
+          return (
+            status === 429 || status === 500 || status === 502 || status === 503 || status === 504
+          );
         },
       },
     );

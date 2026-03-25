@@ -11,11 +11,11 @@ const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 const router = Router();
 
 const stripTrailingSlashes = (url: string): string => {
-  let s = url;
-  while (s.endsWith('/')) {
-    s = s.slice(0, -1);
+  let cleaned = url;
+  while (cleaned.endsWith('/')) {
+    cleaned = cleaned.slice(0, -1);
   }
-  return s;
+  return cleaned;
 };
 
 router.post('/test-rp', requireAdmin, async (req: Request, res: Response) => {
@@ -71,7 +71,7 @@ router.post('/test-rp', requireAdmin, async (req: Request, res: Response) => {
       );
       projects = (projectsRes.data.content ?? [])
         .map(project => project.projectName)
-        .sort((a, b) => a.localeCompare(b));
+        .sort((left, right) => left.localeCompare(right));
     } catch {
       // Optional
     }
@@ -81,7 +81,7 @@ router.post('/test-rp', requireAdmin, async (req: Request, res: Response) => {
       const namesData = namesRes.data;
       launchNames = (
         Array.isArray(namesData) ? namesData : ((namesData as { content?: string[] }).content ?? [])
-      ).sort((a, b) => a.localeCompare(b));
+      ).sort((left, right) => left.localeCompare(right));
     } catch {
       // Optional
     }
@@ -148,7 +148,7 @@ router.post('/test-jira', requireAdmin, async (req: Request, res: Response) => {
       projectsRes.status === 'fulfilled'
         ? (projectsRes.value.data as { key: string; name: string }[])
             .map(project => ({ key: project.key, name: project.name }))
-            .sort((a, b) => a.key.localeCompare(b.key))
+            .sort((left, right) => left.key.localeCompare(right.key))
         : [];
 
     const issueTypes =
@@ -162,7 +162,7 @@ router.post('/test-jira', requireAdmin, async (req: Request, res: Response) => {
       componentRes.status === 'fulfilled'
         ? (componentRes.value.data as { name: string }[])
             .map(component => component.name)
-            .toSorted((a, b) => a.localeCompare(b))
+            .toSorted((left, right) => left.localeCompare(right))
         : [];
 
     const message = projectResponse
@@ -227,7 +227,7 @@ router.post('/test-gitlab', requireAdmin, async (req: Request, res: Response) =>
   }
   try {
     const repos = await (await import('../../db/store')).getAllRepositories();
-    const gitlabRepo = repos.find(r => r.provider === 'gitlab');
+    const gitlabRepo = repos.find(repo => repo.provider === 'gitlab');
     const baseUrl = gitlabRepo?.api_base_url || '';
     if (!baseUrl) {
       res.status(400).json({

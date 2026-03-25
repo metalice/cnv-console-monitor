@@ -27,7 +27,7 @@ export class OpenAIProvider implements ModelProvider {
     const response = await this.client.chat.completions.create(
       {
         max_tokens: Math.min(options?.maxTokens ?? 16384, 16384),
-        messages: messages.map(m => ({ content: m.content, role: m.role })),
+        messages: messages.map(msg => ({ content: msg.content, role: msg.role })),
         model: modelId,
         temperature: options?.temperature ?? 0.3,
         ...(options?.json ? { response_format: { type: 'json_object' as const } } : {}),
@@ -55,7 +55,7 @@ export class OpenAIProvider implements ModelProvider {
     const modelId = options?.model || DEFAULT_MODEL;
     const stream = await this.client.chat.completions.create({
       max_tokens: options?.maxTokens ?? 4096,
-      messages: messages.map(m => ({ content: m.content, role: m.role })),
+      messages: messages.map(msg => ({ content: msg.content, role: msg.role })),
       model: modelId,
       stream: true,
       temperature: options?.temperature ?? 0.3,

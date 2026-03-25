@@ -131,20 +131,23 @@ const MilestoneTimeline: React.FC<{ release: ReleaseInfo }> = ({ release }) => (
   <div className="app-ms-strip-scroll">
     <div className="app-ms-strip">
       <div className="app-ms-line" />
-      {release.milestones.map((m, i) => {
+      {release.milestones.map((milestone, idx) => {
         const color =
-          MILESTONE_TYPE_COLORS[m.type] ?? 'var(--pf-t--global--border--color--default)';
+          MILESTONE_TYPE_COLORS[milestone.type] ?? 'var(--pf-t--global--border--color--default)';
         return (
           <Tooltip
-            content={`${m.name} — ${new Date(m.date).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}`}
+            content={`${milestone.name} — ${new Date(milestone.date).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}`}
             // eslint-disable-next-line react/no-array-index-key
-            key={i}
+            key={idx}
           >
-            <div className={`app-ms-point ${m.isPast ? 'app-ms-past' : ''}`}>
+            <div className={`app-ms-point ${milestone.isPast ? 'app-ms-past' : ''}`}>
               <div className="app-ms-dot" style={{ background: color }} />
-              <span className="app-ms-label-top">{extractShortName(m.name)}</span>
+              <span className="app-ms-label-top">{extractShortName(milestone.name)}</span>
               <span className="app-ms-label-bot">
-                {new Date(m.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
+                {new Date(milestone.date).toLocaleDateString('en-US', {
+                  day: 'numeric',
+                  month: 'short',
+                })}
               </span>
             </div>
           </Tooltip>
@@ -157,14 +160,14 @@ const MilestoneTimeline: React.FC<{ release: ReleaseInfo }> = ({ release }) => (
 const WorkloadChart: React.FC<{ tasks: ChecklistTask[] }> = ({ tasks }) => {
   const data = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const t of tasks) {
-      if (t.status === 'Closed') {
+    for (const task of tasks) {
+      if (task.status === 'Closed') {
         continue;
       }
-      const assignee = t.assignee || 'Unassigned';
+      const assignee = task.assignee || 'Unassigned';
       counts.set(assignee, (counts.get(assignee) ?? 0) + 1);
     }
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+    return [...counts.entries()].sort((entryA, entryB) => entryB[1] - entryA[1]).slice(0, 8);
   }, [tasks]);
 
   if (data.length === 0) {
@@ -214,7 +217,7 @@ export const VersionDashboard: React.FC<VersionDashboardProps> = ({
     staleTime: 5 * 60 * 1000,
   });
 
-  const checklistDone = (checklist ?? []).filter(t => t.status === 'Closed').length;
+  const checklistDone = (checklist ?? []).filter(task => task.status === 'Closed').length;
   const checklistTotal = (checklist ?? []).length;
 
   const health = computeHealth({
@@ -359,23 +362,25 @@ export const VersionDashboard: React.FC<VersionDashboardProps> = ({
                   label="Pass rate trend (14 days)"
                 />
                 <svg className="app-trend-chart" viewBox="0 0 200 40">
-                  {readiness.trend.map((d, i) => {
-                    const x = (i / Math.max(readiness.trend.length - 1, 1)) * 196 + 2;
-                    const y = d.passRate !== null ? 38 - (d.passRate / 100) * 36 : 38;
+                  {readiness.trend.map((trendPoint, idx) => {
+                    const x = (idx / Math.max(readiness.trend.length - 1, 1)) * 196 + 2;
+                    const y =
+                      trendPoint.passRate !== null ? 38 - (trendPoint.passRate / 100) * 36 : 38;
                     const color =
-                      d.passRate !== null && d.passRate >= 85
+                      trendPoint.passRate !== null && trendPoint.passRate >= 85
                         ? 'var(--pf-t--global--color--status--success--default)'
                         : 'var(--pf-t--global--color--status--warning--default)';
                     // eslint-disable-next-line react/no-array-index-key
-                    return <circle cx={x} cy={y} fill={color} key={i} r={2.5} />;
+                    return <circle cx={x} cy={y} fill={color} key={idx} r={2.5} />;
                   })}
                   <polyline
                     fill="none"
                     opacity="0.5"
                     points={readiness.trend
-                      .map((d, i) => {
-                        const x = (i / Math.max(readiness.trend.length - 1, 1)) * 196 + 2;
-                        const y = d.passRate !== null ? 38 - (d.passRate / 100) * 36 : 38;
+                      .map((trendPoint, idx) => {
+                        const x = (idx / Math.max(readiness.trend.length - 1, 1)) * 196 + 2;
+                        const y =
+                          trendPoint.passRate !== null ? 38 - (trendPoint.passRate / 100) * 36 : 38;
                         return `${x},${y}`;
                       })
                       .join(' ')}
@@ -406,7 +411,7 @@ export const VersionDashboard: React.FC<VersionDashboardProps> = ({
             eventKey={1}
             title={
               <TabTitleText>
-                Workload ({(checklist ?? []).filter(t => t.status !== 'Closed').length} open)
+                Workload ({(checklist ?? []).filter(task => task.status !== 'Closed').length} open)
               </TabTitleText>
             }
           >
@@ -475,9 +480,9 @@ const isVersionReleased = (
   if (!ver) {
     return false;
   }
-  return milestones.some(m => {
-    const mVer = /(\d{1,20}\.\d{1,20}(?:\.\d{1,20})?)/.exec(m.name)?.[1];
-    return mVer === ver && m.isPast;
+  return milestones.some(milestone => {
+    const mVer = /(\d{1,20}\.\d{1,20}(?:\.\d{1,20})?)/.exec(milestone.name)?.[1];
+    return mVer === ver && milestone.isPast;
   });
 };
 
@@ -652,12 +657,13 @@ const ChangelogTab: React.FC<{
     mutate: startGeneration,
   };
 
-  const cl = result?.changelog;
+  const changelog = result?.changelog;
   /* eslint-disable @typescript-eslint/no-unnecessary-condition -- defensive: runtime data */
   const hasCategories =
-    cl?.categories && Object.values(cl.categories).some(items => items && items.length > 0);
-  const totalItems = cl?.categories
-    ? Object.values(cl.categories).reduce((sum, items) => sum + (items?.length ?? 0), 0)
+    changelog?.categories &&
+    Object.values(changelog.categories).some(items => items && items.length > 0);
+  const totalItems = changelog?.categories
+    ? Object.values(changelog.categories).reduce((sum, items) => sum + (items?.length ?? 0), 0)
     : 0;
   /* eslint-enable @typescript-eslint/no-unnecessary-condition */
 
@@ -675,16 +681,16 @@ const ChangelogTab: React.FC<{
   };
 
   const buildSlackText = (): string => {
-    if (!result || !cl) {
+    if (!result || !changelog) {
       return '';
     }
     const lines: string[] = [];
     lines.push(`:rocket: *${result.meta.label} Changelog*`);
-    if (cl.summary) {
-      lines.push(`> ${cl.summary}`);
+    if (changelog.summary) {
+      lines.push(`> ${changelog.summary}`);
     }
-    if (cl.categories) {
-      for (const [cat, items] of Object.entries(cl.categories)) {
+    if (changelog.categories) {
+      for (const [cat, items] of Object.entries(changelog.categories)) {
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data
         if (!items?.length) {
           continue;
@@ -712,15 +718,15 @@ const ChangelogTab: React.FC<{
     if (!reportRef.current) {
       return;
     }
-    const w = window.open('', '_blank');
-    if (!w) {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
       return;
     }
-    w.document.write(`<html><head><title>${result?.meta.label ?? ''} Changelog</title>
+    printWindow.document.write(`<html><head><title>${result?.meta.label ?? ''} Changelog</title>
       <style>body{font-family:RedHatText,-apple-system,sans-serif;padding:40px;max-width:800px;margin:0 auto;color:#151515}h1{font-size:22px;border-bottom:2px solid #06c;padding-bottom:8px}h2{font-size:16px;color:#06c;margin-top:20px}.item{padding:3px 0;border-bottom:1px solid #eee;font-size:13px}.key{font-weight:600;min-width:90px;display:inline-block}.badge{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600}.summary{padding:12px;background:#f0f0f0;border-left:4px solid #06c;border-radius:4px;margin:12px 0}.footer{margin-top:24px;font-size:10px;color:#6a6e73;border-top:1px solid #d2d2d2;padding-top:8px}</style></head>
       <body><h1>${result?.meta.label ?? ''} Changelog</h1><p>Generated: ${new Date().toLocaleString()}</p>${reportRef.current.innerHTML}<div class="footer">Generated by CNV Console Monitor</div></body></html>`);
-    w.document.close();
-    setTimeout(() => w.print(), 500);
+    printWindow.document.close();
+    setTimeout(() => printWindow.print(), 500);
   };
 
   return (
@@ -743,7 +749,7 @@ const ChangelogTab: React.FC<{
                 className="app-max-w-250"
                 isExpanded={targetOpen}
                 ref={ref}
-                onClick={() => setTargetOpen(o => !o)}
+                onClick={() => setTargetOpen(prev => !prev)}
               >
                 {targetVer || 'Select version'}
               </MenuToggle>
@@ -756,11 +762,11 @@ const ChangelogTab: React.FC<{
             }}
           >
             <SelectList>
-              {(subVersions ?? []).map(v => {
-                const released = isVersionReleased(v.name, milestones);
+              {(subVersions ?? []).map(subVer => {
+                const released = isVersionReleased(subVer.name, milestones);
                 return (
-                  <SelectOption key={v.name} value={v.name}>
-                    {v.name}
+                  <SelectOption key={subVer.name} value={subVer.name}>
+                    {subVer.name}
                     {released ? '' : ' (upcoming)'}
                   </SelectOption>
                 );
@@ -809,7 +815,7 @@ const ChangelogTab: React.FC<{
                   className="app-max-w-250"
                   isExpanded={compareOpen}
                   ref={ref}
-                  onClick={() => setCompareOpen(o => !o)}
+                  onClick={() => setCompareOpen(prev => !prev)}
                 >
                   {compareFrom || 'Select base version'}
                 </MenuToggle>
@@ -823,10 +829,10 @@ const ChangelogTab: React.FC<{
             >
               <SelectList>
                 {(subVersions ?? [])
-                  .filter(v => v.name !== targetVer)
-                  .map(v => (
-                    <SelectOption key={v.name} value={v.name}>
-                      {v.name}
+                  .filter(subVer => subVer.name !== targetVer)
+                  .map(subVer => (
+                    <SelectOption key={subVer.name} value={subVer.name}>
+                      {subVer.name}
                     </SelectOption>
                   ))}
               </SelectList>
@@ -886,9 +892,9 @@ const ChangelogTab: React.FC<{
           {jobStatus.log && jobStatus.log.length > 0 && (
             <div
               className="app-changelog-log app-mt-sm"
-              ref={el => {
-                if (el) {
-                  el.scrollTop = el.scrollHeight;
+              ref={element => {
+                if (element) {
+                  element.scrollTop = element.scrollHeight;
                 }
               }}
             >
@@ -1067,61 +1073,63 @@ const ChangelogTab: React.FC<{
             </Alert>
           )}
 
-          {cl?.summary && (
+          {changelog?.summary && (
             <div className="app-changelog-summary app-mb-md">
               <Content component="p">
-                {typeof cl.summary === 'string' ? cl.summary : JSON.stringify(cl.summary)}
+                {typeof changelog.summary === 'string'
+                  ? changelog.summary
+                  : JSON.stringify(changelog.summary)}
               </Content>
             </div>
           )}
 
-          {cl?.highlights && (
+          {changelog?.highlights && (
             <div className="app-changelog-highlights app-mb-md">
               <Content className="app-mb-xs" component="h5">
                 <InfoCircleIcon className="app-mr-xs" />
                 Key Highlights
               </Content>
-              {typeof cl.highlights === 'string' ? (
-                cl.highlights.includes('\n') ? (
+              {typeof changelog.highlights === 'string' ? (
+                changelog.highlights.includes('\n') ? (
                   <ul className="app-text-sm">
-                    {cl.highlights
+                    {changelog.highlights
                       .split('\n')
-                      .filter(l => l.trim())
-                      .map((line, i) => (
+                      .filter(line => line.trim())
+                      .map((line, idx) => (
                         // eslint-disable-next-line react/no-array-index-key
-                        <li key={i}>{line.replace(/^[-•*]\s*/, '')}</li>
+                        <li key={idx}>{line.replace(/^[-•*]\s*/, '')}</li>
                       ))}
                   </ul>
                 ) : (
                   <Content className="app-text-sm" component="p">
-                    {cl.highlights}
+                    {changelog.highlights}
                   </Content>
                 )
               ) : (
                 <Content className="app-text-sm" component="p">
-                  {JSON.stringify(cl.highlights)}
+                  {JSON.stringify(changelog.highlights)}
                 </Content>
               )}
             </div>
           )}
 
-          {cl?.breakingChanges && cl.breakingChanges.length > 0 && (
+          {changelog?.breakingChanges && changelog.breakingChanges.length > 0 && (
             <Alert
               isInline
               className="app-mb-md"
-              title={`${cl.breakingChanges.length} Breaking Changes`}
+              title={`${changelog.breakingChanges.length} Breaking Changes`}
               variant="danger"
             >
               <ul className="app-text-xs">
-                {cl.breakingChanges.map((bc, i) => (
+                {changelog.breakingChanges.map((breakingChange, idx) => (
                   // eslint-disable-next-line react/no-array-index-key
-                  <li key={i}>
-                    {typeof bc === 'string'
-                      ? bc
-                      : bc.title
+                  <li key={idx}>
+                    {typeof breakingChange === 'string'
+                      ? breakingChange
+                      : breakingChange.title
                         ? (() => {
-                            const o = bc as { key?: unknown; title?: unknown };
-                            const rawKey = o.key;
+                            const obj = breakingChange as { key?: unknown; title?: unknown };
+                            const rawKey = obj.key;
                             const keyPart =
                               rawKey === null ||
                               rawKey === undefined ||
@@ -1134,16 +1142,16 @@ const ChangelogTab: React.FC<{
                                     typeof rawKey === 'boolean'
                                   ? String(rawKey)
                                   : JSON.stringify(rawKey);
-                            const t = o.title;
+                            const titleVal = obj.title;
                             const titlePart =
-                              typeof t === 'string' ||
-                              typeof t === 'number' ||
-                              typeof t === 'boolean'
-                                ? String(t)
-                                : JSON.stringify(t);
+                              typeof titleVal === 'string' ||
+                              typeof titleVal === 'number' ||
+                              typeof titleVal === 'boolean'
+                                ? String(titleVal)
+                                : JSON.stringify(titleVal);
                             return `${keyPart} — ${titlePart}`;
                           })()
-                        : JSON.stringify(bc)}
+                        : JSON.stringify(breakingChange)}
                   </li>
                 ))}
               </ul>
@@ -1158,7 +1166,7 @@ const ChangelogTab: React.FC<{
             >
               <FlexItem>
                 {/* eslint-disable @typescript-eslint/no-unnecessary-condition -- defensive: runtime data */}
-                {Object.entries(cl.categories ?? {}).map(([cat, items]) => {
+                {Object.entries(changelog.categories ?? {}).map(([cat, items]) => {
                   if (!items?.length) {
                     return null;
                   }
@@ -1215,7 +1223,7 @@ const ChangelogTab: React.FC<{
 
           {/* eslint-disable @typescript-eslint/no-unnecessary-condition -- defensive: runtime data */}
           {hasCategories &&
-            Object.entries(cl.categories ?? {}).map(([cat, items]) => {
+            Object.entries(changelog.categories ?? {}).map(([cat, items]) => {
               if (!items?.length) {
                 return null;
               }
@@ -1269,9 +1277,9 @@ const ChangelogTab: React.FC<{
                                   })
                                 }
                               >
-                                {CATEGORY_KEYS.map(c => (
-                                  <option key={c} value={c}>
-                                    {CATEGORY_LABELS[c]?.label || c}
+                                {CATEGORY_KEYS.map(catKey => (
+                                  <option key={catKey} value={catKey}>
+                                    {CATEGORY_LABELS[catKey]?.label || catKey}
                                   </option>
                                 ))}
                               </select>
@@ -1350,13 +1358,13 @@ const ChangelogTab: React.FC<{
                           {item.prLinks &&
                             item.prLinks.length > 0 &&
                             item.prLinks
-                              .filter((pr): pr is string => typeof pr === 'string')
-                              .map((pr, pi) => (
+                              .filter((prLink): prLink is string => typeof prLink === 'string')
+                              .map((prLink, prIndex) => (
                                 <a
                                   className="app-text-xs app-ml-xs"
-                                  href={pr}
+                                  href={prLink}
                                   // eslint-disable-next-line react/no-array-index-key
-                                  key={pi}
+                                  key={prIndex}
                                   rel="noreferrer"
                                   target="_blank"
                                 >
@@ -1514,15 +1522,15 @@ const ChangelogTab: React.FC<{
               toggleText={`Contributors (${result.meta.contributors.length})`}
             >
               <div className="app-report-workload">
-                {result.meta.contributors.map(c => (
+                {result.meta.contributors.map(contributor => (
                   <Flex
                     alignItems={{ default: 'alignItemsCenter' }}
                     className="app-mb-xs"
-                    key={c.name}
+                    key={contributor.name}
                     spaceItems={{ default: 'spaceItemsSm' }}
                   >
                     <FlexItem style={{ minWidth: 140 }}>
-                      <span className="app-text-xs">{c.name}</span>
+                      <span className="app-text-xs">{contributor.name}</span>
                     </FlexItem>
                     <FlexItem flex={{ default: 'flex_1' }}>
                       <Progress
@@ -1530,13 +1538,13 @@ const ChangelogTab: React.FC<{
                         size={ProgressSize.sm}
                         value={
                           result.meta.contributors
-                            ? (c.count / result.meta.contributors[0].count) * 100
+                            ? (contributor.count / result.meta.contributors[0].count) * 100
                             : 0
                         }
                       />
                     </FlexItem>
                     <FlexItem>
-                      <span className="app-text-xs app-text-muted">{c.count}</span>
+                      <span className="app-text-xs app-text-muted">{contributor.count}</span>
                     </FlexItem>
                   </Flex>
                 ))}
@@ -1544,14 +1552,14 @@ const ChangelogTab: React.FC<{
             </ExpandableSection>
           )}
 
-          {cl?.epicStatus && cl.epicStatus.length > 0 && (
+          {changelog?.epicStatus && changelog.epicStatus.length > 0 && (
             <ExpandableSection
               className="app-mb-sm"
-              toggleText={`Epic Status (${cl.epicStatus.length})`}
+              toggleText={`Epic Status (${changelog.epicStatus.length})`}
             >
-              {cl.epicStatus.map((epic, i) => (
+              {changelog.epicStatus.map((epic, idx) => (
                 // eslint-disable-next-line react/no-array-index-key
-                <div className="app-changelog-item" key={i}>
+                <div className="app-changelog-item" key={idx}>
                   <a
                     className="app-changelog-key"
                     href={`https://issues.redhat.com/browse/${epic.key}`}
@@ -1579,55 +1587,58 @@ const ChangelogTab: React.FC<{
             </ExpandableSection>
           )}
 
-          {cl?.concerns && cl.concerns.length > 0 && (
+          {changelog?.concerns && changelog.concerns.length > 0 && (
             <Alert
               isInline
               className="app-mb-md"
-              title={`${cl.concerns.length} Concerns`}
+              title={`${changelog.concerns.length} Concerns`}
               variant="warning"
             >
               <ul className="app-text-xs">
-                {cl.concerns.map((c, i) => (
+                {changelog.concerns.map((concern, idx) => (
                   // eslint-disable-next-line react/no-array-index-key
-                  <li key={i}>{typeof c === 'string' ? c : JSON.stringify(c)}</li>
+                  <li key={idx}>
+                    {typeof concern === 'string' ? concern : JSON.stringify(concern)}
+                  </li>
                 ))}
               </ul>
             </Alert>
           )}
 
-          {cl?.testImpact && (cl.testImpact.newlyPassing > 0 || cl.testImpact.newlyFailing > 0) && (
-            <div className="app-mb-md">
-              <Content className="app-mb-xs" component="h5">
-                Test Impact
-              </Content>
-              <Flex spaceItems={{ default: 'spaceItemsMd' }}>
-                {cl.testImpact.newlyPassing > 0 && (
-                  <FlexItem>
-                    <Label isCompact color="green">
-                      {cl.testImpact.newlyPassing} newly passing
-                    </Label>
-                  </FlexItem>
+          {changelog?.testImpact &&
+            (changelog.testImpact.newlyPassing > 0 || changelog.testImpact.newlyFailing > 0) && (
+              <div className="app-mb-md">
+                <Content className="app-mb-xs" component="h5">
+                  Test Impact
+                </Content>
+                <Flex spaceItems={{ default: 'spaceItemsMd' }}>
+                  {changelog.testImpact.newlyPassing > 0 && (
+                    <FlexItem>
+                      <Label isCompact color="green">
+                        {changelog.testImpact.newlyPassing} newly passing
+                      </Label>
+                    </FlexItem>
+                  )}
+                  {changelog.testImpact.newlyFailing > 0 && (
+                    <FlexItem>
+                      <Label isCompact color="red">
+                        {changelog.testImpact.newlyFailing} newly failing
+                      </Label>
+                    </FlexItem>
+                  )}
+                </Flex>
+                {changelog.testImpact.details && changelog.testImpact.details.length > 0 && (
+                  <ul className="app-text-xs app-mt-xs">
+                    {changelog.testImpact.details.map((detail, idx) => (
+                      // eslint-disable-next-line react/no-array-index-key
+                      <li key={idx}>{detail}</li>
+                    ))}
+                  </ul>
                 )}
-                {cl.testImpact.newlyFailing > 0 && (
-                  <FlexItem>
-                    <Label isCompact color="red">
-                      {cl.testImpact.newlyFailing} newly failing
-                    </Label>
-                  </FlexItem>
-                )}
-              </Flex>
-              {cl.testImpact.details && cl.testImpact.details.length > 0 && (
-                <ul className="app-text-xs app-mt-xs">
-                  {cl.testImpact.details.map((d, i) => (
-                    // eslint-disable-next-line react/no-array-index-key
-                    <li key={i}>{d}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
+              </div>
+            )}
 
-          {!hasCategories && !cl?.summary && (
+          {!hasCategories && !changelog?.summary && (
             <Alert
               isInline
               className="app-mb-md"
@@ -1638,12 +1649,12 @@ const ChangelogTab: React.FC<{
                 The AI returned a response that could not be parsed as a structured changelog. This
                 usually happens when the AI wraps the response in extra text or the JSON is
                 malformed. Try clicking &quot;Regenerate&quot; above.{' '}
-                {cl?.raw ? 'The raw AI output is shown below.' : ''}
+                {changelog?.raw ? 'The raw AI output is shown below.' : ''}
               </Content>
             </Alert>
           )}
 
-          {cl?.raw && (
+          {changelog?.raw && (
             <ExpandableSection className="app-mb-md" toggleText="Raw AI Output">
               <pre
                 style={{
@@ -1658,7 +1669,7 @@ const ChangelogTab: React.FC<{
                   wordBreak: 'break-word',
                 }}
               >
-                {cl.raw}
+                {changelog.raw}
               </pre>
             </ExpandableSection>
           )}
@@ -1668,7 +1679,8 @@ const ChangelogTab: React.FC<{
   );
 };
 
-const verdictColor = (v?: string) => (v === 'Ship' ? 'green' : v === 'Hold' ? 'red' : 'orange');
+const verdictColor = (verdict?: string) =>
+  verdict === 'Ship' ? 'green' : verdict === 'Hold' ? 'red' : 'orange';
 
 const RiskTab: React.FC<{
   version: string;
@@ -1681,8 +1693,8 @@ const RiskTab: React.FC<{
   } | null;
 }> = ({ checklist, readiness, release, version }) => {
   const [result, setResult] = useLocalState<RiskAssessment | null>(null);
-  const openItems = (checklist ?? []).filter(t => t.status !== 'Closed');
-  const closedItems = (checklist ?? []).filter(t => t.status === 'Closed');
+  const openItems = (checklist ?? []).filter(task => task.status !== 'Closed');
+  const closedItems = (checklist ?? []).filter(task => task.status === 'Closed');
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -1695,11 +1707,11 @@ const RiskTab: React.FC<{
         checklistTotal: (checklist ?? []).length,
         daysUntilRelease: release.daysUntilNext,
         openBlockers: 0,
-        openItems: openItems.slice(0, 20).map(t => ({
-          assignee: t.assignee,
-          key: t.key,
-          priority: t.priority,
-          summary: t.summary,
+        openItems: openItems.slice(0, 20).map(task => ({
+          assignee: task.assignee,
+          key: task.key,
+          priority: task.priority,
+          summary: task.summary,
         })),
         passRate: readiness?.passRate ?? 0,
         totalLaunches: readiness?.totalLaunches ?? 0,
@@ -1781,15 +1793,15 @@ const RiskTab: React.FC<{
           {result.assessment.concerns && result.assessment.concerns.length > 0 && (
             <div className="app-mb-md">
               <Content component="h5">Concerns</Content>
-              {result.assessment.concerns.map((c, i) => (
+              {result.assessment.concerns.map((concern, idx) => (
                 <Alert
                   isInline
                   isPlain
                   className="app-mb-xs"
                   // eslint-disable-next-line react/no-array-index-key
-                  key={i}
-                  title={`${c.area}: ${c.detail}`}
-                  variant={c.severity === 'high' ? 'danger' : 'warning'}
+                  key={idx}
+                  title={`${concern.area}: ${concern.detail}`}
+                  variant={concern.severity === 'high' ? 'danger' : 'warning'}
                 />
               ))}
             </div>
@@ -1798,9 +1810,9 @@ const RiskTab: React.FC<{
             <div>
               <Content component="h5">Recommendations</Content>
               <ul className="app-text-xs">
-                {result.assessment.recommendations.map((r, i) => (
+                {result.assessment.recommendations.map((rec, idx) => (
                   // eslint-disable-next-line react/no-array-index-key
-                  <li key={i}>{r}</li>
+                  <li key={idx}>{rec}</li>
                 ))}
               </ul>
             </div>

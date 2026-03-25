@@ -51,7 +51,7 @@ export const JiraSettings: React.FC<JiraSettingsProps> = ({
           isDisabled={adminOnly}
           placeholder="https://redhat.atlassian.net"
           value={val('jira.url')}
-          onChange={(_e, v) => set('jira.url', v)}
+          onChange={(_e, value) => set('jira.url', value)}
         />
       </FormGroup>
       <FormGroup fieldId="jira-email" label="Email">
@@ -60,7 +60,7 @@ export const JiraSettings: React.FC<JiraSettingsProps> = ({
           isDisabled={adminOnly}
           placeholder="you@redhat.com"
           value={val('jira.email')}
-          onChange={(_e, v) => set('jira.email', v)}
+          onChange={(_e, value) => set('jira.email', value)}
         />
       </FormGroup>
       <FormGroup fieldId="jira-token" label="API Token">
@@ -76,7 +76,7 @@ export const JiraSettings: React.FC<JiraSettingsProps> = ({
               type={tokenEditing['jira.token'] ? 'text' : 'password'}
               value={val('jira.token')}
               onBlur={() => endTokenEdit('jira.token')}
-              onChange={(_e, v) => onTokenChange(v)}
+              onChange={(_e, value) => onTokenChange(value)}
               onFocus={() => startTokenEdit('jira.token')}
             />
           </FlexItem>
@@ -109,7 +109,7 @@ export const JiraSettings: React.FC<JiraSettingsProps> = ({
           options={jiraProjectSelectOptions}
           placeholder="Select project"
           value={val('jira.projectKey')}
-          onChange={v => set('jira.projectKey', v)}
+          onChange={value => set('jira.projectKey', value)}
         />
       </FormGroup>
       <FormGroup fieldId="jira-type" label="Issue Type">
@@ -119,7 +119,7 @@ export const JiraSettings: React.FC<JiraSettingsProps> = ({
           options={issueTypeSelectOptions}
           placeholder="Select issue type"
           value={val('jira.issueType')}
-          onChange={v => set('jira.issueType', v)}
+          onChange={value => set('jira.issueType', value)}
         />
       </FormGroup>
     </Form>

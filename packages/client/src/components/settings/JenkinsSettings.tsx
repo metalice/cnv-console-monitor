@@ -52,7 +52,7 @@ export const JenkinsSettings: React.FC<JenkinsSettingsProps> = ({
             isDisabled={adminOnly}
             placeholder="your-kerberos-id"
             value={val('jenkins.user')}
-            onChange={(_e, v) => set('jenkins.user', v)}
+            onChange={(_e, value) => set('jenkins.user', value)}
           />
         </FormGroup>
         <FormGroup fieldId="jenkins-token" label="API Token">
@@ -68,7 +68,7 @@ export const JenkinsSettings: React.FC<JenkinsSettingsProps> = ({
                 type={tokenEditing['jenkins.token'] ? 'text' : 'password'}
                 value={val('jenkins.token')}
                 onBlur={() => endTokenEdit('jenkins.token')}
-                onChange={(_e, v) => set('jenkins.token', v)}
+                onChange={(_e, value) => set('jenkins.token', value)}
                 onFocus={() => startTokenEdit('jenkins.token')}
               />
             </FlexItem>

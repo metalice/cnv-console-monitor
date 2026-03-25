@@ -14,7 +14,7 @@ router.get('/versions', async (_req: Request, res: Response, next: NextFunction)
       WHERE cnv_version IS NOT NULL AND cnv_version != ''
       ORDER BY cnv_version DESC
     `);
-    const versions = rows.map(r => r.cnv_version);
+    const versions = rows.map(row => row.cnv_version);
     res.json(versions);
   } catch (err) {
     next(err);

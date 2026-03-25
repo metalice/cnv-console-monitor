@@ -90,7 +90,7 @@ const DiffView: React.FC<{ draft: DraftInfo }> = ({ draft }) => {
 };
 
 const generateTitle = (drafts: DraftInfo[]): string => {
-  const names = drafts.map(d => d.file_path.split('/').pop() ?? d.file_path);
+  const names = drafts.map(draft => draft.file_path.split('/').pop() ?? draft.file_path);
   if (names.length <= 3) {
     return `docs: update ${names.join(', ')}`;
   }
@@ -98,7 +98,7 @@ const generateTitle = (drafts: DraftInfo[]): string => {
 };
 
 const generateDescription = (drafts: DraftInfo[]): string => {
-  const lines = ['Updated files:', '', ...drafts.map(d => `- ${d.file_path}`)];
+  const lines = ['Updated files:', '', ...drafts.map(draft => `- ${draft.file_path}`)];
   return lines.join('\n');
 };
 
@@ -117,14 +117,14 @@ export const SubmitDraftsModal: React.FC<SubmitDraftsModalProps> = ({ isOpen, on
 
   useEffect(() => {
     if (drafts?.length) {
-      setSelected(new Set(drafts.map(d => d.id)));
+      setSelected(new Set(drafts.map(draft => draft.id)));
       setPrTitle(generateTitle(drafts));
       setPrDescription(generateDescription(drafts));
     }
   }, [drafts]);
 
   const selectedDrafts = useMemo(
-    () => (drafts ?? []).filter(d => selected.has(d.id)),
+    () => (drafts ?? []).filter(draft => selected.has(draft.id)),
     [drafts, selected],
   );
 

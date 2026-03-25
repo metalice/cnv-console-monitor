@@ -65,7 +65,7 @@ router.get('/rp-projects', async (_req: Request, res: Response) => {
     );
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime API data
     const projects: string[] = (response.data?.content ?? []).map(project => project.projectName);
-    res.json(projects.toSorted((a, b) => a.localeCompare(b)));
+    res.json(projects.toSorted((left, right) => left.localeCompare(right)));
   } catch (err) {
     log.warn({ err }, 'Failed to fetch RP projects');
     res.json([config.reportportal.project]);
@@ -85,7 +85,7 @@ router.get('/launch-names', async (_req: Request, res: Response) => {
     const launchNames: string[] = Array.isArray(data)
       ? data
       : ((data as { content?: string[] }).content ?? []);
-    res.json(launchNames.toSorted((a, b) => a.localeCompare(b)));
+    res.json(launchNames.toSorted((left, right) => left.localeCompare(right)));
   } catch (err) {
     log.warn({ err }, 'Failed to fetch launch names');
     res.json([]);
@@ -122,7 +122,7 @@ router.get('/jira-meta', async (req: Request, res: Response) => {
       componentRes.status === 'fulfilled'
         ? (componentRes.value.data as { name: string }[])
             .map(comp => comp.name)
-            .toSorted((a, b) => a.localeCompare(b))
+            .toSorted((left, right) => left.localeCompare(right))
         : [];
 
     res.json({ components, issueTypes, projects });

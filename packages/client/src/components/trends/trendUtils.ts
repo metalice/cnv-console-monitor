@@ -21,10 +21,13 @@ export const buildVersionGroups = (data: VersionTrendPoint[] | undefined): Versi
   if (!data) {
     return { byVersion: new Map(), dates: [], versions: [] };
   }
-  const versions = [...new Set(data.map(point => point.version))].toSorted((a, b) =>
-    a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }),
+  const versions = [...new Set(data.map(point => point.version))].toSorted(
+    (leftVersion, rightVersion) =>
+      leftVersion.localeCompare(rightVersion, undefined, { numeric: true, sensitivity: 'base' }),
   );
-  const dates = [...new Set(data.map(point => point.date))].toSorted((a, b) => a.localeCompare(b));
+  const dates = [...new Set(data.map(point => point.date))].toSorted((leftDate, rightDate) =>
+    leftDate.localeCompare(rightDate),
+  );
   const byVersion = new Map<string, Map<string, number>>();
   for (const version of versions) {
     byVersion.set(version, new Map());
@@ -47,7 +50,9 @@ export const buildHeatmap = (data: HeatmapCell[] | undefined): HeatmapData | nul
   }
   const tests: HeatmapData['tests'] = [];
   const seen = new Set<string>();
-  const dates = [...new Set(data.map(cell => cell.date))].toSorted((a, b) => a.localeCompare(b));
+  const dates = [...new Set(data.map(cell => cell.date))].toSorted((leftDate, rightDate) =>
+    leftDate.localeCompare(rightDate),
+  );
   const cellMap = new Map<string, string>();
 
   for (const cell of data) {
@@ -146,7 +151,7 @@ export const computeVersionHealth = (data: VersionTrendPoint[] | undefined): Ver
   let best: VersionHealth['best'] = null;
   let worst: VersionHealth['worst'] = null;
   for (const [version, rates] of versionRates) {
-    const avg = rates.reduce((a, b) => a + b, 0) / rates.length;
+    const avg = rates.reduce((sum, rate) => sum + rate, 0) / rates.length;
     if (!best || avg > best.rate) {
       best = { rate: Math.round(avg * 10) / 10, version };
     }

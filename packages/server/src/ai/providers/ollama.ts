@@ -20,7 +20,7 @@ export class OllamaProvider implements ModelProvider {
     const response = await axios.post(
       `${this.baseUrl}/api/chat`,
       {
-        messages: messages.map(m => ({ content: m.content, role: m.role })),
+        messages: messages.map(msg => ({ content: msg.content, role: msg.role })),
         model: modelId,
         options: {
           num_predict: options?.maxTokens ?? 4096,

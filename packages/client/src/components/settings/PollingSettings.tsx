@@ -20,21 +20,21 @@ import { SearchableSelect } from '../common/SearchableSelect';
 import type { SettingsSectionProps } from './types';
 import { LOOKBACK_OPTIONS, POLL_INTERVAL_OPTIONS } from './types';
 
-const formatDuration = (ms: number | null): string => {
-  if (!ms) {
+const formatDuration = (millis: number | null): string => {
+  if (!millis) {
     return '';
   }
-  const s = Math.round(ms / 1000);
-  if (s < 60) {
-    return `${s}s`;
+  const seconds = Math.round(millis / 1000);
+  if (seconds < 60) {
+    return `${seconds}s`;
   }
-  const m = Math.floor(s / 60);
-  return s % 60 > 0 ? `${m}m ${s % 60}s` : `${m}m`;
+  const minutes = Math.floor(seconds / 60);
+  return seconds % 60 > 0 ? `${minutes}m ${seconds % 60}s` : `${minutes}m`;
 };
 
 const RunRow: React.FC<{ run: PipelineRunRecord }> = ({ run }) => {
   const date = new Date(run.started_at);
-  const hasErrors = Object.values(run.phases).some(p => p.failed > 0);
+  const hasErrors = Object.values(run.phases).some(phase => phase.failed > 0);
 
   return (
     <div className="app-poll-summary-row">
@@ -116,7 +116,7 @@ export const PollingSettings: React.FC<SettingsSectionProps> = ({ adminOnly, set
             options={POLL_INTERVAL_OPTIONS}
             placeholder="Select interval"
             value={val('schedule.pollIntervalMinutes')}
-            onChange={v => set('schedule.pollIntervalMinutes', v)}
+            onChange={value => set('schedule.pollIntervalMinutes', value)}
           />
         </FormGroup>
         <FormGroup
@@ -134,7 +134,7 @@ export const PollingSettings: React.FC<SettingsSectionProps> = ({ adminOnly, set
             options={LOOKBACK_OPTIONS}
             placeholder="Select range"
             value={val('schedule.initialLookbackDays')}
-            onChange={v => set('schedule.initialLookbackDays', v)}
+            onChange={value => set('schedule.initialLookbackDays', value)}
           />
         </FormGroup>
       </Form>
@@ -173,7 +173,7 @@ export const PollingSettings: React.FC<SettingsSectionProps> = ({ adminOnly, set
                   min={10}
                   type="number"
                   value={val('schedule.rpPageSize') || '100'}
-                  onChange={(_e, v) => set('schedule.rpPageSize', v)}
+                  onChange={(_e, value) => set('schedule.rpPageSize', value)}
                 />
               </div>
             </FormGroup>
@@ -194,7 +194,7 @@ export const PollingSettings: React.FC<SettingsSectionProps> = ({ adminOnly, set
                   min={1}
                   type="number"
                   value={val('schedule.rpConcurrency') || '20'}
-                  onChange={(_e, v) => set('schedule.rpConcurrency', v)}
+                  onChange={(_e, value) => set('schedule.rpConcurrency', value)}
                 />
               </div>
             </FormGroup>
@@ -215,7 +215,7 @@ export const PollingSettings: React.FC<SettingsSectionProps> = ({ adminOnly, set
                   min={1}
                   type="number"
                   value={val('schedule.jenkinsConcurrency') || '20'}
-                  onChange={(_e, v) => set('schedule.jenkinsConcurrency', v)}
+                  onChange={(_e, value) => set('schedule.jenkinsConcurrency', value)}
                 />
               </div>
             </FormGroup>

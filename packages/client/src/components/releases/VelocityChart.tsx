@@ -36,13 +36,13 @@ export const VelocityChart: React.FC = () => {
     return null;
   }
 
-  const withAvg = data.filter(d => d.avgDaysBetweenReleases !== null).slice(0, 10);
+  const withAvg = data.filter(entry => entry.avgDaysBetweenReleases !== null).slice(0, 10);
   if (withAvg.length === 0) {
     return null;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-  const max = Math.max(...withAvg.map(d => d.avgDaysBetweenReleases!));
+  const max = Math.max(...withAvg.map(entry => entry.avgDaysBetweenReleases!));
 
   return (
     <Card>
@@ -57,23 +57,25 @@ export const VelocityChart: React.FC = () => {
           Average days between batch releases per version
         </Content>
         <div className="app-comp-chart">
-          {withAvg.map(m => (
-            <div className="app-comp-row" key={m.version}>
-              <span className="app-comp-label app-text-xs">{m.version.replace('cnv-', '')}</span>
+          {withAvg.map(entry => (
+            <div className="app-comp-row" key={entry.version}>
+              <span className="app-comp-label app-text-xs">
+                {entry.version.replace('cnv-', '')}
+              </span>
               <div className="app-comp-bar-track">
                 <Tooltip
-                  content={`${m.avgDaysBetweenReleases}d avg across ${m.totalReleases} releases`}
+                  content={`${entry.avgDaysBetweenReleases}d avg across ${entry.totalReleases} releases`}
                 >
                   <div
                     className="app-comp-bar"
                     style={{
-                      width: `${Math.max(2, ((m.avgDaysBetweenReleases ?? 0) / max) * 100)}%`,
+                      width: `${Math.max(2, ((entry.avgDaysBetweenReleases ?? 0) / max) * 100)}%`,
                     }}
                   />
                 </Tooltip>
               </div>
               <span className="app-comp-count app-text-xs app-text-muted">
-                {m.avgDaysBetweenReleases}d
+                {entry.avgDaysBetweenReleases}d
               </span>
             </div>
           ))}

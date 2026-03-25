@@ -122,8 +122,8 @@ router.get('/status', async (_req: Request, res: Response) => {
     vertexProvider ? vertexProvider.getAuthInfo() : null,
     vertexToken
       ? import('axios')
-          .then(({ default: ax }) =>
-            ax.get(`https://oauth2.googleapis.com/tokeninfo?access_token=${vertexToken}`, {
+          .then(({ default: axiosClient }) =>
+            axiosClient.get(`https://oauth2.googleapis.com/tokeninfo?access_token=${vertexToken}`, {
               timeout: 3000,
             }),
           )
@@ -269,37 +269,37 @@ router.post('/configure', requireAdmin, async (req: Request, res: Response, next
       vertexProjectId,
       vertexRegion,
     } = req.body as ConfigureBody;
-    const by = req.user?.name || 'system';
+    const author = req.user?.name || 'system';
 
     if (enabled !== undefined) {
-      await setSetting('ai.enabled', String(enabled), by);
+      await setSetting('ai.enabled', String(enabled), author);
     }
     if (defaultModel) {
-      await setSetting('ai.defaultModel', defaultModel, by);
+      await setSetting('ai.defaultModel', defaultModel, author);
     }
     if (defaultModelId !== undefined) {
-      await setSetting('ai.defaultModelId', defaultModelId, by);
+      await setSetting('ai.defaultModelId', defaultModelId, author);
     }
     if (geminiKey !== undefined) {
-      await setSetting('ai.geminiKey', geminiKey, by);
+      await setSetting('ai.geminiKey', geminiKey, author);
     }
     if (openaiKey !== undefined) {
-      await setSetting('ai.openaiKey', openaiKey, by);
+      await setSetting('ai.openaiKey', openaiKey, author);
     }
     if (anthropicKey !== undefined) {
-      await setSetting('ai.anthropicKey', anthropicKey, by);
+      await setSetting('ai.anthropicKey', anthropicKey, author);
     }
     if (ollamaUrl !== undefined) {
-      await setSetting('ai.ollamaUrl', ollamaUrl, by);
+      await setSetting('ai.ollamaUrl', ollamaUrl, author);
     }
     if (vertexProjectId !== undefined) {
-      await setSetting('ai.vertexProjectId', vertexProjectId, by);
+      await setSetting('ai.vertexProjectId', vertexProjectId, author);
     }
     if (vertexRegion !== undefined) {
-      await setSetting('ai.vertexRegion', vertexRegion, by);
+      await setSetting('ai.vertexRegion', vertexRegion, author);
     }
     if (vertexAccessToken !== undefined) {
-      await setSetting('ai.vertexAccessToken', vertexAccessToken, by);
+      await setSetting('ai.vertexAccessToken', vertexAccessToken, author);
     }
 
     const ai = getAIService();

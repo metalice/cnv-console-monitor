@@ -104,9 +104,9 @@ export const RepositoryMappingSection: React.FC = () => {
                               <DescriptionListDescription>
                                 <LabelGroup>
                                   {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data */}
-                                  {(repo.branches || []).map((b: string) => (
-                                    <Label isCompact key={b}>
-                                      {b}
+                                  {(repo.branches || []).map((branch: string) => (
+                                    <Label isCompact key={branch}>
+                                      {branch}
                                     </Label>
                                   ))}
                                 </LabelGroup>
@@ -117,9 +117,9 @@ export const RepositoryMappingSection: React.FC = () => {
                               <DescriptionListDescription>
                                 <LabelGroup>
                                   {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data */}
-                                  {(repo.components || []).map((c: string) => (
-                                    <Label isCompact color="blue" key={c}>
-                                      {c}
+                                  {(repo.components || []).map((comp: string) => (
+                                    <Label isCompact color="blue" key={comp}>
+                                      {comp}
                                     </Label>
                                   ))}
                                 </LabelGroup>

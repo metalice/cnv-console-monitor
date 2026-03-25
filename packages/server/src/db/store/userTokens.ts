@@ -17,13 +17,13 @@ export const getUserTokens = async (
   }[]
 > => {
   const tokens = await userTokens().find({ where: { user_email: userEmail } });
-  return tokens.map(t => ({
+  return tokens.map(token => ({
     isConfigured: true,
-    isValid: t.is_valid,
-    provider: t.provider,
-    providerEmail: t.provider_email,
-    providerUsername: t.provider_username,
-    validatedAt: t.validated_at,
+    isValid: token.is_valid,
+    provider: token.provider,
+    providerEmail: token.provider_email,
+    providerUsername: token.provider_username,
+    validatedAt: token.validated_at,
   }));
 };
 

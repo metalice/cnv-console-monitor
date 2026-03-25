@@ -235,7 +235,11 @@ export const ReadinessDetails: React.FC<{ version: string }> = ({ version }) => 
                       )
                       .map(point => point.x)}
                   />
-                  <ChartAxis dependentAxis domain={[0, 100]} tickFormat={(t: number) => `${t}%`} />
+                  <ChartAxis
+                    dependentAxis
+                    domain={[0, 100]}
+                    tickFormat={(percentValue: number) => `${percentValue}%`}
+                  />
                   <ChartGroup>
                     <ChartLine
                       data={trendData}

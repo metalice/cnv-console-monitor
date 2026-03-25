@@ -90,22 +90,24 @@ export const PersonalTokensSection: React.FC = () => {
         )}
 
         <DescriptionList isHorizontal>
-          {(tokens ?? []).map((t: UserTokenInfo) => (
-            <DescriptionListGroup key={t.provider}>
-              <DescriptionListTerm>{providerLabels[t.provider] || t.provider}</DescriptionListTerm>
+          {(tokens ?? []).map((tokenInfo: UserTokenInfo) => (
+            <DescriptionListGroup key={tokenInfo.provider}>
+              <DescriptionListTerm>
+                {providerLabels[tokenInfo.provider] || tokenInfo.provider}
+              </DescriptionListTerm>
               <DescriptionListDescription>
                 <Flex
                   alignItems={{ default: 'alignItemsCenter' }}
                   spaceItems={{ default: 'spaceItemsSm' }}
                 >
-                  {t.isConfigured ? (
+                  {tokenInfo.isConfigured ? (
                     <>
                       <FlexItem>
                         <Label
-                          color={t.isValid ? 'green' : 'red'}
-                          icon={t.isValid ? <CheckCircleIcon /> : <TimesCircleIcon />}
+                          color={tokenInfo.isValid ? 'green' : 'red'}
+                          icon={tokenInfo.isValid ? <CheckCircleIcon /> : <TimesCircleIcon />}
                         >
-                          {t.isValid ? t.providerUsername || 'Valid' : 'Invalid'}
+                          {tokenInfo.isValid ? tokenInfo.providerUsername || 'Valid' : 'Invalid'}
                         </Label>
                       </FlexItem>
                       <FlexItem>
@@ -113,7 +115,7 @@ export const PersonalTokensSection: React.FC = () => {
                           isLoading={testMutation.isPending}
                           size="sm"
                           variant="secondary"
-                          onClick={() => testMutation.mutate(t.provider)}
+                          onClick={() => testMutation.mutate(tokenInfo.provider)}
                         >
                           Test
                         </Button>
@@ -123,7 +125,7 @@ export const PersonalTokensSection: React.FC = () => {
                           icon={<TrashIcon />}
                           size="sm"
                           variant="plain"
-                          onClick={() => deleteMutation.mutate(t.provider)}
+                          onClick={() => deleteMutation.mutate(tokenInfo.provider)}
                         />
                       </FlexItem>
                     </>
@@ -132,23 +134,23 @@ export const PersonalTokensSection: React.FC = () => {
                       <InputGroup>
                         <InputGroupItem isFill>
                           <TextInput
-                            placeholder={`Enter ${providerLabels[t.provider] || t.provider} token`}
+                            placeholder={`Enter ${providerLabels[tokenInfo.provider] || tokenInfo.provider} token`}
                             type="password"
-                            value={tokenInputs[t.provider] || ''}
+                            value={tokenInputs[tokenInfo.provider] || ''}
                             onChange={(_e, val) =>
-                              setTokenInputs(prev => ({ ...prev, [t.provider]: val }))
+                              setTokenInputs(prev => ({ ...prev, [tokenInfo.provider]: val }))
                             }
                           />
                         </InputGroupItem>
                         <InputGroupItem>
                           <Button
-                            isDisabled={!tokenInputs[t.provider] || saveMutation.isPending}
+                            isDisabled={!tokenInputs[tokenInfo.provider] || saveMutation.isPending}
                             isLoading={saveMutation.isPending}
                             variant="control"
                             onClick={() =>
                               saveMutation.mutate({
-                                provider: t.provider,
-                                token: tokenInputs[t.provider] || '',
+                                provider: tokenInfo.provider,
+                                token: tokenInputs[tokenInfo.provider] || '',
                               })
                             }
                           >

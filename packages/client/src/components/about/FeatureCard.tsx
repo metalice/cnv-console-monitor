@@ -63,10 +63,10 @@ export const FeatureGroup: React.FC<FeatureGroupProps> = ({ features, icon, titl
               <FlexItem>{expanded ? 'Show less' : `Show ${features.length} features`}</FlexItem>
             </Flex>
           }
-          onToggle={(_e, v) => setExpanded(v)}
+          onToggle={(_e, isExpanded) => setExpanded(isExpanded)}
         >
-          {features.map(f => (
-            <div className="app-about-feature-item" key={f.title}>
+          {features.map(feature => (
+            <div className="app-about-feature-item" key={feature.title}>
               <Flex
                 alignItems={{ default: 'alignItemsFlexStart' }}
                 justifyContent={{ default: 'justifyContentSpaceBetween' }}
@@ -77,18 +77,18 @@ export const FeatureGroup: React.FC<FeatureGroupProps> = ({ features, icon, titl
                     className="app-mb-xs"
                     spaceItems={{ default: 'spaceItemsSm' }}
                   >
-                    {f.icon && <FlexItem>{f.icon}</FlexItem>}
+                    {feature.icon && <FlexItem>{feature.icon}</FlexItem>}
                     <FlexItem>
-                      <strong>{f.title}</strong>
+                      <strong>{feature.title}</strong>
                     </FlexItem>
-                    {f.adminOnly && (
+                    {feature.adminOnly && (
                       <FlexItem>
                         <Label isCompact color="orange">
                           Admin
                         </Label>
                       </FlexItem>
                     )}
-                    {f.aiPowered && (
+                    {feature.aiPowered && (
                       <FlexItem>
                         <Label isCompact color="purple">
                           AI
@@ -97,17 +97,17 @@ export const FeatureGroup: React.FC<FeatureGroupProps> = ({ features, icon, titl
                     )}
                   </Flex>
                   <Content className="app-text-muted app-mb-sm" component="small">
-                    {f.description}
+                    {feature.description}
                   </Content>
                   <List isPlain className="app-about-capability-list">
-                    {f.capabilities.map(c => (
-                      <ListItem key={c}>
-                        <Content component="small">{c}</Content>
+                    {feature.capabilities.map(capability => (
+                      <ListItem key={capability}>
+                        <Content component="small">{capability}</Content>
                       </ListItem>
                     ))}
                   </List>
                 </FlexItem>
-                {f.path && (
+                {feature.path && (
                   <FlexItem>
                     <Button
                       icon={<ArrowRightIcon />}
@@ -115,7 +115,7 @@ export const FeatureGroup: React.FC<FeatureGroupProps> = ({ features, icon, titl
                       size="sm"
                       variant="link"
                       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                      onClick={() => navigate(f.path!)}
+                      onClick={() => navigate(feature.path!)}
                     >
                       Open
                     </Button>
