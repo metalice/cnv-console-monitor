@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { TreeNode } from '@cnv-monitor/shared';
 
 import {
+  ActionGroup,
   Alert,
   Breadcrumb,
   BreadcrumbItem,
@@ -24,6 +25,7 @@ import {
   FlexItem,
   Label,
   Spinner,
+  TextArea,
 } from '@patternfly/react-core';
 import {
   BanIcon,
@@ -31,13 +33,20 @@ import {
   CubesIcon,
   ExternalLinkAltIcon,
   FolderIcon,
+  MagicIcon,
   OutlinedFileAltIcon,
   PencilAltIcon,
   RepositoryIcon,
 } from '@patternfly/react-icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
-import { deleteDraftApi, fetchFileDetail, saveDraftApi } from '../../api/testExplorer';
+import {
+  deleteDraftApi,
+  fetchFileDetail,
+  generateDocsApi,
+  improveDocApi,
+  saveDraftApi,
+} from '../../api/testExplorer';
 
 import { GapBadge } from './GapBadge';
 const MonacoViewer = React.lazy(() =>
@@ -52,6 +61,7 @@ type TestBlock = {
 
 type FileDetailProps = {
   node: TreeNode;
+  draftPaths?: Set<string>;
   onQuarantine?: (node: TreeNode) => void;
   onNavigate?: (path: string, highlightInfo?: { lines: number[]; scrollTo: number }) => void;
   highlightInfo?: { lines: number[]; scrollTo: number } | null;
@@ -59,6 +69,7 @@ type FileDetailProps = {
 
 // eslint-disable-next-line max-lines-per-function
 export const FileDetail: React.FC<FileDetailProps> = ({
+  draftPaths,
   highlightInfo,
   node,
   onNavigate,
@@ -96,6 +107,43 @@ export const FileDetail: React.FC<FileDetailProps> = ({
   const [editorContent, setEditorContent] = useState('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [improveInstructions, setImproveInstructions] = useState('');
+  const [improveExpanded, setImproveExpanded] = useState(false);
+
+  const hasDraft = Boolean(draftPaths && node.path && draftPaths.has(node.path));
+  const isDocWithDraft = node.type === 'doc' && (editing || hasDraft);
+
+  const improveMutation = useMutation({
+    mutationFn: () =>
+      improveDocApi({
+        branch: node.branch ?? 'main',
+        currentContent: editorContent,
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        filePath: node.path!,
+        instructions: improveInstructions,
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        repoId: node.repoId!,
+      }),
+    onSuccess: data => {
+      setEditorContent(data.content);
+      setImproveInstructions('');
+      setSaveStatus('saving');
+    },
+  });
+
+  const regenerateMutation = useMutation({
+    mutationFn: () =>
+      generateDocsApi([
+        {
+          branch: node.branch ?? 'main',
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          filePath: node.path!,
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          repoId: node.repoId!,
+        },
+      ]),
+  });
 
   const typeIcon =
     node.type === 'doc' ? (
@@ -641,6 +689,48 @@ export const FileDetail: React.FC<FileDetailProps> = ({
                   </DescriptionListGroup>
                 ))}
             </DescriptionList>
+          </ExpandableSection>
+        )}
+
+        {isDocWithDraft && editing && node.repoId && node.path && (
+          <ExpandableSection
+            className="app-mt-lg"
+            isExpanded={improveExpanded}
+            toggleText={improveExpanded ? 'Hide Improve with AI' : 'Improve with AI'}
+            onToggle={(_e, val) => setImproveExpanded(val)}
+          >
+            <TextArea
+              aria-label="Improvement instructions"
+              placeholder="e.g., Add more detail to test case 003, Include setup prerequisites..."
+              rows={3}
+              value={improveInstructions}
+              onChange={(_e, val) => setImproveInstructions(val)}
+            />
+            <ActionGroup className="app-mt-sm">
+              <Button
+                icon={<MagicIcon />}
+                isDisabled={!improveInstructions.trim()}
+                isLoading={improveMutation.isPending}
+                variant="primary"
+                onClick={() => improveMutation.mutate()}
+              >
+                Apply
+              </Button>
+              <Button
+                isLoading={regenerateMutation.isPending}
+                variant="secondary"
+                onClick={() => regenerateMutation.mutate()}
+              >
+                Regenerate
+              </Button>
+            </ActionGroup>
+            {improveMutation.isError && (
+              <Alert isInline className="app-mt-sm" title="Improve failed" variant="danger">
+                {improveMutation.error instanceof Error
+                  ? improveMutation.error.message
+                  : 'Unknown error'}
+              </Alert>
+            )}
           </ExpandableSection>
         )}
 

@@ -617,4 +617,137 @@ router.get('/edit-activity', async (req: Request, res: Response, next: NextFunct
   }
 });
 
+const MAX_GENERATE_BATCH = 20;
+
+router.post(
+  '/generate-docs',
+  requireAdmin,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { tests } = req.body as {
+        tests: { repoId: string; filePath: string; branch: string }[];
+      };
+
+      if (!Array.isArray(tests) || tests.length === 0) {
+        res.status(400).json({ error: 'tests array is required and must not be empty' });
+        return;
+      }
+      if (tests.length > MAX_GENERATE_BATCH) {
+        res.status(400).json({ error: `Maximum ${MAX_GENERATE_BATCH} tests per batch` });
+        return;
+      }
+
+      const headerEmail = req.headers['x-user-email'] as string | undefined;
+      const userEmail = headerEmail ?? req.user?.email ?? 'unknown@user';
+
+      res.status(202).json({
+        count: tests.length,
+        message: `Generating docs for ${tests.length} test file${tests.length === 1 ? '' : 's'} in background`,
+      });
+
+      const { generateDocsForTests } = await import('../../services/DocGenerationService');
+      const { broadcast } = await import('../../ws');
+      const onProgress = (info: Record<string, unknown>) =>
+        broadcast('doc-generate-progress', info);
+
+      generateDocsForTests(
+        tests.map(test => ({ ...test, userEmail })),
+        onProgress,
+      )
+        .then(result => {
+          broadcast('doc-generate-complete', result as unknown as Record<string, unknown>);
+          broadcast('data-updated');
+          log.info(
+            { failed: result.failed.length, generated: result.generated.length },
+            'Doc generation complete',
+          );
+          return undefined;
+        })
+        .catch(err => log.error({ err }, 'Background doc generation failed'));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+const fetchTestContentForImprove = async (
+  repoId: string,
+  filePath: string,
+  branch: string,
+): Promise<string | undefined> => {
+  const repo = await getRepositoryById(repoId);
+  if (!repo) {
+    return undefined;
+  }
+  const { getSetting } = await import('../../db/store');
+  let token = await getSetting(repo.global_token_key);
+  if (!token) {
+    const altKeys = [`${repo.provider}.token`, `${repo.provider}Token`];
+    for (const key of altKeys) {
+      if (key !== repo.global_token_key) {
+        // eslint-disable-next-line no-await-in-loop -- sequential: ordered fallback
+        token = await getSetting(key);
+        if (token) {
+          break;
+        }
+      }
+    }
+  }
+  if (!token) {
+    return undefined;
+  }
+  const gitMod = await import('../../clients/git-provider');
+  const provider = await gitMod.createGitProvider(
+    repo.provider as 'gitlab' | 'github',
+    repo.api_base_url,
+    repo.project_id,
+    token,
+  );
+  const file = await provider.fetchFileContent(filePath, branch);
+  return file.content;
+};
+
+router.post(
+  '/improve-doc',
+  requireAdmin,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { branch, currentContent, filePath, instructions, repoId } = req.body as {
+        repoId: string;
+        filePath: string;
+        branch: string;
+        currentContent: string;
+        instructions: string;
+      };
+
+      if (!currentContent || !instructions) {
+        res.status(400).json({ error: 'currentContent and instructions are required' });
+        return;
+      }
+
+      const { getAIService } = await import('../../ai');
+      const ai = getAIService();
+      if (!ai.isEnabled()) {
+        res.status(503).json({ error: 'AI service is not enabled' });
+        return;
+      }
+
+      let testContent: string | undefined;
+      if (repoId && filePath && branch) {
+        try {
+          testContent = await fetchTestContentForImprove(repoId, filePath, branch);
+        } catch (err) {
+          log.debug({ err, filePath }, 'Could not fetch test content for improve-doc');
+        }
+      }
+
+      const { improveDoc } = await import('../../services/DocGenerationService');
+      const content = await improveDoc(ai, currentContent, instructions, testContent);
+      res.json({ content });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 export default router;
