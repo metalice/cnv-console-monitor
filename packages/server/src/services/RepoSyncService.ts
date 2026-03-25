@@ -99,13 +99,24 @@ If none: []`;
       });
 
       try {
-        const cleaned = response.content
-          .trim()
-          .replace(/^```(?:json)?\s*/i, '')
-          .replace(/\n?```\s*$/, '')
-          .trim();
-        const indices = JSON.parse(cleaned) as number[];
+        const jsonStr = extractJsonFromText(response.content);
+        const parsed: unknown = JSON.parse(jsonStr);
+        let indices: unknown[];
+        if (Array.isArray(parsed)) {
+          indices = parsed;
+        } else if (parsed !== null && typeof parsed === 'object') {
+          const arrayVal = Object.values(parsed as Record<string, unknown>).find(v =>
+            Array.isArray(v),
+          );
+          indices = Array.isArray(arrayVal) ? arrayVal : [];
+        } else {
+          indices = [];
+        }
+
         for (const idx of indices) {
+          if (typeof idx !== 'number') {
+            continue;
+          }
           const file = batch[idx - 1];
           // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: AI JSON may reference out-of-range indices
           if (file) {
@@ -372,16 +383,85 @@ type SyncProgressCallback = (info: {
   message: string;
 }) => void;
 
-type DocFileEntry = { path: string; baseName: string; relPath: string; id?: string };
+type DocFileEntry = {
+  path: string;
+  baseName: string;
+  relPath: string;
+  id?: string;
+  testRefs?: string[];
+  signals?: DocSignals;
+};
 type TestFileEntry = { path: string; baseName: string; relPath: string; id?: string };
 
-const parseAIMatchResponse = (content: string): number[][] => {
-  const cleaned = content
+const extractJsonFromText = (text: string): string => {
+  const trimmed = text
     .trim()
     .replace(/^```(?:json)?\s*/i, '')
     .replace(/\n?```\s*$/, '')
     .trim();
-  return JSON.parse(cleaned) as number[][];
+
+  try {
+    JSON.parse(trimmed);
+    return trimmed;
+  } catch {
+    // Not pure JSON -- extract the first JSON array or object from the text
+  }
+
+  const arrayStart = trimmed.indexOf('[');
+  const objectStart = trimmed.indexOf('{');
+  const start =
+    arrayStart === -1
+      ? objectStart
+      : objectStart === -1
+        ? arrayStart
+        : Math.min(arrayStart, objectStart);
+  if (start === -1) {
+    return trimmed;
+  }
+
+  const openChar = trimmed[start];
+  const closeChar = openChar === '[' ? ']' : '}';
+  let depth = 0;
+  for (let i = start; i < trimmed.length; i++) {
+    if (trimmed[i] === openChar) {
+      depth++;
+    } else if (trimmed[i] === closeChar) {
+      depth--;
+      if (depth === 0) {
+        return trimmed.slice(start, i + 1);
+      }
+    }
+  }
+
+  return trimmed.slice(start);
+};
+
+const parseAIMatchResponse = (content: string): number[][] => {
+  const jsonStr = extractJsonFromText(content);
+  const parsed: unknown = JSON.parse(jsonStr);
+
+  let pairs: unknown[];
+  if (Array.isArray(parsed)) {
+    pairs = parsed;
+  } else if (parsed !== null && typeof parsed === 'object') {
+    const values = Object.values(parsed as Record<string, unknown>);
+    const arrayVal = values.find(v => Array.isArray(v));
+    if (!arrayVal) {
+      log.warn(
+        { keys: Object.keys(parsed as Record<string, unknown>) },
+        'AI response is object with no array property',
+      );
+      return [];
+    }
+    pairs = arrayVal as unknown[];
+  } else {
+    return [];
+  }
+
+  return pairs.filter(
+    (p): p is [number, number] =>
+      Array.isArray(p) && p.length === 2 && typeof p[0] === 'number' && typeof p[1] === 'number',
+  );
 };
 
 const applyMatchPairs = async (
@@ -391,13 +471,18 @@ const applyMatchPairs = async (
   usedTests: Set<number>,
 ): Promise<number> => {
   let applied = 0;
+  let skippedUsed = 0;
+  let skippedOutOfRange = 0;
+
   for (const [dIdx, tIdx] of rawPairs) {
     if (usedTests.has(tIdx)) {
+      skippedUsed++;
       continue;
     }
     const doc = allDocs[dIdx - 1] as DocFileEntry | undefined;
     const test = allTests[tIdx - 1] as TestFileEntry | undefined;
     if (!doc?.id || !test?.id) {
+      skippedOutOfRange++;
       continue;
     }
     // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
@@ -407,10 +492,132 @@ const applyMatchPairs = async (
     applied++;
     usedTests.add(tIdx);
   }
+
+  if (skippedUsed > 0 || skippedOutOfRange > 0) {
+    log.debug(
+      { applied, rawPairsCount: rawPairs.length, skippedOutOfRange, skippedUsed },
+      'Match pair application details',
+    );
+  }
+
   return applied;
 };
 
-// eslint-disable-next-line max-lines-per-function
+type AIChatFn = (
+  messages: { role: 'user' | 'system' | 'assistant'; content: string }[],
+  options?: Record<string, unknown>,
+) => Promise<{ content: string; provider: string; model: string }>;
+
+const runAIMatchingBatches = async (
+  ai: { chat: AIChatFn },
+  docFiles: DocFileEntry[],
+  testFiles: TestFileEntry[],
+  progress: (phase: string, current: number, total: number, message: string) => void,
+): Promise<number> => {
+  const testList = testFiles.map((t, i) => `T${i + 1}: ${t.path}`).join('\n');
+  const usedTests = new Set<number>();
+  const BATCH_SIZE = 15;
+  let matchedPairs = 0;
+
+  for (let batchStart = 0; batchStart < docFiles.length; batchStart += BATCH_SIZE) {
+    const batch = docFiles.slice(batchStart, batchStart + BATCH_SIZE);
+    const batchDocList = batch
+      .map((d, i) => {
+        const globalIdx = batchStart + i + 1;
+        const s = d.signals;
+        let entry = `D${globalIdx}: ${d.path}`;
+        if (s?.title) {
+          entry += `\n  Title: ${s.title}`;
+        }
+        if (s?.featureArea) {
+          entry += `\n  Feature: ${s.featureArea}`;
+        }
+        if (s?.testRefs && s.testRefs.length > 0) {
+          entry += `\n  References test files: ${s.testRefs.join(', ')}`;
+        }
+        if (s?.rtmEntries && s.rtmEntries.length > 0) {
+          entry += `\n  RTM mappings: ${s.rtmEntries.slice(0, 5).join(' | ')}`;
+        }
+        return entry;
+      })
+      .join('\n\n');
+
+    const prompt = `Match each documentation file to its corresponding test code file.
+
+MATCHING RULES (strongest signal first):
+1. EXPLICIT REFERENCES: If doc says "References test files: X.spec.ts", match to that exact test file.
+2. RTM TABLE: If doc's RTM mentions a spec filename, that is a definitive match.
+3. DIRECTORY + FEATURE: tier1/bootable-volumes.md matches tier1/*/bootable-volumes.spec.ts (same tier AND same feature).
+4. NAMING VARIATIONS: These are equivalent names — match them:
+   - kebab-case vs camelCase: "instance-types" = "instanceTypes"
+   - singular vs plural: "template" = "templates"
+   - abbreviations: "vm" = "virtualmachines", "acm" = "fleet-virtualization-acm"
+   - with/without suffixes: "catalog" = "catalog-it-filter"
+5. FEATURE CONTEXT: If a doc's title mentions "Bootable Volumes" and a test path contains "bootable-volumes", they match.
+
+CONSTRAINTS:
+- Each doc matches AT MOST one test. Each test matches AT MOST one doc.
+- Prefer matches within the same tier/directory over cross-tier matches.
+- When a doc explicitly references a test file, that ALWAYS wins.
+- Skip tests already used: ${usedTests.size > 0 ? `T${[...usedTests].join(', T')} are taken` : 'none taken yet'}.
+
+DOCUMENTATION FILES:
+${batchDocList}
+
+TEST FILES:
+${testList}
+
+Return ONLY a JSON array. Each element: [docNumber, testNumber].
+Example: [[1,3],[2,5]]
+If no matches: []`;
+
+    // eslint-disable-next-line no-await-in-loop -- sequential: batches must run in order to track usedTests
+    const response = await ai.chat([{ content: prompt, role: 'user' }], {
+      cacheTtlMs: 24 * 60 * 60 * 1000,
+      json: true,
+      maxTokens: 4096,
+    });
+
+    log.info(
+      {
+        batch: `${batchStart + 1}-${batchStart + batch.length}`,
+        responseLength: response.content.length,
+      },
+      'AI matching batch response received',
+    );
+
+    try {
+      const matches = parseAIMatchResponse(response.content);
+      if (matches.length === 0) {
+        log.warn(
+          { preview: response.content.slice(0, 300), provider: response.provider },
+          'AI returned 0 match pairs',
+        );
+      } else {
+        log.info({ matches: matches.length }, 'AI matching batch parsed');
+      }
+
+      // eslint-disable-next-line no-await-in-loop -- sequential: batches must run in order
+      const applied = await applyMatchPairs(matches, docFiles, testFiles, usedTests);
+      matchedPairs += applied;
+    } catch (parseErr) {
+      log.warn(
+        { err: parseErr, preview: response.content.slice(0, 500) },
+        'Failed to parse AI matching response',
+      );
+    }
+
+    progress(
+      'matching',
+      Math.min(batchStart + BATCH_SIZE, docFiles.length),
+      docFiles.length,
+      `Matched ${matchedPairs} pairs so far (batch ${Math.floor(batchStart / BATCH_SIZE) + 1})`,
+    );
+  }
+
+  return matchedPairs;
+};
+
 export const syncRepository = async (
   repo: Repository,
   branch?: string,
@@ -548,15 +755,8 @@ export const syncRepository = async (
 
   await clearRepoFiles(repo.id, targetBranch);
 
-  const docFiles: {
-    path: string;
-    baseName: string;
-    relPath: string;
-    id?: string;
-    testRefs?: string[];
-    signals?: DocSignals;
-  }[] = [];
-  const testFiles: { path: string; baseName: string; relPath: string; id?: string }[] = [];
+  const docFiles: DocFileEntry[] = [];
+  const testFiles: TestFileEntry[] = [];
 
   let fileIndex = 0;
   for (const file of relevantFiles) {
@@ -633,13 +833,6 @@ export const syncRepository = async (
     }
   }
 
-  progress(
-    'matching',
-    0,
-    docFiles.length,
-    `AI matching ${docFiles.length} docs to ${testFiles.length} tests...`,
-  );
-
   let matchedPairs = 0;
 
   try {
@@ -647,97 +840,55 @@ export const syncRepository = async (
     const ai = getAIService();
 
     if (ai.isEnabled() && docFiles.length > 0 && testFiles.length > 0) {
-      const testList = testFiles.map((t, i) => `T${i + 1}: ${t.path}`).join('\n');
-      const usedTests = new Set<number>();
-      const BATCH_SIZE = 15;
+      progress('ai-check', 0, 0, 'Verifying AI provider connection...');
 
-      for (let batchStart = 0; batchStart < docFiles.length; batchStart += BATCH_SIZE) {
-        const batch = docFiles.slice(batchStart, batchStart + BATCH_SIZE);
-        const batchDocList = batch
-          .map((d, i) => {
-            const globalIdx = batchStart + i + 1;
-            const s = d.signals;
-            let entry = `D${globalIdx}: ${d.path}`;
-            if (s?.title) {
-              entry += `\n  Title: ${s.title}`;
-            }
-            if (s?.featureArea) {
-              entry += `\n  Feature: ${s.featureArea}`;
-            }
-            if (s?.testRefs && s.testRefs.length > 0) {
-              entry += `\n  References test files: ${s.testRefs.join(', ')}`;
-            }
-            if (s?.rtmEntries && s.rtmEntries.length > 0) {
-              entry += `\n  RTM mappings: ${s.rtmEntries.slice(0, 5).join(' | ')}`;
-            }
-            return entry;
-          })
-          .join('\n\n');
-
-        const prompt = `Match each documentation file to its corresponding test code file.
-
-MATCHING RULES (strongest signal first):
-1. EXPLICIT REFERENCES: If doc says "References test files: X.spec.ts", match to that exact test file.
-2. RTM TABLE: If doc's RTM mentions a spec filename, that is a definitive match.
-3. DIRECTORY + FEATURE: tier1/bootable-volumes.md matches tier1/*/bootable-volumes.spec.ts (same tier AND same feature).
-4. NAMING VARIATIONS: These are equivalent names — match them:
-   - kebab-case vs camelCase: "instance-types" = "instanceTypes"
-   - singular vs plural: "template" = "templates"
-   - abbreviations: "vm" = "virtualmachines", "acm" = "fleet-virtualization-acm"
-   - with/without suffixes: "catalog" = "catalog-it-filter"
-5. FEATURE CONTEXT: If a doc's title mentions "Bootable Volumes" and a test path contains "bootable-volumes", they match.
-
-CONSTRAINTS:
-- Each doc matches AT MOST one test. Each test matches AT MOST one doc.
-- Prefer matches within the same tier/directory over cross-tier matches.
-- When a doc explicitly references a test file, that ALWAYS wins.
-- Skip tests already used: ${usedTests.size > 0 ? `T${[...usedTests].join(', T')} are taken` : 'none taken yet'}.
-
-DOCUMENTATION FILES:
-${batchDocList}
-
-TEST FILES:
-${testList}
-
-Return ONLY a JSON array. Each element: [docNumber, testNumber].
-Example: [[1,3],[2,5]]
-If no matches: []`;
-
-        // eslint-disable-next-line no-await-in-loop -- sequential: batches must run in order to track usedTests
-        const response = await ai.chat([{ content: prompt, role: 'user' }], {
-          cacheTtlMs: 24 * 60 * 60 * 1000,
-          json: true,
-          maxTokens: 4096,
+      let aiReady = false;
+      try {
+        const probe = await ai.chat([{ content: 'Say hello', role: 'user' }], {
+          maxTokens: 32,
+          useCache: false,
         });
-
+        const probeText = probe.content.trim().slice(0, 80);
+        aiReady = probeText.length > 0;
+        progress(
+          'ai-check',
+          1,
+          1,
+          `AI connected: ${probe.provider} / ${probe.model} (${probe.durationMs}ms) — "${probeText}"`,
+        );
         log.info(
           {
-            batch: `${batchStart + 1}-${batchStart + batch.length}`,
-            responseLength: response.content.length,
+            durationMs: probe.durationMs,
+            model: probe.model,
+            provider: probe.provider,
+            response: probeText,
           },
-          'AI matching batch response received',
+          'AI health check passed',
         );
+      } catch (probeErr) {
+        const errMsg = probeErr instanceof Error ? probeErr.message : 'Unknown error';
+        progress('ai-check', 0, 1, `AI connection failed: ${errMsg}`);
+        log.error({ err: probeErr }, 'AI health check failed');
+      }
 
-        try {
-          const matches = parseAIMatchResponse(response.content);
-          log.info({ matches: matches.length }, 'AI matching batch parsed');
-
-          // eslint-disable-next-line no-await-in-loop -- sequential: batches must run in order
-          const applied = await applyMatchPairs(matches, docFiles, testFiles, usedTests);
-          matchedPairs += applied;
-        } catch (parseErr) {
-          log.warn(
-            { err: parseErr, preview: response.content.slice(0, 500) },
-            'Failed to parse AI matching response',
-          );
-        }
-
+      if (!aiReady) {
         progress(
           'matching',
-          Math.min(batchStart + BATCH_SIZE, docFiles.length),
           docFiles.length,
-          `Matched ${matchedPairs} pairs so far (batch ${Math.floor(batchStart / BATCH_SIZE) + 1})`,
+          docFiles.length,
+          `Skipping AI matching — provider not reachable`,
         );
+      }
+
+      if (aiReady) {
+        progress(
+          'matching',
+          0,
+          docFiles.length,
+          `AI matching ${docFiles.length} docs to ${testFiles.length} tests...`,
+        );
+
+        matchedPairs = await runAIMatchingBatches(ai, docFiles, testFiles, progress);
       }
     }
   } catch (err) {

@@ -39,6 +39,7 @@ export class VertexClaudeProvider implements ModelProvider {
       anthropic_version: 'vertex-2023-10-16',
       max_tokens: Math.min(options?.maxTokens ?? 8192, 8192),
       messages: chatMessages,
+      temperature: options?.temperature ?? 0.3,
     };
     if (systemMsg) {
       body.system = systemMsg;
