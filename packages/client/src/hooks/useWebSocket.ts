@@ -55,12 +55,27 @@ type WsJenkinsProgress = {
   phase: string;
   total: number;
 };
+type WsDocGenerateProgress = {
+  event: 'doc-generate-progress';
+  phase: string;
+  current?: number;
+  total?: number;
+  message?: string;
+};
+type WsDocGenerateComplete = {
+  event: 'doc-generate-complete';
+  message?: string;
+  generated?: number;
+  failed?: number;
+};
 type WsPipelineState = {
   [key: string]: unknown;
   event: 'pipeline-state';
 };
 type WsMessage =
   | WsDataUpdated
+  | WsDocGenerateComplete
+  | WsDocGenerateProgress
   | WsJenkinsProgress
   | WsPipelineState
   | WsPollProgress
@@ -76,6 +91,58 @@ let syncState: SyncProgressInfo = {
   phase: '',
   repoName: '',
   total: 0,
+};
+
+type DocGenProgressInfo = {
+  active: boolean;
+  phase: string;
+  current: number;
+  total: number;
+  message: string;
+  log: string[];
+};
+
+type DocGenListener = (info: DocGenProgressInfo) => void;
+const docGenListeners = new Set<DocGenListener>();
+let docGenState: DocGenProgressInfo = {
+  active: false,
+  current: 0,
+  log: [],
+  message: '',
+  phase: '',
+  total: 0,
+};
+
+const handleDocGenEvent = (data: WsDocGenerateProgress | WsDocGenerateComplete): void => {
+  if (data.event === 'doc-generate-complete') {
+    const summary = data.message ?? `Generated ${data.generated ?? 0} docs`;
+    docGenState = {
+      active: false,
+      current: docGenState.total,
+      log: [...docGenState.log.slice(-49), summary],
+      message: summary,
+      phase: 'complete',
+      total: docGenState.total,
+    };
+  } else {
+    const logEntry = data.message ?? '';
+    const lastLog = docGenState.log[docGenState.log.length - 1];
+    const newLog =
+      logEntry && logEntry !== lastLog
+        ? [...docGenState.log.slice(-49), logEntry]
+        : docGenState.log;
+    docGenState = {
+      active: data.phase !== 'complete' && data.phase !== 'error',
+      current: data.current ?? 0,
+      log: newLog,
+      message: logEntry,
+      phase: data.phase,
+      total: data.total ?? 0,
+    };
+  }
+  for (const listener of docGenListeners) {
+    listener(docGenState);
+  }
 };
 
 export const usePollProgress = (): PollStatusLegacy | null => {
@@ -119,6 +186,20 @@ export const useSyncProgress = (): SyncProgressInfo => {
     syncListeners.add(handler);
     return () => {
       syncListeners.delete(handler);
+    };
+  }, []);
+
+  return progress;
+};
+
+export const useDocGenProgress = (): DocGenProgressInfo => {
+  const [progress, setProgress] = useState(docGenState);
+
+  useEffect(() => {
+    const handler: DocGenListener = info => setProgress({ ...info });
+    docGenListeners.add(handler);
+    return () => {
+      docGenListeners.delete(handler);
     };
   }, []);
 
@@ -188,6 +269,12 @@ export const useWebSocket = (): WebSocketStatus => {
           for (const listener of jenkinsListeners) {
             listener(info);
           }
+        }
+        if (data.event === 'doc-generate-progress' || data.event === 'doc-generate-complete') {
+          handleDocGenEvent(data);
+          void queryClient.invalidateQueries({ queryKey: ['testExplorerTree'] });
+          void queryClient.invalidateQueries({ queryKey: ['draftPaths'] });
+          void queryClient.invalidateQueries({ queryKey: ['draftCount'] });
         }
         if (data.event === 'pipeline-state') {
           queryClient.setQueryData(['pollStatus'], (old: unknown) => {
