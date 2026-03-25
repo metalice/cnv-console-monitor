@@ -372,6 +372,44 @@ type SyncProgressCallback = (info: {
   message: string;
 }) => void;
 
+type DocFileEntry = { path: string; baseName: string; relPath: string; id?: string };
+type TestFileEntry = { path: string; baseName: string; relPath: string; id?: string };
+
+const parseAIMatchResponse = (content: string): number[][] => {
+  const cleaned = content
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\n?```\s*$/, '')
+    .trim();
+  return JSON.parse(cleaned) as number[][];
+};
+
+const applyMatchPairs = async (
+  rawPairs: number[][],
+  allDocs: DocFileEntry[],
+  allTests: TestFileEntry[],
+  usedTests: Set<number>,
+): Promise<number> => {
+  let applied = 0;
+  for (const [dIdx, tIdx] of rawPairs) {
+    if (usedTests.has(tIdx)) {
+      continue;
+    }
+    const doc = allDocs[dIdx - 1] as DocFileEntry | undefined;
+    const test = allTests[tIdx - 1] as TestFileEntry | undefined;
+    if (!doc?.id || !test?.id) {
+      continue;
+    }
+    // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
+    await updateFileCounterpart(doc.id, test.id);
+    // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
+    await updateFileCounterpart(test.id, doc.id);
+    applied++;
+    usedTests.add(tIdx);
+  }
+  return applied;
+};
+
 // eslint-disable-next-line max-lines-per-function
 export const syncRepository = async (
   repo: Repository,
@@ -609,28 +647,34 @@ export const syncRepository = async (
     const ai = getAIService();
 
     if (ai.isEnabled() && docFiles.length > 0 && testFiles.length > 0) {
-      const docList = docFiles
-        .map((d, i) => {
-          const s = d.signals;
-          let entry = `D${i + 1}: ${d.path}`;
-          if (s?.title) {
-            entry += `\n  Title: ${s.title}`;
-          }
-          if (s?.featureArea) {
-            entry += `\n  Feature: ${s.featureArea}`;
-          }
-          if (s?.testRefs && s.testRefs.length > 0) {
-            entry += `\n  References test files: ${s.testRefs.join(', ')}`;
-          }
-          if (s?.rtmEntries && s.rtmEntries.length > 0) {
-            entry += `\n  RTM mappings: ${s.rtmEntries.slice(0, 5).join(' | ')}`;
-          }
-          return entry;
-        })
-        .join('\n\n');
       const testList = testFiles.map((t, i) => `T${i + 1}: ${t.path}`).join('\n');
+      const usedTests = new Set<number>();
+      const BATCH_SIZE = 15;
 
-      const prompt = `Match each documentation file to its corresponding test code file.
+      for (let batchStart = 0; batchStart < docFiles.length; batchStart += BATCH_SIZE) {
+        const batch = docFiles.slice(batchStart, batchStart + BATCH_SIZE);
+        const batchDocList = batch
+          .map((d, i) => {
+            const globalIdx = batchStart + i + 1;
+            const s = d.signals;
+            let entry = `D${globalIdx}: ${d.path}`;
+            if (s?.title) {
+              entry += `\n  Title: ${s.title}`;
+            }
+            if (s?.featureArea) {
+              entry += `\n  Feature: ${s.featureArea}`;
+            }
+            if (s?.testRefs && s.testRefs.length > 0) {
+              entry += `\n  References test files: ${s.testRefs.join(', ')}`;
+            }
+            if (s?.rtmEntries && s.rtmEntries.length > 0) {
+              entry += `\n  RTM mappings: ${s.rtmEntries.slice(0, 5).join(' | ')}`;
+            }
+            return entry;
+          })
+          .join('\n\n');
+
+        const prompt = `Match each documentation file to its corresponding test code file.
 
 MATCHING RULES (strongest signal first):
 1. EXPLICIT REFERENCES: If doc says "References test files: X.spec.ts", match to that exact test file.
@@ -647,9 +691,10 @@ CONSTRAINTS:
 - Each doc matches AT MOST one test. Each test matches AT MOST one doc.
 - Prefer matches within the same tier/directory over cross-tier matches.
 - When a doc explicitly references a test file, that ALWAYS wins.
+- Skip tests already used: ${usedTests.size > 0 ? `T${[...usedTests].join(', T')} are taken` : 'none taken yet'}.
 
 DOCUMENTATION FILES:
-${docList}
+${batchDocList}
 
 TEST FILES:
 ${testList}
@@ -658,44 +703,45 @@ Return ONLY a JSON array. Each element: [docNumber, testNumber].
 Example: [[1,3],[2,5]]
 If no matches: []`;
 
-      const response = await ai.chat([{ content: prompt, role: 'user' }], {
-        cacheTtlMs: 24 * 60 * 60 * 1000,
-        json: true,
-        maxTokens: 2000,
-      });
+        // eslint-disable-next-line no-await-in-loop -- sequential: batches must run in order to track usedTests
+        const response = await ai.chat([{ content: prompt, role: 'user' }], {
+          cacheTtlMs: 24 * 60 * 60 * 1000,
+          json: true,
+          maxTokens: 4096,
+        });
 
-      try {
-        const cleaned = response.content
-          .trim()
-          .replace(/^```(?:json)?\s*/i, '')
-          .replace(/\n?```\s*$/, '')
-          .trim();
-        const matches = JSON.parse(cleaned) as number[][];
-        const usedDocs = new Set<number>();
-        const usedTests = new Set<number>();
+        log.info(
+          {
+            batch: `${batchStart + 1}-${batchStart + batch.length}`,
+            responseLength: response.content.length,
+          },
+          'AI matching batch response received',
+        );
 
-        for (const [dIdx, tIdx] of matches) {
-          if (usedDocs.has(dIdx) || usedTests.has(tIdx)) {
-            continue;
-          }
-          const doc = docFiles[dIdx - 1];
-          const test = testFiles[tIdx - 1];
-          if (doc.id && test.id) {
-            // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
-            await updateFileCounterpart(doc.id, test.id);
-            // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
-            await updateFileCounterpart(test.id, doc.id);
-            matchedPairs++;
-            usedDocs.add(dIdx);
-            usedTests.add(tIdx);
-          }
+        try {
+          const matches = parseAIMatchResponse(response.content);
+          log.info({ matches: matches.length }, 'AI matching batch parsed');
+
+          // eslint-disable-next-line no-await-in-loop -- sequential: batches must run in order
+          const applied = await applyMatchPairs(matches, docFiles, testFiles, usedTests);
+          matchedPairs += applied;
+        } catch (parseErr) {
+          log.warn(
+            { err: parseErr, preview: response.content.slice(0, 500) },
+            'Failed to parse AI matching response',
+          );
         }
-      } catch {
-        log.debug('Failed to parse AI matching response');
+
+        progress(
+          'matching',
+          Math.min(batchStart + BATCH_SIZE, docFiles.length),
+          docFiles.length,
+          `Matched ${matchedPairs} pairs so far (batch ${Math.floor(batchStart / BATCH_SIZE) + 1})`,
+        );
       }
     }
   } catch (err) {
-    log.debug({ err }, 'AI matching failed');
+    log.error({ err }, 'AI matching failed');
   }
 
   progress(
