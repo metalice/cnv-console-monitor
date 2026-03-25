@@ -48,8 +48,8 @@ const SORT_ACCESSORS: Record<number, (g: LaunchGroup) => string | number | null>
   7: group => group.latestLaunch.start_time,
 };
 
-const fmtTime = (ts: string | number): string => {
-  const dateObj = new Date(ts);
+const fmtTime = (timestamp: string | number): string => {
+  const dateObj = new Date(timestamp);
   return `${dateObj.toLocaleDateString()} ${dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 };
 

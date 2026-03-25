@@ -108,7 +108,7 @@ export const getDistinctComponents = async (): Promise<string[]> => {
     .where('l.component IS NOT NULL')
     .orderBy('l.component', 'ASC')
     .getRawMany();
-  return rows.map((r: { component: string }) => r.component);
+  return rows.map((row: { component: string }) => row.component);
 };
 
 export const getLaunchesWithoutComponent = async (limit = 500): Promise<LaunchRecord[]> => {

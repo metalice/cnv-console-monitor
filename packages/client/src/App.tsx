@@ -6,49 +6,49 @@ import { Spinner } from '@patternfly/react-core';
 import { AppLayout } from './components/layout/AppLayout';
 
 const DashboardPage = React.lazy(() =>
-  import('./pages/DashboardPage').then(m => ({ default: m.DashboardPage })),
+  import('./pages/DashboardPage').then(mod => ({ default: mod.DashboardPage })),
 );
 const MyWorkPage = React.lazy(() =>
-  import('./pages/MyWorkPage').then(m => ({ default: m.MyWorkPage })),
+  import('./pages/MyWorkPage').then(mod => ({ default: mod.MyWorkPage })),
 );
 const LaunchDetailPage = React.lazy(() =>
-  import('./pages/LaunchDetailPage').then(m => ({ default: m.LaunchDetailPage })),
+  import('./pages/LaunchDetailPage').then(mod => ({ default: mod.LaunchDetailPage })),
 );
 const FailuresPage = React.lazy(() =>
-  import('./pages/FailuresPage').then(m => ({ default: m.FailuresPage })),
+  import('./pages/FailuresPage').then(mod => ({ default: mod.FailuresPage })),
 );
 const TrendsPage = React.lazy(() =>
-  import('./pages/TrendsPage').then(m => ({ default: m.TrendsPage })),
+  import('./pages/TrendsPage').then(mod => ({ default: mod.TrendsPage })),
 );
 const FlakyTestsPage = React.lazy(() =>
-  import('./pages/FlakyTestsPage').then(m => ({ default: m.FlakyTestsPage })),
+  import('./pages/FlakyTestsPage').then(mod => ({ default: mod.FlakyTestsPage })),
 );
 const ActivityPage = React.lazy(() =>
-  import('./pages/ActivityPage').then(m => ({ default: m.ActivityPage })),
+  import('./pages/ActivityPage').then(mod => ({ default: mod.ActivityPage })),
 );
 const ReleasePage = React.lazy(() =>
-  import('./pages/ReleasePage').then(m => ({ default: m.ReleasePage })),
+  import('./pages/ReleasePage').then(mod => ({ default: mod.ReleasePage })),
 );
 const SettingsPage = React.lazy(() =>
-  import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })),
+  import('./pages/SettingsPage').then(mod => ({ default: mod.SettingsPage })),
 );
 const TestProfilePage = React.lazy(() =>
-  import('./pages/TestProfilePage').then(m => ({ default: m.TestProfilePage })),
+  import('./pages/TestProfilePage').then(mod => ({ default: mod.TestProfilePage })),
 );
 const ComponentHealthPage = React.lazy(() =>
-  import('./pages/ComponentHealthPage').then(m => ({ default: m.ComponentHealthPage })),
+  import('./pages/ComponentHealthPage').then(mod => ({ default: mod.ComponentHealthPage })),
 );
 const ComparePage = React.lazy(() =>
-  import('./pages/ComparePage').then(m => ({ default: m.ComparePage })),
+  import('./pages/ComparePage').then(mod => ({ default: mod.ComparePage })),
 );
 const ReadinessPage = React.lazy(() =>
-  import('./pages/ReadinessPage').then(m => ({ default: m.ReadinessPage })),
+  import('./pages/ReadinessPage').then(mod => ({ default: mod.ReadinessPage })),
 );
 const AboutPage = React.lazy(() =>
-  import('./pages/AboutPage').then(m => ({ default: m.AboutPage })),
+  import('./pages/AboutPage').then(mod => ({ default: mod.AboutPage })),
 );
 const TestExplorerPage = React.lazy(() =>
-  import('./pages/TestExplorerPage').then(m => ({ default: m.TestExplorerPage })),
+  import('./pages/TestExplorerPage').then(mod => ({ default: mod.TestExplorerPage })),
 );
 
 const PageFallback: React.FC = () => (

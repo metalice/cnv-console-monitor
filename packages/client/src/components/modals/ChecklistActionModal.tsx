@@ -61,7 +61,10 @@ export const ChecklistActionModal: React.FC<ChecklistActionModalProps> = ({
     },
   });
 
-  const transitionOptions = (detail?.transitions ?? []).map(t => ({ label: t.name, value: t.id }));
+  const transitionOptions = (detail?.transitions ?? []).map(transition => ({
+    label: transition.name,
+    value: transition.id,
+  }));
 
   return (
     <Modal isOpen={isOpen} variant={ModalVariant.medium} onClose={onClose}>
@@ -95,7 +98,7 @@ export const ChecklistActionModal: React.FC<ChecklistActionModalProps> = ({
                   id="assignee"
                   placeholder={detail.assignee || 'Username (e.g., jdoe)'}
                   value={assignee}
-                  onChange={(_e, v) => setAssignee(v)}
+                  onChange={(_e, value) => setAssignee(value)}
                 />
               </FormGroup>
               <FormGroup fieldId="comment" label="Comment">
@@ -104,7 +107,7 @@ export const ChecklistActionModal: React.FC<ChecklistActionModalProps> = ({
                   placeholder="Add a comment..."
                   rows={3}
                   value={comment}
-                  onChange={(_e, v) => setComment(v)}
+                  onChange={(_e, value) => setComment(value)}
                 />
               </FormGroup>
               {mutation.isError && (

@@ -198,7 +198,7 @@ export const CompareResults: React.FC<CompareResultsProps> = ({ onReset, result 
                 Regressions ({summary.regressions})
               </Label>
             }
-            onToggle={(_e, v) => setRegressionsOpen(v)}
+            onToggle={(_e, isExpanded) => setRegressionsOpen(isExpanded)}
           >
             <TestItemTable items={result.regressions} label="Regressions" />
           </ExpandableSection>
@@ -214,7 +214,7 @@ export const CompareResults: React.FC<CompareResultsProps> = ({ onReset, result 
                 Fixes ({summary.fixes})
               </Label>
             }
-            onToggle={(_e, v) => setFixesOpen(v)}
+            onToggle={(_e, isExpanded) => setFixesOpen(isExpanded)}
           >
             <TestItemTable items={result.fixes} label="Fixes" />
           </ExpandableSection>
@@ -230,7 +230,7 @@ export const CompareResults: React.FC<CompareResultsProps> = ({ onReset, result 
                 Persistent Failures ({summary.persistent})
               </Label>
             }
-            onToggle={(_e, v) => setPersistentOpen(v)}
+            onToggle={(_e, isExpanded) => setPersistentOpen(isExpanded)}
           >
             <TestItemTable items={result.persistent} label="Persistent failures" />
           </ExpandableSection>

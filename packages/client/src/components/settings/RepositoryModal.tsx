@@ -37,12 +37,12 @@ type RepositoryModalProps = {
   existing?: Repository;
 };
 
-const stripTrailingSlashes = (s: string): string => {
-  let t = s;
-  while (t.endsWith('/')) {
-    t = t.slice(0, -1);
+const stripTrailingSlashes = (str: string): string => {
+  let trimmed = str;
+  while (trimmed.endsWith('/')) {
+    trimmed = trimmed.slice(0, -1);
   }
-  return t;
+  return trimmed;
 };
 
 const cleanRepoUrl = (repoUrl: string): { repoRoot: string; subPath: string } => {
@@ -149,8 +149,10 @@ export const RepositoryModal: React.FC<RepositoryModalProps> = ({ existing, isOp
 
   const componentOptions = useMemo(() => {
     const jiraComps = mappingsData?.jiraComponents ?? [];
-    const mappedComps = (mappingsData?.mappings ?? []).map(m => m.component);
-    return [...new Set([...jiraComps, ...mappedComps])].toSorted((a, b) => a.localeCompare(b));
+    const mappedComps = (mappingsData?.mappings ?? []).map(mapping => mapping.component);
+    return [...new Set([...jiraComps, ...mappedComps])].toSorted((nameA, nameB) =>
+      nameA.localeCompare(nameB),
+    );
   }, [mappingsData]);
 
   useEffect(() => {
@@ -229,16 +231,16 @@ export const RepositoryModal: React.FC<RepositoryModalProps> = ({ existing, isOp
 
   const handleProviderChange = useCallback(
     (_e: React.FormEvent, val: string) => {
-      const p = val as 'gitlab' | 'github';
-      setProvider(p);
+      const prov = val as 'gitlab' | 'github';
+      setProvider(prov);
       if (!existing) {
-        setGlobalTokenKey(`${p}.token`);
+        setGlobalTokenKey(`${prov}.token`);
         if (url) {
-          setApiBaseUrl(deriveApiUrl(p, url));
-          if (p === 'github') {
-            setProjectId(deriveProjectId(p, url));
+          setApiBaseUrl(deriveApiUrl(prov, url));
+          if (prov === 'github') {
+            setProjectId(deriveProjectId(prov, url));
           }
-        } else if (p === 'github') {
+        } else if (prov === 'github') {
           setApiBaseUrl('https://api.github.com');
         } else {
           setApiBaseUrl('');
@@ -524,7 +526,7 @@ export const RepositoryModal: React.FC<RepositoryModalProps> = ({ existing, isOp
                       new Set(
                         val
                           .split(',')
-                          .map(s => s.trim())
+                          .map(str => str.trim())
                           .filter(Boolean),
                       ),
                     )
@@ -545,7 +547,7 @@ export const RepositoryModal: React.FC<RepositoryModalProps> = ({ existing, isOp
             <FormGroup fieldId="repo-component" label="Component">
               <SearchableSelect
                 id="repo-component"
-                options={componentOptions.map(c => ({ label: c, value: c }))}
+                options={componentOptions.map(comp => ({ label: comp, value: comp }))}
                 placeholder="Select a component..."
                 value={selectedComponent}
                 onChange={setSelectedComponent}

@@ -184,7 +184,7 @@ export const buildDailyReport = async (
   const untriagedCount = (await getUntriagedItems(sinceMs, untilMs)).length;
   const components = [
     ...new Set(launches.map(item => item.component).filter(Boolean) as string[]),
-  ].toSorted((a, b) => a.localeCompare(b));
+  ].toSorted((nameA, nameB) => nameA.localeCompare(nameB));
 
   return {
     components,

@@ -23,18 +23,16 @@ const log = logger.child({ module: 'Releases' });
 const router = Router();
 
 const repairJson = (text: string): string => {
-  let s = text;
-  // Remove trailing commas before } or ]
-  s = s.replace(/,\s*([}\]])/g, '$1');
-  // Fix unescaped newlines inside JSON string values
+  let str = text;
+  str = str.replace(/,\s*([}\]])/g, '$1');
   // eslint-disable-next-line security/detect-unsafe-regex -- bounded input from internal API
-  s = s.replace(/"[^"\\]*(?:\\.[^"\\]*)*"/g, match =>
+  str = str.replace(/"[^"\\]*(?:\\.[^"\\]*)*"/g, match =>
     match
       .replace(/(?<!\\)\n/g, '\\n')
       .replace(/(?<!\\)\r/g, '\\r')
       .replace(/(?<!\\)\t/g, '\\t'),
   );
-  return s;
+  return str;
 };
 
 // TODO: Refactor to reduce cognitive complexity
@@ -133,26 +131,26 @@ const extractJson = (text: string): Record<string, unknown> => {
     let openBrackets = 0;
     let inString = false;
     for (let i = 0; i < truncated.length; i++) {
-      const ch = truncated[i];
+      const char = truncated[i];
       if (inString) {
-        if (ch === '\\') {
+        if (char === '\\') {
           i++;
           continue;
         }
-        if (ch === '"') {
+        if (char === '"') {
           inString = false;
         }
         continue;
       }
-      if (ch === '"') {
+      if (char === '"') {
         inString = true;
-      } else if (ch === '{') {
+      } else if (char === '{') {
         openBraces++;
-      } else if (ch === '}') {
+      } else if (char === '}') {
         openBraces--;
-      } else if (ch === '[') {
+      } else if (char === '[') {
         openBrackets++;
-      } else if (ch === ']') {
+      } else if (char === ']') {
         openBrackets--;
       }
     }
@@ -213,7 +211,8 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
       .map(release => {
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data from Product Pages API
         const tasks = (release.all_ga_tasks || []).sort(
-          (a, b) => new Date(a.date_start).getTime() - new Date(b.date_start).getTime(),
+          (taskA, taskB) =>
+            new Date(taskA.date_start).getTime() - new Date(taskB.date_start).getTime(),
         );
 
         const pastTasks = tasks.filter(task => new Date(task.date_start) <= today);
@@ -249,17 +248,20 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
           })),
           // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data from Product Pages API
           ...(release.major_milestones || [])
-            .filter(m => !tasks.some(t => t.slug === m.slug))
-            .map(m => ({
-              date: m.date_start,
-              isPast: new Date(m.date_start) <= today,
-              name: m.name,
+            .filter(milestone => !tasks.some(task => task.slug === milestone.slug))
+            .map(milestone => ({
+              date: milestone.date_start,
+              isPast: new Date(milestone.date_start) <= today,
+              name: milestone.name,
               source: 'pp' as const,
-              type: classifyMilestone(m.name, m.slug),
+              type: classifyMilestone(milestone.name, milestone.slug),
             })),
-        ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        ].sort(
+          (milestoneA, milestoneB) =>
+            new Date(milestoneA.date).getTime() - new Date(milestoneB.date).getTime(),
+        );
 
-        const allDates = allMilestones.map(m => m.date).filter(Boolean);
+        const allDates = allMilestones.map(milestone => milestone.date).filter(Boolean);
         const startDate = release.ga_date || (allDates.length > 0 ? allDates[0] : null);
         const endDate = allDates.length > 0 ? allDates[allDates.length - 1] : null;
 
@@ -280,10 +282,10 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
           startDate,
         };
       })
-      .sort((a, b) => {
-        const aDate = a.gaDate ? new Date(a.gaDate).getTime() : Infinity;
-        const bDate = b.gaDate ? new Date(b.gaDate).getTime() : Infinity;
-        return bDate - aDate;
+      .sort((releaseA, releaseB) => {
+        const dateA = releaseA.gaDate ? new Date(releaseA.gaDate).getTime() : Infinity;
+        const dateB = releaseB.gaDate ? new Date(releaseB.gaDate).getTime() : Infinity;
+        return dateB - dateA;
       });
 
     res.json(releases);
@@ -335,34 +337,36 @@ router.get('/checklist', async (req: Request, res: Response, _next: NextFunction
 
     /* eslint-disable @typescript-eslint/no-unnecessary-condition -- defensive: runtime data from Jira API */
     const tasks: ChecklistTask[] = (response.data.issues || []).map((issue: unknown) => {
-      const i = issue as Record<string, unknown>;
-      const f = i.fields as Record<string, unknown>;
-      const subtasks = (f.subtasks || []) as { fields: { status: { name: string } } }[];
+      const rec = issue as Record<string, unknown>;
+      const fields = rec.fields as Record<string, unknown>;
+      const subtasks = (fields.subtasks || []) as { fields: { status: { name: string } } }[];
       return {
-        assignee: (f.assignee as { displayName: string })?.displayName || null,
-        components: ((f.components || []) as { name: string }[]).map(
-          (c: { name: string }) => c.name,
+        assignee: (fields.assignee as { displayName: string })?.displayName || null,
+        components: ((fields.components || []) as { name: string }[]).map(
+          (comp: { name: string }) => comp.name,
         ),
-        created: (f.created as string) || '',
-        fixVersions: ((f.fixVersions || []) as { name: string }[]).map(
-          (v: { name: string }) => v.name,
+        created: (fields.created as string) || '',
+        fixVersions: ((fields.fixVersions || []) as { name: string }[]).map(
+          (ver: { name: string }) => ver.name,
         ),
-        key: i.key as string,
-        labels: (f.labels || []) as string[],
-        priority: (f.priority as { name: string })?.name || '',
-        resolved: (f.resolutiondate as string) || null,
-        status: (f.status as { name: string })?.name || '',
+        key: rec.key as string,
+        labels: (fields.labels || []) as string[],
+        priority: (fields.priority as { name: string })?.name || '',
+        resolved: (fields.resolutiondate as string) || null,
+        status: (fields.status as { name: string })?.name || '',
         subtaskCount: subtasks.length,
         subtasksDone: subtasks.filter(subtask => subtask.fields?.status?.name === 'Closed').length,
-        summary: (f.summary as string) || '',
-        updated: (f.updated as string) || '',
+        summary: (fields.summary as string) || '',
+        updated: (fields.updated as string) || '',
       };
     });
     /* eslint-enable @typescript-eslint/no-unnecessary-condition */
 
     const filtered = versionFilter
-      ? tasks.filter(t =>
-          t.fixVersions.some(fv => fv.toLowerCase().includes(versionFilter.toLowerCase())),
+      ? tasks.filter(task =>
+          task.fixVersions.some(fixVer =>
+            fixVer.toLowerCase().includes(versionFilter.toLowerCase()),
+          ),
         )
       : tasks;
     res.json(filtered);
@@ -434,9 +438,9 @@ router.get('/:version/readiness', async (req: Request, res: Response, next: Next
       skippedTests: parseInt(stats.skipped_tests || '0', 10),
       totalLaunches: parseInt(stats.total_launches || '0', 10),
       totalTests,
-      trend: [...trendRows].reverse().map(r => ({
-        day: r.day,
-        passRate: r.total > 0 ? Math.round((r.passed / r.total) * 1000) / 10 : null,
+      trend: [...trendRows].reverse().map(row => ({
+        day: row.day,
+        passRate: row.total > 0 ? Math.round((row.passed / row.total) * 1000) / 10 : null,
       })),
     });
   } catch (err) {
@@ -463,18 +467,18 @@ router.get('/:version/blockers', async (req: Request, res: Response, _next: Next
     );
     /* eslint-disable @typescript-eslint/no-unnecessary-condition -- defensive: runtime data from Jira API */
     const blockers = (response.data.issues || []).map((issue: unknown) => {
-      const i = issue as Record<string, unknown>;
-      const f = i.fields as Record<string, unknown>;
-      const created = new Date(f.created as string);
+      const rec = issue as Record<string, unknown>;
+      const fields = rec.fields as Record<string, unknown>;
+      const created = new Date(fields.created as string);
       const ageDays = Math.round((Date.now() - created.getTime()) / (24 * 60 * 60 * 1000));
       return {
         ageDays,
-        assignee: (f.assignee as { displayName: string })?.displayName || null,
-        created: f.created,
-        key: i.key,
-        priority: (f.priority as { name: string })?.name || '',
-        status: (f.status as { name: string })?.name || '',
-        summary: (f.summary as string) || '',
+        assignee: (fields.assignee as { displayName: string })?.displayName || null,
+        created: fields.created,
+        key: rec.key,
+        priority: (fields.priority as { name: string })?.name || '',
+        status: (fields.status as { name: string })?.name || '',
+        summary: (fields.summary as string) || '',
       };
     });
     /* eslint-enable @typescript-eslint/no-unnecessary-condition */
@@ -490,10 +494,11 @@ router.get('/velocity', async (_req: Request, res: Response, next: NextFunction)
   try {
     const ppReleases = await fetchCnvReleases();
     const metrics = ppReleases
-      .filter(r => !r.canceled && r.all_ga_tasks.length >= 2)
-      .map(r => {
-        const sorted = [...r.all_ga_tasks].sort(
-          (a, b) => new Date(a.date_start).getTime() - new Date(b.date_start).getTime(),
+      .filter(rel => !rel.canceled && rel.all_ga_tasks.length >= 2)
+      .map(rel => {
+        const sorted = [...rel.all_ga_tasks].sort(
+          (taskA, taskB) =>
+            new Date(taskA.date_start).getTime() - new Date(taskB.date_start).getTime(),
         );
         const intervals: number[] = [];
         for (let i = 1; i < sorted.length; i++) {
@@ -508,16 +513,18 @@ router.get('/velocity', async (_req: Request, res: Response, next: NextFunction)
         }
         const avgInterval =
           intervals.length > 0
-            ? Math.round(intervals.reduce((s, d) => s + d, 0) / intervals.length)
+            ? Math.round(intervals.reduce((sum, val) => sum + val, 0) / intervals.length)
             : null;
         return {
           avgDaysBetweenReleases: avgInterval,
           totalReleases: sorted.length,
-          version: r.shortname,
+          version: rel.shortname,
         };
       })
-      .filter(m => m.totalReleases > 1)
-      .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }));
+      .filter(metric => metric.totalReleases > 1)
+      .sort((metricA, metricB) =>
+        metricB.version.localeCompare(metricA.version, undefined, { numeric: true }),
+      );
     res.json(metrics);
   } catch (err) {
     next(err);
@@ -539,14 +546,14 @@ router.get('/:version/sub-versions', async (req: Request, res: Response, next: N
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data from Jira API
     const allVersions = versionsRes.data || [];
     const matching = allVersions
-      .filter(v => {
-        const { name } = v;
+      .filter(ver => {
+        const { name } = ver;
         // eslint-disable-next-line security/detect-non-literal-regexp -- pattern from validated config, not user input
         const pattern = new RegExp(`^CNV\\s+v?${version.replace('.', '\\.')}`, 'i');
         return pattern.test(name);
       })
-      .map(v => ({ name: v.name, released: v.released }))
-      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+      .map(ver => ({ name: ver.name, released: ver.released }))
+      .sort((verA, verB) => verA.name.localeCompare(verB.name, undefined, { numeric: true }));
     res.json(matching);
   } catch (err) {
     next(err);
@@ -669,7 +676,7 @@ const loadComponentGlossary = (): string => {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- path constructed from __dirname, not user input
     const data = JSON.parse(fs.readFileSync(glossaryPath, 'utf-8')) as Record<string, string>;
     return Object.entries(data)
-      .map(([k, v]) => `- ${k}: ${v}`)
+      .map(([key, desc]) => `- ${key}: ${desc}`)
       .join('\n');
   } catch {
     return '';
@@ -689,8 +696,8 @@ const loadCorrections = async (): Promise<string> => {
     }
     return corrections
       .map(
-        c =>
-          `- ${c.issue_key}: AI classified as "${c.ai_value}" but correct is "${c.human_value}" (field: ${c.field}) — context: ${c.context || 'N/A'}`,
+        corr =>
+          `- ${corr.issue_key}: AI classified as "${corr.ai_value}" but correct is "${corr.human_value}" (field: ${corr.field}) — context: ${corr.context || 'N/A'}`,
       )
       .join('\n');
   } catch {
@@ -708,29 +715,29 @@ const applyReviewCorrections = (
     fromCategory: string;
     toCategory: string;
   }[];
-  for (const c of corrections) {
-    const fromArr = categories[c.fromCategory];
+  for (const corr of corrections) {
+    const fromArr = categories[corr.fromCategory];
     if (!fromArr) {
       continue;
     }
-    const idx = fromArr.findIndex(item => item.key === c.key);
+    const idx = fromArr.findIndex(item => item.key === corr.key);
     if (idx === -1) {
       continue;
     }
     const [item] = fromArr.splice(idx, 1);
-    if (!categories[c.toCategory]) {
-      categories[c.toCategory] = [];
+    if (!categories[corr.toCategory]) {
+      categories[corr.toCategory] = [];
     }
-    categories[c.toCategory].push(item);
+    categories[corr.toCategory].push(item);
   }
 
   const duplicates = (review.duplicates || []) as { key: string; removeFrom: string }[];
-  for (const d of duplicates) {
-    const arr = categories[d.removeFrom];
+  for (const dupe of duplicates) {
+    const arr = categories[dupe.removeFrom];
     if (!arr) {
       continue;
     }
-    const idx = arr.findIndex(item => item.key === d.key);
+    const idx = arr.findIndex(item => item.key === dupe.key);
     if (idx !== -1) {
       arr.splice(idx, 1);
     }
@@ -813,20 +820,20 @@ const runChangelogJob = async (
             `Fetched page ${Math.floor(startAt / pageSize) + 1}: ${response.data.issues?.length ?? 0} issues (${issues.length + (response.data.issues?.length ?? 0)} total)`,
           );
           const batch = (response.data.issues || []).map((issue: unknown) => {
-            const i = issue as Record<string, unknown>;
-            const f = i.fields as Record<string, unknown>;
-            const assignee = (f.assignee as { displayName: string })?.displayName || null;
+            const rec = issue as Record<string, unknown>;
+            const fields = rec.fields as Record<string, unknown>;
+            const assignee = (fields.assignee as { displayName: string })?.displayName || null;
             if (assignee) {
               contributors.set(assignee, (contributors.get(assignee) ?? 0) + 1);
             }
 
-            const desc = (f.description as string) || '';
+            const desc = (fields.description as string) || '';
             const prLinks =
               desc.match(/https?:\/\/github\.com\/[^\s/]+\/[^\s/]+\/pull\/\d+/g) ?? [];
 
             const allComments =
               (
-                f.comment as {
+                fields.comment as {
                   comments?: {
                     body: string;
                     author: { displayName: string };
@@ -834,13 +841,13 @@ const runChangelogJob = async (
                   }[];
                 }
               )?.comments ?? [];
-            const comments = allComments.slice(-10).map(c => ({
-              author: c.author?.displayName,
-              date: c.created,
-              text: c.body?.substring(0, 1500),
+            const comments = allComments.slice(-10).map(cmnt => ({
+              author: cmnt.author?.displayName,
+              date: cmnt.created,
+              text: cmnt.body?.substring(0, 1500),
             }));
 
-            const allCommentText = allComments.map(c => c.body || '').join(' ');
+            const allCommentText = allComments.map(cmnt => cmnt.body || '').join(' ');
             const buildMentions = allCommentText.match(/build[:\s#-]*[\w.-]+/gi) ?? [];
             const prMentionsInComments =
               allCommentText.match(/https?:\/\/github\.com\/[^\s/]+\/[^\s/]+\/pull\/\d+/g) ?? [];
@@ -854,7 +861,7 @@ const runChangelogJob = async (
               'duplicate',
               'is duplicated by',
             ];
-            const links = ((f.issuelinks || []) as Record<string, unknown>[])
+            const links = ((fields.issuelinks || []) as Record<string, unknown>[])
               .map(link => {
                 const inward = link.inwardIssue as Record<string, unknown> | undefined;
                 const outward = link.outwardIssue as Record<string, unknown> | undefined;
@@ -871,8 +878,8 @@ const runChangelogJob = async (
                 const relationLabel = inward ? inwardDesc : outwardDesc;
 
                 if (
-                  CRITICAL_LINK_TYPES.some(t =>
-                    relationLabel.toLowerCase().includes(t.toLowerCase()),
+                  CRITICAL_LINK_TYPES.some(linkType =>
+                    relationLabel.toLowerCase().includes(linkType.toLowerCase()),
                   )
                 ) {
                   criticalLinkedKeys.add(linkedKey);
@@ -891,7 +898,7 @@ const runChangelogJob = async (
               })
               .filter(Boolean);
 
-            const parent = f.parent as Record<string, unknown> | undefined;
+            const parent = fields.parent as Record<string, unknown> | undefined;
             const parentInfo = parent
               ? {
                   key: parent.key,
@@ -906,37 +913,40 @@ const runChangelogJob = async (
               epicKeys.add(parentInfo.key as string);
             }
 
-            const subtasks = ((f.subtasks || []) as Record<string, unknown>[]).map(st => ({
-              key: st.key,
-              status: ((st.fields as Record<string, unknown>)?.status as Record<string, unknown>)
-                ?.name,
-              summary: (st.fields as Record<string, unknown>)?.summary,
-            }));
+            const subtasks = ((fields.subtasks || []) as Record<string, unknown>[]).map(
+              subtask => ({
+                key: subtask.key,
+                status: (
+                  (subtask.fields as Record<string, unknown>)?.status as Record<string, unknown>
+                )?.name,
+                summary: (subtask.fields as Record<string, unknown>)?.summary,
+              }),
+            );
 
-            const issueType = (f.issuetype as { name: string })?.name || '';
+            const issueType = (fields.issuetype as { name: string })?.name || '';
             if (issueType.toLowerCase() === 'epic') {
-              epicKeys.add(i.key as string);
+              epicKeys.add(rec.key as string);
             }
             if (subtasks.length > 0 && issueType.toLowerCase() !== 'epic') {
-              issuesWithSubtasks.add(i.key as string);
+              issuesWithSubtasks.add(rec.key as string);
             }
 
-            const storyPoints = f.customfield_12316142 as number | null;
-            const releaseNote = (f.customfield_12317313 as string) || null;
+            const storyPoints = fields.customfield_12316142 as number | null;
+            const releaseNote = (fields.customfield_12317313 as string) || null;
 
             const linksText =
               links.length > 0
                 ? `Links:\n${(links as Record<string, unknown>[])
                     .map(
-                      l =>
-                        `  ${String(l.relation || l.type)} → ${String(l.key)} "${String(l.summary)}" [${String(l.status)}]`,
+                      lnk =>
+                        `  ${String(lnk.relation || lnk.type)} → ${String(lnk.key)} "${String(lnk.summary)}" [${String(lnk.status)}]`,
                     )
                     .join('\n')}`
                 : '';
             const commentsText =
               comments.length > 0
                 ? `Comments (last ${comments.length}):\n${comments
-                    .map(c => `  [${c.date}] ${c.author}: ${c.text}`)
+                    .map(cmnt => `  [${cmnt.date}] ${cmnt.author}: ${cmnt.text}`)
                     .join('\n')}`
                 : '';
             const parentText = parentInfo
@@ -945,7 +955,10 @@ const runChangelogJob = async (
             const subtasksText =
               subtasks.length > 0
                 ? `Subtasks (${subtasks.length}):\n${subtasks
-                    .map(s => `  ${String(s.key)}: "${String(s.summary)}" [${String(s.status)}]`)
+                    .map(
+                      sub =>
+                        `  ${String(sub.key)}: "${String(sub.summary)}" [${String(sub.status)}]`,
+                    )
                     .join('\n')}`
                 : '';
 
@@ -954,24 +967,26 @@ const runChangelogJob = async (
               assignee,
               buildMentions: buildMentions.join(', '),
               comments: commentsText,
-              components: ((f.components || []) as { name: string }[]).map(c => c.name).join(', '),
-              created: f.created,
+              components: ((fields.components || []) as { name: string }[])
+                .map(comp => comp.name)
+                .join(', '),
+              created: fields.created,
               description: desc,
-              key: i.key,
-              labels: ((f.labels || []) as string[]).join(', '),
+              key: rec.key,
+              labels: ((fields.labels || []) as string[]).join(', '),
               links: linksText,
               parent: parentText,
-              priority: (f.priority as { name: string })?.name || '',
+              priority: (fields.priority as { name: string })?.name || '',
               prLinks: allPrLinks.join(', '),
               releaseNote: releaseNote ? `Release Note: ${releaseNote}` : '',
-              resolution: (f.resolution as { name: string })?.name || null,
-              resolved: f.resolutiondate || null,
-              status: (f.status as { name: string })?.name || '',
+              resolution: (fields.resolution as { name: string })?.name || null,
+              resolved: fields.resolutiondate || null,
+              status: (fields.status as { name: string })?.name || '',
               storyPoints: storyPoints ? `Story Points: ${storyPoints}` : '',
               subtasks: subtasksText,
-              summary: (f.summary as string) || '',
+              summary: (fields.summary as string) || '',
               type: issueType,
-              updated: f.updated,
+              updated: fields.updated,
             };
           });
           issues.push(...batch);
@@ -982,7 +997,7 @@ const runChangelogJob = async (
         }
         /* eslint-enable @typescript-eslint/no-unnecessary-condition */
 
-        const issueKeysInSet = new Set(issues.map(i => i.key as string));
+        const issueKeysInSet = new Set(issues.map(iss => iss.key as string));
 
         if (epicKeys.size > 0) {
           const EPIC_CHILD_FIELDS = [
@@ -1008,17 +1023,17 @@ const runChangelogJob = async (
               // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
               const epicResponse = await jiraSearch(client, epicJql, EPIC_CHILD_FIELDS, 200, 0);
               /* eslint-disable @typescript-eslint/no-unnecessary-condition -- defensive: runtime data from Jira API */
-              const children = (epicResponse.data.issues || []).map((ch: unknown) => {
-                const chRec = ch as Record<string, unknown>;
-                const cf = chRec.fields as Record<string, unknown>;
+              const children = (epicResponse.data.issues || []).map((child: unknown) => {
+                const childRec = child as Record<string, unknown>;
+                const childFields = childRec.fields as Record<string, unknown>;
 
-                const childDesc = (cf.description as string) || '';
+                const childDesc = (childFields.description as string) || '';
                 const childPrLinks =
                   childDesc.match(/https?:\/\/github\.com\/[^\s/]+\/[^\s/]+\/pull\/\d+/g) ?? [];
 
                 const childAllComments =
                   (
-                    cf.comment as {
+                    childFields.comment as {
                       comments?: {
                         body: string;
                         author: { displayName: string };
@@ -1026,41 +1041,41 @@ const runChangelogJob = async (
                       }[];
                     }
                   )?.comments ?? [];
-                const childComments = childAllComments.slice(-5).map(c => ({
-                  author: c.author?.displayName,
-                  date: c.created,
-                  text: c.body?.substring(0, 1000),
+                const childComments = childAllComments.slice(-5).map(cmnt => ({
+                  author: cmnt.author?.displayName,
+                  date: cmnt.created,
+                  text: cmnt.body?.substring(0, 1000),
                 }));
-                const childCommentText = childAllComments.map(c => c.body || '').join(' ');
+                const childCommentText = childAllComments.map(cmnt => cmnt.body || '').join(' ');
                 const childBuildMentions = childCommentText.match(/build[:\s#-]*[\w.-]+/gi) ?? [];
                 const childPrFromComments =
                   childCommentText.match(/https?:\/\/github\.com\/[^\s/]+\/[^\s/]+\/pull\/\d+/g) ??
                   [];
 
-                const childSubtasks = ((cf.subtasks || []) as Record<string, unknown>[]).map(
-                  st => ({
-                    key: st.key,
-                    status: (
-                      (st.fields as Record<string, unknown>)?.status as Record<string, unknown>
-                    )?.name,
-                    summary: (st.fields as Record<string, unknown>)?.summary,
-                  }),
-                );
+                const childSubtasks = (
+                  (childFields.subtasks || []) as Record<string, unknown>[]
+                ).map(subtask => ({
+                  key: subtask.key,
+                  status: (
+                    (subtask.fields as Record<string, unknown>)?.status as Record<string, unknown>
+                  )?.name,
+                  summary: (subtask.fields as Record<string, unknown>)?.summary,
+                }));
 
                 const allChildPrs = [...new Set([...childPrLinks, ...childPrFromComments])];
-                const childFixVersions = ((cf.fixVersions || []) as { name: string }[]).map(
-                  v => v.name,
-                );
+                const childFixVersions = (
+                  (childFields.fixVersions || []) as { name: string }[]
+                ).map(ver => ver.name);
 
                 const childInfo: Record<string, unknown> = {
                   fixVersions:
                     childFixVersions.length > 0 ? childFixVersions.join(', ') : undefined,
-                  key: chRec.key,
-                  resolution: (cf.resolution as { name: string })?.name,
-                  resolved: cf.resolutiondate || null,
-                  status: (cf.status as { name: string })?.name,
-                  summary: (cf.summary as string) || '',
-                  type: (cf.issuetype as { name: string })?.name,
+                  key: childRec.key,
+                  resolution: (childFields.resolution as { name: string })?.name,
+                  resolved: childFields.resolutiondate || null,
+                  status: (childFields.status as { name: string })?.name,
+                  summary: (childFields.summary as string) || '',
+                  type: (childFields.issuetype as { name: string })?.name,
                 };
                 if (allChildPrs.length > 0) {
                   childInfo.prLinks = allChildPrs.join(', ');
@@ -1070,18 +1085,18 @@ const runChangelogJob = async (
                 }
                 if (childComments.length > 0) {
                   childInfo.comments = childComments
-                    .map(c => `[${c.date}] ${c.author}: ${c.text}`)
+                    .map(cmnt => `[${cmnt.date}] ${cmnt.author}: ${cmnt.text}`)
                     .join(' | ');
                 }
                 if (childSubtasks.length > 0) {
                   childInfo.subtasks = childSubtasks
-                    .map(s => `${String(s.key)} [${String(s.status)}]`)
+                    .map(sub => `${String(sub.key)} [${String(sub.status)}]`)
                     .join(', ');
                 }
                 return childInfo;
               });
               /* eslint-enable @typescript-eslint/no-unnecessary-condition */
-              const epicIssue = issues.find(i => i.key === epicKey);
+              const epicIssue = issues.find(iss => iss.key === epicKey);
               // eslint-disable-next-line max-depth
               if (epicIssue) {
                 const DOC_KEYWORDS = [
@@ -1094,19 +1109,19 @@ const runChangelogJob = async (
                 const QE_KEYWORDS = ['qe', 'test', 'verification', 'automation', 'e2e'];
 
                 const classifyChild = (
-                  c: Record<string, unknown>,
+                  childItem: Record<string, unknown>,
                 ): 'code' | 'docs' | 'qe' | 'other' => {
-                  const summary = ((c.summary as string) || '').toLowerCase();
-                  const type = ((c.type as string) || '').toLowerCase();
-                  const labels = ((c.labels as string) || '').toLowerCase();
+                  const summary = ((childItem.summary as string) || '').toLowerCase();
+                  const type = ((childItem.type as string) || '').toLowerCase();
+                  const labels = ((childItem.labels as string) || '').toLowerCase();
                   const combined = `${summary} ${type} ${labels}`;
-                  if (DOC_KEYWORDS.some(k => combined.includes(k))) {
+                  if (DOC_KEYWORDS.some(keyword => combined.includes(keyword))) {
                     return 'docs';
                   }
-                  if (QE_KEYWORDS.some(k => combined.includes(k))) {
+                  if (QE_KEYWORDS.some(keyword => combined.includes(keyword))) {
                     return 'qe';
                   }
-                  if (c.prLinks || c.buildMentions) {
+                  if (childItem.prLinks || childItem.buildMentions) {
                     return 'code';
                   }
                   if (type === 'story' || type === 'task' || type === 'bug') {
@@ -1115,66 +1130,70 @@ const runChangelogJob = async (
                   return 'other';
                 };
 
-                const formatChild = (c: Record<string, unknown>) => {
+                const formatChild = (childItem: Record<string, unknown>) => {
                   // eslint-disable-next-line @typescript-eslint/no-base-to-string
-                  let line = `  ${String(c.key)} [${String(c.type)}] "${String(c.summary)}" — ${String(c.status)}${c.resolution ? ` (${String(c.resolution)})` : ''}`;
-                  if (c.resolved) {
+                  let line = `  ${String(childItem.key)} [${String(childItem.type)}] "${String(childItem.summary)}" — ${String(childItem.status)}${childItem.resolution ? ` (${String(childItem.resolution)})` : ''}`;
+                  if (childItem.resolved) {
                     // eslint-disable-next-line @typescript-eslint/no-base-to-string
-                    line += ` resolved: ${String(c.resolved)}`;
+                    line += ` resolved: ${String(childItem.resolved)}`;
                   }
-                  if (c.fixVersions) {
+                  if (childItem.fixVersions) {
                     // eslint-disable-next-line @typescript-eslint/no-base-to-string
-                    line += ` fixVersions: ${String(c.fixVersions)}`;
+                    line += ` fixVersions: ${String(childItem.fixVersions)}`;
                   }
-                  if (c.prLinks) {
+                  if (childItem.prLinks) {
                     // eslint-disable-next-line @typescript-eslint/no-base-to-string
-                    line += `\n    PRs: ${String(c.prLinks)}`;
+                    line += `\n    PRs: ${String(childItem.prLinks)}`;
                   }
-                  if (c.buildMentions) {
+                  if (childItem.buildMentions) {
                     // eslint-disable-next-line @typescript-eslint/no-base-to-string
-                    line += `\n    Builds: ${String(c.buildMentions)}`;
+                    line += `\n    Builds: ${String(childItem.buildMentions)}`;
                   }
-                  if (c.comments) {
+                  if (childItem.comments) {
                     // eslint-disable-next-line @typescript-eslint/no-base-to-string
-                    line += `\n    Comments: ${String(c.comments)}`;
+                    line += `\n    Comments: ${String(childItem.comments)}`;
                   }
-                  if (c.subtasks) {
+                  if (childItem.subtasks) {
                     // eslint-disable-next-line @typescript-eslint/no-base-to-string
-                    line += `\n    Subtasks: ${String(c.subtasks)}`;
+                    line += `\n    Subtasks: ${String(childItem.subtasks)}`;
                   }
                   return line;
                 };
 
-                const codeChildren = children.filter(c => classifyChild(c) === 'code');
-                const docsChildren = children.filter(c => classifyChild(c) === 'docs');
-                const qeChildren = children.filter(c => classifyChild(c) === 'qe');
-                const otherChildren = children.filter(c => {
-                  const cls = classifyChild(c);
+                const codeChildren = children.filter(
+                  childItem => classifyChild(childItem) === 'code',
+                );
+                const docsChildren = children.filter(
+                  childItem => classifyChild(childItem) === 'docs',
+                );
+                const qeChildren = children.filter(childItem => classifyChild(childItem) === 'qe');
+                const otherChildren = children.filter(childItem => {
+                  const cls = classifyChild(childItem);
                   return cls === 'other';
                 });
 
-                const allBuildMentions = children.flatMap(c =>
-                  ((c.buildMentions as string) || '').split(', ').filter(Boolean),
+                const allBuildMentions = children.flatMap(childItem =>
+                  ((childItem.buildMentions as string) || '').split(', ').filter(Boolean),
                 );
-                const allPrLinks = children.flatMap(c =>
-                  ((c.prLinks as string) || '').split(', ').filter(Boolean),
+                const allPrLinks = children.flatMap(childItem =>
+                  ((childItem.prLinks as string) || '').split(', ').filter(Boolean),
                 );
                 const codeResolvedDates = codeChildren
-                  .map(c => c.resolved as string)
+                  .map(childItem => childItem.resolved as string)
                   .filter(Boolean)
-                  .toSorted((a, b) => a.localeCompare(b));
+                  .toSorted((dateA, dateB) => dateA.localeCompare(dateB));
                 const earliestCodeResolved =
                   codeResolvedDates.length > 0 ? codeResolvedDates[0] : null;
                 const codeFixVersions = [
                   ...new Set(
-                    codeChildren.flatMap(c =>
-                      ((c.fixVersions as string) || '').split(', ').filter(Boolean),
+                    codeChildren.flatMap(childItem =>
+                      ((childItem.fixVersions as string) || '').split(', ').filter(Boolean),
                     ),
                   ),
                 ];
 
                 const done = children.filter(
-                  c => c.status === 'Closed' || c.status === 'Done',
+                  childItem => childItem.status === 'Closed' || childItem.status === 'Done',
                 ).length;
                 const lines: string[] = [];
                 lines.push(
@@ -1211,26 +1230,26 @@ const runChangelogJob = async (
                   lines.push(
                     `\nCODE/IMPLEMENTATION children (${codeChildren.length}) — USE THESE for version determination:`,
                   );
-                  codeChildren.forEach(c => lines.push(formatChild(c)));
+                  codeChildren.forEach(childItem => lines.push(formatChild(childItem)));
                 }
                 // eslint-disable-next-line max-depth
                 if (docsChildren.length > 0) {
                   lines.push(
                     `\nDOCS children (${docsChildren.length}) — DO NOT use for version determination:`,
                   );
-                  docsChildren.forEach(c => lines.push(formatChild(c)));
+                  docsChildren.forEach(childItem => lines.push(formatChild(childItem)));
                 }
                 // eslint-disable-next-line max-depth
                 if (qeChildren.length > 0) {
                   lines.push(
                     `\nQE/TEST children (${qeChildren.length}) — DO NOT use for version determination:`,
                   );
-                  qeChildren.forEach(c => lines.push(formatChild(c)));
+                  qeChildren.forEach(childItem => lines.push(formatChild(childItem)));
                 }
                 // eslint-disable-next-line max-depth
                 if (otherChildren.length > 0) {
                   lines.push(`\nOther children (${otherChildren.length}):`);
-                  otherChildren.forEach(c => lines.push(formatChild(c)));
+                  otherChildren.forEach(childItem => lines.push(formatChild(childItem)));
                 }
 
                 epicIssue.epicChildren = lines.join('\n');
@@ -1257,34 +1276,37 @@ const runChangelogJob = async (
             for (const parentKey of nonEpicSubtaskIssues) {
               // eslint-disable-next-line max-depth
               try {
-                const stJql = `parent = ${parentKey} ORDER BY issuetype ASC`;
+                const subtaskJql = `parent = ${parentKey} ORDER BY issuetype ASC`;
                 // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
-                const stResponse = await jiraSearch(
+                const subtaskResponse = await jiraSearch(
                   client,
-                  stJql,
+                  subtaskJql,
                   ['summary', 'issuetype', 'status', 'resolution'],
                   100,
                   0,
                 );
                 /* eslint-disable @typescript-eslint/no-unnecessary-condition -- defensive: runtime data from Jira API */
-                const detailedSubtasks = (stResponse.data.issues || []).map((st: unknown) => {
-                  const stRec = st as Record<string, unknown>;
-                  const sf = stRec.fields as Record<string, unknown>;
-                  return {
-                    key: stRec.key,
-                    resolution: (sf.resolution as { name: string })?.name,
-                    status: (sf.status as { name: string })?.name,
-                    summary: (sf.summary as string) || '',
-                    type: (sf.issuetype as { name: string })?.name,
-                  };
-                });
+                const detailedSubtasks = (subtaskResponse.data.issues || []).map(
+                  (subtask: unknown) => {
+                    const subtaskRec = subtask as Record<string, unknown>;
+                    const subtaskFields = subtaskRec.fields as Record<string, unknown>;
+                    return {
+                      key: subtaskRec.key,
+                      resolution: (subtaskFields.resolution as { name: string })?.name,
+                      status: (subtaskFields.status as { name: string })?.name,
+                      summary: (subtaskFields.summary as string) || '',
+                      type: (subtaskFields.issuetype as { name: string })?.name,
+                    };
+                  },
+                );
                 /* eslint-enable @typescript-eslint/no-unnecessary-condition */
-                const parentIssue = issues.find(i => i.key === parentKey);
+                const parentIssue = issues.find(iss => iss.key === parentKey);
                 // eslint-disable-next-line max-depth
                 if (parentIssue && detailedSubtasks.length > 0) {
                   parentIssue.subtasks = detailedSubtasks;
                   const done = detailedSubtasks.filter(
-                    (s: Record<string, unknown>) => s.status === 'Closed' || s.status === 'Done',
+                    (sub: Record<string, unknown>) =>
+                      sub.status === 'Closed' || sub.status === 'Done',
                   ).length;
                   jobLog(
                     job,
@@ -1306,8 +1328,8 @@ const runChangelogJob = async (
             `Fetching ${fetchCount} critical linked issues (blockers, clones, dependencies)...`,
           );
           const linkedBatchSize = 25;
-          for (let li = 0; li < fetchCount; li += linkedBatchSize) {
-            const batch = linkedKeysToFetch.slice(li, li + linkedBatchSize);
+          for (let idx = 0; idx < fetchCount; idx += linkedBatchSize) {
+            const batch = linkedKeysToFetch.slice(idx, idx + linkedBatchSize);
             // eslint-disable-next-line max-depth
             try {
               const linkedJql = `key in (${batch.join(',')})`;
@@ -1322,19 +1344,21 @@ const runChangelogJob = async (
               /* eslint-disable @typescript-eslint/no-unnecessary-condition -- defensive: runtime data from Jira API */
               // eslint-disable-next-line max-depth
               for (const linkedIssue of linkedResponse.data.issues || []) {
-                const lf = (linkedIssue as Record<string, unknown>).fields as Record<
+                const linkedFields = (linkedIssue as Record<string, unknown>).fields as Record<
                   string,
                   unknown
                 >;
                 const linkedKey = (linkedIssue as Record<string, unknown>).key as string;
                 const linkedInfo = {
-                  assignee: (lf.assignee as { displayName: string })?.displayName || null,
-                  fixVersions: ((lf.fixVersions || []) as { name: string }[]).map(v => v.name),
+                  assignee: (linkedFields.assignee as { displayName: string })?.displayName || null,
+                  fixVersions: ((linkedFields.fixVersions || []) as { name: string }[]).map(
+                    ver => ver.name,
+                  ),
                   key: linkedKey,
-                  resolution: (lf.resolution as { name: string })?.name || null,
-                  status: (lf.status as { name: string })?.name || '',
-                  summary: (lf.summary as string) || '',
-                  type: (lf.issuetype as { name: string })?.name || '',
+                  resolution: (linkedFields.resolution as { name: string })?.name || null,
+                  status: (linkedFields.status as { name: string })?.name || '',
+                  summary: (linkedFields.summary as string) || '',
+                  type: (linkedFields.issuetype as { name: string })?.name || '',
                 };
                 /* eslint-enable @typescript-eslint/no-unnecessary-condition */
 
@@ -1345,7 +1369,7 @@ const runChangelogJob = async (
                   if (!rawLinks) {
                     continue;
                   }
-                  const match = rawLinks.find(l => l.key === linkedKey);
+                  const match = rawLinks.find(lnk => lnk.key === linkedKey);
                   // eslint-disable-next-line max-depth
                   if (match) {
                     match.resolvedStatus = linkedInfo.status;
@@ -1366,14 +1390,14 @@ const runChangelogJob = async (
               continue;
             }
             issue.links = `Links:\n${rawLinks
-              .map(l => {
-                let line = `  ${String(l.relation || l.type)} → ${String(l.key)} "${String(l.summary)}" [${String(l.status)}]`;
-                if (l.resolvedStatus) {
+              .map(lnk => {
+                let line = `  ${String(lnk.relation || lnk.type)} → ${String(lnk.key)} "${String(lnk.summary)}" [${String(lnk.status)}]`;
+                if (lnk.resolvedStatus) {
                   // eslint-disable-next-line @typescript-eslint/no-base-to-string
-                  line += ` (resolved: ${String(l.resolvedStatus)}${l.resolvedResolution ? ` / ${String(l.resolvedResolution)}` : ''})`;
+                  line += ` (resolved: ${String(lnk.resolvedStatus)}${lnk.resolvedResolution ? ` / ${String(lnk.resolvedResolution)}` : ''})`;
                 }
-                if (l.resolvedFixVersions && (l.resolvedFixVersions as string[]).length > 0) {
-                  line += ` versions: ${(l.resolvedFixVersions as string[]).join(', ')}`;
+                if (lnk.resolvedFixVersions && (lnk.resolvedFixVersions as string[]).length > 0) {
+                  line += ` versions: ${(lnk.resolvedFixVersions as string[]).join(', ')}`;
                 }
                 return line;
               })
@@ -1413,8 +1437,8 @@ const runChangelogJob = async (
             }
           }
         }
-        issues = issues.filter(i => {
-          const key = i.key as string;
+        issues = issues.filter(iss => {
+          const key = iss.key as string;
           return !(parentKeys.has(key) && epicChildKeys.has(key));
         });
         if (issues.length < beforeDedup) {
@@ -1429,10 +1453,12 @@ const runChangelogJob = async (
     job.totalIssues = issues.length;
     job.step = 'preparing';
     const typeCounts = new Map<string, number>();
-    issues.forEach(i =>
-      typeCounts.set(i.type as string, (typeCounts.get(i.type as string) ?? 0) + 1),
+    issues.forEach(iss =>
+      typeCounts.set(iss.type as string, (typeCounts.get(iss.type as string) ?? 0) + 1),
     );
-    const typeBreakdown = [...typeCounts.entries()].map(([t, c]) => `${c} ${t}`).join(', ');
+    const typeBreakdown = [...typeCounts.entries()]
+      .map(([typeName, count]) => `${count} ${typeName}`)
+      .join(', ');
     jobLog(
       job,
       `Fetched ${issues.length} issues with full context (${typeBreakdown})${beforeDedup > issues.length ? ` (${beforeDedup} before dedup)` : ''}`,
@@ -1546,8 +1572,8 @@ const runChangelogJob = async (
       }
     };
 
-    const processBatch = async (bi: number) => {
-      const batch = batches[bi];
+    const processBatch = async (batchIdx: number) => {
+      const batch = batches[batchIdx];
       const response = await ai.runPrompt(
         'changelog',
         {
@@ -1567,7 +1593,7 @@ const runChangelogJob = async (
             : '';
         jobLog(
           job,
-          `Warning: Batch ${bi + 1} — could not parse AI JSON (${rawContent.length} chars). Start: "${first300}"${last200 ? ` ... End: "${last200}"` : ''}`,
+          `Warning: Batch ${batchIdx + 1} — could not parse AI JSON (${rawContent.length} chars). Start: "${first300}"${last200 ? ` ... End: "${last200}"` : ''}`,
           'error',
         );
       }
@@ -1575,12 +1601,12 @@ const runChangelogJob = async (
       const cats = (parsed.categories || {}) as Record<string, Record<string, unknown>[]>;
       normalizeItems(cats);
       const batchCounts = Object.entries(cats)
-        .filter(([, v]) => Array.isArray(v) && v.length > 0)
-        .map(([k, v]) => `${(v as unknown[]).length} ${k}`)
+        .filter(([, items]) => Array.isArray(items) && items.length > 0)
+        .map(([key, items]) => `${(items as unknown[]).length} ${key}`)
         .join(', ');
       jobLog(
         job,
-        `Batch ${bi + 1}/${batches.length} complete: ${batchCounts || 'no categories'} (${response.tokensUsed} tokens, ${Math.round(response.durationMs / 1000)}s)`,
+        `Batch ${batchIdx + 1}/${batches.length} complete: ${batchCounts || 'no categories'} (${response.tokensUsed} tokens, ${Math.round(response.durationMs / 1000)}s)`,
         'success',
       );
 
@@ -1622,7 +1648,7 @@ const runChangelogJob = async (
         // Preserve all top-level fields from AI response (summary, highlights, breakingChanges, epicStatus, concerns, testImpact)
 
         const reviewTotal1 = Object.values(mergedCategories).reduce(
-          (s, items) => s + items.length,
+          (sum, items) => sum + items.length,
           0,
         );
         if (reviewTotal1 > 5) {
@@ -1634,12 +1660,12 @@ const runChangelogJob = async (
               .map(([category, items]) => ({
                 category,
                 count: items.length,
-                items: items.slice(0, 50).map(i => ({
-                  confidence: i.confidence ?? 'N/A',
-                  impactScore: i.impactScore ?? 'N/A',
-                  key: i.key || '',
-                  risk: i.risk || 'unknown',
-                  title: i.title || '',
+                items: items.slice(0, 50).map(iss => ({
+                  confidence: iss.confidence ?? 'N/A',
+                  impactScore: iss.impactScore ?? 'N/A',
+                  key: iss.key || '',
+                  risk: iss.risk || 'unknown',
+                  title: iss.title || '',
                 })),
               }));
             const reviewResponse = await ai.runPrompt(
@@ -1648,17 +1674,17 @@ const runChangelogJob = async (
               { json: true, useCache: false },
             );
             totalTokens += reviewResponse.tokensUsed;
-            const rp = extractJson(reviewResponse.content);
-            const cc = ((rp.corrections || []) as unknown[]).length;
-            const dc = ((rp.duplicates || []) as unknown[]).length;
-            const ic = ((rp.impactAdjustments || []) as unknown[]).length;
+            const reviewParsed1 = extractJson(reviewResponse.content);
+            const correctionCount1 = ((reviewParsed1.corrections || []) as unknown[]).length;
+            const dupeCount1 = ((reviewParsed1.duplicates || []) as unknown[]).length;
+            const impactCount1 = ((reviewParsed1.impactAdjustments || []) as unknown[]).length;
             // eslint-disable-next-line max-depth
-            if (cc > 0 || dc > 0 || ic > 0) {
-              applyReviewCorrections(mergedCategories, rp);
+            if (correctionCount1 > 0 || dupeCount1 > 0 || impactCount1 > 0) {
+              applyReviewCorrections(mergedCategories, reviewParsed1);
               singleBatchParsed.categories = mergedCategories;
               jobLog(
                 job,
-                `Review pass: ${cc} reclassifications, ${dc} duplicates removed, ${ic} impact adjustments`,
+                `Review pass: ${correctionCount1} reclassifications, ${dupeCount1} duplicates removed, ${impactCount1} impact adjustments`,
                 'success',
               );
             } else {
@@ -1672,7 +1698,9 @@ const runChangelogJob = async (
           }
         }
 
-        const contribs = [...contributors.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+        const contribs = [...contributors.entries()]
+          .sort((contribA, contribB) => contribB[1] - contribA[1])
+          .slice(0, 10);
         job.status = 'done';
         job.result = {
           changelog: singleBatchParsed,
@@ -1707,7 +1735,7 @@ const runChangelogJob = async (
         job,
         `Launching ${batches.length} batches in parallel (max ${MAX_PARALLEL} concurrent)...`,
       );
-      const batchIndices = batches.map((_, i) => i);
+      const batchIndices = batches.map((_, idx) => idx);
       let completedCount = 0;
 
       const runWithConcurrency = async (indices: number[], limit: number) => {
@@ -1717,16 +1745,16 @@ const runChangelogJob = async (
         const runNext = async (): Promise<void> => {
           while (nextIdx < indices.length) {
             const idx = nextIdx++;
-            const bi = indices[idx];
+            const batchIdx = indices[idx];
             try {
               // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
-              results[idx] = await processBatch(bi);
+              results[idx] = await processBatch(batchIdx);
               completedCount++;
               job.currentBatch = completedCount;
             } catch (batchErr) {
               jobLog(
                 job,
-                `Batch ${bi + 1} failed: ${batchErr instanceof Error ? batchErr.message : 'unknown'}`,
+                `Batch ${batchIdx + 1} failed: ${batchErr instanceof Error ? batchErr.message : 'unknown'}`,
                 'error',
               );
               completedCount++;
@@ -1766,7 +1794,10 @@ const runChangelogJob = async (
 
     job.step = 'summarizing';
     job.currentBatch = batches.length;
-    const mergedTotal = Object.values(mergedCategories).reduce((s, items) => s + items.length, 0);
+    const mergedTotal = Object.values(mergedCategories).reduce(
+      (sum, items) => sum + items.length,
+      0,
+    );
     jobLog(
       job,
       `All ${batches.length} batches complete. Merged ${mergedTotal} categorized items.`,
@@ -1810,7 +1841,10 @@ const runChangelogJob = async (
       }
     }
 
-    const reviewTotal = Object.values(mergedCategories).reduce((s, items) => s + items.length, 0);
+    const reviewTotal = Object.values(mergedCategories).reduce(
+      (sum, items) => sum + items.length,
+      0,
+    );
     if (reviewTotal > 5) {
       job.step = 'reviewing';
       jobLog(job, 'Running AI review pass to verify classifications...');
@@ -1820,12 +1854,12 @@ const runChangelogJob = async (
           .map(([category, items]) => ({
             category,
             count: items.length,
-            items: items.slice(0, 50).map(i => ({
-              confidence: i.confidence ?? 'N/A',
-              impactScore: i.impactScore ?? 'N/A',
-              key: i.key || '',
-              risk: i.risk || 'unknown',
-              title: i.title || '',
+            items: items.slice(0, 50).map(iss => ({
+              confidence: iss.confidence ?? 'N/A',
+              impactScore: iss.impactScore ?? 'N/A',
+              key: iss.key || '',
+              risk: iss.risk || 'unknown',
+              title: iss.title || '',
             })),
           }));
         const reviewResponse = await ai.runPrompt(
@@ -1862,7 +1896,9 @@ const runChangelogJob = async (
       }
     }
 
-    const contribs = [...contributors.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+    const contribs = [...contributors.entries()]
+      .sort((contribA, contribB) => contribB[1] - contribA[1])
+      .slice(0, 10);
     job.status = 'done';
     job.result = {
       changelog: finalSummary,
@@ -2036,15 +2072,15 @@ router.post('/:version/changelog-edit', async (req: Request, res: Response, next
     const { AICorrection } = await import('../../db/entities/AICorrection');
     const corrRepo = AppDataSource.getRepository(AICorrection);
 
-    for (const c of corrections) {
+    for (const correction of corrections) {
       // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       await corrRepo.save(
         corrRepo.create({
-          ai_value: c.oldValue,
-          context: c.context || null,
-          field: c.field,
-          human_value: c.newValue,
-          issue_key: c.key,
+          ai_value: correction.oldValue,
+          context: correction.context || null,
+          field: correction.field,
+          human_value: correction.newValue,
+          issue_key: correction.key,
           performed_by: performedBy,
         }),
       );
@@ -2055,37 +2091,37 @@ router.post('/:version/changelog-edit', async (req: Request, res: Response, next
     const cached = await loadChangelogFromDb(target, from);
     if (cached) {
       const result = cached;
-      const cl = result.changelog as Record<string, unknown>;
+      const changelog = result.changelog as Record<string, unknown>;
       /* eslint-disable @typescript-eslint/no-unnecessary-condition -- defensive: runtime data from DB cache */
-      if (cl?.categories) {
-        const cats = cl.categories as Record<string, Record<string, unknown>[]>;
-        for (const c of corrections) {
-          if (c.field === 'category') {
+      if (changelog?.categories) {
+        const cats = changelog.categories as Record<string, Record<string, unknown>[]>;
+        for (const correction of corrections) {
+          if (correction.field === 'category') {
             // eslint-disable-next-line max-depth
             for (const [catName, items] of Object.entries(cats)) {
-              const idx = items.findIndex(item => item.key === c.key);
+              const idx = items.findIndex(item => item.key === correction.key);
               // eslint-disable-next-line max-depth
-              if (idx !== -1 && catName === c.oldValue) {
+              if (idx !== -1 && catName === correction.oldValue) {
                 const [item] = items.splice(idx, 1);
                 // eslint-disable-next-line max-depth
-                if (!cats[c.newValue]) {
-                  cats[c.newValue] = [];
+                if (!cats[correction.newValue]) {
+                  cats[correction.newValue] = [];
                 }
-                cats[c.newValue].push(item);
+                cats[correction.newValue].push(item);
                 break;
               }
             }
           } else {
             // eslint-disable-next-line max-depth
             for (const items of Object.values(cats)) {
-              const item = items.find(i => i.key === c.key);
+              const item = items.find(iss => iss.key === correction.key);
               // eslint-disable-next-line max-depth
               if (item) {
                 // eslint-disable-next-line max-depth
-                if (c.field === 'impactScore') {
-                  item.impactScore = parseInt(c.newValue, 10);
-                } else if (c.field === 'risk') {
-                  item.risk = c.newValue;
+                if (correction.field === 'impactScore') {
+                  item.impactScore = parseInt(correction.newValue, 10);
+                } else if (correction.field === 'risk') {
+                  item.risk = correction.newValue;
                 }
                 break;
               }
@@ -2114,11 +2150,11 @@ router.get('/jira-fields', async (_req: Request, res: Response, next: NextFuncti
     const response = await client.get<JiraField[]>('/field');
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime Jira API data
     const customs = (response.data || [])
-      .filter(f => f.custom)
-      .map(f => ({
-        id: f.id,
-        name: f.name,
-        type: f.schema?.type,
+      .filter(field => field.custom)
+      .map(field => ({
+        id: field.id,
+        name: field.name,
+        type: field.schema?.type,
       }));
     res.json(customs);
   } catch (err) {

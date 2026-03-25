@@ -29,7 +29,7 @@ const MONTH_NAMES = [
 const DAY_LABELS = ['Mon', '', 'Wed', '', 'Fri', '', ''];
 const MIN_DAYS = 30;
 
-const toDateStr = (d: Date): string => d.toISOString().split('T')[0];
+const toDateStr = (date: Date): string => date.toISOString().split('T')[0];
 
 const computeStreak = (
   reviewedSet: Set<string>,
@@ -37,13 +37,13 @@ const computeStreak = (
 ): { current: number; longest: number } => {
   const today = new Date();
   let current = 0;
-  const d = new Date(today);
-  if (!reviewedSet.has(toDateStr(d))) {
-    d.setDate(d.getDate() - 1);
+  const cursorDate = new Date(today);
+  if (!reviewedSet.has(toDateStr(cursorDate))) {
+    cursorDate.setDate(cursorDate.getDate() - 1);
   }
-  while (reviewedSet.has(toDateStr(d))) {
+  while (reviewedSet.has(toDateStr(cursorDate))) {
     current++;
-    d.setDate(d.getDate() - 1);
+    cursorDate.setDate(cursorDate.getDate() - 1);
   }
 
   let longest = 0,
@@ -84,14 +84,14 @@ export const ReviewCalendar: React.FC<ReviewCalendarProps> = ({ days: rawDays, h
     const todayS = toDateStr(today);
     const allDays: DayCell[] = [];
     for (let i = days - 1; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const ds = toDateStr(d);
+      const dayDate = new Date(today);
+      dayDate.setDate(dayDate.getDate() - i);
+      const dateStr = toDateStr(dayDate);
       allDays.push({
-        date: ds,
-        dayOfWeek: d.getDay(),
-        month: d.getMonth(),
-        reviewers: map.get(ds) ?? [],
+        date: dateStr,
+        dayOfWeek: dayDate.getDay(),
+        month: dayDate.getMonth(),
+        reviewers: map.get(dateStr) ?? [],
       });
     }
 
@@ -105,22 +105,24 @@ export const ReviewCalendar: React.FC<ReviewCalendarProps> = ({ days: rawDays, h
         currentWeek = Array.from<DayCell | null>({ length: 7 }).fill(null);
       }
     }
-    if (currentWeek.some(d => d !== null)) {
+    if (currentWeek.some(cell => cell !== null)) {
       wks.push(currentWeek);
     }
 
     const mLabels: { weekIdx: number; label: string }[] = [];
     let lastMonth = -1;
-    for (let wi = 0; wi < wks.length; wi++) {
-      const firstDay = wks[wi].find(d => d !== null);
+    for (let weekIndex = 0; weekIndex < wks.length; weekIndex++) {
+      const firstDay = wks[weekIndex].find(dayCell => dayCell !== null);
       if (firstDay && firstDay.month !== lastMonth) {
-        mLabels.push({ label: MONTH_NAMES[firstDay.month], weekIdx: wi });
+        mLabels.push({ label: MONTH_NAMES[firstDay.month], weekIdx: weekIndex });
         lastMonth = firstDay.month;
       }
     }
 
-    const weekdaysOnly = allDays.filter(d => d.dayOfWeek !== 0 && d.dayOfWeek !== 6);
-    const weekdaysReviewed = weekdaysOnly.filter(d => d.reviewers.length > 0).length;
+    const weekdaysOnly = allDays.filter(
+      dayCell => dayCell.dayOfWeek !== 0 && dayCell.dayOfWeek !== 6,
+    );
+    const weekdaysReviewed = weekdaysOnly.filter(dayCell => dayCell.reviewers.length > 0).length;
     const { current, longest } = computeStreak(revSet, days);
 
     return {
@@ -203,12 +205,12 @@ export const ReviewCalendar: React.FC<ReviewCalendarProps> = ({ days: rawDays, h
         <div className="app-cal-container">
           <div className="app-cal-months">
             <div className="app-cal-month-spacer" />
-            {weeks.map((_w, wi) => {
-              const ml = monthLabels.find(m => m.weekIdx === wi);
+            {weeks.map((_weekRow, weekIndex) => {
+              const monthLabel = monthLabels.find(entry => entry.weekIdx === weekIndex);
               return (
                 // eslint-disable-next-line react/no-array-index-key
-                <div className="app-cal-month-label" key={wi}>
-                  {ml ? ml.label : ''}
+                <div className="app-cal-month-label" key={weekIndex}>
+                  {monthLabel ? monthLabel.label : ''}
                 </div>
               );
             })}
@@ -223,10 +225,10 @@ export const ReviewCalendar: React.FC<ReviewCalendarProps> = ({ days: rawDays, h
               ))}
             </div>
             <div className="app-cal-weeks">
-              {weeks.map((week, wi) => (
+              {weeks.map((week, weekIndex) => (
                 // eslint-disable-next-line react/no-array-index-key
-                <div className="app-cal-week" key={wi}>
-                  {week.map((day, di) =>
+                <div className="app-cal-week" key={weekIndex}>
+                  {week.map((day, dayIndex) =>
                     day ? (
                       <Tooltip
                         content={
@@ -239,8 +241,10 @@ export const ReviewCalendar: React.FC<ReviewCalendarProps> = ({ days: rawDays, h
                         <div className={getCellClass(day)} />
                       </Tooltip>
                     ) : (
-                      // eslint-disable-next-line react/no-array-index-key
-                      <div className="app-cal-cell app-cal-none" key={`e-${wi}-${di}`} />
+                      <div
+                        className="app-cal-cell app-cal-none"
+                        key={`e-${weekIndex}-${dayIndex}`} // eslint-disable-line react/no-array-index-key -- empty grid slot
+                      />
                     ),
                   )}
                 </div>

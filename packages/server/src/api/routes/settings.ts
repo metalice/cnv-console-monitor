@@ -17,7 +17,7 @@ router.get('/', requireAdmin, async (_req: Request, res: Response, next: NextFun
     const dbSettings = await getAllSettings();
 
     const editableSettings: Record<string, { value: string; source: 'db' | 'env' }> = {};
-    const maskToken = (t: string) => (t ? `••••${t.substring(t.length - 4)}` : '');
+    const maskToken = (val: string) => (val ? `••••${val.substring(val.length - 4)}` : '');
 
     const configValues: Record<string, string> = {
       'dashboard.url': config.dashboard.url,

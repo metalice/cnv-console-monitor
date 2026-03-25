@@ -64,7 +64,10 @@ export const ComparePage: React.FC = () => {
 
   const handleCompare = () => {
     if (selectedRunA && selectedRunB) {
-      setSearchParams({ a: String(selectedRunA), b: String(selectedRunB) });
+      const params = new URLSearchParams();
+      params.set('a', String(selectedRunA));
+      params.set('b', String(selectedRunB));
+      setSearchParams(params);
     }
   };
 

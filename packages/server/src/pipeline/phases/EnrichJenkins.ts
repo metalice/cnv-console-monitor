@@ -71,8 +71,8 @@ export class EnrichJenkinsPhase implements PipelinePhase {
           maxDelayMs: 5000,
           maxRetries: 2,
           retryableCheck: err => {
-            const s = getHttpStatus(err);
-            if (s === 403 || s === 404 || s === 410) {
+            const status = getHttpStatus(err);
+            if (status === 403 || status === 404 || status === 410) {
               return false;
             }
             const code = (err as Record<string, unknown>).code as string | undefined;
@@ -92,7 +92,9 @@ export class EnrichJenkinsPhase implements PipelinePhase {
             if (msg.includes('aborted') || msg.includes('socket hang up')) {
               return true;
             }
-            return s === 429 || s === 500 || s === 502 || s === 503 || s === 504;
+            return (
+              status === 429 || status === 500 || status === 502 || status === 503 || status === 504
+            );
           },
         },
       );
@@ -193,29 +195,29 @@ export class EnrichJenkinsPhase implements PipelinePhase {
       .orderBy('l.start_time', 'DESC')
       .getMany();
 
-    return rows.map(r => ({
-      artifacts_url: r.artifacts_url ?? undefined,
-      bundle: r.bundle ?? undefined,
-      cluster_name: r.cluster_name ?? undefined,
-      cnv_version: r.cnv_version ?? undefined,
-      component: r.component ?? undefined,
-      duration: r.duration ?? undefined,
-      end_time: r.end_time ?? undefined,
-      failed: r.failed,
-      jenkins_metadata: r.jenkins_metadata ?? undefined,
-      jenkins_status: r.jenkins_status ?? undefined,
-      jenkins_team: r.jenkins_team ?? undefined,
-      name: r.name,
-      number: r.number,
-      ocp_version: r.ocp_version ?? undefined,
-      passed: r.passed,
-      rp_id: r.rp_id,
-      skipped: r.skipped,
-      start_time: r.start_time,
-      status: r.status,
-      tier: r.tier ?? undefined,
-      total: r.total,
-      uuid: r.uuid,
+    return rows.map(row => ({
+      artifacts_url: row.artifacts_url ?? undefined,
+      bundle: row.bundle ?? undefined,
+      cluster_name: row.cluster_name ?? undefined,
+      cnv_version: row.cnv_version ?? undefined,
+      component: row.component ?? undefined,
+      duration: row.duration ?? undefined,
+      end_time: row.end_time ?? undefined,
+      failed: row.failed,
+      jenkins_metadata: row.jenkins_metadata ?? undefined,
+      jenkins_status: row.jenkins_status ?? undefined,
+      jenkins_team: row.jenkins_team ?? undefined,
+      name: row.name,
+      number: row.number,
+      ocp_version: row.ocp_version ?? undefined,
+      passed: row.passed,
+      rp_id: row.rp_id,
+      skipped: row.skipped,
+      start_time: row.start_time,
+      status: row.status,
+      tier: row.tier ?? undefined,
+      total: row.total,
+      uuid: row.uuid,
     }));
   }
 
@@ -228,7 +230,7 @@ export class EnrichJenkinsPhase implements PipelinePhase {
   }
 
   async estimate(): Promise<PhaseEstimate> {
-    const withArtifacts = this.launches.filter(l => l.artifacts_url);
+    const withArtifacts = this.launches.filter(launch => launch.artifacts_url);
     const start = Date.now();
     let connectivity: PhaseEstimate['connectivity'][0];
 
@@ -269,7 +271,7 @@ export class EnrichJenkinsPhase implements PipelinePhase {
   }
 
   async retryItem(itemId: number): Promise<boolean> {
-    const launch = this.launches.find(l => l.rp_id === itemId);
+    const launch = this.launches.find(rec => rec.rp_id === itemId);
     if (!launch?.artifacts_url) {
       return false;
     }
@@ -285,14 +287,14 @@ export class EnrichJenkinsPhase implements PipelinePhase {
       this.launches = await this.loadUnenrichedLaunches();
       ctx.log('info', `Found ${this.launches.length} launches needing enrichment`);
     }
-    const withArtifacts = this.launches.filter(l => l.artifacts_url);
-    const withoutArtifacts = this.launches.filter(l => !l.artifacts_url);
+    const withArtifacts = this.launches.filter(launch => launch.artifacts_url);
+    const withoutArtifacts = this.launches.filter(launch => !launch.artifacts_url);
 
     if (withoutArtifacts.length > 0) {
       await Promise.all(
-        withoutArtifacts.map(l => {
-          l.jenkins_status = 'no_url';
-          return upsertLaunch(l);
+        withoutArtifacts.map(launch => {
+          launch.jenkins_status = 'no_url';
+          return upsertLaunch(launch);
         }),
       );
     }

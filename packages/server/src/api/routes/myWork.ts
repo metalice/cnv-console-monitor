@@ -28,7 +28,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
         // Malformed components JSON – skip
       }
     }
-    const myComponents = [...componentSet].toSorted((a, b) => a.localeCompare(b));
+    const myComponents = [...componentSet].toSorted((left, right) => left.localeCompare(right));
     const sinceMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
     let untriagedInMyComponents = 0;

@@ -14,7 +14,7 @@ export const getRepositoryById = async (id: string): Promise<Repository | null> 
 
 export const getRepositoriesByComponent = async (component: string): Promise<Repository[]> => {
   const all = await getEnabledRepositories();
-  return all.filter(r => (r.components as unknown as string[]).includes(component));
+  return all.filter(repo => (repo.components as unknown as string[]).includes(component));
 };
 
 export const createRepository = async (data: Partial<Repository>): Promise<Repository> => {
@@ -36,14 +36,14 @@ export const updateRepository = async (
 };
 
 export const deleteRepository = async (id: string): Promise<boolean> => {
-  const { AppDataSource: ds } = await import('../data-source');
-  await ds.query(`DELETE FROM file_drafts WHERE repo_id = $1`, [id]);
-  await ds.query(
+  const { AppDataSource: dataSource } = await import('../data-source');
+  await dataSource.query(`DELETE FROM file_drafts WHERE repo_id = $1`, [id]);
+  await dataSource.query(
     `DELETE FROM quarantine_log WHERE quarantine_id IN (SELECT id FROM quarantines WHERE repo_id = $1)`,
     [id],
   );
-  await ds.query(`DELETE FROM quarantines WHERE repo_id = $1`, [id]);
-  await ds.query(`DELETE FROM edit_activity WHERE repo_id = $1`, [id]);
+  await dataSource.query(`DELETE FROM quarantines WHERE repo_id = $1`, [id]);
+  await dataSource.query(`DELETE FROM edit_activity WHERE repo_id = $1`, [id]);
   const result = await repos().delete({ id });
   return (result.affected ?? 0) > 0;
 };

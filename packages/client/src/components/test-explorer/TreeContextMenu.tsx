@@ -66,8 +66,8 @@ export const TreeContextMenu: React.FC<TreeContextMenuProps> = ({
     return null;
   }
 
-  const handleAction = (fn: () => void) => {
-    fn();
+  const handleAction = (callback: () => void) => {
+    callback();
     onClose();
   };
 

@@ -8,20 +8,20 @@ export const fetchQuarantines = (params?: {
   limit?: number;
   offset?: number;
 }): Promise<{ items: QuarantineRecord[]; total: number }> => {
-  const qs = new URLSearchParams();
+  const searchParams = new URLSearchParams();
   if (params?.status) {
-    qs.set('status', params.status);
+    searchParams.set('status', params.status);
   }
   if (params?.component) {
-    qs.set('component', params.component);
+    searchParams.set('component', params.component);
   }
   if (params?.limit) {
-    qs.set('limit', String(params.limit));
+    searchParams.set('limit', String(params.limit));
   }
   if (params?.offset) {
-    qs.set('offset', String(params.offset));
+    searchParams.set('offset', String(params.offset));
   }
-  const query = qs.toString();
+  const query = searchParams.toString();
   return apiFetch(`/quarantine${query ? `?${query}` : ''}`);
 };
 

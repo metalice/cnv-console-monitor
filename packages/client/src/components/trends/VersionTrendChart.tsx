@@ -40,9 +40,9 @@ export const VersionTrendChart: React.FC<VersionTrendChartProps> = ({
               />
             }
             height={300}
-            legendData={versionGroups.versions.map((v, i) => ({
-              name: v,
-              symbol: { fill: VERSION_COLORS[i % VERSION_COLORS.length] },
+            legendData={versionGroups.versions.map((version, colorIndex) => ({
+              name: version,
+              symbol: { fill: VERSION_COLORS[colorIndex % VERSION_COLORS.length] },
             }))}
             legendPosition="bottom"
             padding={{ bottom: 80, left: 60, right: 30, top: 20 }}
@@ -53,9 +53,13 @@ export const VersionTrendChart: React.FC<VersionTrendChartProps> = ({
                 .filter(
                   (_, i) => i % Math.max(1, Math.floor(versionGroups.dates.length / 10)) === 0,
                 )
-                .map(d => d.slice(5))}
+                .map(dateStr => dateStr.slice(5))}
             />
-            <ChartAxis dependentAxis domain={[0, 100]} tickFormat={(t: number) => `${t}%`} />
+            <ChartAxis
+              dependentAxis
+              domain={[0, 100]}
+              tickFormat={(tickPercent: number) => `${tickPercent}%`}
+            />
             <ChartGroup>
               {versionGroups.versions.map((version, idx) => {
                 const versionData =
@@ -63,8 +67,11 @@ export const VersionTrendChart: React.FC<VersionTrendChartProps> = ({
                 return (
                   <ChartLine
                     data={versionGroups.dates
-                      .map(d => ({ x: d.slice(5), y: versionData.get(d) ?? null }))
-                      .filter(d => d.y !== null)}
+                      .map(dateStr => ({
+                        x: dateStr.slice(5),
+                        y: versionData.get(dateStr) ?? null,
+                      }))
+                      .filter(linePoint => linePoint.y !== null)}
                     key={version}
                     name={version}
                     style={{

@@ -26,7 +26,9 @@ export const aggregateTestItems = (items: TestItem[]): AggregatedItem[] => {
   const result: AggregatedItem[] = [];
 
   for (const groupItems of groups.values()) {
-    const sorted = [...groupItems].sort((a, b) => (b.start_time ?? 0) - (a.start_time ?? 0));
+    const sorted = [...groupItems].sort(
+      (itemA, itemB) => (itemB.start_time ?? 0) - (itemA.start_time ?? 0),
+    );
     result.push({
       allRpIds: sorted.map(item => item.rp_id),
       occurrences: sorted.length,

@@ -204,8 +204,8 @@ export const pollReportPortal = async (
   // ── Phase 2: Fetch failed test items for launches with failures ──
   if (fetchDetails) {
     const needItems = allLaunches
-      .filter(l => l.failed > 0 || l.status === 'FAILED')
-      .map(l => ({ name: l.name, rpId: l.rp_id }));
+      .filter(launch => launch.failed > 0 || launch.status === 'FAILED')
+      .map(launch => ({ name: launch.name, rpId: launch.rp_id }));
 
     if (needItems.length > 0) {
       log.info({ count: needItems.length }, 'Phase 2: Fetching failed test items');
@@ -269,10 +269,10 @@ export const pollReportPortal = async (
 
   const failedItemsList = getFailedItemLaunches();
   const itemErrors: Record<string, number> = {};
-  for (const f of failedItemsList) {
-    itemErrors[f.error] = (itemErrors[f.error] || 0) + 1;
+  for (const failedItem of failedItemsList) {
+    itemErrors[failedItem.error] = (itemErrors[failedItem.error] || 0) + 1;
   }
-  const needItems = allLaunches.filter(l => l.failed > 0 || l.status === 'FAILED');
+  const needItems = allLaunches.filter(launch => launch.failed > 0 || launch.status === 'FAILED');
 
   return {
     failedItems: allFailedItems,
@@ -484,7 +484,9 @@ export const enrichLaunchesFromJenkins = async (
       parts.push(`${notFound} deleted`);
     }
     if (errored > 0) {
-      const reasons = [...errorReasons.entries()].map(([r, c]) => `${r}: ${c}`).join(', ');
+      const reasons = [...errorReasons.entries()]
+        .map(([reason, count]) => `${reason}: ${count}`)
+        .join(', ');
       parts.push(`${errored} errors (${reasons})`);
     }
     emitProgress(
@@ -504,7 +506,7 @@ export const enrichLaunchesFromJenkins = async (
 
   const errorDetail =
     errorReasons.size > 0
-      ? ` (${[...errorReasons.entries()].map(([r, c]) => `${r}: ${c}`).join(', ')})`
+      ? ` (${[...errorReasons.entries()].map(([reason, count]) => `${reason}: ${count}`).join(', ')})`
       : '';
   const message = `Jenkins complete — ${succeeded} enriched, ${notFound} deleted, ${authRequired} auth required, ${errored} errors${errorDetail}`;
   emitProgress('jenkins-progress', 'complete', withArtifacts.length, withArtifacts.length, message);

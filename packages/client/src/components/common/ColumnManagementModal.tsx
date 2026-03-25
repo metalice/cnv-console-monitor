@@ -69,7 +69,7 @@ export const ColumnManagementModal: React.FC<ColumnManagementModalProps> = ({
   };
 
   const selectAll = () => {
-    setCheckedColumns(new Set(allColumns.map(c => c.id)));
+    setCheckedColumns(new Set(allColumns.map(col => col.id)));
   };
 
   return (

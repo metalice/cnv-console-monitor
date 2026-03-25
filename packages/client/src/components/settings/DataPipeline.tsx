@@ -37,13 +37,13 @@ const PHASE_LABELS: Record<string, string> = {
   launches: 'Launches',
 };
 
-const formatDuration = (ms: number): string => {
-  const s = Math.round(ms / 1000);
-  if (s < 60) {
-    return `${s}s`;
+const formatDuration = (millis: number): string => {
+  const seconds = Math.round(millis / 1000);
+  if (seconds < 60) {
+    return `${seconds}s`;
   }
-  const m = Math.floor(s / 60);
-  return s % 60 > 0 ? `${m}m ${s % 60}s` : `${m}m`;
+  const minutes = Math.floor(seconds / 60);
+  return seconds % 60 > 0 ? `${minutes}m ${seconds % 60}s` : `${minutes}m`;
 };
 
 const levelColor = (level: string) =>
@@ -255,7 +255,7 @@ const PipelinePhaseRow: React.FC<{
           className="app-mt-xs"
           isExpanded={errorsExpanded}
           toggleText={`${state.errors.length} error details`}
-          onToggle={(_e, v) => setErrorsExpanded(v)}
+          onToggle={(_e, value) => setErrorsExpanded(value)}
         >
           <div className="app-max-h-200 app-text-xs app-text-muted">
             {state.errors.slice(0, 20).map((err, i) => (
@@ -290,7 +290,7 @@ const PipelineLog: React.FC<{ log: PipelineLogEntry[]; totalEntries?: number }> 
       className="app-mt-sm"
       isExpanded={expanded}
       toggleText={`Activity Log (${total > log.length ? `${log.length} of ${total}` : log.length})`}
-      onToggle={(_e, v) => setExpanded(v)}
+      onToggle={(_e, value) => setExpanded(value)}
     >
       <div className="app-max-h-300 app-text-xs app-mono-sm">
         {all.map((entry, i) => (

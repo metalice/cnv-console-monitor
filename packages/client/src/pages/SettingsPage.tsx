@@ -115,11 +115,11 @@ const THEME_OPTIONS = [
   { label: 'System', value: 'auto' },
 ];
 
-const timeAgo = (ts: number | null): string => {
-  if (!ts) {
+const timeAgo = (timestampMs: number | null): string => {
+  if (!timestampMs) {
     return 'Never';
   }
-  const diff = Math.round((Date.now() - ts) / 1000);
+  const diff = Math.round((Date.now() - timestampMs) / 1000);
   if (diff < 60) {
     return `${diff}s ago`;
   }
@@ -220,9 +220,9 @@ export const SettingsPage: React.FC = () => {
       ]);
       const services = ['ReportPortal', 'Jira', 'Jenkins'];
       const summary = results.map(
-        (r, i) => `${services[i]}: ${r.status === 'fulfilled' ? 'OK' : 'Failed'}`,
+        (result, index) => `${services[index]}: ${result.status === 'fulfilled' ? 'OK' : 'Failed'}`,
       );
-      const allOk = results.every(r => r.status === 'fulfilled');
+      const allOk = results.every(result => result.status === 'fulfilled');
       return { allOk, summary: summary.join(' | ') };
     },
     onError: () => addToast('danger', 'Connection test failed'),
@@ -275,10 +275,10 @@ export const SettingsPage: React.FC = () => {
       }
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `cnv-monitor-settings-${new Date().toISOString().split('T')[0]}.json`;
-      a.click();
+      const downloadLink = document.createElement('a');
+      downloadLink.href = url;
+      downloadLink.download = `cnv-monitor-settings-${new Date().toISOString().split('T')[0]}.json`;
+      downloadLink.click();
       URL.revokeObjectURL(url);
       addToast('success', 'Settings exported (tokens excluded)');
     } catch {
@@ -524,8 +524,8 @@ export const SettingsPage: React.FC = () => {
                       setJiraTestMode(true);
                       jiraTest.mutate();
                     }}
-                    onTokenChange={v => {
-                      set('jira.token', v);
+                    onTokenChange={tokenValue => {
+                      set('jira.token', tokenValue);
                       setJiraTestMode(false);
                       setJiraMetaOverride(null);
                       setJiraTestMsg(null);
@@ -659,7 +659,9 @@ export const SettingsPage: React.FC = () => {
                       options={THEME_OPTIONS}
                       placeholder="Theme"
                       value={preferences.theme || 'auto'}
-                      onChange={v => setPreference('theme', v as 'light' | 'dark' | 'auto')}
+                      onChange={themeValue =>
+                        setPreference('theme', themeValue as 'light' | 'dark' | 'auto')
+                      }
                     />
                   </FlexItem>
                 </Flex>
@@ -722,7 +724,7 @@ export const SettingsPage: React.FC = () => {
                   id="danger-confirm"
                   placeholder={activeDanger.confirmWord}
                   value={dangerConfirm}
-                  onChange={(_e, v) => setDangerConfirm(v)}
+                  onChange={(_event, confirmValue) => setDangerConfirm(confirmValue)}
                 />
               </FormGroup>
             </Form>

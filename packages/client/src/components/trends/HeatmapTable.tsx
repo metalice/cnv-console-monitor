@@ -26,9 +26,9 @@ export const HeatmapTable: React.FC<HeatmapTableProps> = ({ heatmap, isLoading }
             <thead>
               <tr>
                 <th className="app-heatmap-th-test app-heatmap-sticky">Test</th>
-                {heatmap.dates.map(d => (
-                  <th className="app-heatmap-th-date" key={d}>
-                    {d.slice(5)}
+                {heatmap.dates.map(dateStr => (
+                  <th className="app-heatmap-th-date" key={dateStr}>
+                    {dateStr.slice(5)}
                   </th>
                 ))}
                 <th className="app-heatmap-th-total">Total</th>

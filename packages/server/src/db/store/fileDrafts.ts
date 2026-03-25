@@ -74,7 +74,7 @@ export const getUserDraftPaths = async (userEmail: string): Promise<string[]> =>
     select: ['file_path'],
     where: { status: 'pending' as string, user_email: userEmail },
   });
-  return rows.map(r => r.file_path);
+  return rows.map(row => row.file_path);
 };
 
 export const getUserDraftCount = async (userEmail: string): Promise<number> =>

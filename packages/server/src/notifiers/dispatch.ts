@@ -17,17 +17,21 @@ const filterReportForSubscription = (report: DailyReport, sub: SubscriptionRecor
 
   const filteredLaunches = filtered.groups.flatMap(group => group.launches);
   filtered.totalLaunches = filteredLaunches.length;
-  filtered.passedLaunches = filteredLaunches.filter(l => l.status === 'PASSED').length;
-  filtered.failedLaunches = filteredLaunches.filter(l => l.status === 'FAILED').length;
-  filtered.inProgressLaunches = filteredLaunches.filter(l => l.status === 'IN_PROGRESS').length;
+  filtered.passedLaunches = filteredLaunches.filter(launch => launch.status === 'PASSED').length;
+  filtered.failedLaunches = filteredLaunches.filter(launch => launch.status === 'FAILED').length;
+  filtered.inProgressLaunches = filteredLaunches.filter(
+    launch => launch.status === 'IN_PROGRESS',
+  ).length;
   filtered.overallHealth =
     filtered.failedLaunches > 0 ? 'red' : filtered.inProgressLaunches > 0 ? 'yellow' : 'green';
 
   const filteredItemIds = new Set(
     filtered.groups.flatMap(group => group.failedItems.map(item => item.rp_id)),
   );
-  filtered.newFailures = report.newFailures.filter(f => filteredItemIds.has(f.rp_id));
-  filtered.recurringFailures = report.recurringFailures.filter(f => filteredItemIds.has(f.rp_id));
+  filtered.newFailures = report.newFailures.filter(failure => filteredItemIds.has(failure.rp_id));
+  filtered.recurringFailures = report.recurringFailures.filter(failure =>
+    filteredItemIds.has(failure.rp_id),
+  );
   filtered.untriagedCount = filtered.groups
     .flatMap(group => group.failedItems)
     .filter(

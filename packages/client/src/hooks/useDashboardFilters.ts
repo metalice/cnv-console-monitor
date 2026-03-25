@@ -129,8 +129,8 @@ export const useDashboardFilters = (
       return [];
     }
     const set = new Set(componentFilteredGroups.map(group => group.cnvVersion));
-    const sorted = Array.from(set).sort((a, b) =>
-      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }),
+    const sorted = Array.from(set).sort((versionA, versionB) =>
+      versionA.localeCompare(versionB, undefined, { numeric: true, sensitivity: 'base' }),
     );
     return ['all', ...sorted];
   }, [report, componentFilteredGroups]);
@@ -139,8 +139,8 @@ export const useDashboardFilters = (
     if (!report) {
       return [];
     }
-    return [...new Set(componentFilteredGroups.map(group => group.tier))].toSorted((a, b) =>
-      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }),
+    return [...new Set(componentFilteredGroups.map(group => group.tier))].toSorted((tierA, tierB) =>
+      tierA.localeCompare(tierB, undefined, { numeric: true, sensitivity: 'base' }),
     );
   }, [report, componentFilteredGroups]);
 
@@ -197,16 +197,18 @@ export const useDashboardFilters = (
       };
     }
 
-    const totalLaunches = filteredGroups.reduce((sum, g) => sum + (g.launchCount ?? 1), 0);
-    const passedGroups = filteredGroups.filter(g => g.health === 'green');
-    const failedGroups = filteredGroups.filter(g => g.health === 'red');
-    const inProgressGroups = filteredGroups.filter(g => g.latestLaunch.status === 'IN_PROGRESS');
+    const totalLaunches = filteredGroups.reduce((sum, group) => sum + (group.launchCount ?? 1), 0);
+    const passedGroups = filteredGroups.filter(group => group.health === 'green');
+    const failedGroups = filteredGroups.filter(group => group.health === 'red');
+    const inProgressGroups = filteredGroups.filter(
+      group => group.latestLaunch.status === 'IN_PROGRESS',
+    );
 
     return {
-      failed: failedGroups.reduce((sum, g) => sum + (g.launchCount ?? 1), 0),
-      inProgress: inProgressGroups.reduce((sum, g) => sum + (g.launchCount ?? 1), 0),
+      failed: failedGroups.reduce((sum, group) => sum + (group.launchCount ?? 1), 0),
+      inProgress: inProgressGroups.reduce((sum, group) => sum + (group.launchCount ?? 1), 0),
       newFailures: newFailuresCount,
-      passed: passedGroups.reduce((sum, g) => sum + (g.launchCount ?? 1), 0),
+      passed: passedGroups.reduce((sum, group) => sum + (group.launchCount ?? 1), 0),
       total: totalLaunches,
       untriaged: report?.untriagedCount ?? 0,
     };

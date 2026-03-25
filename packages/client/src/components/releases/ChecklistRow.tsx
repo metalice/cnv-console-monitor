@@ -8,8 +8,8 @@ import { Td, type ThProps, Tr } from '@patternfly/react-table';
 
 import { ThWithHelp } from '../common/ThWithHelp';
 
-const toMajorMinor = (v: string): string => {
-  const stripped = v
+const toMajorMinor = (ver: string): string => {
+  const stripped = ver
     .replace(/^cnv[\s\-_]*v?/i, '')
     .trim()
     .toLowerCase();
@@ -18,9 +18,9 @@ const toMajorMinor = (v: string): string => {
 };
 
 const getDueDateForTask = (task: ChecklistTask, dueDateMap: Map<string, string>): string | null => {
-  for (const fv of task.fixVersions) {
-    const mm = toMajorMinor(fv);
-    const date = dueDateMap.get(mm);
+  for (const fixVersion of task.fixVersions) {
+    const majorMinor = toMajorMinor(fixVersion);
+    const date = dueDateMap.get(majorMinor);
     if (date) {
       return date;
     }

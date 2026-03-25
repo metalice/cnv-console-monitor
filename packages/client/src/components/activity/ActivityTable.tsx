@@ -96,28 +96,34 @@ const groupBulkActions = (entries: ActivityEntry[]): GroupedEntry[] => {
   const result: GroupedEntry[] = [];
   let i = 0;
   while (i < entries.length) {
-    const e = entries[i];
-    if (e.action === 'bulk_classify_defect' && e.performed_by) {
-      const group: ActivityEntry[] = [e];
+    const currentEntry = entries[i];
+    if (currentEntry.action === 'bulk_classify_defect' && currentEntry.performed_by) {
+      const group: ActivityEntry[] = [currentEntry];
       let j = i + 1;
       while (
         j < entries.length &&
         entries[j].action === 'bulk_classify_defect' &&
-        entries[j].performed_by === e.performed_by &&
-        entries[j].new_value === e.new_value &&
-        Math.abs(new Date(entries[j].performed_at).getTime() - new Date(e.performed_at).getTime()) <
-          60000
+        entries[j].performed_by === currentEntry.performed_by &&
+        entries[j].new_value === currentEntry.new_value &&
+        Math.abs(
+          new Date(entries[j].performed_at).getTime() -
+            new Date(currentEntry.performed_at).getTime(),
+        ) < 60000
       ) {
         group.push(entries[j]);
         j++;
       }
       if (group.length > 1) {
-        result.push({ ...e, groupCount: group.length, groupedEntries: group });
+        result.push({
+          ...currentEntry,
+          groupCount: group.length,
+          groupedEntries: group,
+        });
         i = j;
         continue;
       }
     }
-    result.push(e);
+    result.push(currentEntry);
     i++;
   }
   return result;
@@ -150,13 +156,18 @@ export const ActivityTable: React.FC<ActivityTableProps> = ({
 }) => {
   const grouped = useMemo(() => (entries ? groupBulkActions(entries) : []), [entries]);
 
-  const pinnedIds = useMemo(() => new Set((pinnedEntries ?? []).map(e => e.id)), [pinnedEntries]);
+  const pinnedIds = useMemo(
+    () => new Set((pinnedEntries ?? []).map(entry => entry.id)),
+    [pinnedEntries],
+  );
 
   const allRows = useMemo(() => {
     if (!pinnedEntries?.length) {
       return grouped;
     }
-    const pinnedNotInPage = pinnedEntries.filter(e => !grouped.some(g => g.id === e.id));
+    const pinnedNotInPage = pinnedEntries.filter(
+      entry => !grouped.some(groupedRow => groupedRow.id === entry.id),
+    );
     return [...pinnedNotInPage, ...grouped];
   }, [pinnedEntries, grouped]);
 
@@ -200,9 +211,9 @@ export const ActivityTable: React.FC<ActivityTableProps> = ({
                 </Thead>
                 <Tbody>
                   {allRows.map(entry => {
-                    const ge = entry as GroupedEntry;
+                    const groupedEntry = entry as GroupedEntry;
                     const isAck = entry.action === 'acknowledge';
-                    const ts = new Date(entry.performed_at).getTime();
+                    const performedAtMs = new Date(entry.performed_at).getTime();
                     const isPinned = pinnedIds.has(entry.id);
                     const isSelected = selectedId === entry.id;
 
@@ -215,15 +226,15 @@ export const ActivityTable: React.FC<ActivityTableProps> = ({
                       >
                         <Td dataLabel="Time">
                           <Tooltip content={new Date(entry.performed_at).toLocaleString()}>
-                            <span>{timeAgo(ts)}</span>
+                            <span>{timeAgo(performedAtMs)}</span>
                           </Tooltip>
                         </Td>
                         <Td dataLabel="Action">
                           {isPinned && <ThumbtackIcon className="app-pin-icon" />}
                           {actionLabel(entry.action)}
-                          {ge.groupCount && ge.groupCount > 1 && (
+                          {groupedEntry.groupCount && groupedEntry.groupCount > 1 && (
                             <Label isCompact className="app-ml-xs" color="grey">
-                              {ge.groupCount}x
+                              {groupedEntry.groupCount}x
                             </Label>
                           )}
                         </Td>
@@ -239,9 +250,9 @@ export const ActivityTable: React.FC<ActivityTableProps> = ({
                         <Td dataLabel="Test / Target">
                           {isAck ? (
                             <span>{entry.component || 'Report'} acknowledged</span>
-                          ) : ge.groupCount && ge.groupCount > 1 ? (
+                          ) : groupedEntry.groupCount && groupedEntry.groupCount > 1 ? (
                             <span>
-                              {ge.groupCount} tests classified as {entry.new_value}
+                              {groupedEntry.groupCount} tests classified as {entry.new_value}
                             </span>
                           ) : (
                             <Tooltip content={entry.test_name || '--'}>
@@ -277,7 +288,7 @@ export const ActivityTable: React.FC<ActivityTableProps> = ({
               itemCount={total}
               page={page}
               perPage={pageSize}
-              onSetPage={(_e, p) => onPageChange(p)}
+              onSetPage={(_e, newPage) => onPageChange(newPage)}
             />
           </>
         )}

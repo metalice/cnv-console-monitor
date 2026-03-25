@@ -125,5 +125,5 @@ export const getMatchingLaunchNames = async (
     .orderBy('l.name', 'ASC')
     .limit(limit)
     .getRawMany();
-  return rows.map((r: { name: string }) => r.name);
+  return rows.map((row: { name: string }) => row.name);
 };

@@ -6,8 +6,8 @@ dotenv.config({ path: path.resolve(__dirname, '..', '..', '..', '.env') });
 
 export const startedAt = Date.now();
 export let lastPollAt: number | null = null;
-export const setLastPollAt = (ts: number): void => {
-  lastPollAt = ts;
+export const setLastPollAt = (timestamp: number): void => {
+  lastPollAt = timestamp;
 };
 
 export const config = {

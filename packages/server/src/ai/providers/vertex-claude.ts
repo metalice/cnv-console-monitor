@@ -30,10 +30,10 @@ export class VertexClaudeProvider implements ModelProvider {
     const model = options?.model || DEFAULT_MODEL;
     const url = `https://${this.region}-aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/${this.region}/publishers/anthropic/models/${model}:rawPredict`;
 
-    const systemMsg = messages.find(m => m.role === 'system')?.content;
+    const systemMsg = messages.find(msg => msg.role === 'system')?.content;
     const chatMessages = messages
-      .filter(m => m.role !== 'system')
-      .map(m => ({ content: m.content, role: m.role as 'user' | 'assistant' }));
+      .filter(msg => msg.role !== 'system')
+      .map(msg => ({ content: msg.content, role: msg.role as 'user' | 'assistant' }));
 
     const body: Record<string, unknown> = {
       anthropic_version: 'vertex-2023-10-16',
@@ -110,8 +110,8 @@ export class VertexClaudeProvider implements ModelProvider {
       usage?: { input_tokens?: number; output_tokens?: number };
     };
     const text = (data.content ?? [])
-      .filter(b => b.type === 'text')
-      .map(b => b.text)
+      .filter(block => block.type === 'text')
+      .map(block => block.text)
       .join('');
 
     const tokens = (data.usage?.input_tokens ?? 0) + (data.usage?.output_tokens ?? 0);
@@ -181,23 +181,28 @@ export class VertexClaudeProvider implements ModelProvider {
   }
 
   listModels(): ModelInfo[] {
-    const a = this.isAvailable();
+    const providerAvailable = this.isAvailable();
     return [
       {
-        available: a,
+        available: providerAvailable,
         id: 'claude-opus-4-6',
         name: 'Claude Opus 4.6 (1M context)',
         provider: 'vertex-claude',
       },
-      { available: a, id: 'claude-opus-4-5', name: 'Claude Opus 4.5', provider: 'vertex-claude' },
       {
-        available: a,
+        available: providerAvailable,
+        id: 'claude-opus-4-5',
+        name: 'Claude Opus 4.5',
+        provider: 'vertex-claude',
+      },
+      {
+        available: providerAvailable,
         id: 'claude-sonnet-4@20250514',
         name: 'Claude Sonnet 4',
         provider: 'vertex-claude',
       },
       {
-        available: a,
+        available: providerAvailable,
         id: 'claude-3-5-haiku@20241022',
         name: 'Claude 3.5 Haiku (fastest)',
         provider: 'vertex-claude',

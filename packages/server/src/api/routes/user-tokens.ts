@@ -23,7 +23,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     const tokens = await getUserTokens(email);
     const allProviders = TokenProviderEnum.options;
     const result = allProviders.map(provider => {
-      const existing = tokens.find(t => t.provider === provider);
+      const existing = tokens.find(tok => tok.provider === provider);
       return (
         existing ?? {
           isConfigured: false,
@@ -70,7 +70,7 @@ router.put('/:provider', async (req: Request, res: Response, next: NextFunction)
       if (provider === 'gitlab') {
         const { getAllRepositories } = await import('../../db/store');
         const repos = await getAllRepositories();
-        const gitlabRepo = repos.find(r => r.provider === 'gitlab');
+        const gitlabRepo = repos.find(repo => repo.provider === 'gitlab');
         const baseUrl =
           (req.body as { apiBaseUrl?: string }).apiBaseUrl || gitlabRepo?.api_base_url;
         if (!baseUrl) {
@@ -207,7 +207,7 @@ router.post('/:provider/test', async (req: Request, res: Response, _next: NextFu
     if (provider === 'gitlab') {
       const { getAllRepositories } = await import('../../db/store');
       const repos = await getAllRepositories();
-      const gitlabRepo = repos.find(r => r.provider === 'gitlab');
+      const gitlabRepo = repos.find(repo => repo.provider === 'gitlab');
       const baseUrl = gitlabRepo?.api_base_url || '';
       const apiRes = await axios.get<{ email?: string; username: string }>(`${baseUrl}/user`, {
         headers: { 'Private-Token': token },

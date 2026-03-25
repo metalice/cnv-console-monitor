@@ -46,7 +46,7 @@ class AIService {
 
   private logUsage(messages: ChatMessage[], response: AIResponse): void {
     const prompt = messages
-      .map(m => m.content)
+      .map(msg => msg.content)
       .join(' ')
       .substring(0, 200);
     this.usageLog.push({
@@ -249,7 +249,7 @@ class AIService {
 
   getStreamableProviders(): string[] {
     return [...this.providers.entries()]
-      .filter(([, p]) => p.supportsStreaming())
+      .filter(([, modelProvider]) => modelProvider.supportsStreaming())
       .map(([name]) => name);
   }
 

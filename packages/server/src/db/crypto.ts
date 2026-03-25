@@ -24,7 +24,7 @@ const SENSITIVE_PATTERNS = ['token', 'pass', 'secret', 'key', 'webhook'];
 
 export const isSensitiveKey = (key: string): boolean => {
   const lower = key.toLowerCase();
-  return SENSITIVE_PATTERNS.some(p => lower.includes(p));
+  return SENSITIVE_PATTERNS.some(pat => lower.includes(pat));
 };
 
 export const encryptValue = (plaintext: string): string => {
@@ -33,11 +33,11 @@ export const encryptValue = (plaintext: string): string => {
     return plaintext;
   }
 
-  const iv = randomBytes(IV_LENGTH);
-  const cipher = createCipheriv(ALGO, key, iv);
+  const initVector = randomBytes(IV_LENGTH);
+  const cipher = createCipheriv(ALGO, key, initVector);
   const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
   const tag = cipher.getAuthTag();
-  return `${ENCRYPTED_PREFIX}${iv.toString('base64')}:${tag.toString('base64')}:${encrypted.toString('base64')}`;
+  return `${ENCRYPTED_PREFIX}${initVector.toString('base64')}:${tag.toString('base64')}:${encrypted.toString('base64')}`;
 };
 
 export const decryptValue = (stored: string): string => {

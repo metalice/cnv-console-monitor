@@ -322,7 +322,7 @@ router.post(
           if (items.length === 0) {
             break;
           }
-          branches.push(...items.map(b => b.name));
+          branches.push(...items.map(branch => branch.name));
           if (items.length < 100) {
             break;
           }
@@ -342,7 +342,7 @@ router.post(
           if (items.length === 0) {
             break;
           }
-          branches.push(...items.map(b => b.name));
+          branches.push(...items.map(branch => branch.name));
           if (items.length < 100) {
             break;
           }

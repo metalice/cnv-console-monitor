@@ -81,7 +81,7 @@ export const setupAckReminder = (): void => {
       const [rHour, rMinute] = (sub.reminderTime || '10:00').split(':').map(Number);
       const allowedDays = (sub.reminderDays || '1,2,3,4,5')
         .split(',')
-        .map(d => parseInt(d.trim(), 10));
+        .map(day => parseInt(day.trim(), 10));
 
       const localTime = new Date(now.toLocaleString('en-US', { timeZone: tz }));
       if (localTime.getHours() !== rHour || localTime.getMinutes() !== rMinute) {

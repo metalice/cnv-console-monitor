@@ -81,9 +81,12 @@ export const TriageModal: React.FC<TriageModalProps> = ({
   const options: { value: string; label: string }[] = [];
   if (defectTypes) {
     for (const [category, types] of Object.entries(defectTypes)) {
-      for (const dt of types) {
-        if (!category.startsWith('TO_INVESTIGATE') || dt.locator === 'ti001') {
-          options.push({ label: `${dt.longName} (${dt.shortName})`, value: dt.locator });
+      for (const defectTypeItem of types) {
+        if (!category.startsWith('TO_INVESTIGATE') || defectTypeItem.locator === 'ti001') {
+          options.push({
+            label: `${defectTypeItem.longName} (${defectTypeItem.shortName})`,
+            value: defectTypeItem.locator,
+          });
         }
       }
     }
@@ -103,9 +106,11 @@ export const TriageModal: React.FC<TriageModalProps> = ({
       setAiSuggestion(data.suggestion);
       if (data.suggestion.suggestedType) {
         const match = options.find(
-          o =>
-            o.value === data.suggestion.suggestedType ||
-            o.label.toLowerCase().includes((data.suggestion.suggestedLabel ?? '').toLowerCase()),
+          option =>
+            option.value === data.suggestion.suggestedType ||
+            option.label
+              .toLowerCase()
+              .includes((data.suggestion.suggestedLabel ?? '').toLowerCase()),
         );
         if (match) {
           setDefectType(match.value);

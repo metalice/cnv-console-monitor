@@ -18,10 +18,10 @@ export class AnthropicProvider implements ModelProvider {
   }
 
   private buildParams(messages: ChatMessage[], options?: ModelOptions) {
-    const systemMsg = messages.find(m => m.role === 'system')?.content;
+    const systemMsg = messages.find(msg => msg.role === 'system')?.content;
     const chatMessages = messages
-      .filter(m => m.role !== 'system')
-      .map(m => ({ content: m.content, role: m.role as 'user' | 'assistant' }));
+      .filter(msg => msg.role !== 'system')
+      .map(msg => ({ content: msg.content, role: msg.role as 'user' | 'assistant' }));
     const modelId = options?.model || DEFAULT_MODEL;
     return { chatMessages, modelId, systemMsg };
   }
@@ -45,8 +45,8 @@ export class AnthropicProvider implements ModelProvider {
     );
 
     const text = response.content
-      .filter(b => b.type === 'text')
-      .map(b => (b as { type: 'text'; text: string }).text)
+      .filter(block => block.type === 'text')
+      .map(block => (block as { type: 'text'; text: string }).text)
       .join('');
 
     const tokens = response.usage.input_tokens + response.usage.output_tokens;
@@ -87,17 +87,22 @@ export class AnthropicProvider implements ModelProvider {
   }
 
   listModels(): ModelInfo[] {
-    const a = this.isAvailable();
+    const providerAvailable = this.isAvailable();
     return [
-      { available: a, id: 'claude-opus-4-20250514', name: 'Claude Opus 4', provider: 'anthropic' },
       {
-        available: a,
+        available: providerAvailable,
+        id: 'claude-opus-4-20250514',
+        name: 'Claude Opus 4',
+        provider: 'anthropic',
+      },
+      {
+        available: providerAvailable,
         id: 'claude-sonnet-4-20250514',
         name: 'Claude Sonnet 4',
         provider: 'anthropic',
       },
       {
-        available: a,
+        available: providerAvailable,
         id: 'claude-3-5-haiku-20241022',
         name: 'Claude 3.5 Haiku',
         provider: 'anthropic',

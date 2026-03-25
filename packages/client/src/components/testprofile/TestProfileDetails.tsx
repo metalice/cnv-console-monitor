@@ -27,15 +27,15 @@ import { TestProfileTables } from './TestProfileTables';
 
 const streakBar = (statuses: string[]): React.ReactNode => (
   <Flex spaceItems={{ default: 'spaceItemsNone' }}>
-    {statuses.map((s, i) => (
+    {statuses.map((runStatus, i) => (
       // eslint-disable-next-line react/no-array-index-key
       <FlexItem key={i}>
-        <Tooltip content={s}>
+        <Tooltip content={runStatus}>
           <div
             className="app-streak-cell"
             style={{
               background:
-                s === 'FAILED'
+                runStatus === 'FAILED'
                   ? 'var(--pf-t--global--color--status--danger--default)'
                   : 'var(--pf-t--global--color--status--success--default)',
             }}

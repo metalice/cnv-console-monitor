@@ -344,7 +344,7 @@ export const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
                     <TextInput
                       aria-label="Subscription name"
                       value={draft.name ?? sub.name}
-                      onChange={(_e, v) => setDraft(d => ({ ...d, name: v }))}
+                      onChange={(_e, value) => setDraft(prev => ({ ...prev, name: value }))}
                     />
                   </DescriptionListDescription>
                 </DescriptionListGroup>
@@ -355,7 +355,9 @@ export const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
                       id={`sub-comp-edit-${sub.id}`}
                       options={availableComponents}
                       selected={new Set(draft.components ?? sub.components)}
-                      onChange={s => setDraft(d => ({ ...d, components: [...s] }))}
+                      onChange={selected =>
+                        setDraft(prev => ({ ...prev, components: [...selected] }))
+                      }
                     />
                   </DescriptionListDescription>
                 </DescriptionListGroup>
@@ -366,7 +368,7 @@ export const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
                       aria-label="Slack Webhook"
                       placeholder="https://hooks.slack.com/..."
                       value={draft.slackWebhook ?? sub.slackWebhook ?? ''}
-                      onChange={(_e, v) => setDraft(d => ({ ...d, slackWebhook: v }))}
+                      onChange={(_e, value) => setDraft(prev => ({ ...prev, slackWebhook: value }))}
                     />
                   </DescriptionListDescription>
                 </DescriptionListGroup>
@@ -377,7 +379,7 @@ export const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
                       aria-label="Jira Webhook"
                       placeholder="https://hooks.slack.com/..."
                       value={draft.jiraWebhook ?? sub.jiraWebhook ?? ''}
-                      onChange={(_e, v) => setDraft(d => ({ ...d, jiraWebhook: v }))}
+                      onChange={(_e, value) => setDraft(prev => ({ ...prev, jiraWebhook: value }))}
                     />
                   </DescriptionListDescription>
                 </DescriptionListGroup>
@@ -392,12 +394,12 @@ export const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
                           ? draft.emailRecipients.join(', ')
                           : sub.emailRecipients.join(', ')
                       }
-                      onChange={(_e, v) =>
-                        setDraft(d => ({
-                          ...d,
-                          emailRecipients: v
+                      onChange={(_e, value) =>
+                        setDraft(prev => ({
+                          ...prev,
+                          emailRecipients: value
                             .split(',')
-                            .map(a => a.trim())
+                            .map(addr => addr.trim())
                             .filter(Boolean),
                         }))
                       }
@@ -410,8 +412,8 @@ export const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
                 schedule={draft.schedule ?? sub.schedule}
                 subId={sub.id}
                 timezone={sub.timezone}
-                onScheduleChange={s => setDraft(d => ({ ...d, schedule: s }))}
-                onTimezoneChange={tz => setDraft(d => ({ ...d, timezone: tz }))}
+                onScheduleChange={schedule => setDraft(prev => ({ ...prev, schedule }))}
+                onTimezoneChange={timezone => setDraft(prev => ({ ...prev, timezone }))}
               />
 
               <DescriptionList
@@ -435,7 +437,7 @@ export const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
                           isChecked={draft.reminderEnabled ?? sub.reminderEnabled ?? false}
                           label="Enabled"
                           onChange={(_e, checked) =>
-                            setDraft(d => ({ ...d, reminderEnabled: checked }))
+                            setDraft(prev => ({ ...prev, reminderEnabled: checked }))
                           }
                         />
                       </FlexItem>
@@ -445,7 +447,9 @@ export const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
                             className="app-time-input-sm"
                             type="time"
                             value={draft.reminderTime ?? sub.reminderTime ?? '10:00'}
-                            onChange={e => setDraft(d => ({ ...d, reminderTime: e.target.value }))}
+                            onChange={e =>
+                              setDraft(prev => ({ ...prev, reminderTime: e.target.value }))
+                            }
                           />
                         </FlexItem>
                       )}

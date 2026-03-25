@@ -62,7 +62,7 @@ export const fetchJiraComponents = async (): Promise<string[]> => {
     const response = await client.get(`/project/${config.jira.projectKey}/components`);
     return (response.data as { name: string }[])
       .map(comp => comp.name)
-      .toSorted((a, b) => a.localeCompare(b));
+      .toSorted((nameA, nameB) => nameA.localeCompare(nameB));
   } catch (error) {
     log.warn({ error }, 'Failed to fetch Jira components');
     return [];

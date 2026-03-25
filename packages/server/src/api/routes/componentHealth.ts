@@ -147,7 +147,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
       }),
     );
 
-    summaries.sort((a, b) => a.passRate - b.passRate);
+    summaries.sort((left, right) => left.passRate - right.passRate);
     res.json(summaries);
   } catch (err) {
     next(err);

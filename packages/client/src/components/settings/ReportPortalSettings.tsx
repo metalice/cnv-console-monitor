@@ -48,7 +48,7 @@ export const ReportPortalSettings: React.FC<ReportPortalSettingsProps> = ({
           isDisabled={adminOnly}
           placeholder="https://reportportal.example.com"
           value={val('reportportal.url')}
-          onChange={(_e, v) => set('reportportal.url', v)}
+          onChange={(_e, value) => set('reportportal.url', value)}
         />
       </FormGroup>
       <FormGroup fieldId="rp-project" label="Project">
@@ -58,7 +58,7 @@ export const ReportPortalSettings: React.FC<ReportPortalSettingsProps> = ({
           options={toOptions(rpProjectOptions)}
           placeholder="Select project"
           value={val('reportportal.project')}
-          onChange={v => set('reportportal.project', v)}
+          onChange={value => set('reportportal.project', value)}
         />
       </FormGroup>
       <FormGroup fieldId="rp-token" label="Token">
@@ -74,7 +74,7 @@ export const ReportPortalSettings: React.FC<ReportPortalSettingsProps> = ({
               type={tokenEditing['reportportal.token'] ? 'text' : 'password'}
               value={val('reportportal.token')}
               onBlur={() => endTokenEdit('reportportal.token')}
-              onChange={(_e, v) => set('reportportal.token', v)}
+              onChange={(_e, value) => set('reportportal.token', value)}
               onFocus={() => startTokenEdit('reportportal.token')}
             />
           </FlexItem>

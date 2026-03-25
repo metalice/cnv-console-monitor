@@ -22,14 +22,14 @@ type IssueDetailSectionProps = {
   subtaskCount: number;
 };
 
-const statusColor = (s: string): 'blue' | 'green' | 'orange' | 'grey' => {
-  if (s === 'Closed') {
+const statusColor = (statusStr: string): 'blue' | 'green' | 'orange' | 'grey' => {
+  if (statusStr === 'Closed') {
     return 'green';
   }
-  if (s === 'In Progress' || s === 'Testing') {
+  if (statusStr === 'In Progress' || statusStr === 'Testing') {
     return 'blue';
   }
-  if (s === 'To Do' || s === 'New') {
+  if (statusStr === 'To Do' || statusStr === 'New') {
     return 'orange';
   }
   return 'grey';
@@ -73,12 +73,12 @@ export const IssueDetailSection: React.FC<IssueDetailSectionProps> = ({
             direction={{ default: 'column' }}
             spaceItems={{ default: 'spaceItemsXs' }}
           >
-            {subtasks.map(st => (
-              <FlexItem key={st.key}>
-                <Label isCompact color={st.status === 'Closed' ? 'green' : 'grey'}>
-                  {st.key}
+            {subtasks.map(subtask => (
+              <FlexItem key={subtask.key}>
+                <Label isCompact color={subtask.status === 'Closed' ? 'green' : 'grey'}>
+                  {subtask.key}
                 </Label>{' '}
-                <span className="app-font-13">{st.summary.substring(0, 80)}</span>
+                <span className="app-font-13">{subtask.summary.substring(0, 80)}</span>
               </FlexItem>
             ))}
           </Flex>

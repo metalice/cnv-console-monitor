@@ -59,7 +59,7 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({
                     placeholder={searchPlaceholder}
                     type="search"
                     value={searchValue}
-                    onChange={(_e, v) => onSearchChange(v)}
+                    onChange={(_e, nextValue) => onSearchChange(nextValue)}
                   />
                 </InputGroupItem>
                 {searchValue && (

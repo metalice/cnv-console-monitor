@@ -28,8 +28,10 @@ export const ReleasePage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    const v = searchParams.get('view');
-    return v === 'gantt' || v === 'calendar' || v === 'table' ? v : 'gantt';
+    const viewParam = searchParams.get('view');
+    return viewParam === 'gantt' || viewParam === 'calendar' || viewParam === 'table'
+      ? viewParam
+      : 'gantt';
   });
   const [selectedVersion, setSelectedVersionRaw] = useState<string | null>(() =>
     searchParams.get('version'),
@@ -89,7 +91,7 @@ export const ReleasePage: React.FC = () => {
     if (!selectedVersion || !releases) {
       return null;
     }
-    return releases.find(r => r.shortname === selectedVersion) ?? null;
+    return releases.find(release => release.shortname === selectedVersion) ?? null;
   }, [selectedVersion, releases]);
 
   return (

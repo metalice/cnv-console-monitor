@@ -102,9 +102,9 @@ router.post(
       let combinedNotes = notes || '';
       if (testNotes && testNotes.length > 0) {
         const testNotesText = testNotes
-          .map(tn => {
-            const jira = tn.jiraKey ? ` [${tn.jiraKey}]` : '';
-            return `• ${tn.testName}${jira}: ${tn.note}`;
+          .map(testNote => {
+            const jira = testNote.jiraKey ? ` [${testNote.jiraKey}]` : '';
+            return `• ${testNote.testName}${jira}: ${testNote.note}`;
           })
           .join('\n');
         combinedNotes = combinedNotes ? `${combinedNotes}\n\n${testNotesText}` : testNotesText;

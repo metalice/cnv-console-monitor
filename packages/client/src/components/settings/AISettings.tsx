@@ -132,7 +132,7 @@ export const AISettings: React.FC = () => {
           id="ai-enabled"
           isChecked={enabled}
           label={enabled ? 'AI features enabled' : 'AI features disabled'}
-          onChange={(_e, v) => setEnabled(v)}
+          onChange={(_e, value) => setEnabled(value)}
         />
       </FormGroup>
 
@@ -153,9 +153,9 @@ export const AISettings: React.FC = () => {
               className="app-max-w-250"
               isExpanded={modelSelectOpen}
               ref={ref}
-              onClick={() => setModelSelectOpen(o => !o)}
+              onClick={() => setModelSelectOpen(prev => !prev)}
             >
-              {PROVIDERS.find(p => p.value === defaultModel)?.label || defaultModel}
+              {PROVIDERS.find(provider => provider.value === defaultModel)?.label || defaultModel}
             </MenuToggle>
           )}
           onOpenChange={setModelSelectOpen}
@@ -165,9 +165,13 @@ export const AISettings: React.FC = () => {
           }}
         >
           <SelectList>
-            {PROVIDERS.map(p => (
-              <SelectOption isSelected={defaultModel === p.value} key={p.value} value={p.value}>
-                {p.label}
+            {PROVIDERS.map(provider => (
+              <SelectOption
+                isSelected={defaultModel === provider.value}
+                key={provider.value}
+                value={provider.value}
+              >
+                {provider.label}
               </SelectOption>
             ))}
           </SelectList>
@@ -191,10 +195,10 @@ export const AISettings: React.FC = () => {
               className="app-max-w-350"
               isExpanded={modelIdSelectOpen}
               ref={ref}
-              onClick={() => setModelIdSelectOpen(o => !o)}
+              onClick={() => setModelIdSelectOpen(prev => !prev)}
             >
               {defaultModelId
-                ? status?.models.find(m => m.id === defaultModelId)?.name || defaultModelId
+                ? status?.models.find(model => model.id === defaultModelId)?.name || defaultModelId
                 : 'Provider default'}
             </MenuToggle>
           )}
@@ -209,10 +213,14 @@ export const AISettings: React.FC = () => {
               Provider default
             </SelectOption>
             {(status?.models ?? [])
-              .filter(m => m.provider === defaultModel)
-              .map(m => (
-                <SelectOption isSelected={defaultModelId === m.id} key={m.id} value={m.id}>
-                  {m.name}
+              .filter(model => model.provider === defaultModel)
+              .map(model => (
+                <SelectOption
+                  isSelected={defaultModelId === model.id}
+                  key={model.id}
+                  value={model.id}
+                >
+                  {model.name}
                 </SelectOption>
               ))}
           </SelectList>
@@ -237,7 +245,7 @@ export const AISettings: React.FC = () => {
           placeholder="AIza..."
           type="password"
           value={geminiKey}
-          onChange={(_e, v) => setGeminiKey(v)}
+          onChange={(_e, value) => setGeminiKey(value)}
         />
       </FormGroup>
 
@@ -252,7 +260,7 @@ export const AISettings: React.FC = () => {
           placeholder="sk-..."
           type="password"
           value={openaiKey}
-          onChange={(_e, v) => setOpenaiKey(v)}
+          onChange={(_e, value) => setOpenaiKey(value)}
         />
       </FormGroup>
 
@@ -270,7 +278,7 @@ export const AISettings: React.FC = () => {
           placeholder="sk-ant-..."
           type="password"
           value={anthropicKey}
-          onChange={(_e, v) => setAnthropicKey(v)}
+          onChange={(_e, value) => setAnthropicKey(value)}
         />
       </FormGroup>
 
@@ -287,7 +295,7 @@ export const AISettings: React.FC = () => {
           className="app-max-w-350"
           placeholder="http://localhost:11434"
           value={ollamaUrl}
-          onChange={(_e, v) => setOllamaUrl(v)}
+          onChange={(_e, value) => setOllamaUrl(value)}
         />
       </FormGroup>
 
@@ -308,7 +316,7 @@ export const AISettings: React.FC = () => {
           className="app-max-w-350"
           placeholder="my-gcp-project"
           value={vertexProjectId}
-          onChange={(_e, v) => setVertexProjectId(v)}
+          onChange={(_e, value) => setVertexProjectId(value)}
         />
       </FormGroup>
 
@@ -325,7 +333,7 @@ export const AISettings: React.FC = () => {
           className="app-max-w-350"
           placeholder="us-east5"
           value={vertexRegion}
-          onChange={(_e, v) => setVertexRegion(v)}
+          onChange={(_e, value) => setVertexRegion(value)}
         />
       </FormGroup>
 
@@ -343,7 +351,7 @@ export const AISettings: React.FC = () => {
           placeholder="ya29...."
           type="password"
           value={vertexAccessToken}
-          onChange={(_e, v) => setVertexAccessToken(v)}
+          onChange={(_e, value) => setVertexAccessToken(value)}
         />
       </FormGroup>
       {status?.vertexTokenInfo && (
@@ -491,7 +499,7 @@ export const AISettings: React.FC = () => {
             Usage: {usage.total} requests ({usage.last24h} today) \u00b7{' '}
             {usage.totalTokens.toLocaleString()} tokens
             {Object.entries(usage.byProvider)
-              .map(([p, c]) => ` \u00b7 ${p}: ${c}`)
+              .map(([provider, count]) => ` \u00b7 ${provider}: ${count}`)
               .join('')}
           </Content>
         </div>

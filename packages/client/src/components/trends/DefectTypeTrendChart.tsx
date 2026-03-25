@@ -45,13 +45,16 @@ export const DefectTypeTrendChart: React.FC<DefectTypeTrendChartProps> = ({ defe
             style={{ tickLabels: { angle: -45, fontSize: 10, textAnchor: 'end' } }}
             tickValues={defectTrend
               .filter((_, i) => i % Math.max(1, Math.floor(defectTrend.length / 8)) === 0)
-              .map(d => d.week.slice(5))}
+              .map(trendPoint => trendPoint.week.slice(5))}
           />
           <ChartAxis dependentAxis />
           <ChartStack>
             {SERIES.map(({ fill, key }) => (
               <ChartArea
-                data={defectTrend.map(d => ({ x: d.week.slice(5), y: d[key] as number }))}
+                data={defectTrend.map(trendPoint => ({
+                  x: trendPoint.week.slice(5),
+                  y: trendPoint[key] as number,
+                }))}
                 key={key}
                 style={{ data: { fill, fillOpacity: 0.7 } }}
               />

@@ -102,17 +102,17 @@ export const UserManagement: React.FC = () => {
                 </Tr>
               </Thead>
               <Tbody>
-                {adminUsers.map(u => (
-                  <Tr key={u.email}>
-                    <Td className="app-cell-nowrap">{u.email}</Td>
-                    <Td className="app-cell-nowrap">{u.name}</Td>
+                {adminUsers.map(usr => (
+                  <Tr key={usr.email}>
+                    <Td className="app-cell-nowrap">{usr.email}</Td>
+                    <Td className="app-cell-nowrap">{usr.name}</Td>
                     <Td>
-                      <Label isCompact color={u.role === 'admin' ? 'purple' : 'grey'}>
-                        {u.role}
+                      <Label isCompact color={usr.role === 'admin' ? 'purple' : 'grey'}>
+                        {usr.role}
                       </Label>
                     </Td>
                     <Td className="app-cell-nowrap">
-                      {u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'Never'}
+                      {usr.lastLogin ? new Date(usr.lastLogin).toLocaleString() : 'Never'}
                     </Td>
                     <Td>
                       <Button
@@ -120,12 +120,12 @@ export const UserManagement: React.FC = () => {
                         variant="link"
                         onClick={() =>
                           setRole.mutate({
-                            email: u.email,
-                            role: u.role === 'admin' ? 'user' : 'admin',
+                            email: usr.email,
+                            role: usr.role === 'admin' ? 'user' : 'admin',
                           })
                         }
                       >
-                        {u.role === 'admin' ? 'Demote to User' : 'Promote to Admin'}
+                        {usr.role === 'admin' ? 'Demote to User' : 'Promote to Admin'}
                       </Button>
                     </Td>
                   </Tr>
@@ -180,7 +180,7 @@ export const BootstrapAdmin: React.FC = () => {
               placeholder="Enter the admin secret"
               type="password"
               value={bootstrapSecret}
-              onChange={(_e, v) => setBootstrapSecret(v)}
+              onChange={(_e, value) => setBootstrapSecret(value)}
             />
           </FormGroup>
           <Button

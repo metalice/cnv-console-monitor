@@ -117,7 +117,7 @@ export const NewSubscriptionForm: React.FC<NewSubscriptionFormProps> = ({
                   aria-label="Subscription name"
                   placeholder="e.g. CNV 4.17 Daily Report"
                   value={newRow.name}
-                  onChange={(_e, v) => updateField('name', v)}
+                  onChange={(_e, value) => updateField('name', value)}
                 />
               </div>
             </DescriptionListDescription>
@@ -154,7 +154,7 @@ export const NewSubscriptionForm: React.FC<NewSubscriptionFormProps> = ({
                   aria-label="Slack Webhook"
                   placeholder="https://hooks.slack.com/services/..."
                   value={newRow.slackWebhook}
-                  onChange={(_e, v) => updateField('slackWebhook', v)}
+                  onChange={(_e, value) => updateField('slackWebhook', value)}
                 />
               </div>
             </DescriptionListDescription>
@@ -172,7 +172,7 @@ export const NewSubscriptionForm: React.FC<NewSubscriptionFormProps> = ({
                   aria-label="Jira Webhook"
                   placeholder="Jira bug alert webhook URL"
                   value={newRow.jiraWebhook}
-                  onChange={(_e, v) => updateField('jiraWebhook', v)}
+                  onChange={(_e, value) => updateField('jiraWebhook', value)}
                 />
               </div>
             </DescriptionListDescription>
@@ -190,7 +190,7 @@ export const NewSubscriptionForm: React.FC<NewSubscriptionFormProps> = ({
                   aria-label="Email Recipients"
                   placeholder="a@b.com, c@d.com"
                   value={newRow.emailRecipients}
-                  onChange={(_e, v) => updateField('emailRecipients', v)}
+                  onChange={(_e, value) => updateField('emailRecipients', value)}
                 />
               </div>
             </DescriptionListDescription>
@@ -201,7 +201,7 @@ export const NewSubscriptionForm: React.FC<NewSubscriptionFormProps> = ({
           schedule={newRow.schedule}
           subId={0}
           timezone="Asia/Jerusalem"
-          onScheduleChange={s => updateField('schedule', s)}
+          onScheduleChange={schedule => updateField('schedule', schedule)}
           onTimezoneChange={() => {
             // no-op
           }}

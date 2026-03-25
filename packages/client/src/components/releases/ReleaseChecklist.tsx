@@ -44,8 +44,8 @@ const CHECKLIST_COLUMNS: ColumnDef[] = [
   { id: 'actions', title: 'Actions' },
 ];
 
-const toMajorMinor = (v: string): string => {
-  const stripped = v
+const toMajorMinor = (ver: string): string => {
+  const stripped = ver
     .replace(/^cnv[\s\-_]*v?/i, '')
     .trim()
     .toLowerCase();
@@ -71,9 +71,9 @@ const buildDueDateMap = (releases: ReleaseInfo[] | undefined): Map<string, strin
 };
 
 const getDueDate = (task: ChecklistTask, dueDateMap: Map<string, string>): string | null => {
-  for (const fv of task.fixVersions) {
-    const mm = toMajorMinor(fv);
-    const date = dueDateMap.get(mm);
+  for (const fixVersion of task.fixVersions) {
+    const majorMinor = toMajorMinor(fixVersion);
+    const date = dueDateMap.get(majorMinor);
     if (date) {
       return date;
     }
@@ -85,8 +85,8 @@ const buildSortAccessors = (
   dueDateMap: Map<string, string>,
 ): Record<number, (t: ChecklistTask) => string | number | null> => ({
   0: task => {
-    const d = getDueDate(task, dueDateMap);
-    return d ? new Date(d).getTime() : Infinity;
+    const dueDate = getDueDate(task, dueDateMap);
+    return dueDate ? new Date(dueDate).getTime() : Infinity;
   },
   1: task => task.fixVersions[0] || '',
   2: task => task.key,
@@ -130,8 +130,8 @@ export const ReleaseChecklist: React.FC<ReleaseChecklistProps> = ({
     }
     const ver = activeVersion.replace('cnv-', '');
     const matching = checklist
-      .flatMap(t => t.fixVersions)
-      .filter(fv => fv.toLowerCase().includes(ver.toLowerCase()));
+      .flatMap(task => task.fixVersions)
+      .filter(fixVersion => fixVersion.toLowerCase().includes(ver.toLowerCase()));
     setSelectedVersions(new Set(matching));
   }, [activeVersion, checklist]);
   const [versionFilterOpen, setVersionFilterOpen] = useState(false);
@@ -151,7 +151,7 @@ export const ReleaseChecklist: React.FC<ReleaseChecklistProps> = ({
         set.add(version);
       }
     }
-    return [...set].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+    return [...set].sort((verA, verB) => verB.localeCompare(verA, undefined, { numeric: true }));
   }, [checklist]);
 
   const toggleVersion = (ver: string): void => {
@@ -330,11 +330,11 @@ export const ReleaseChecklist: React.FC<ReleaseChecklistProps> = ({
                 { title: '100', value: 100 },
               ]}
               variant="bottom"
-              onPerPageSelect={(_e, pp) => {
-                setPerPage(pp);
+              onPerPageSelect={(_e, newPerPage) => {
+                setPerPage(newPerPage);
                 setPage(1);
               }}
-              onSetPage={(_e, p) => setPage(p)}
+              onSetPage={(_e, newPage) => setPage(newPage)}
             />
           </>
         )}

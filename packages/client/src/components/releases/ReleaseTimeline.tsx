@@ -40,7 +40,7 @@ const SORT_ACCESSORS: Record<number, (r: ReleaseInfo) => string | number | null>
     release.currentZStreamDate ? new Date(release.currentZStreamDate).getTime() : null,
   5: release => (release.nextRelease ? new Date(release.nextRelease.date).getTime() : null),
   6: release => release.daysUntilNext,
-  7: release => release.milestones.filter(m => m.isPast).length,
+  7: release => release.milestones.filter(milestone => milestone.isPast).length,
 };
 
 const phaseBadge = (phase: string): React.ReactNode => {
@@ -163,7 +163,7 @@ export const ReleaseTimeline: React.FC<ReleaseTimelineProps> = ({
     }
   };
 
-  const colCount = TIMELINE_COLUMNS.filter(c => colMgmt.isColumnVisible(c.id)).length;
+  const colCount = TIMELINE_COLUMNS.filter(col => colMgmt.isColumnVisible(col.id)).length;
 
   return (
     <Card>
@@ -253,8 +253,10 @@ export const ReleaseTimeline: React.FC<ReleaseTimelineProps> = ({
               <Tbody>
                 {sorted.map(release => {
                   const isExpanded = expandedVersions.has(release.shortname);
-                  const pastMilestones = release.milestones.filter(m => m.isPast);
-                  const upcomingMilestones = release.milestones.filter(m => !m.isPast);
+                  const pastMilestones = release.milestones.filter(milestone => milestone.isPast);
+                  const upcomingMilestones = release.milestones.filter(
+                    milestone => !milestone.isPast,
+                  );
 
                   return (
                     <React.Fragment key={release.shortname}>
@@ -328,24 +330,28 @@ export const ReleaseTimeline: React.FC<ReleaseTimelineProps> = ({
                               {upcomingMilestones.length > 0 && (
                                 <div className="app-rh-section">
                                   <span className="app-rh-heading">Upcoming</span>
-                                  {upcomingMilestones.map((m, i) => (
+                                  {upcomingMilestones.map((milestone, idx) => (
                                     <Flex
                                       alignItems={{ default: 'alignItemsCenter' }}
                                       className="app-rh-item"
                                       // eslint-disable-next-line react/no-array-index-key
-                                      key={i}
+                                      key={idx}
                                       spaceItems={{ default: 'spaceItemsSm' }}
                                     >
                                       <FlexItem>
                                         <Label isCompact color="blue">
-                                          {extractVersion(m.name)}
+                                          {extractVersion(milestone.name)}
                                         </Label>
                                       </FlexItem>
                                       <FlexItem>
-                                        <span className="app-text-xs">{fmtDate(m.date)}</span>
+                                        <span className="app-text-xs">
+                                          {fmtDate(milestone.date)}
+                                        </span>
                                       </FlexItem>
                                       <FlexItem>
-                                        <span className="app-text-xs app-text-muted">{m.name}</span>
+                                        <span className="app-text-xs app-text-muted">
+                                          {milestone.name}
+                                        </span>
                                       </FlexItem>
                                     </Flex>
                                   ))}
@@ -354,24 +360,28 @@ export const ReleaseTimeline: React.FC<ReleaseTimelineProps> = ({
                               {pastMilestones.length > 0 && (
                                 <div className="app-rh-section">
                                   <span className="app-rh-heading">Released</span>
-                                  {[...pastMilestones].reverse().map((m, i) => (
+                                  {[...pastMilestones].reverse().map((milestone, idx) => (
                                     <Flex
                                       alignItems={{ default: 'alignItemsCenter' }}
                                       className="app-rh-item app-rh-past"
                                       // eslint-disable-next-line react/no-array-index-key
-                                      key={i}
+                                      key={idx}
                                       spaceItems={{ default: 'spaceItemsSm' }}
                                     >
                                       <FlexItem>
                                         <Label isCompact color="grey">
-                                          {extractVersion(m.name)}
+                                          {extractVersion(milestone.name)}
                                         </Label>
                                       </FlexItem>
                                       <FlexItem>
-                                        <span className="app-text-xs">{fmtDate(m.date)}</span>
+                                        <span className="app-text-xs">
+                                          {fmtDate(milestone.date)}
+                                        </span>
                                       </FlexItem>
                                       <FlexItem>
-                                        <span className="app-text-xs app-text-muted">{m.name}</span>
+                                        <span className="app-text-xs app-text-muted">
+                                          {milestone.name}
+                                        </span>
                                       </FlexItem>
                                     </Flex>
                                   ))}

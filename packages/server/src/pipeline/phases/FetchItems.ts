@@ -81,7 +81,7 @@ export class FetchItemsPhase implements PipelinePhase {
   }
 
   private getLaunchesWithFailures(): LaunchRecord[] {
-    return this.launches.filter(l => l.failed > 0 || l.status === 'FAILED');
+    return this.launches.filter(launch => launch.failed > 0 || launch.status === 'FAILED');
   }
 
   canRunParallel(): string[] {

@@ -23,44 +23,44 @@ export const getActivityLog = async (
 ): Promise<{ entries: ActivityLogEntry[]; total: number }> => {
   const params: unknown[] = [];
   let paramIdx = 1;
-  const p = () => `$${paramIdx++}`;
+  const nextParam = () => `$${paramIdx++}`;
 
   const triageWhere: string[] = ['1=1'];
   const ackWhere: string[] = ['1=1'];
 
   if (filters.component) {
-    const cp = p();
-    triageWhere.push(`tl.component = ${cp}`);
-    ackWhere.push(`a.component = ${cp}`);
+    const componentParam = nextParam();
+    triageWhere.push(`tl.component = ${componentParam}`);
+    ackWhere.push(`a.component = ${componentParam}`);
     params.push(filters.component);
   }
   if (filters.user) {
-    const up = p();
-    triageWhere.push(`tl.performed_by = ${up}`);
-    ackWhere.push(`a.reviewer = ${up}`);
+    const userParam = nextParam();
+    triageWhere.push(`tl.performed_by = ${userParam}`);
+    ackWhere.push(`a.reviewer = ${userParam}`);
     params.push(filters.user);
   }
   if (filters.since) {
-    const sp = p();
-    triageWhere.push(`tl.performed_at >= ${sp}::timestamptz`);
-    ackWhere.push(`a.acknowledged_at >= ${sp}::timestamptz`);
+    const sinceParam = nextParam();
+    triageWhere.push(`tl.performed_at >= ${sinceParam}::timestamptz`);
+    ackWhere.push(`a.acknowledged_at >= ${sinceParam}::timestamptz`);
     params.push(filters.since);
   }
   if (filters.until) {
-    const up = p();
-    triageWhere.push(`tl.performed_at <= ${up}::timestamptz`);
-    ackWhere.push(`a.acknowledged_at <= ${up}::timestamptz`);
+    const untilParam = nextParam();
+    triageWhere.push(`tl.performed_at <= ${untilParam}::timestamptz`);
+    ackWhere.push(`a.acknowledged_at <= ${untilParam}::timestamptz`);
     params.push(filters.until);
   }
   if (filters.action) {
     const actions = filters.action
       .split(',')
-      .map(a => a.trim())
+      .map(act => act.trim())
       .filter(Boolean);
     const hasAck = actions.includes('acknowledge');
-    const triageActions = actions.filter(a => a !== 'acknowledge');
+    const triageActions = actions.filter(act => act !== 'acknowledge');
     if (triageActions.length > 0) {
-      triageWhere.push(`tl.action IN (${triageActions.map(() => p()).join(', ')})`);
+      triageWhere.push(`tl.action IN (${triageActions.map(() => nextParam()).join(', ')})`);
       params.push(...triageActions);
     } else {
       triageWhere.push('FALSE');
@@ -70,16 +70,18 @@ export const getActivityLog = async (
     }
   }
   if (filters.search) {
-    const sp = p();
+    const searchParam = nextParam();
     triageWhere.push(
-      `(ti.name ILIKE ${sp} OR tl.new_value ILIKE ${sp} OR tl.performed_by ILIKE ${sp})`,
+      `(ti.name ILIKE ${searchParam} OR tl.new_value ILIKE ${searchParam} OR tl.performed_by ILIKE ${searchParam})`,
     );
-    ackWhere.push(`(a.reviewer ILIKE ${sp} OR a.notes ILIKE ${sp} OR a.component ILIKE ${sp})`);
+    ackWhere.push(
+      `(a.reviewer ILIKE ${searchParam} OR a.notes ILIKE ${searchParam} OR a.component ILIKE ${searchParam})`,
+    );
     params.push(`%${filters.search}%`);
   }
 
-  const limitP = p();
-  const offsetP = p();
+  const limitP = nextParam();
+  const offsetP = nextParam();
   params.push(limit, offset);
 
   const query = `

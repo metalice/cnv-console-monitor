@@ -19,7 +19,7 @@ const matchGlob = (filePath: string, pattern: string): boolean => {
 };
 
 const matchesAnyGlob = (filePath: string, patterns: string[]): boolean => {
-  return patterns.some(p => matchGlob(filePath, p));
+  return patterns.some(pat => matchGlob(filePath, pat));
 };
 
 const TEST_EXTENSIONS = /\.(?:spec\.ts|spec\.js|test\.ts|test\.js|cy\.ts|cy\.js|e2e\.ts)$/i;
@@ -62,13 +62,15 @@ const classifyMdFilesWithAI = async (
     const { getAIService } = await import('../ai');
     const ai = getAIService();
     if (!ai.isEnabled()) {
-      return new Set(mdFiles.map(f => f.path));
+      return new Set(mdFiles.map(mdFile => mdFile.path));
     }
 
     const batchSize = 40;
     for (let i = 0; i < mdFiles.length; i += batchSize) {
       const batch = mdFiles.slice(i, i + batchSize);
-      const fileList = batch.map((f, idx) => `${idx + 1}. ${f.path}\n   ${f.snippet}`).join('\n\n');
+      const fileList = batch
+        .map((mdFile, idx) => `${idx + 1}. ${mdFile.path}\n   ${mdFile.snippet}`)
+        .join('\n\n');
 
       const prompt = `Classify markdown files as TEST_DOC or NOT_TEST_DOC.
 
@@ -105,8 +107,8 @@ If none: []`;
         if (Array.isArray(parsed)) {
           indices = parsed;
         } else if (parsed !== null && typeof parsed === 'object') {
-          const arrayVal = Object.values(parsed as Record<string, unknown>).find(v =>
-            Array.isArray(v),
+          const arrayVal = Object.values(parsed as Record<string, unknown>).find(val =>
+            Array.isArray(val),
           );
           indices = Array.isArray(arrayVal) ? arrayVal : [];
         } else {
@@ -124,13 +126,13 @@ If none: []`;
           }
         }
       } catch {
-        for (const f of batch) {
-          testDocPaths.add(f.path);
+        for (const entry of batch) {
+          testDocPaths.add(entry.path);
         }
       }
     }
   } catch {
-    return new Set(mdFiles.map(f => f.path));
+    return new Set(mdFiles.map(mdFile => mdFile.path));
   }
 
   return testDocPaths;
@@ -183,12 +185,12 @@ const extractQuotedNameFromLine = (line: string, maxLen = 8000): string | null =
   i++;
   const start = i;
   while (i < line.length && i - start < maxLen) {
-    const ch = line[i];
-    if (ch === '\\' && i + 1 < line.length) {
+    const char = line[i];
+    if (char === '\\' && i + 1 < line.length) {
       i += 2;
       continue;
     }
-    if (ch === q) {
+    if (char === q) {
       return line.slice(start, i);
     }
     i++;
@@ -227,14 +229,14 @@ const extractDocSignals = (content: string, filePath: string): DocSignals => {
 
   let title = '';
   for (const line of lines) {
-    const h1 = /^#\s+(.+)/.exec(line);
-    if (h1) {
-      title = h1[1].trim();
+    const h1Match = /^#\s+(.+)/.exec(line);
+    if (h1Match) {
+      title = h1Match[1].trim();
       break;
     }
   }
 
-  const pathParts = filePath.split('/').filter(p => !STRIP_PREFIXES.has(p.toLowerCase()));
+  const pathParts = filePath.split('/').filter(part => !STRIP_PREFIXES.has(part.toLowerCase()));
   const featureArea = pathParts.slice(0, -1).join('/') || '';
 
   const testRefs = extractTestReferences(content);
@@ -253,9 +255,9 @@ const extractDocSignals = (content: string, filePath: string): DocSignals => {
 
   const headings: string[] = [];
   for (const line of lines) {
-    const h = /^#{2,3}\s+(.+)/.exec(line);
-    if (h && headings.length < 10) {
-      headings.push(h[1].trim());
+    const hMatch = /^#{2,3}\s+(.+)/.exec(line);
+    if (hMatch && headings.length < 10) {
+      headings.push(hMatch[1].trim());
     }
   }
 
@@ -445,7 +447,7 @@ const parseAIMatchResponse = (content: string): number[][] => {
     pairs = parsed;
   } else if (parsed !== null && typeof parsed === 'object') {
     const values = Object.values(parsed as Record<string, unknown>);
-    const arrayVal = values.find(v => Array.isArray(v));
+    const arrayVal = values.find(val => Array.isArray(val));
     if (!arrayVal) {
       log.warn(
         { keys: Object.keys(parsed as Record<string, unknown>) },
@@ -459,8 +461,11 @@ const parseAIMatchResponse = (content: string): number[][] => {
   }
 
   return pairs.filter(
-    (p): p is [number, number] =>
-      Array.isArray(p) && p.length === 2 && typeof p[0] === 'number' && typeof p[1] === 'number',
+    (pair): pair is [number, number] =>
+      Array.isArray(pair) &&
+      pair.length === 2 &&
+      typeof pair[0] === 'number' &&
+      typeof pair[1] === 'number',
   );
 };
 
@@ -514,7 +519,7 @@ const runAIMatchingBatches = async (
   testFiles: TestFileEntry[],
   progress: (phase: string, current: number, total: number, message: string) => void,
 ): Promise<number> => {
-  const testList = testFiles.map((t, i) => `T${i + 1}: ${t.path}`).join('\n');
+  const testList = testFiles.map((testEntry, i) => `T${i + 1}: ${testEntry.path}`).join('\n');
   const usedTests = new Set<number>();
   const BATCH_SIZE = 15;
   let matchedPairs = 0;
@@ -522,21 +527,21 @@ const runAIMatchingBatches = async (
   for (let batchStart = 0; batchStart < docFiles.length; batchStart += BATCH_SIZE) {
     const batch = docFiles.slice(batchStart, batchStart + BATCH_SIZE);
     const batchDocList = batch
-      .map((d, i) => {
+      .map((doc, i) => {
         const globalIdx = batchStart + i + 1;
-        const s = d.signals;
-        let entry = `D${globalIdx}: ${d.path}`;
-        if (s?.title) {
-          entry += `\n  Title: ${s.title}`;
+        const sig = doc.signals;
+        let entry = `D${globalIdx}: ${doc.path}`;
+        if (sig?.title) {
+          entry += `\n  Title: ${sig.title}`;
         }
-        if (s?.featureArea) {
-          entry += `\n  Feature: ${s.featureArea}`;
+        if (sig?.featureArea) {
+          entry += `\n  Feature: ${sig.featureArea}`;
         }
-        if (s?.testRefs && s.testRefs.length > 0) {
-          entry += `\n  References test files: ${s.testRefs.join(', ')}`;
+        if (sig?.testRefs && sig.testRefs.length > 0) {
+          entry += `\n  References test files: ${sig.testRefs.join(', ')}`;
         }
-        if (s?.rtmEntries && s.rtmEntries.length > 0) {
-          entry += `\n  RTM mappings: ${s.rtmEntries.slice(0, 5).join(' | ')}`;
+        if (sig?.rtmEntries && sig.rtmEntries.length > 0) {
+          entry += `\n  RTM mappings: ${sig.rtmEntries.slice(0, 5).join(' | ')}`;
         }
         return entry;
       })
@@ -686,9 +691,9 @@ export const syncRepository = async (
     }));
 
   const definiteFiles = classified.filter(
-    f => f.classification === 'doc' || f.classification === 'test',
+    entry => entry.classification === 'doc' || entry.classification === 'test',
   );
-  const maybeDocs = classified.filter(f => f.classification === 'maybe-doc');
+  const maybeDocs = classified.filter(entry => entry.classification === 'maybe-doc');
 
   let confirmedDocPaths = new Set<string>();
   if (maybeDocs.length > 0) {
@@ -699,16 +704,16 @@ export const syncRepository = async (
       `AI classifying ${maybeDocs.length} markdown files...`,
     );
     const snippets: { path: string; snippet: string }[] = [];
-    for (const md of maybeDocs) {
+    for (const mdEntry of maybeDocs) {
       try {
         // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
-        const content = await provider.fetchFileContent(md.path, targetBranch);
+        const content = await provider.fetchFileContent(mdEntry.path, targetBranch);
         const raw = content.content;
         const titleMatch = /^#\s+(.+)/m.exec(raw);
         const title = titleMatch ? titleMatch[1].trim() : '';
         const headings = (raw.match(/^#{2,3}\s+.+/gm) ?? [])
           .slice(0, 6)
-          .map(h => h.replace(/^#+\s+/, ''));
+          .map(heading => heading.replace(/^#+\s+/, ''));
         const hasTable = /\|\s*Step\s*\||\|\s*Action\s*\||\|\s*Expected/i.test(raw);
         const hasTestCases = /###\s+`?\d{3}/.test(raw);
         const hasRTM = /traceability|RTM/i.test(raw);
@@ -725,9 +730,9 @@ export const syncRepository = async (
           .filter(Boolean)
           .join(' | ');
 
-        snippets.push({ path: md.path, snippet: summary });
+        snippets.push({ path: mdEntry.path, snippet: summary });
       } catch {
-        snippets.push({ path: md.path, snippet: '(could not read)' });
+        snippets.push({ path: mdEntry.path, snippet: '(could not read)' });
       }
     }
     confirmedDocPaths = await classifyMdFilesWithAI(snippets);
@@ -742,8 +747,8 @@ export const syncRepository = async (
   const relevantFiles = [
     ...definiteFiles,
     ...maybeDocs
-      .filter(f => confirmedDocPaths.has(f.path))
-      .map(f => ({ ...f, classification: 'doc' as const })),
+      .filter(entry => confirmedDocPaths.has(entry.path))
+      .map(entry => ({ ...entry, classification: 'doc' as const })),
   ];
 
   progress(
@@ -981,7 +986,7 @@ const getLogicalPath = (filePath: string): string[] => {
     /\.(?:md|spec\.ts|spec\.js|test\.ts|test\.js|cy\.ts|cy\.js|e2e\.ts)$/i,
     '',
   );
-  const segments = parts.filter(p => !STRIP_PREFIXES.has(p.toLowerCase()));
+  const segments = parts.filter(part => !STRIP_PREFIXES.has(part.toLowerCase()));
   if (segments.length > 0 && segments[segments.length - 1] === baseName) {
     return segments;
   }
@@ -1044,8 +1049,8 @@ const countGaps = (nodes: Record<string, unknown>[]): number => {
 const folderMapToNodes = (map: FolderMap, parentPath: string): Record<string, unknown>[] => {
   const result: Record<string, unknown>[] = [];
 
-  for (const [name, { children, files }] of [...map.entries()].sort((a, b) =>
-    a[0].localeCompare(b[0]),
+  for (const [name, { children, files }] of [...map.entries()].sort((entryA, entryB) =>
+    entryA[0].localeCompare(entryB[0]),
   )) {
     const path = parentPath ? `${parentPath}/${name}` : name;
     const childNodes = folderMapToNodes(children, path);
@@ -1079,8 +1084,8 @@ export const buildTreeResponse = async (component?: string): Promise<Record<stri
     await import('../db/store');
 
   const repos = component
-    ? (await getEnabledRepositories()).filter(r =>
-        (r.components as unknown as string[]).includes(component),
+    ? (await getEnabledRepositories()).filter(repo =>
+        (repo.components as unknown as string[]).includes(component),
       )
     : await getEnabledRepositories();
 
@@ -1152,7 +1157,7 @@ export const buildTreeResponse = async (component?: string): Promise<Record<stri
       branch,
       children: repoChildren,
       fileCount: files.length,
-      gapCount: files.filter(f => !f.counterpart_id).length,
+      gapCount: files.filter(file => !file.counterpart_id).length,
       name: repo.name,
       repoId: repo.id,
       type: 'repo',

@@ -184,7 +184,9 @@ class PipelineManager {
         for (const e of retryable) {
           reasons.set(e.reason, (reasons.get(e.reason) ?? 0) + 1);
         }
-        const breakdown = [...reasons.entries()].map(([r, c]) => `${r} (${c})`).join(', ');
+        const breakdown = [...reasons.entries()]
+          .map(([reason, count]) => `${reason} (${count})`)
+          .join(', ');
         this.addLog(
           name,
           'info',
@@ -204,7 +206,7 @@ class PipelineManager {
     }
 
     const hadFailures = Object.values(this.state.phases).some(
-      p => p.failed > 0 || p.status === 'cancelled',
+      phase => phase.failed > 0 || phase.status === 'cancelled',
     );
     if (!hadFailures) {
       return [];
@@ -330,12 +332,12 @@ class PipelineManager {
   }
 
   private formatDuration(ms: number): string {
-    const s = Math.round(ms / 1000);
-    if (s < 60) {
-      return `${s}s`;
+    const sec = Math.round(ms / 1000);
+    if (sec < 60) {
+      return `${sec}s`;
     }
-    const m = Math.floor(s / 60);
-    return s % 60 > 0 ? `${m}m ${s % 60}s` : `${m}m`;
+    const min = Math.floor(sec / 60);
+    return sec % 60 > 0 ? `${min}m ${sec % 60}s` : `${min}m`;
   }
 
   private async getConfiguredConcurrency(phaseName: string): Promise<number> {
@@ -376,7 +378,10 @@ class PipelineManager {
   }
 
   private async notifyOnFailure(): Promise<void> {
-    const totalFailed = Object.values(this.state.phases).reduce((sum, p) => sum + p.failed, 0);
+    const totalFailed = Object.values(this.state.phases).reduce(
+      (sum, phase) => sum + phase.failed,
+      0,
+    );
     if (totalFailed === 0 && !this.state.cancelled) {
       return;
     }
@@ -560,7 +565,7 @@ class PipelineManager {
       }
     }
 
-    return { allOk: services.every(s => s.status === 'ok'), services };
+    return { allOk: services.every(svc => svc.status === 'ok'), services };
   }
 
   isActive(): boolean {

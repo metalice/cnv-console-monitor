@@ -39,7 +39,7 @@ export const buildCron = (hour: number, minute: number, days: Set<string>): stri
   const dayStr =
     days.size === 0 || days.size === 7
       ? '*'
-      : [...days].sort((a, b) => parseInt(a) - parseInt(b)).join(',');
+      : [...days].sort((dayIdA, dayIdB) => parseInt(dayIdA) - parseInt(dayIdB)).join(',');
   return `${minute} ${hour} * * ${dayStr}`;
 };
 
@@ -88,7 +88,7 @@ export const TIMEZONE_LIST: string[] = (() => {
   if (typeof supportedValuesOf === 'function') {
     return supportedValuesOf('timeZone')
       .slice()
-      .toSorted((a, b) => a.localeCompare(b));
+      .toSorted((zoneA, zoneB) => zoneA.localeCompare(zoneB));
   }
   return [
     'Asia/Jerusalem',
