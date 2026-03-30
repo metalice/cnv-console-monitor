@@ -1,94 +1,16 @@
-import React from 'react';
-
-import {
-  Content,
-  ExpandableSection,
-  Flex,
-  FlexItem,
-  Form,
-  FormGroup,
-  Label,
-  TextInput,
-} from '@patternfly/react-core';
-import { BanIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@patternfly/react-icons';
+import { Content, ExpandableSection, Form, FormGroup } from '@patternfly/react-core';
 import { useQuery } from '@tanstack/react-query';
 
-import { fetchPipelineHistory, type PipelineRunRecord } from '../../api/poll';
+import { fetchPipelineHistory } from '../../api/poll';
 import { HelpLabel } from '../common/HelpLabel';
 import { SearchableSelect } from '../common/SearchableSelect';
 
-import type { SettingsSectionProps } from './types';
+import { PollingAdvancedSettings } from './PollingAdvancedSettings';
+import { PollRunRow } from './PollRunRow';
+import { type SettingsSectionProps } from './types';
 import { LOOKBACK_OPTIONS, POLL_INTERVAL_OPTIONS } from './types';
 
-const formatDuration = (millis: number | null): string => {
-  if (!millis) {
-    return '';
-  }
-  const seconds = Math.round(millis / 1000);
-  if (seconds < 60) {
-    return `${seconds}s`;
-  }
-  const minutes = Math.floor(seconds / 60);
-  return seconds % 60 > 0 ? `${minutes}m ${seconds % 60}s` : `${minutes}m`;
-};
-
-const RunRow: React.FC<{ run: PipelineRunRecord }> = ({ run }) => {
-  const date = new Date(run.started_at);
-  const hasErrors = Object.values(run.phases).some(phase => phase.failed > 0);
-
-  return (
-    <div className="app-poll-summary-row">
-      <Flex
-        alignItems={{ default: 'alignItemsCenter' }}
-        justifyContent={{ default: 'justifyContentSpaceBetween' }}
-      >
-        <FlexItem>
-          <Flex
-            alignItems={{ default: 'alignItemsCenter' }}
-            spaceItems={{ default: 'spaceItemsSm' }}
-          >
-            <FlexItem className="app-text-sm">
-              {date.toLocaleDateString()}{' '}
-              {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </FlexItem>
-            <FlexItem>
-              <Label isCompact color={run.trigger === 'backfill' ? 'blue' : 'grey'}>
-                {run.trigger === 'backfill'
-                  ? 'Full'
-                  : run.trigger === 'scheduled'
-                    ? 'Auto'
-                    : 'Manual'}
-              </Label>
-            </FlexItem>
-            {run.duration_ms && (
-              <FlexItem className="app-text-xs app-text-muted">
-                {formatDuration(run.duration_ms)}
-              </FlexItem>
-            )}
-          </Flex>
-        </FlexItem>
-        <FlexItem>
-          {run.cancelled ? (
-            <Label isCompact color="grey" icon={<BanIcon />}>
-              Cancelled
-            </Label>
-          ) : hasErrors ? (
-            <Label isCompact color="orange" icon={<ExclamationTriangleIcon />}>
-              Errors
-            </Label>
-          ) : (
-            <Label isCompact color="green" icon={<CheckCircleIcon />}>
-              Complete
-            </Label>
-          )}
-        </FlexItem>
-      </Flex>
-      {run.summary && <div className="app-text-xs app-text-muted app-mt-xs">{run.summary}</div>}
-    </div>
-  );
-};
-
-export const PollingSettings: React.FC<SettingsSectionProps> = ({ adminOnly, set, val }) => {
+export const PollingSettings = ({ adminOnly, set, val }: SettingsSectionProps) => {
   const { data: history } = useQuery({
     queryFn: () => fetchPipelineHistory(10),
     queryKey: ['pipelineHistory'],
@@ -143,7 +65,7 @@ export const PollingSettings: React.FC<SettingsSectionProps> = ({ adminOnly, set
         <ExpandableSection className="app-mt-md" toggleText={`Run History (${history.length})`}>
           <div className="app-enrichment-card">
             {history.map(run => (
-              <RunRow key={run.id} run={run} />
+              <PollRunRow key={run.id} run={run} />
             ))}
           </div>
         </ExpandableSection>
@@ -151,75 +73,7 @@ export const PollingSettings: React.FC<SettingsSectionProps> = ({ adminOnly, set
 
       {!adminOnly && (
         <ExpandableSection className="app-mt-md" toggleText="Advanced">
-          <Content className="app-text-muted app-mb-md" component="small">
-            Control parallel connections and batch sizes. Higher values are faster but may trigger
-            rate limiting.
-          </Content>
-          <Form>
-            <FormGroup
-              fieldId="rp-page-size"
-              label={
-                <HelpLabel
-                  help="Number of launches fetched per API call to ReportPortal. Larger pages = fewer requests, smoother progress. Range: 10–1000."
-                  label="RP Page Size"
-                />
-              }
-            >
-              <div className="app-max-w-120">
-                <TextInput
-                  id="rp-page-size"
-                  isDisabled={adminOnly}
-                  max={1000}
-                  min={10}
-                  type="number"
-                  value={val('schedule.rpPageSize') || '100'}
-                  onChange={(_e, value) => set('schedule.rpPageSize', value)}
-                />
-              </div>
-            </FormGroup>
-            <FormGroup
-              fieldId="rp-concurrency"
-              label={
-                <HelpLabel
-                  help="Number of parallel requests to ReportPortal when fetching test items and logs. Range: 1–100."
-                  label="RP Concurrency"
-                />
-              }
-            >
-              <div className="app-max-w-120">
-                <TextInput
-                  id="rp-concurrency"
-                  isDisabled={adminOnly}
-                  max={100}
-                  min={1}
-                  type="number"
-                  value={val('schedule.rpConcurrency') || '20'}
-                  onChange={(_e, value) => set('schedule.rpConcurrency', value)}
-                />
-              </div>
-            </FormGroup>
-            <FormGroup
-              fieldId="jenkins-concurrency"
-              label={
-                <HelpLabel
-                  help="Number of parallel requests to Jenkins when enriching launches. Range: 1–100."
-                  label="Jenkins Concurrency"
-                />
-              }
-            >
-              <div className="app-max-w-120">
-                <TextInput
-                  id="jenkins-concurrency"
-                  isDisabled={adminOnly}
-                  max={100}
-                  min={1}
-                  type="number"
-                  value={val('schedule.jenkinsConcurrency') || '20'}
-                  onChange={(_e, value) => set('schedule.jenkinsConcurrency', value)}
-                />
-              </div>
-            </FormGroup>
-          </Form>
+          <PollingAdvancedSettings adminOnly={adminOnly} set={set} val={val} />
         </ExpandableSection>
       )}
     </>

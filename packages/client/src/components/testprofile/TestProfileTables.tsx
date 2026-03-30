@@ -1,65 +1,28 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import {
-  Button,
-  Card,
-  CardBody,
-  CardTitle,
-  EmptyState,
-  EmptyStateBody,
-  GridItem,
-  Label,
-  Tooltip,
-} from '@patternfly/react-core';
-import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
+import { Button, GridItem, Label, Tooltip } from '@patternfly/react-core';
+import { Td, Tr } from '@patternfly/react-table';
 
 import type { TestProfile } from '../../api/testProfile';
 import { StatusBadge } from '../common/StatusBadge';
+
+import { SimpleTable } from './SimpleTable';
 
 type HistoryItem = TestProfile['history'][number];
 type AffectedLaunch = TestProfile['affectedLaunches'][number];
 type TriageEntry = TestProfile['triageHistory'][number];
 
-const SimpleTable: React.FC<{
-  label: string;
-  headers: string[];
-  items: unknown[];
-  renderRow: (item: never, i: number) => React.ReactNode;
-  emptyText: string;
-}> = ({ emptyText, headers, items, label, renderRow }) => (
-  <Card>
-    <CardTitle>
-      {label} ({items.length})
-    </CardTitle>
-    <CardBody>
-      {items.length === 0 ? (
-        <EmptyState>
-          <EmptyStateBody>{emptyText}</EmptyStateBody>
-        </EmptyState>
-      ) : (
-        <div className="app-table-scroll">
-          <Table aria-label={label} variant="compact">
-            <Thead>
-              <Tr>
-                {headers.map(header => (
-                  <Th key={header}>{header}</Th>
-                ))}
-              </Tr>
-            </Thead>
-            <Tbody>{items.map((item, i) => renderRow(item as never, i))}</Tbody>
-          </Table>
-        </div>
-      )}
-    </CardBody>
-  </Card>
-);
-
-export const TestProfileTables: React.FC<{
+type TestProfileTablesProps = {
   history: HistoryItem[];
   affectedLaunches: AffectedLaunch[];
   triageHistory: TriageEntry[];
-}> = ({ affectedLaunches, history, triageHistory }) => {
+};
+
+export const TestProfileTables = ({
+  affectedLaunches,
+  history,
+  triageHistory,
+}: TestProfileTablesProps) => {
   const navigate = useNavigate();
 
   return (

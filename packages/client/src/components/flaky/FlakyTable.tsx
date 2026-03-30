@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import {
@@ -13,39 +13,21 @@ import {
 import { CheckCircleIcon } from '@patternfly/react-icons';
 import { SortByDirection, Table, Tbody, Td, Thead, Tr } from '@patternfly/react-table';
 
-import { type ColumnDef, useColumnManagement } from '../../hooks/useColumnManagement';
+import { useColumnManagement } from '../../hooks/useColumnManagement';
 import { useTableSort } from '../../hooks/useTableSort';
 import { TableToolbar } from '../common/TableToolbar';
 import { ThWithHelp } from '../common/ThWithHelp';
 
-export type FlakyRow = {
-  name: string;
-  unique_id: string;
-  flip_count: number;
-  total_runs: number;
-  flipRate: number;
-};
+import { FLAKY_COLUMNS, type FlakyRow, SORT_ACCESSORS } from './flakyTableColumns';
 
-const FLAKY_COLUMNS: ColumnDef[] = [
-  { id: 'testName', title: 'Test Name' },
-  { id: 'flips', title: 'Flips' },
-  { id: 'totalRuns', title: 'Total Runs' },
-  { id: 'flipRate', title: 'Flip Rate' },
-];
-
-const SORT_ACCESSORS: Record<number, (r: FlakyRow) => string | number | null> = {
-  0: row => row.name.split('.').pop() || row.name,
-  1: row => row.flip_count,
-  2: row => row.total_runs,
-  3: row => row.flipRate,
-};
+export type { FlakyRow };
 
 type FlakyTableProps = {
   rows: FlakyRow[];
   isLoading: boolean;
 };
 
-export const FlakyTable: React.FC<FlakyTableProps> = ({ isLoading, rows }) => {
+export const FlakyTable = ({ isLoading, rows }: FlakyTableProps) => {
   const navigate = useNavigate();
   const { getSortParams, sorted } = useTableSort(rows, SORT_ACCESSORS, {
     direction: SortByDirection.desc,

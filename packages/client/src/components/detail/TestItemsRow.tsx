@@ -2,15 +2,21 @@ import React from 'react';
 
 import type { PublicConfig, TestItem } from '@cnv-monitor/shared';
 
-import { Button, ExpandableSection, Flex, FlexItem, Label, Tooltip } from '@patternfly/react-core';
-import { BugIcon, LinkIcon, WrenchIcon } from '@patternfly/react-icons';
+import { Button, ExpandableSection, Label, Tooltip } from '@patternfly/react-core';
 import { Td, Tr } from '@patternfly/react-table';
 
 import type { AggregatedItem } from '../../utils/aggregation';
-import { StatusBadge } from '../common/StatusBadge';
 
 import { LogViewer } from './LogViewer';
 import { SimilarFailuresPanel } from './SimilarFailuresPanel';
+import {
+  ActionsCell,
+  DefectCell,
+  ErrorCell,
+  JiraCell,
+  PolarionCell,
+  StatusCell,
+} from './TestItemCells';
 
 type TestItemsRowProps = {
   group: AggregatedItem;
@@ -27,7 +33,7 @@ type TestItemsRowProps = {
   onLinkJira: (rpId: number) => void;
 };
 
-export const TestItemsRow: React.FC<TestItemsRowProps> = ({
+export const TestItemsRow = ({
   config,
   group,
   isColumnVisible,
@@ -40,7 +46,7 @@ export const TestItemsRow: React.FC<TestItemsRowProps> = ({
   onToggleExpand,
   onTriage,
   visibleColumnCount,
-}) => {
+}: TestItemsRowProps) => {
   const { allRpIds, occurrences, representative: item } = group;
   const shortName = item.name.split('.').pop() || item.name;
 
@@ -83,116 +89,20 @@ export const TestItemsRow: React.FC<TestItemsRowProps> = ({
             )}
           </Td>
         )}
-        {isColumnVisible('status') && (
-          <Td className="app-cell-nowrap" dataLabel="Status">
-            <StatusBadge status={item.status} />
-          </Td>
-        )}
-        {isColumnVisible('error') && (
-          <Td className="app-cell-truncate" dataLabel="Error">
-            {item.error_message && (
-              <Tooltip content={item.error_message}>
-                <span className="app-text-xs app-text-muted">
-                  {item.error_message.split('\n')[0]}
-                </span>
-              </Tooltip>
-            )}
-          </Td>
-        )}
-        {isColumnVisible('polarion') && (
-          <Td className="app-cell-nowrap" dataLabel="Polarion">
-            {item.polarion_id && (
-              <Label isCompact color="blue">
-                {config?.polarionUrl ? (
-                  <a
-                    href={`${config.polarionUrl}${item.polarion_id}`}
-                    rel="noreferrer"
-                    target="_blank"
-                    onClick={event => event.stopPropagation()}
-                  >
-                    {item.polarion_id}
-                  </a>
-                ) : (
-                  item.polarion_id
-                )}
-              </Label>
-            )}
-          </Td>
-        )}
-        {isColumnVisible('defect') && (
-          <Td className="app-cell-nowrap" dataLabel="AI">
-            {item.ai_prediction && (
-              <Label
-                isCompact
-                color={
-                  item.ai_prediction.includes('Product')
-                    ? 'red'
-                    : item.ai_prediction.includes('System')
-                      ? 'orange'
-                      : 'grey'
-                }
-              >
-                {item.ai_prediction.replace('Predicted ', '')} {item.ai_confidence}%
-              </Label>
-            )}
-          </Td>
-        )}
-        {isColumnVisible('jira') && (
-          <Td className="app-cell-nowrap" dataLabel="Jira">
-            {item.jira_key && (
-              <Label isCompact color="blue">
-                {config?.jiraUrl ? (
-                  <a
-                    href={`${config.jiraUrl}/browse/${item.jira_key}`}
-                    rel="noreferrer"
-                    target="_blank"
-                    onClick={event => event.stopPropagation()}
-                  >
-                    {item.jira_key}
-                  </a>
-                ) : (
-                  item.jira_key
-                )}{' '}
-                ({item.jira_status})
-              </Label>
-            )}
-          </Td>
-        )}
+        {isColumnVisible('status') && <StatusCell item={item} />}
+        {isColumnVisible('error') && <ErrorCell item={item} />}
+        {isColumnVisible('polarion') && <PolarionCell config={config} item={item} />}
+        {isColumnVisible('defect') && <DefectCell item={item} />}
+        {isColumnVisible('jira') && <JiraCell config={config} item={item} />}
         {isColumnVisible('actions') && (
-          <Td className="app-cell-nowrap" dataLabel="Actions">
-            <Flex flexWrap={{ default: 'nowrap' }}>
-              <FlexItem>
-                <Button
-                  isInline
-                  icon={<WrenchIcon />}
-                  variant="link"
-                  onClick={() => onTriage(allRpIds)}
-                >
-                  Classify{occurrences > 1 ? ` (${occurrences})` : ''}
-                </Button>
-              </FlexItem>
-              <FlexItem>
-                <Button
-                  isInline
-                  icon={<BugIcon />}
-                  variant="link"
-                  onClick={() => onCreateJira(item)}
-                >
-                  Bug
-                </Button>
-              </FlexItem>
-              <FlexItem>
-                <Button
-                  isInline
-                  icon={<LinkIcon />}
-                  variant="link"
-                  onClick={() => onLinkJira(item.rp_id)}
-                >
-                  Link
-                </Button>
-              </FlexItem>
-            </Flex>
-          </Td>
+          <ActionsCell
+            allRpIds={allRpIds}
+            item={item}
+            occurrences={occurrences}
+            onCreateJira={onCreateJira}
+            onLinkJira={onLinkJira}
+            onTriage={onTriage}
+          />
         )}
       </Tr>
       {isExpanded && (

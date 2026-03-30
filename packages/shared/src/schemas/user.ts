@@ -18,6 +18,7 @@ export type ActivityFilterPreset = {
 export type UserPreferences = {
   dashboardComponents?: string[];
   dashboardVersion?: string;
+  dashboardView?: string;
   dateRange?: string;
   checklistComponent?: string;
   checklistVersions?: string[];

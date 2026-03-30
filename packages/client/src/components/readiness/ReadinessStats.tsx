@@ -1,0 +1,109 @@
+import { Banner, Flex, FlexItem, Gallery, GalleryItem, PageSection } from '@patternfly/react-core';
+import { BanIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@patternfly/react-icons';
+
+import { StatCard } from '../common/StatCard';
+
+const RECOMMENDATION_CONFIG = {
+  at_risk: {
+    color: 'yellow' as const,
+    description: 'Some untriaged failures or moderate pass rate',
+    icon: ExclamationTriangleIcon,
+    label: 'At Risk',
+  },
+  blocked: {
+    color: 'red' as const,
+    description: 'Pass rate < 80% or > 10 untriaged failures',
+    icon: BanIcon,
+    label: 'Blocked',
+  },
+  ready: {
+    color: 'green' as const,
+    description: 'Pass rate ≥ 95% with no untriaged failures',
+    icon: CheckCircleIcon,
+    label: 'Ready to Ship',
+  },
+};
+
+type ReadinessData = {
+  recommendation: keyof typeof RECOMMENDATION_CONFIG;
+  passRate: number;
+  totalLaunches: number;
+  failedLaunches: number;
+  untriagedCount: number;
+};
+
+type ReadinessStatsSectionProps = {
+  data: ReadinessData;
+};
+
+export const ReadinessBanner = ({ data }: ReadinessStatsSectionProps) => {
+  const cfg = RECOMMENDATION_CONFIG[data.recommendation];
+  const Icon = cfg.icon;
+
+  return (
+    <PageSection padding={{ default: 'noPadding' }}>
+      <Banner color={cfg.color} screenReaderText={cfg.label}>
+        <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
+          <FlexItem>
+            <Icon />
+          </FlexItem>
+          <FlexItem>
+            <strong>{cfg.label}</strong> — {cfg.description}
+          </FlexItem>
+        </Flex>
+      </Banner>
+    </PageSection>
+  );
+};
+
+export const ReadinessStatsGallery = ({ data }: ReadinessStatsSectionProps) => (
+  <PageSection>
+    <Gallery hasGutter minWidths={{ default: '160px' }}>
+      <GalleryItem>
+        <StatCard
+          color={
+            data.passRate >= 95
+              ? 'var(--pf-t--global--color--status--success--default)'
+              : data.passRate >= 80
+                ? 'var(--pf-t--global--color--status--warning--default)'
+                : 'var(--pf-t--global--color--status--danger--default)'
+          }
+          help="Percentage of tests passing across all launches for this version"
+          label="Pass Rate"
+          value={`${data.passRate}%`}
+        />
+      </GalleryItem>
+      <GalleryItem>
+        <StatCard
+          help="Number of launches for this version in the lookback period"
+          label="Total Launches"
+          value={data.totalLaunches}
+        />
+      </GalleryItem>
+      <GalleryItem>
+        <StatCard
+          color={
+            data.failedLaunches > 0
+              ? 'var(--pf-t--global--color--status--danger--default)'
+              : undefined
+          }
+          help="Launches with FAILED or INTERRUPTED status"
+          label="Failed Launches"
+          value={data.failedLaunches}
+        />
+      </GalleryItem>
+      <GalleryItem>
+        <StatCard
+          color={
+            data.untriagedCount > 0
+              ? 'var(--pf-t--global--color--status--warning--default)'
+              : 'var(--pf-t--global--color--status--success--default)'
+          }
+          help="Failed test items not yet classified"
+          label="Untriaged"
+          value={data.untriagedCount}
+        />
+      </GalleryItem>
+    </Gallery>
+  </PageSection>
+);

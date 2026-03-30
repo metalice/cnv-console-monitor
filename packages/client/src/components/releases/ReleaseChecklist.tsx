@@ -1,6 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
-
-import type { ChecklistTask, ReleaseInfo } from '@cnv-monitor/shared';
+import { useState } from 'react';
 
 import {
   Alert,
@@ -8,109 +6,32 @@ import {
   CardBody,
   CardTitle,
   Content,
-  MenuToggle,
   Pagination,
-  Select,
-  SelectList,
-  SelectOption,
   Spinner,
-  ToggleGroup,
-  ToggleGroupItem,
-  ToolbarItem,
   Tooltip,
 } from '@patternfly/react-core';
 import { OutlinedQuestionCircleIcon } from '@patternfly/react-icons';
 import { SortByDirection, Table, Tbody, Thead } from '@patternfly/react-table';
 
 import { useComponentFilter } from '../../context/ComponentFilterContext';
-import { type ColumnDef, useColumnManagement } from '../../hooks/useColumnManagement';
+import { useColumnManagement } from '../../hooks/useColumnManagement';
 import { useTableSort } from '../../hooks/useTableSort';
 import { TableToolbar } from '../common/TableToolbar';
 import { ChecklistActionModal } from '../modals/ChecklistActionModal';
 
-import { ChecklistHeader, ChecklistRow } from './ChecklistRow';
+import { ChecklistHeader } from './ChecklistHeader';
+import {
+  CHECKLIST_COLUMNS,
+  PER_PAGE_OPTIONS,
+  type ReleaseChecklistProps,
+} from './checklistHelpers';
+import { ChecklistRow } from './ChecklistRow';
+import { ChecklistVersionFilter } from './ChecklistVersionFilter';
+import { useChecklistFilters } from './useChecklistFilters';
 
-const CHECKLIST_COLUMNS: ColumnDef[] = [
-  { id: 'dueDate', title: 'Due Date' },
-  { id: 'version', title: 'Version' },
-  { id: 'key', title: 'Key' },
-  { id: 'summary', title: 'Summary' },
-  { id: 'status', title: 'Status' },
-  { id: 'component', isDefault: false, title: 'Component' },
-  { id: 'assignee', title: 'Assignee' },
-  { id: 'priority', title: 'Priority' },
-  { id: 'subtasks', title: 'Subtasks' },
-  { id: 'updated', title: 'Updated' },
-  { id: 'actions', title: 'Actions' },
-];
+const DEFAULT_PER_PAGE = 10;
 
-const toMajorMinor = (ver: string): string => {
-  const stripped = ver
-    .replace(/^cnv[\s\-_]*v?/i, '')
-    .trim()
-    .toLowerCase();
-  const match = /(\d{1,20}\.\d{1,20})/.exec(stripped);
-  return match ? match[1] : stripped;
-};
-
-const buildDueDateMap = (releases: ReleaseInfo[] | undefined): Map<string, string> => {
-  const map = new Map<string, string>();
-  if (!releases) {
-    return map;
-  }
-  for (const release of releases) {
-    if (!release.nextRelease) {
-      continue;
-    }
-    const key = toMajorMinor(release.shortname);
-    if (key) {
-      map.set(key, release.nextRelease.date);
-    }
-  }
-  return map;
-};
-
-const getDueDate = (task: ChecklistTask, dueDateMap: Map<string, string>): string | null => {
-  for (const fixVersion of task.fixVersions) {
-    const majorMinor = toMajorMinor(fixVersion);
-    const date = dueDateMap.get(majorMinor);
-    if (date) {
-      return date;
-    }
-  }
-  return null;
-};
-
-const buildSortAccessors = (
-  dueDateMap: Map<string, string>,
-): Record<number, (t: ChecklistTask) => string | number | null> => ({
-  0: task => {
-    const dueDate = getDueDate(task, dueDateMap);
-    return dueDate ? new Date(dueDate).getTime() : Infinity;
-  },
-  1: task => task.fixVersions[0] || '',
-  2: task => task.key,
-  3: task => task.summary,
-  4: task => task.status,
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data
-  5: task => task.components?.[0] || '',
-  6: task => task.assignee,
-  7: task => task.priority,
-  8: task => (task.subtaskCount > 0 ? task.subtasksDone / task.subtaskCount : 0),
-  9: task => new Date(task.updated).getTime(),
-});
-
-type ReleaseChecklistProps = {
-  checklist: ChecklistTask[] | undefined;
-  isLoading: boolean;
-  error: Error | null;
-  checklistStatus: 'open' | 'all';
-  onStatusChange: (status: 'open' | 'all') => void;
-  releases: ReleaseInfo[] | undefined;
-  activeVersion?: string | null;
-};
-
-export const ReleaseChecklist: React.FC<ReleaseChecklistProps> = ({
+export const ReleaseChecklist = ({
   activeVersion,
   checklist,
   checklistStatus,
@@ -118,94 +39,20 @@ export const ReleaseChecklist: React.FC<ReleaseChecklistProps> = ({
   isLoading,
   onStatusChange,
   releases,
-}) => {
+}: ReleaseChecklistProps) => {
   const { selectedComponents } = useComponentFilter();
-  const [search, setSearch] = useState('');
-  const [selectedVersions, setSelectedVersions] = useState(new Set<string>());
-
-  useEffect(() => {
-    if (!activeVersion || !checklist) {
-      setSelectedVersions(new Set());
-      return;
-    }
-    const ver = activeVersion.replace('cnv-', '');
-    const matching = checklist
-      .flatMap(task => task.fixVersions)
-      .filter(fixVersion => fixVersion.toLowerCase().includes(ver.toLowerCase()));
-    setSelectedVersions(new Set(matching));
-  }, [activeVersion, checklist]);
-  const [versionFilterOpen, setVersionFilterOpen] = useState(false);
+  const filters = useChecklistFilters(checklist, releases, activeVersion);
+  const [perPage, setPerPage] = useState(DEFAULT_PER_PAGE);
   const [modalKey, setModalKey] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(10);
   const colMgmt = useColumnManagement('releaseChecklist', CHECKLIST_COLUMNS);
 
-  const availableVersions = useMemo(() => {
-    if (!checklist) {
-      return [];
-    }
-    const set = new Set<string>();
-    for (const task of checklist) {
-      const version = task.fixVersions[0];
-      if (version) {
-        set.add(version);
-      }
-    }
-    return [...set].sort((verA, verB) => verB.localeCompare(verA, undefined, { numeric: true }));
-  }, [checklist]);
-
-  const toggleVersion = (ver: string): void => {
-    setSelectedVersions(prev => {
-      const next = new Set(prev);
-      if (next.has(ver)) {
-        next.delete(ver);
-      } else {
-        next.add(ver);
-      }
-      return next;
-    });
-  };
-
-  const versionFilterLabel =
-    selectedVersions.size === 0
-      ? 'All Versions'
-      : selectedVersions.size === 1
-        ? [...selectedVersions][0]
-        : `${selectedVersions.size} versions`;
-
-  const filtered = useMemo(() => {
-    if (!checklist) {
-      return [];
-    }
-    let result = checklist;
-    if (selectedVersions.size > 0) {
-      result = result.filter(task =>
-        task.fixVersions.some(version => selectedVersions.has(version)),
-      );
-    }
-    if (search) {
-      const term = search.toLowerCase();
-      result = result.filter(
-        task =>
-          task.key.toLowerCase().includes(term) ||
-          task.summary.toLowerCase().includes(term) ||
-          task.assignee?.toLowerCase().includes(term) ||
-          task.fixVersions.some(version => version.toLowerCase().includes(term)),
-      );
-    }
-    setPage(1);
-    return result;
-  }, [checklist, selectedVersions, search]);
-
-  const dueDateMap = useMemo(() => buildDueDateMap(releases), [releases]);
-  const sortAccessors = useMemo(() => buildSortAccessors(dueDateMap), [dueDateMap]);
-  const { getSortParams, sorted } = useTableSort(filtered, sortAccessors, {
+  const { getSortParams, sorted } = useTableSort(filters.filtered, filters.sortAccessors, {
     direction: SortByDirection.desc,
     index: 0,
   });
   const showComponentCol = colMgmt.isColumnVisible('component') && selectedComponents.size !== 1;
 
-  const startIdx = (page - 1) * perPage;
+  const startIdx = (filters.page - 1) * perPage;
   const paginatedRows = sorted.slice(startIdx, startIdx + perPage);
 
   return (
@@ -221,60 +68,20 @@ export const ReleaseChecklist: React.FC<ReleaseChecklistProps> = ({
           columns={CHECKLIST_COLUMNS}
           resultCount={sorted.length}
           searchPlaceholder="Search by key, summary, assignee, version..."
-          searchValue={search}
+          searchValue={filters.search}
           totalCount={(checklist ?? []).length}
           visibleIds={colMgmt.visibleIds}
           onResetColumns={colMgmt.resetColumns}
           onSaveColumns={colMgmt.setColumns}
-          onSearchChange={setSearch}
+          onSearchChange={filters.setSearch}
         >
-          <ToolbarItem>
-            <ToggleGroup>
-              <ToggleGroupItem
-                isSelected={checklistStatus === 'open'}
-                text="Open"
-                onChange={() => onStatusChange('open')}
-              />
-              <ToggleGroupItem
-                isSelected={checklistStatus === 'all'}
-                text="All"
-                onChange={() => onStatusChange('all')}
-              />
-            </ToggleGroup>
-          </ToolbarItem>
-          {availableVersions.length > 0 && (
-            <ToolbarItem>
-              <Select
-                isOpen={versionFilterOpen}
-                role="menu"
-                // eslint-disable-next-line react/no-unstable-nested-components
-                toggle={ref => (
-                  <MenuToggle
-                    isExpanded={versionFilterOpen}
-                    ref={ref}
-                    onClick={() => setVersionFilterOpen(!versionFilterOpen)}
-                  >
-                    {versionFilterLabel}
-                  </MenuToggle>
-                )}
-                onOpenChange={setVersionFilterOpen}
-                onSelect={(_e, val) => toggleVersion(val as string)}
-              >
-                <SelectList>
-                  {availableVersions.map(ver => (
-                    <SelectOption
-                      hasCheckbox
-                      isSelected={selectedVersions.has(ver)}
-                      key={ver}
-                      value={ver}
-                    >
-                      {ver}
-                    </SelectOption>
-                  ))}
-                </SelectList>
-              </Select>
-            </ToolbarItem>
-          )}
+          <ChecklistVersionFilter
+            availableVersions={filters.availableVersions}
+            checklistStatus={checklistStatus}
+            selectedVersions={filters.selectedVersions}
+            onStatusChange={onStatusChange}
+            onToggleVersion={filters.toggleVersion}
+          />
         </TableToolbar>
 
         {error ? (
@@ -308,7 +115,7 @@ export const ReleaseChecklist: React.FC<ReleaseChecklistProps> = ({
                 <Tbody>
                   {paginatedRows.map(task => (
                     <ChecklistRow
-                      dueDateMap={dueDateMap}
+                      dueDateMap={filters.dueDateMap}
                       isColumnVisible={colMgmt.isColumnVisible}
                       key={task.key}
                       showComponentCol={showComponentCol}
@@ -321,20 +128,15 @@ export const ReleaseChecklist: React.FC<ReleaseChecklistProps> = ({
             </div>
             <Pagination
               itemCount={sorted.length}
-              page={page}
+              page={filters.page}
               perPage={perPage}
-              perPageOptions={[
-                { title: '10', value: 10 },
-                { title: '20', value: 20 },
-                { title: '50', value: 50 },
-                { title: '100', value: 100 },
-              ]}
+              perPageOptions={PER_PAGE_OPTIONS as unknown as { title: string; value: number }[]}
               variant="bottom"
               onPerPageSelect={(_e, newPerPage) => {
                 setPerPage(newPerPage);
-                setPage(1);
+                filters.setPage(1);
               }}
-              onSetPage={(_e, newPage) => setPage(newPage)}
+              onSetPage={(_e, newPage) => filters.setPage(newPage)}
             />
           </>
         )}

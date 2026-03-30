@@ -1,6 +1,3 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-
 import {
   Content,
   Grid,
@@ -10,9 +7,7 @@ import {
   Tabs,
   TabTitleText,
 } from '@patternfly/react-core';
-import { useQuery } from '@tanstack/react-query';
 
-import { fetchChecklist, fetchReleases } from '../api/releases';
 import { DeadlineBanner } from '../components/releases/DeadlineBanner';
 import { ReleaseCalendar } from '../components/releases/ReleaseCalendar';
 import { ReleaseChecklist } from '../components/releases/ReleaseChecklist';
@@ -20,79 +15,11 @@ import { ReleaseGantt } from '../components/releases/ReleaseGantt';
 import { ReleaseTimeline } from '../components/releases/ReleaseTimeline';
 import { VelocityChart } from '../components/releases/VelocityChart';
 import { VersionDashboard } from '../components/releases/VersionDashboard';
-import { useComponentFilter } from '../context/ComponentFilterContext';
 
-type ViewMode = 'gantt' | 'calendar' | 'table';
+import { useReleasePage } from './useReleasePage';
 
-export const ReleasePage: React.FC = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
-
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    const viewParam = searchParams.get('view');
-    return viewParam === 'gantt' || viewParam === 'calendar' || viewParam === 'table'
-      ? viewParam
-      : 'gantt';
-  });
-  const [selectedVersion, setSelectedVersionRaw] = useState<string | null>(() =>
-    searchParams.get('version'),
-  );
-
-  useEffect(() => {
-    const params = new URLSearchParams(searchParams);
-    if (viewMode !== 'gantt') {
-      params.set('view', viewMode);
-    } else {
-      params.delete('view');
-    }
-    if (selectedVersion) {
-      params.set('version', selectedVersion);
-    } else {
-      params.delete('version');
-    }
-    setSearchParams(params, { replace: true });
-  }, [viewMode, selectedVersion, searchParams, setSearchParams]);
-
-  const toggleVersion = (shortname: string) =>
-    setSelectedVersionRaw(prev => (prev === shortname ? null : shortname));
-
-  useEffect(() => {
-    document.title = 'Releases | CNV Console Monitor';
-  }, []);
-
-  const { data: releases, isLoading: relLoading } = useQuery({
-    queryFn: fetchReleases,
-    queryKey: ['releases'],
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const { selectedComponent: checklistComponent } = useComponentFilter();
-  const [checklistStatus, setChecklistStatus] = useState<'open' | 'all'>('open');
-
-  const checklistVersion = useMemo(() => {
-    if (!selectedVersion) {
-      return undefined;
-    }
-    return selectedVersion.replace('cnv-', '');
-  }, [selectedVersion]);
-
-  const {
-    data: checklist,
-    error: clError,
-    isFetching: clFetching,
-    isLoading: clLoading,
-  } = useQuery({
-    queryFn: () => fetchChecklist(checklistComponent, checklistStatus, checklistVersion),
-    queryKey: ['checklist', checklistComponent, checklistStatus, checklistVersion],
-    retry: 1,
-    staleTime: 60 * 1000,
-  });
-
-  const selectedRelease = useMemo(() => {
-    if (!selectedVersion || !releases) {
-      return null;
-    }
-    return releases.find(release => release.shortname === selectedVersion) ?? null;
-  }, [selectedVersion, releases]);
+export const ReleasePage = () => {
+  const page = useReleasePage();
 
   return (
     <>
@@ -103,16 +30,19 @@ export const ReleasePage: React.FC = () => {
         </Content>
       </PageSection>
 
-      {releases && releases.length > 0 && (
+      {page.releases && page.releases.length > 0 && (
         <PageSection style={{ paddingTop: 0 }}>
-          <DeadlineBanner releases={releases} />
+          <DeadlineBanner releases={page.releases} />
         </PageSection>
       )}
 
       <PageSection>
         <Grid hasGutter>
           <GridItem span={12}>
-            <Tabs activeKey={viewMode} onSelect={(_e, key) => setViewMode(key as ViewMode)}>
+            <Tabs
+              activeKey={page.viewMode}
+              onSelect={(_e, key) => page.setViewMode(key as 'gantt' | 'calendar' | 'table')}
+            >
               <Tab eventKey="gantt" title={<TabTitleText>Timeline</TabTitleText>} />
               <Tab eventKey="calendar" title={<TabTitleText>Calendar</TabTitleText>} />
               <Tab eventKey="table" title={<TabTitleText>Table</TabTitleText>} />
@@ -120,46 +50,46 @@ export const ReleasePage: React.FC = () => {
           </GridItem>
 
           <GridItem span={12}>
-            {viewMode === 'gantt' && (
+            {page.viewMode === 'gantt' && (
               <ReleaseGantt
-                isLoading={relLoading}
-                releases={releases}
-                selectedVersion={selectedVersion}
-                onSelectVersion={toggleVersion}
+                isLoading={page.relLoading}
+                releases={page.releases}
+                selectedVersion={page.selectedVersion}
+                onSelectVersion={page.toggleVersion}
               />
             )}
-            {viewMode === 'calendar' && releases && (
-              <ReleaseCalendar releases={releases} onSelectVersion={toggleVersion} />
+            {page.viewMode === 'calendar' && page.releases && (
+              <ReleaseCalendar releases={page.releases} onSelectVersion={page.toggleVersion} />
             )}
-            {viewMode === 'table' && (
+            {page.viewMode === 'table' && (
               <ReleaseTimeline
-                isLoading={relLoading}
-                releases={releases}
-                selectedVersion={selectedVersion}
-                onSelectVersion={toggleVersion}
+                isLoading={page.relLoading}
+                releases={page.releases}
+                selectedVersion={page.selectedVersion}
+                onSelectVersion={page.toggleVersion}
               />
             )}
           </GridItem>
 
-          {selectedRelease && (
+          {page.selectedRelease && (
             <GridItem span={12}>
               <VersionDashboard
-                checklist={checklist}
-                release={selectedRelease}
-                onClose={() => setSelectedVersionRaw(null)}
+                checklist={page.checklist}
+                release={page.selectedRelease}
+                onClose={() => page.setSelectedVersionRaw(null)}
               />
             </GridItem>
           )}
 
           <GridItem span={12}>
             <ReleaseChecklist
-              activeVersion={selectedVersion}
-              checklist={checklist}
-              checklistStatus={checklistStatus}
-              error={clError}
-              isLoading={clLoading || clFetching}
-              releases={releases}
-              onStatusChange={setChecklistStatus}
+              activeVersion={page.selectedVersion}
+              checklist={page.checklist}
+              checklistStatus={page.checklistStatus}
+              error={page.clError}
+              isLoading={page.clLoading || page.clFetching}
+              releases={page.releases}
+              onStatusChange={page.setChecklistStatus}
             />
           </GridItem>
 
