@@ -7,20 +7,14 @@ import {
   CardBody,
   CardTitle,
   Content,
-  DescriptionList,
-  DescriptionListDescription,
-  DescriptionListGroup,
-  DescriptionListTerm,
   Flex,
   FlexItem,
-  Switch,
-  TextInput,
 } from '@patternfly/react-core';
 import { PlusCircleIcon, TimesIcon } from '@patternfly/react-icons';
 
-import { ComponentMultiSelect } from '../common/ComponentMultiSelect';
-import { HelpLabel } from '../common/HelpLabel';
-
+import { NewSubscriptionExtras } from './NewSubscriptionExtras';
+import { NewSubscriptionFields } from './NewSubscriptionFields';
+import { NewSubscriptionFooter } from './NewSubscriptionFooter';
 import { ScheduleEditor } from './ScheduleEditor';
 import type { AlertMessage } from './types';
 
@@ -52,7 +46,7 @@ type NewSubscriptionFormProps = {
   isCreatePending: boolean;
 };
 
-export const NewSubscriptionForm: React.FC<NewSubscriptionFormProps> = ({
+export const NewSubscriptionForm = ({
   availableComponents,
   isCreatePending,
   newRow,
@@ -65,7 +59,7 @@ export const NewSubscriptionForm: React.FC<NewSubscriptionFormProps> = ({
   subTestMessages,
   testingSubId,
   userEmail: _userEmail,
-}) => {
+}: NewSubscriptionFormProps) => {
   const updateField = <K extends keyof NewRowState>(field: K, value: NewRowState[K]) => {
     setNewRow(prev => (prev ? { ...prev, [field]: value } : prev));
     setNewRowTested(false);
@@ -103,99 +97,11 @@ export const NewSubscriptionForm: React.FC<NewSubscriptionFormProps> = ({
           Set up a new notification channel. You must test delivery before saving.
         </Content>
 
-        <DescriptionList isCompact isHorizontal columnModifier={{ default: '1Col' }}>
-          <DescriptionListGroup>
-            <DescriptionListTerm>
-              <HelpLabel
-                help='A friendly name to identify this subscription, e.g. "CNV 4.17 Daily" or "Networking Team".'
-                label="Name"
-              />
-            </DescriptionListTerm>
-            <DescriptionListDescription>
-              <div className="app-max-w-350">
-                <TextInput
-                  aria-label="Subscription name"
-                  placeholder="e.g. CNV 4.17 Daily Report"
-                  value={newRow.name}
-                  onChange={(_e, value) => updateField('name', value)}
-                />
-              </div>
-            </DescriptionListDescription>
-          </DescriptionListGroup>
-          <DescriptionListGroup>
-            <DescriptionListTerm>
-              <HelpLabel
-                help="Filter the report to only include specific components. Leave empty to include all components."
-                label="Components"
-              />
-            </DescriptionListTerm>
-            <DescriptionListDescription>
-              <div className="app-max-w-350">
-                <ComponentMultiSelect
-                  id="new-sub-comp"
-                  options={availableComponents}
-                  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data
-                  selected={new Set(newRow.components || [])}
-                  onChange={selected => updateField('components', [...selected])}
-                />
-              </div>
-            </DescriptionListDescription>
-          </DescriptionListGroup>
-          <DescriptionListGroup>
-            <DescriptionListTerm>
-              <HelpLabel
-                help="Incoming Webhook URL for a Slack channel. The daily test report will be posted here. Create one at: Slack > Apps > Incoming Webhooks."
-                label="Slack Webhook"
-              />
-            </DescriptionListTerm>
-            <DescriptionListDescription>
-              <div className="app-max-w-350">
-                <TextInput
-                  aria-label="Slack Webhook"
-                  placeholder="https://hooks.slack.com/services/..."
-                  value={newRow.slackWebhook}
-                  onChange={(_e, value) => updateField('slackWebhook', value)}
-                />
-              </div>
-            </DescriptionListDescription>
-          </DescriptionListGroup>
-          <DescriptionListGroup>
-            <DescriptionListTerm>
-              <HelpLabel
-                help="Slack Incoming Webhook URL for Jira bug alerts. New bugs created from this dashboard will be posted here."
-                label="Jira Webhook"
-              />
-            </DescriptionListTerm>
-            <DescriptionListDescription>
-              <div className="app-max-w-350">
-                <TextInput
-                  aria-label="Jira Webhook"
-                  placeholder="Jira bug alert webhook URL"
-                  value={newRow.jiraWebhook}
-                  onChange={(_e, value) => updateField('jiraWebhook', value)}
-                />
-              </div>
-            </DescriptionListDescription>
-          </DescriptionListGroup>
-          <DescriptionListGroup>
-            <DescriptionListTerm>
-              <HelpLabel
-                help="Comma-separated list of email addresses to receive the daily report via email."
-                label="Email Recipients"
-              />
-            </DescriptionListTerm>
-            <DescriptionListDescription>
-              <div className="app-max-w-350">
-                <TextInput
-                  aria-label="Email Recipients"
-                  placeholder="a@b.com, c@d.com"
-                  value={newRow.emailRecipients}
-                  onChange={(_e, value) => updateField('emailRecipients', value)}
-                />
-              </div>
-            </DescriptionListDescription>
-          </DescriptionListGroup>
-        </DescriptionList>
+        <NewSubscriptionFields
+          availableComponents={availableComponents}
+          newRow={newRow}
+          onFieldChange={updateField}
+        />
 
         <ScheduleEditor
           schedule={newRow.schedule}
@@ -207,65 +113,7 @@ export const NewSubscriptionForm: React.FC<NewSubscriptionFormProps> = ({
           }}
         />
 
-        <DescriptionList
-          isCompact
-          isHorizontal
-          className="app-mt-sm"
-          columnModifier={{ default: '1Col' }}
-        >
-          <DescriptionListGroup>
-            <DescriptionListTerm>
-              <HelpLabel
-                help="Send a Slack reminder if the daily report has not been acknowledged by the configured time. Only triggers on selected days."
-                label="Ack Reminder"
-              />
-            </DescriptionListTerm>
-            <DescriptionListDescription>
-              <Flex
-                alignItems={{ default: 'alignItemsCenter' }}
-                spaceItems={{ default: 'spaceItemsSm' }}
-              >
-                <FlexItem>
-                  <Switch
-                    hasCheckIcon
-                    isReversed
-                    id="new-sub-reminder"
-                    isChecked={newRow.reminderEnabled}
-                    label="Enabled"
-                    onChange={(_e, checked) => updateField('reminderEnabled', checked)}
-                  />
-                </FlexItem>
-                {}
-                {newRow.reminderEnabled && (
-                  <FlexItem>
-                    <input
-                      className="app-time-input-sm"
-                      type="time"
-                      value={newRow.reminderTime}
-                      onChange={e => updateField('reminderTime', e.target.value)}
-                    />
-                  </FlexItem>
-                )}
-              </Flex>
-            </DescriptionListDescription>
-          </DescriptionListGroup>
-          <DescriptionListGroup>
-            <DescriptionListTerm>
-              <HelpLabel
-                help="When enabled, notifications will include an AI-generated natural language summary of the daily test results. Requires AI to be configured in Settings."
-                label="AI Digest"
-              />
-            </DescriptionListTerm>
-            <DescriptionListDescription>
-              <Switch
-                id="new-sub-ai-digest"
-                isChecked={Boolean(newRow.aiDigest)}
-                label={newRow.aiDigest ? 'AI summary enabled' : 'AI summary disabled'}
-                onChange={(_e, checked) => updateField('aiDigest', checked)}
-              />
-            </DescriptionListDescription>
-          </DescriptionListGroup>
-        </DescriptionList>
+        <NewSubscriptionExtras newRow={newRow} onFieldChange={updateField} />
 
         {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data */}
         {subTestMessages.new && (
@@ -278,42 +126,16 @@ export const NewSubscriptionForm: React.FC<NewSubscriptionFormProps> = ({
           />
         )}
 
-        <Flex className="app-mt-md" spaceItems={{ default: 'spaceItemsSm' }}>
-          <FlexItem>
-            <Button
-              isDisabled={!newRow.name.trim() || !hasDestination}
-              isLoading={testingSubId === 'new'}
-              size="sm"
-              variant="secondary"
-              onClick={onTest}
-            >
-              Test Delivery
-            </Button>
-          </FlexItem>
-          <FlexItem>
-            <Button
-              isDisabled={!newRowTested}
-              isLoading={isCreatePending}
-              size="sm"
-              variant="primary"
-              onClick={onSave}
-            >
-              Save
-            </Button>
-          </FlexItem>
-          <FlexItem>
-            <Button size="sm" variant="link" onClick={onCancel}>
-              Cancel
-            </Button>
-          </FlexItem>
-          {!newRowTested && newRow.name.trim() && hasDestination && (
-            <FlexItem>
-              <Content className="app-text-muted" component="small">
-                Test delivery first to enable Save
-              </Content>
-            </FlexItem>
-          )}
-        </Flex>
+        <NewSubscriptionFooter
+          canSave={newRowTested}
+          canTest={Boolean(newRow.name.trim()) && hasDestination}
+          isSaveLoading={isCreatePending}
+          isTestLoading={testingSubId === 'new'}
+          showHint={!newRowTested && Boolean(newRow.name.trim()) && hasDestination}
+          onCancel={onCancel}
+          onSave={onSave}
+          onTest={onTest}
+        />
       </CardBody>
     </Card>
   );

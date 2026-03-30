@@ -47,7 +47,7 @@ type ActivityMeta = { users: string[]; components: string[] };
 
 export const fetchActivityMeta = (): Promise<ActivityMeta> => apiFetch('/activity/meta');
 
-type ActivitySummary = {
+export type ActivitySummary = {
   byAction: Record<string, number>;
   byComponent: [string, number][];
   byUser: [string, number][];

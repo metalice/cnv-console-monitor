@@ -27,6 +27,8 @@ type DashboardFilterState = {
     passed: number;
     failed: number;
     inProgress: number;
+    totalTests: number;
+    skippedTests: number;
     newFailures: number;
     untriaged: number;
   };
@@ -173,13 +175,23 @@ export const useDashboardFilters = (
           ? report.newFailures.length
           : 0;
 
+    const latestTestTotals = filteredGroups.reduce(
+      (acc, group) => ({
+        skipped: acc.skipped + group.latestLaunch.skipped,
+        total: acc.total + group.latestLaunch.total,
+      }),
+      { skipped: 0, total: 0 },
+    );
+
     if (!isFiltered && report) {
       return {
         failed: report.failedLaunches,
         inProgress: report.inProgressLaunches,
         newFailures: newFailuresCount,
         passed: report.passedLaunches,
+        skippedTests: latestTestTotals.skipped,
         total: report.totalLaunches,
+        totalTests: latestTestTotals.total,
         untriaged: report.untriagedCount,
       };
     }
@@ -192,7 +204,9 @@ export const useDashboardFilters = (
         inProgress: allLaunches.filter(launch => launch.status === 'IN_PROGRESS').length,
         newFailures: newFailuresCount,
         passed: allLaunches.filter(launch => launch.status === 'PASSED').length,
+        skippedTests: latestTestTotals.skipped,
         total: allLaunches.length,
+        totalTests: latestTestTotals.total,
         untriaged: report?.untriagedCount ?? 0,
       };
     }
@@ -209,7 +223,9 @@ export const useDashboardFilters = (
       inProgress: inProgressGroups.reduce((sum, group) => sum + (group.launchCount ?? 1), 0),
       newFailures: newFailuresCount,
       passed: passedGroups.reduce((sum, group) => sum + (group.launchCount ?? 1), 0),
+      skippedTests: latestTestTotals.skipped,
       total: totalLaunches,
+      totalTests: latestTestTotals.total,
       untriaged: report?.untriagedCount ?? 0,
     };
   }, [filteredGroups, report, isFiltered]);

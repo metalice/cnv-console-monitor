@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 import type { Repository } from '@cnv-monitor/shared';
 
@@ -8,21 +8,15 @@ import {
   CardBody,
   CardTitle,
   Content,
-  DescriptionList,
-  DescriptionListDescription,
-  DescriptionListGroup,
-  DescriptionListTerm,
   EmptyState,
   EmptyStateBody,
   Flex,
   FlexItem,
-  Label,
-  LabelGroup,
   Spinner,
   Split,
   SplitItem,
 } from '@patternfly/react-core';
-import { PlusCircleIcon, SyncAltIcon, TrashIcon } from '@patternfly/react-icons';
+import { PlusCircleIcon } from '@patternfly/react-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
@@ -31,9 +25,10 @@ import {
   testRepositoryConnection,
 } from '../../api/repositories';
 
+import { RepositoryCard } from './RepositoryCard';
 import { RepositoryModal } from './RepositoryModal';
 
-export const RepositoryMappingSection: React.FC = () => {
+export const RepositoryMappingSection = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRepo, setEditingRepo] = useState<Repository | undefined>();
   const queryClient = useQueryClient();
@@ -87,81 +82,13 @@ export const RepositoryMappingSection: React.FC = () => {
             <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsMd' }}>
               {repos.map(repo => (
                 <FlexItem key={repo.id}>
-                  <Card isCompact>
-                    <CardBody>
-                      <Split hasGutter>
-                        <SplitItem isFilled>
-                          <strong>{repo.name}</strong>
-                          <DescriptionList isCompact isHorizontal className="app-mt-sm">
-                            <DescriptionListGroup>
-                              <DescriptionListTerm>Provider</DescriptionListTerm>
-                              <DescriptionListDescription>
-                                <Label>{repo.provider}</Label>
-                              </DescriptionListDescription>
-                            </DescriptionListGroup>
-                            <DescriptionListGroup>
-                              <DescriptionListTerm>Branches</DescriptionListTerm>
-                              <DescriptionListDescription>
-                                <LabelGroup>
-                                  {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data */}
-                                  {(repo.branches || []).map((branch: string) => (
-                                    <Label isCompact key={branch}>
-                                      {branch}
-                                    </Label>
-                                  ))}
-                                </LabelGroup>
-                              </DescriptionListDescription>
-                            </DescriptionListGroup>
-                            <DescriptionListGroup>
-                              <DescriptionListTerm>Components</DescriptionListTerm>
-                              <DescriptionListDescription>
-                                <LabelGroup>
-                                  {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data */}
-                                  {(repo.components || []).map((comp: string) => (
-                                    <Label isCompact color="blue" key={comp}>
-                                      {comp}
-                                    </Label>
-                                  ))}
-                                </LabelGroup>
-                              </DescriptionListDescription>
-                            </DescriptionListGroup>
-                            <DescriptionListGroup>
-                              <DescriptionListTerm>Status</DescriptionListTerm>
-                              <DescriptionListDescription>
-                                <Label color={repo.enabled ? 'green' : 'grey'}>
-                                  {repo.enabled ? 'Enabled' : 'Disabled'}
-                                </Label>
-                              </DescriptionListDescription>
-                            </DescriptionListGroup>
-                          </DescriptionList>
-                        </SplitItem>
-                        <SplitItem>
-                          <Flex spaceItems={{ default: 'spaceItemsSm' }}>
-                            <Button size="sm" variant="secondary" onClick={() => handleEdit(repo)}>
-                              Edit
-                            </Button>
-                            <Button
-                              icon={<SyncAltIcon />}
-                              isLoading={testMutation.isPending}
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => testMutation.mutate(repo.id)}
-                            >
-                              Test
-                            </Button>
-                            <Button
-                              icon={<TrashIcon />}
-                              size="sm"
-                              variant="danger"
-                              onClick={() => deleteMutation.mutate(repo.id)}
-                            >
-                              Delete
-                            </Button>
-                          </Flex>
-                        </SplitItem>
-                      </Split>
-                    </CardBody>
-                  </Card>
+                  <RepositoryCard
+                    isTestPending={testMutation.isPending}
+                    repo={repo}
+                    onDelete={() => deleteMutation.mutate(repo.id)}
+                    onEdit={() => handleEdit(repo)}
+                    onTest={() => testMutation.mutate(repo.id)}
+                  />
                 </FlexItem>
               ))}
             </Flex>

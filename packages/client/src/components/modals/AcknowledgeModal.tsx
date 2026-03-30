@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { LaunchGroup, TestNote } from '@cnv-monitor/shared';
 
@@ -7,19 +7,19 @@ import {
   Content,
   HelperText,
   HelperTextItem,
-  Label,
   Modal,
   ModalBody,
   ModalFooter,
   ModalHeader,
   ModalVariant,
-  TextInput,
 } from '@patternfly/react-core';
-import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
+import { Table, Tbody, Th, Thead, Tr } from '@patternfly/react-table';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { submitAcknowledgment } from '../../api/acknowledgment';
 import { useAuth } from '../../context/AuthContext';
+
+import { AckTestRow, type FailingTest } from './AckTestRow';
 
 type AcknowledgeModalProps = {
   isOpen: boolean;
@@ -28,18 +28,13 @@ type AcknowledgeModalProps = {
   component?: string;
 };
 
-export const AcknowledgeModal: React.FC<AcknowledgeModalProps> = ({
-  component,
-  groups,
-  isOpen,
-  onClose,
-}) => {
+export const AcknowledgeModal = ({ component, groups, isOpen, onClose }: AcknowledgeModalProps) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
   const failingTests = useMemo(() => {
     const seen = new Set<string>();
-    const tests: { name: string; shortName: string; jiraKey?: string; polarionId?: string }[] = [];
+    const tests: FailingTest[] = [];
     for (const group of groups) {
       for (const item of group.failedItems ?? []) {
         const key = item.unique_id || `${item.name}-${item.rp_id}`;
@@ -112,36 +107,14 @@ export const AcknowledgeModal: React.FC<AcknowledgeModalProps> = ({
             </Thead>
             <Tbody>
               {failingTests.map(test => (
-                <Tr key={test.name}>
-                  <Td dataLabel="Test">
-                    <span className="app-font-13">{test.shortName}</span>
-                    {test.polarionId && (
-                      <div>
-                        <Label isCompact color="blue">
-                          {test.polarionId}
-                        </Label>
-                      </div>
-                    )}
-                  </Td>
-                  <Td dataLabel="Jira">
-                    {test.jiraKey && (
-                      <Label isCompact color="blue">
-                        {test.jiraKey}
-                      </Label>
-                    )}
-                  </Td>
-                  <Td dataLabel="Note">
-                    <TextInput
-                      aria-label={`Note for ${test.shortName}`}
-                      placeholder="Why is this failing? What action is being taken?"
-                      validated={!(notes[test.name] || '').trim() ? 'error' : 'default'}
-                      value={notes[test.name] || ''}
-                      onChange={(_e, noteValue) =>
-                        setNotes(prev => ({ ...prev, [test.name]: noteValue }))
-                      }
-                    />
-                  </Td>
-                </Tr>
+                <AckTestRow
+                  key={test.name}
+                  note={notes[test.name] || ''}
+                  test={test}
+                  onNoteChange={noteValue =>
+                    setNotes(prev => ({ ...prev, [test.name]: noteValue }))
+                  }
+                />
               ))}
             </Tbody>
           </Table>

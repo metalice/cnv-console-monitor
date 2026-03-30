@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import { type ReactNode, useMemo } from 'react';
 
-import { type ActivityEntry, timeAgo } from '@cnv-monitor/shared';
+import type { ActivityEntry } from '@cnv-monitor/shared';
 
 import {
   Bullseye,
@@ -8,126 +8,15 @@ import {
   CardBody,
   EmptyState,
   EmptyStateBody,
-  Label,
   Pagination,
   Spinner,
-  Tooltip,
 } from '@patternfly/react-core';
-import { ArrowRightIcon, ThumbtackIcon } from '@patternfly/react-icons';
-import { Table, Tbody, Td, Thead, Tr } from '@patternfly/react-table';
+import { Table, Tbody, Thead, Tr } from '@patternfly/react-table';
 
 import { ThWithHelp } from '../common/ThWithHelp';
 
-const actionLabel = (action: string): React.ReactNode => {
-  switch (action) {
-    case 'classify_defect':
-      return (
-        <Label isCompact color="purple">
-          Classified
-        </Label>
-      );
-    case 'bulk_classify_defect':
-      return (
-        <Label isCompact color="purple">
-          Bulk Classified
-        </Label>
-      );
-    case 'add_comment':
-      return (
-        <Label isCompact color="blue">
-          Comment
-        </Label>
-      );
-    case 'create_jira':
-      return (
-        <Label isCompact color="red">
-          Jira Created
-        </Label>
-      );
-    case 'link_jira':
-      return (
-        <Label isCompact color="orange">
-          Jira Linked
-        </Label>
-      );
-    case 'acknowledge':
-      return (
-        <Label isCompact color="green">
-          Acknowledged
-        </Label>
-      );
-    default:
-      return <Label isCompact>{action}</Label>;
-  }
-};
-
-const UserAvatar: React.FC<{ name: string }> = ({ name }) => {
-  const initial = (name.split('@')[0]?.[0] || '?').toUpperCase();
-  return (
-    <Tooltip content={name}>
-      <span className="app-user-avatar">{initial}</span>
-    </Tooltip>
-  );
-};
-
-const DiffBadge: React.FC<{ oldVal?: string | null; newVal?: string | null }> = ({
-  newVal,
-  oldVal,
-}) => {
-  if (oldVal && newVal && oldVal !== newVal) {
-    return (
-      <span className="app-diff-badge">
-        <Label isCompact color="red">
-          {oldVal}
-        </Label>
-        <ArrowRightIcon className="app-diff-arrow" />
-        <Label isCompact color="green">
-          {newVal}
-        </Label>
-      </span>
-    );
-  }
-  return <span>{newVal || '--'}</span>;
-};
-
-type GroupedEntry = ActivityEntry & { groupCount?: number; groupedEntries?: ActivityEntry[] };
-
-const groupBulkActions = (entries: ActivityEntry[]): GroupedEntry[] => {
-  const result: GroupedEntry[] = [];
-  let i = 0;
-  while (i < entries.length) {
-    const currentEntry = entries[i];
-    if (currentEntry.action === 'bulk_classify_defect' && currentEntry.performed_by) {
-      const group: ActivityEntry[] = [currentEntry];
-      let j = i + 1;
-      while (
-        j < entries.length &&
-        entries[j].action === 'bulk_classify_defect' &&
-        entries[j].performed_by === currentEntry.performed_by &&
-        entries[j].new_value === currentEntry.new_value &&
-        Math.abs(
-          new Date(entries[j].performed_at).getTime() -
-            new Date(currentEntry.performed_at).getTime(),
-        ) < 60000
-      ) {
-        group.push(entries[j]);
-        j++;
-      }
-      if (group.length > 1) {
-        result.push({
-          ...currentEntry,
-          groupCount: group.length,
-          groupedEntries: group,
-        });
-        i = j;
-        continue;
-      }
-    }
-    result.push(currentEntry);
-    i++;
-  }
-  return result;
-};
+import { groupBulkActions, type GroupedEntry } from './activityTableHelpers';
+import { ActivityTableRow } from './ActivityTableRow';
 
 type ActivityTableProps = {
   entries: ActivityEntry[] | undefined;
@@ -139,10 +28,10 @@ type ActivityTableProps = {
   onPageChange: (page: number) => void;
   onRowClick: (entry: ActivityEntry) => void;
   selectedId?: number | null;
-  toolbar?: React.ReactNode;
+  toolbar?: ReactNode;
 };
 
-export const ActivityTable: React.FC<ActivityTableProps> = ({
+export const ActivityTable = ({
   entries,
   isLoading,
   onPageChange,
@@ -153,23 +42,23 @@ export const ActivityTable: React.FC<ActivityTableProps> = ({
   selectedId,
   toolbar,
   total,
-}) => {
-  const grouped = useMemo(() => (entries ? groupBulkActions(entries) : []), [entries]);
+}: ActivityTableProps) => {
+  const groupedRows = useMemo(() => (entries ? groupBulkActions(entries) : []), [entries]);
 
   const pinnedIds = useMemo(
-    () => new Set((pinnedEntries ?? []).map(entry => entry.id)),
+    () => new Set<number>((pinnedEntries ?? []).map(entry => entry.id)),
     [pinnedEntries],
   );
 
-  const allRows = useMemo(() => {
+  const allRows: GroupedEntry[] = useMemo(() => {
     if (!pinnedEntries?.length) {
-      return grouped;
+      return groupedRows;
     }
     const pinnedNotInPage = pinnedEntries.filter(
-      entry => !grouped.some(groupedRow => groupedRow.id === entry.id),
+      entry => !groupedRows.some(row => row.id === entry.id),
     );
-    return [...pinnedNotInPage, ...grouped];
-  }, [pinnedEntries, grouped]);
+    return [...pinnedNotInPage, ...groupedRows];
+  }, [pinnedEntries, groupedRows]);
 
   return (
     <Card>
@@ -210,75 +99,15 @@ export const ActivityTable: React.FC<ActivityTableProps> = ({
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {allRows.map(entry => {
-                    const groupedEntry = entry as GroupedEntry;
-                    const isAck = entry.action === 'acknowledge';
-                    const performedAtMs = new Date(entry.performed_at).getTime();
-                    const isPinned = pinnedIds.has(entry.id);
-                    const isSelected = selectedId === entry.id;
-
-                    return (
-                      <Tr
-                        isClickable
-                        className={`${isPinned ? 'app-pinned-row' : ''}${isSelected ? ' app-selected-row' : ''}`}
-                        key={entry.id}
-                        onRowClick={() => onRowClick(entry)}
-                      >
-                        <Td dataLabel="Time">
-                          <Tooltip content={new Date(entry.performed_at).toLocaleString()}>
-                            <span>{timeAgo(performedAtMs)}</span>
-                          </Tooltip>
-                        </Td>
-                        <Td dataLabel="Action">
-                          {isPinned && <ThumbtackIcon className="app-pin-icon" />}
-                          {actionLabel(entry.action)}
-                          {groupedEntry.groupCount && groupedEntry.groupCount > 1 && (
-                            <Label isCompact className="app-ml-xs" color="grey">
-                              {groupedEntry.groupCount}x
-                            </Label>
-                          )}
-                        </Td>
-                        <Td dataLabel="Component">
-                          {entry.component ? (
-                            <Label isCompact color="grey">
-                              {entry.component}
-                            </Label>
-                          ) : (
-                            '--'
-                          )}
-                        </Td>
-                        <Td dataLabel="Test / Target">
-                          {isAck ? (
-                            <span>{entry.component || 'Report'} acknowledged</span>
-                          ) : groupedEntry.groupCount && groupedEntry.groupCount > 1 ? (
-                            <span>
-                              {groupedEntry.groupCount} tests classified as {entry.new_value}
-                            </span>
-                          ) : (
-                            <Tooltip content={entry.test_name || '--'}>
-                              <span className="app-text-ellipsis">{entry.test_name || '--'}</span>
-                            </Tooltip>
-                          )}
-                        </Td>
-                        <Td dataLabel="Details">
-                          {isAck ? (
-                            entry.notes ? (
-                              <Label isCompact color="blue">
-                                Has notes
-                              </Label>
-                            ) : (
-                              '--'
-                            )
-                          ) : (
-                            <DiffBadge newVal={entry.new_value} oldVal={entry.old_value} />
-                          )}
-                        </Td>
-                        <Td dataLabel="By">
-                          {entry.performed_by ? <UserAvatar name={entry.performed_by} /> : '--'}
-                        </Td>
-                      </Tr>
-                    );
-                  })}
+                  {allRows.map(entry => (
+                    <ActivityTableRow
+                      entry={entry}
+                      isPinned={pinnedIds.has(entry.id)}
+                      isSelected={selectedId === entry.id}
+                      key={entry.id}
+                      onRowClick={onRowClick}
+                    />
+                  ))}
                 </Tbody>
               </Table>
             </div>

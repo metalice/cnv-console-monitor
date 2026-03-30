@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 import type { UserTokenInfo } from '@cnv-monitor/shared';
 
 import {
   Alert,
-  Button,
   Card,
   CardBody,
   CardTitle,
@@ -13,14 +12,9 @@ import {
   DescriptionListGroup,
   DescriptionListTerm,
   Flex,
-  FlexItem,
-  InputGroup,
-  InputGroupItem,
-  Label,
   Spinner,
-  TextInput,
 } from '@patternfly/react-core';
-import { CheckCircleIcon, KeyIcon, TimesCircleIcon, TrashIcon } from '@patternfly/react-icons';
+import { KeyIcon } from '@patternfly/react-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
@@ -30,13 +24,15 @@ import {
   testUserTokenApi,
 } from '../../api/userTokens';
 
+import { TokenRow } from './TokenRow';
+
 const providerLabels: Record<string, string> = {
   github: 'GitHub Access Token',
   gitlab: 'GitLab Access Token',
   jira: 'Jira API Token',
 };
 
-export const PersonalTokensSection: React.FC = () => {
+export const PersonalTokensSection = () => {
   const queryClient = useQueryClient();
   const [tokenInputs, setTokenInputs] = useState<Record<string, string>>({});
 
@@ -96,71 +92,24 @@ export const PersonalTokensSection: React.FC = () => {
                 {providerLabels[tokenInfo.provider] || tokenInfo.provider}
               </DescriptionListTerm>
               <DescriptionListDescription>
-                <Flex
-                  alignItems={{ default: 'alignItemsCenter' }}
-                  spaceItems={{ default: 'spaceItemsSm' }}
-                >
-                  {tokenInfo.isConfigured ? (
-                    <>
-                      <FlexItem>
-                        <Label
-                          color={tokenInfo.isValid ? 'green' : 'red'}
-                          icon={tokenInfo.isValid ? <CheckCircleIcon /> : <TimesCircleIcon />}
-                        >
-                          {tokenInfo.isValid ? tokenInfo.providerUsername || 'Valid' : 'Invalid'}
-                        </Label>
-                      </FlexItem>
-                      <FlexItem>
-                        <Button
-                          isLoading={testMutation.isPending}
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => testMutation.mutate(tokenInfo.provider)}
-                        >
-                          Test
-                        </Button>
-                      </FlexItem>
-                      <FlexItem>
-                        <Button
-                          icon={<TrashIcon />}
-                          size="sm"
-                          variant="plain"
-                          onClick={() => deleteMutation.mutate(tokenInfo.provider)}
-                        />
-                      </FlexItem>
-                    </>
-                  ) : (
-                    <FlexItem grow={{ default: 'grow' }}>
-                      <InputGroup>
-                        <InputGroupItem isFill>
-                          <TextInput
-                            placeholder={`Enter ${providerLabels[tokenInfo.provider] || tokenInfo.provider} token`}
-                            type="password"
-                            value={tokenInputs[tokenInfo.provider] || ''}
-                            onChange={(_e, val) =>
-                              setTokenInputs(prev => ({ ...prev, [tokenInfo.provider]: val }))
-                            }
-                          />
-                        </InputGroupItem>
-                        <InputGroupItem>
-                          <Button
-                            isDisabled={!tokenInputs[tokenInfo.provider] || saveMutation.isPending}
-                            isLoading={saveMutation.isPending}
-                            variant="control"
-                            onClick={() =>
-                              saveMutation.mutate({
-                                provider: tokenInfo.provider,
-                                token: tokenInputs[tokenInfo.provider] || '',
-                              })
-                            }
-                          >
-                            Save
-                          </Button>
-                        </InputGroupItem>
-                      </InputGroup>
-                    </FlexItem>
-                  )}
-                </Flex>
+                <TokenRow
+                  inputValue={tokenInputs[tokenInfo.provider] || ''}
+                  isSaving={saveMutation.isPending}
+                  isTesting={testMutation.isPending}
+                  providerLabel={providerLabels[tokenInfo.provider] || tokenInfo.provider}
+                  tokenInfo={tokenInfo}
+                  onDelete={() => deleteMutation.mutate(tokenInfo.provider)}
+                  onInputChange={val =>
+                    setTokenInputs(prev => ({ ...prev, [tokenInfo.provider]: val }))
+                  }
+                  onSave={() =>
+                    saveMutation.mutate({
+                      provider: tokenInfo.provider,
+                      token: tokenInputs[tokenInfo.provider] || '',
+                    })
+                  }
+                  onTest={() => testMutation.mutate(tokenInfo.provider)}
+                />
               </DescriptionListDescription>
             </DescriptionListGroup>
           ))}

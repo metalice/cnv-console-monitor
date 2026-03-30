@@ -1,18 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import type { PublicConfig, TestItem } from '@cnv-monitor/shared';
 
-import {
-  Button,
-  Card,
-  CardBody,
-  Content,
-  Flex,
-  FlexItem,
-  PageSection,
-} from '@patternfly/react-core';
-import { DownloadIcon } from '@patternfly/react-icons';
+import { Card, CardBody, PageSection } from '@patternfly/react-core';
 import { useQuery } from '@tanstack/react-query';
 
 import { apiFetch } from '../api/client';
@@ -24,9 +15,10 @@ import { TriageModal } from '../components/modals/TriageModal';
 import { useComponentFilter } from '../context/ComponentFilterContext';
 import { useDate } from '../context/DateContext';
 import { aggregateTestItems } from '../utils/aggregation';
-import { exportCsv } from '../utils/csvExport';
 
-export const FailuresPage: React.FC = () => {
+import { FailuresHeader } from './FailuresHeader';
+
+export const FailuresPage = () => {
   const navigate = useNavigate();
   const { isRangeMode, lookbackMode, since, until } = useDate();
   const { selectedComponent: component } = useComponentFilter();
@@ -79,56 +71,7 @@ export const FailuresPage: React.FC = () => {
 
   return (
     <>
-      <PageSection>
-        <Flex
-          alignItems={{ default: 'alignItemsCenter' }}
-          justifyContent={{ default: 'justifyContentSpaceBetween' }}
-        >
-          <FlexItem>
-            <Content component="h1">Untriaged Failures</Content>
-            <Content component="small">Test items that need classification</Content>
-          </FlexItem>
-          <FlexItem>
-            <Flex
-              alignItems={{ default: 'alignItemsCenter' }}
-              spaceItems={{ default: 'spaceItemsSm' }}
-            >
-              <FlexItem>
-                <Button
-                  icon={<DownloadIcon />}
-                  isDisabled={!aggregated.length}
-                  variant="secondary"
-                  onClick={() => {
-                    exportCsv(
-                      'untriaged-failures.csv',
-                      [
-                        'Test Name',
-                        'Occurrences',
-                        'Status',
-                        'Error',
-                        'Polarion',
-                        'AI Prediction',
-                        'Jira',
-                      ],
-                      aggregated.map(({ occurrences, representative: item }) => [
-                        item.name,
-                        occurrences,
-                        item.status,
-                        item.error_message?.split('\n')[0] ?? '',
-                        item.polarion_id ?? '',
-                        item.ai_prediction ?? '',
-                        item.jira_key ?? '',
-                      ]),
-                    );
-                  }}
-                >
-                  Export
-                </Button>
-              </FlexItem>
-            </Flex>
-          </FlexItem>
-        </Flex>
-      </PageSection>
+      <FailuresHeader aggregated={aggregated} />
 
       <PageSection>
         <Card>

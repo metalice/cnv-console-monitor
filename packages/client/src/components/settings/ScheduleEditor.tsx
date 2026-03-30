@@ -1,25 +1,18 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 
 import {
-  Checkbox,
-  Content,
   DescriptionList,
   DescriptionListDescription,
   DescriptionListGroup,
   DescriptionListTerm,
-  Flex,
-  FlexItem,
   Stack,
   StackItem,
-  ToggleGroup,
-  ToggleGroupItem,
 } from '@patternfly/react-core';
 
 import {
   ALL_DAY_IDS,
   buildCron,
   type DayPreset,
-  DAYS,
   getDayPreset,
   parseCron,
   TIMEZONE_LIST,
@@ -28,6 +21,9 @@ import {
 import { HelpLabel } from '../common/HelpLabel';
 import type { SearchableSelectOption } from '../common/SearchableSelect';
 import { SearchableSelect } from '../common/SearchableSelect';
+
+import { ScheduleDaySelector } from './ScheduleDaySelector';
+import { ScheduleTimePicker } from './ScheduleTimePicker';
 
 const TZ_OPTIONS: SearchableSelectOption[] = TIMEZONE_LIST.map(timezone => ({
   label: timezone,
@@ -42,13 +38,13 @@ type ScheduleEditorProps = {
   onTimezoneChange: (tz: string) => void;
 };
 
-export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({
+export const ScheduleEditor = ({
   onScheduleChange,
   onTimezoneChange,
   schedule,
   subId,
   timezone,
-}) => {
+}: ScheduleEditorProps) => {
   const cronParsed = useMemo(() => parseCron(schedule), [schedule]);
   const dayPreset = useMemo(() => getDayPreset(cronParsed.days), [cronParsed.days]);
 
@@ -110,72 +106,16 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({
         <DescriptionListDescription>
           <Stack hasGutter>
             <StackItem>
-              <Flex
-                alignItems={{ default: 'alignItemsCenter' }}
-                spaceItems={{ default: 'spaceItemsMd' }}
-              >
-                <FlexItem>
-                  <Content className="app-text-muted" component="small">
-                    Time
-                  </Content>
-                </FlexItem>
-                <FlexItem>
-                  <input
-                    className="app-time-input"
-                    type="time"
-                    value={timeValue}
-                    onChange={handleTimeChange}
-                  />
-                </FlexItem>
-              </Flex>
+              <ScheduleTimePicker value={timeValue} onChange={handleTimeChange} />
             </StackItem>
             <StackItem>
-              <Flex
-                alignItems={{ default: 'alignItemsCenter' }}
-                spaceItems={{ default: 'spaceItemsMd' }}
-              >
-                <FlexItem>
-                  <Content className="app-text-muted" component="small">
-                    Days
-                  </Content>
-                </FlexItem>
-                <FlexItem>
-                  <ToggleGroup>
-                    <ToggleGroupItem
-                      isSelected={dayPreset === 'every-day'}
-                      text="Every day"
-                      onChange={() => handlePreset('every-day')}
-                    />
-                    <ToggleGroupItem
-                      isSelected={dayPreset === 'weekdays'}
-                      text="Weekdays"
-                      onChange={() => handlePreset('weekdays')}
-                    />
-                    <ToggleGroupItem
-                      isSelected={dayPreset === 'custom'}
-                      text="Custom"
-                      onChange={() => {
-                        // no-op
-                      }}
-                    />
-                  </ToggleGroup>
-                </FlexItem>
-              </Flex>
-            </StackItem>
-            <StackItem>
-              <Flex spaceItems={{ default: 'spaceItemsMd' }}>
-                {DAYS.map(day => (
-                  <FlexItem key={day.id}>
-                    <Checkbox
-                      id={`sub-day-${subId}-${day.id}`}
-                      isChecked={cronParsed.days.has(day.id)}
-                      isDisabled={cronParsed.days.has(day.id) && cronParsed.days.size <= 1}
-                      label={day.label}
-                      onChange={() => toggleDay(day.id)}
-                    />
-                  </FlexItem>
-                ))}
-              </Flex>
+              <ScheduleDaySelector
+                dayPreset={dayPreset}
+                selectedDays={cronParsed.days}
+                subId={subId}
+                onPreset={handlePreset}
+                onToggleDay={toggleDay}
+              />
             </StackItem>
           </Stack>
         </DescriptionListDescription>

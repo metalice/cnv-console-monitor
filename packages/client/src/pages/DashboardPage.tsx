@@ -1,71 +1,70 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
-import type { PublicConfig, ReleaseInfo } from '@cnv-monitor/shared';
+import type { ReleaseInfo } from '@cnv-monitor/shared';
 
-import {
-  Alert,
-  Content,
-  Flex,
-  FlexItem,
-  Gallery,
-  GalleryItem,
-  Label,
-  PageSection,
-  Spinner,
-  Toolbar,
-  ToolbarContent,
-  ToolbarItem,
-} from '@patternfly/react-core';
-import { useQuery } from '@tanstack/react-query';
+import { PageSection } from '@patternfly/react-core';
 
-import { apiFetch } from '../api/client';
-import { fetchReportForRange } from '../api/launches';
-import { fetchReleases } from '../api/releases';
 import { AckBanner } from '../components/common/AckBanner';
-import { ExportButton } from '../components/common/ExportButton';
 import { HealthBanner } from '../components/common/HealthBanner';
-import { StatCard } from '../components/common/StatCard';
-import { LaunchTable } from '../components/dashboard/LaunchTable';
 import { AcknowledgeModal } from '../components/modals/AcknowledgeModal';
-import { useDate } from '../context/DateContext';
+import { usePreferences } from '../context/PreferencesContext';
 import { useDashboardFilters } from '../hooks/useDashboardFilters';
 
-const STATUS_SUCCESS = 'var(--pf-t--global--color--status--success--default)';
-const STATUS_DANGER = 'var(--pf-t--global--color--status--danger--default)';
-const STATUS_WARNING = 'var(--pf-t--global--color--status--warning--default)';
+import { DashboardHeader } from './DashboardHeader';
+import { computeDeltas, type DashboardView, VALID_VIEWS } from './dashboardHelpers';
+import { DashboardStatCards } from './DashboardStatCards';
+import { DashboardEmpty, DashboardError, DashboardSkeleton } from './DashboardStates';
+import { DashboardViewTabs } from './DashboardViewTabs';
+import { UpcomingReleasesAlert } from './UpcomingReleasesAlert';
+import { useDashboardQueries } from './useDashboardQueries';
 
-export const DashboardPage: React.FC = () => {
+export const DashboardPage = () => {
   const navigate = useNavigate();
-  const { displayLabel, lookbackMode, since, until } = useDate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { preferences, setPreference } = usePreferences();
   const [ackModalOpen, setAckModalOpen] = useState(false);
+  const queries = useDashboardQueries();
+
+  const urlView = searchParams.get('view');
+  const initialView: DashboardView =
+    urlView && VALID_VIEWS.has(urlView)
+      ? (urlView as DashboardView)
+      : ((preferences.dashboardView as DashboardView | undefined) ?? 'table');
+  const [viewMode, setViewMode] = useState<DashboardView>(initialView);
+
+  const handleViewChange = (_event: unknown, key: string | number) => {
+    const next = key as DashboardView;
+    setViewMode(next);
+    setPreference('dashboardView', next);
+    setSearchParams(
+      prev => {
+        const updated = new URLSearchParams(prev);
+        if (next === 'table') {
+          updated.delete('view');
+        } else {
+          updated.set('view', next);
+        }
+        return updated;
+      },
+      { replace: true },
+    );
+  };
 
   useEffect(() => {
     document.title = 'Dashboard | CNV Console Monitor';
   }, []);
 
-  const { data: config } = useQuery({
-    queryFn: () => apiFetch<PublicConfig>('/config'),
-    queryKey: ['config'],
-    staleTime: Infinity,
-  });
-  const { data: report, isLoading } = useQuery({
-    queryFn: () => fetchReportForRange(since, until),
-    queryKey: ['report', lookbackMode, since, until],
-  });
-  const { data: releases } = useQuery({
-    queryFn: fetchReleases,
-    queryKey: ['releases'],
-    staleTime: 10 * 60 * 1000,
-  });
-
-  const filters = useDashboardFilters(report);
-
+  const filters = useDashboardFilters(queries.report);
+  const deltas = useMemo(
+    () => computeDeltas(filters.scopedStats, queries.priorReport),
+    [filters.scopedStats, queries.priorReport],
+  );
   const upcomingReleases = useMemo(() => {
-    if (!releases) {
+    if (!queries.releases) {
       return [];
     }
-    return releases
+    return queries.releases
       .filter(
         (release: ReleaseInfo) => release.daysUntilNext !== null && release.daysUntilNext <= 7,
       )
@@ -73,152 +72,76 @@ export const DashboardPage: React.FC = () => {
         (releaseA: ReleaseInfo, releaseB: ReleaseInfo) =>
           (releaseA.daysUntilNext ?? Infinity) - (releaseB.daysUntilNext ?? Infinity),
       );
-  }, [releases]);
+  }, [queries.releases]);
 
-  if (isLoading || !report) {
+  if (queries.reportError) {
     return (
-      <PageSection isFilled>
-        <div className="app-page-spinner">
-          <Spinner aria-label="Loading dashboard" />
-        </div>
-      </PageSection>
+      <DashboardError
+        error={queries.reportError}
+        onRetry={() => {
+          void queries.refetch();
+        }}
+      />
     );
   }
+  if (queries.isLoading || !queries.report) {
+    return <DashboardSkeleton />;
+  }
+  if (queries.report.groups.length === 0) {
+    return <DashboardEmpty displayLabel={queries.displayLabel} />;
+  }
+
+  const selectedComponent =
+    filters.selectedComponents.size === 1 ? [...filters.selectedComponents][0] : undefined;
+  const versionOptions = filters.versions.map(version => ({
+    label: version === 'all' ? 'All Versions' : `CNV ${version}`,
+    value: version,
+  }));
 
   return (
     <>
+      <DashboardHeader
+        displayLabel={queries.displayLabel}
+        filteredGroups={filters.filteredGroups}
+        lastPollAt={queries.pollStatus?.lastPollAt}
+      />
       <PageSection>
-        <Flex
-          alignItems={{ default: 'alignItemsCenter' }}
-          justifyContent={{ default: 'justifyContentSpaceBetween' }}
-        >
-          <FlexItem>
-            <Content component="h1">Dashboard</Content>
-          </FlexItem>
-          <FlexItem>
-            <Toolbar>
-              <ToolbarContent>
-                <ToolbarItem>
-                  <ExportButton date={displayLabel} groups={filters.filteredGroups} />
-                </ToolbarItem>
-              </ToolbarContent>
-            </Toolbar>
-          </FlexItem>
-        </Flex>
-      </PageSection>
-
-      <PageSection>
-        {filters.selectedComponents.size === 1 && (
-          <AckBanner
-            component={[...filters.selectedComponents][0]}
-            onAcknowledge={() => setAckModalOpen(true)}
-          />
-        )}
-        {upcomingReleases.length > 0 && (
-          <Alert isInline className="app-mb-md" title="Upcoming Releases" variant="warning">
-            {upcomingReleases.map(release => (
-              <Label
-                className="app-mr-sm app-cursor-pointer"
-                color={(release.daysUntilNext ?? 0) <= 3 ? 'red' : 'orange'}
-                key={release.shortname}
-                onClick={() => navigate('/releases')}
-              >
-                {release.shortname.replace('cnv-', 'CNV ')} &mdash; {release.nextRelease?.date} (
-                {release.daysUntilNext}d)
-              </Label>
-            ))}
-          </Alert>
-        )}
+        <AckBanner component={selectedComponent} onAcknowledge={() => setAckModalOpen(true)} />
+        <UpcomingReleasesAlert
+          releases={upcomingReleases}
+          onNavigate={() => navigate('/releases')}
+        />
         <HealthBanner
           failed={filters.scopedStats.failed}
           health={filters.scopedHealth}
           inProgress={filters.scopedStats.inProgress}
           passed={filters.scopedStats.passed}
         />
-
-        <Gallery hasGutter className="app-mb-xl" minWidths={{ default: '130px' }}>
-          {(
-            [
-              {
-                help: 'Total launches in this time range. Click to clear filters.',
-                isActive: filters.statusFilter === null,
-                label: 'Total',
-                onClick: () => filters.setStatusFilter(null),
-                value: filters.scopedStats.total,
-              },
-              {
-                color: STATUS_SUCCESS,
-                help: 'Launches where all tests passed.',
-                isActive: filters.statusFilter === 'PASSED',
-                label: 'Passed',
-                onClick: () =>
-                  filters.setStatusFilter(filters.statusFilter === 'PASSED' ? null : 'PASSED'),
-                value: filters.scopedStats.passed,
-              },
-              {
-                color: STATUS_DANGER,
-                help: 'Launches with at least one failed test.',
-                isActive: filters.statusFilter === 'FAILED',
-                label: 'Failed',
-                onClick: () =>
-                  filters.setStatusFilter(filters.statusFilter === 'FAILED' ? null : 'FAILED'),
-                value: filters.scopedStats.failed,
-              },
-              {
-                color: STATUS_WARNING,
-                help: 'Launches still running.',
-                isActive: filters.statusFilter === 'IN_PROGRESS',
-                label: 'In Progress',
-                onClick: () =>
-                  filters.setStatusFilter(
-                    filters.statusFilter === 'IN_PROGRESS' ? null : 'IN_PROGRESS',
-                  ),
-                value: filters.scopedStats.inProgress,
-              },
-              {
-                color: STATUS_DANGER,
-                help: 'Tests that failed now but not in the previous window.',
-                label: 'New Failures',
-                onClick: () => navigate('/failures'),
-                value: filters.scopedStats.newFailures,
-              },
-              {
-                color: STATUS_WARNING,
-                help: 'Failed tests not yet classified.',
-                label: 'Untriaged',
-                onClick: () => navigate('/failures'),
-                value: filters.scopedStats.untriaged,
-              },
-            ] as const
-          ).map(card => (
-            <GalleryItem key={card.label}>
-              <StatCard {...card} />
-            </GalleryItem>
-          ))}
-        </Gallery>
-
-        <LaunchTable
+        <DashboardStatCards
+          deltas={deltas}
+          stats={filters.scopedStats}
+          statusFilter={filters.statusFilter}
+          onNavigateFailures={() => navigate('/failures')}
+          onStatusFilter={filters.setStatusFilter}
+        />
+        <DashboardViewTabs
           availableComponents={filters.availableComponents}
           availableTiers={filters.availableTiers}
-          config={config}
+          config={queries.config}
           groups={filters.filteredGroups}
           selectedTiers={filters.selectedTiers}
           tableSearch={filters.tableSearch}
           versionFilter={filters.versionFilter}
-          versionOptions={filters.versions.map(version => ({
-            label: version === 'all' ? 'All Versions' : `CNV ${version}`,
-            value: version,
-          }))}
+          versionOptions={versionOptions}
+          viewMode={viewMode}
           onSearchChange={filters.setTableSearch}
           onTiersChange={filters.setSelectedTiers}
           onVersionChange={filters.setVersionFilter}
+          onViewChange={handleViewChange}
         />
       </PageSection>
-
       <AcknowledgeModal
-        component={
-          filters.selectedComponents.size === 1 ? [...filters.selectedComponents][0] : undefined
-        }
+        component={selectedComponent}
         groups={filters.filteredGroups}
         isOpen={ackModalOpen}
         onClose={() => setAckModalOpen(false)}

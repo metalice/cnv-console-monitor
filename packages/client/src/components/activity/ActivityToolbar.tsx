@@ -1,52 +1,10 @@
-import React, { useState } from 'react';
+import { type ActivityEntry, type ActivityFilterPreset } from '@cnv-monitor/shared';
 
-import type { ActivityEntry, ActivityFilterPreset } from '@cnv-monitor/shared';
+import { Label, LabelGroup, Toolbar, ToolbarContent, ToolbarItem } from '@patternfly/react-core';
 
-import {
-  Button,
-  Label,
-  LabelGroup,
-  MenuToggle,
-  type MenuToggleElement,
-  Popover,
-  SearchInput,
-  Select,
-  SelectList,
-  SelectOption,
-  TextInput,
-  Toolbar,
-  ToolbarContent,
-  ToolbarGroup,
-  ToolbarItem,
-  ToolbarToggleGroup,
-} from '@patternfly/react-core';
-import {
-  BookmarkIcon,
-  DownloadIcon,
-  FilterIcon,
-  SaveIcon,
-  TimesIcon,
-  UserIcon,
-} from '@patternfly/react-icons';
-
-const ACTION_OPTIONS: { value: string; label: string }[] = [
-  { label: 'Classified', value: 'classify_defect' },
-  { label: 'Bulk Classified', value: 'bulk_classify_defect' },
-  { label: 'Comment', value: 'add_comment' },
-  { label: 'Jira Created', value: 'create_jira' },
-  { label: 'Jira Linked', value: 'link_jira' },
-  { label: 'Acknowledged', value: 'acknowledge' },
-];
-
-const escapeCsvField = (value: string | number | null | undefined): string => {
-  const str = String(value ?? '');
-  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-  return str;
-};
-
-type LocalFilters = { action?: string; user?: string; search?: string };
+import { ActivityFilterSelects } from './ActivityFilterSelects';
+import { ActivityToolbarActions } from './ActivityToolbarActions';
+import { ACTION_OPTIONS, exportActivityCsv, type LocalFilters } from './activityToolbarHelpers';
 
 type ActivityToolbarProps = {
   filters: LocalFilters;
@@ -61,7 +19,7 @@ type ActivityToolbarProps = {
   onLoadPreset?: (preset: ActivityFilterPreset) => void;
 };
 
-export const ActivityToolbar: React.FC<ActivityToolbarProps> = ({
+export const ActivityToolbar = ({
   currentUser,
   entries,
   filters,
@@ -72,12 +30,7 @@ export const ActivityToolbar: React.FC<ActivityToolbarProps> = ({
   onSavePreset,
   presets,
   users,
-}) => {
-  const [actionSelectOpen, setActionSelectOpen] = useState(false);
-  const [userSelectOpen, setUserSelectOpen] = useState(false);
-  const [presetSelectOpen, setPresetSelectOpen] = useState(false);
-  const [presetName, setPresetName] = useState('');
-
+}: ActivityToolbarProps) => {
   const selectedActions = filters.action ? filters.action.split(',') : [];
   const isMyActivity = Boolean(currentUser && filters.user === currentUser);
 
@@ -95,217 +48,29 @@ export const ActivityToolbar: React.FC<ActivityToolbarProps> = ({
     updateFilter('action', current.size > 0 ? [...current].join(',') : undefined);
   };
 
-  const handleExport = () => {
-    if (!entries?.length) {
-      return;
-    }
-    const header = 'Time,Action,Component,Test,Old Value,New Value,By\n';
-    const rows = entries
-      .map(entry =>
-        [
-          new Date(entry.performed_at).toISOString(),
-          entry.action,
-          entry.component ?? '',
-          entry.test_name ?? '',
-          entry.old_value ?? '',
-          entry.new_value ?? '',
-          entry.performed_by ?? '',
-        ]
-          .map(escapeCsvField)
-          .join(','),
-      )
-      .join('\n');
-    const blob = new Blob([header + rows], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const downloadLink = document.createElement('a');
-    downloadLink.href = url;
-    downloadLink.download = `activity-${new Date().toISOString().split('T')[0]}.csv`;
-    downloadLink.click();
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <Toolbar clearAllFilters={onClearAll}>
       <ToolbarContent>
-        <ToolbarToggleGroup breakpoint="lg" toggleIcon={<FilterIcon />}>
-          <ToolbarGroup variant="filter-group">
-            <ToolbarItem>
-              <Select
-                aria-label="Action filter"
-                isOpen={actionSelectOpen}
-                // eslint-disable-next-line react/no-unstable-nested-components
-                toggle={(toggleRef: React.Ref<MenuToggleElement>) => (
-                  <MenuToggle
-                    isExpanded={actionSelectOpen}
-                    ref={toggleRef}
-                    onClick={() => setActionSelectOpen(prevOpen => !prevOpen)}
-                  >
-                    Action {selectedActions.length > 0 && `(${selectedActions.length})`}
-                  </MenuToggle>
-                )}
-                onOpenChange={setActionSelectOpen}
-                onSelect={(_e, val) => toggleAction(val as string)}
-              >
-                <SelectList>
-                  {ACTION_OPTIONS.map(opt => (
-                    <SelectOption
-                      hasCheckbox
-                      isSelected={selectedActions.includes(opt.value)}
-                      key={opt.value}
-                      value={opt.value}
-                    >
-                      {opt.label}
-                    </SelectOption>
-                  ))}
-                </SelectList>
-              </Select>
-            </ToolbarItem>
+        <ActivityFilterSelects
+          filters={filters}
+          selectedActions={selectedActions}
+          users={users}
+          onToggleAction={toggleAction}
+          onUpdateFilter={updateFilter}
+        />
 
-            <ToolbarItem>
-              <Select
-                aria-label="User filter"
-                isOpen={userSelectOpen}
-                // eslint-disable-next-line react/no-unstable-nested-components
-                toggle={(toggleRef: React.Ref<MenuToggleElement>) => (
-                  <MenuToggle
-                    isExpanded={userSelectOpen}
-                    ref={toggleRef}
-                    onClick={() => setUserSelectOpen(prevOpen => !prevOpen)}
-                  >
-                    {filters.user || 'User'}
-                  </MenuToggle>
-                )}
-                onOpenChange={setUserSelectOpen}
-                onSelect={(_e, val) => {
-                  updateFilter('user', val as string);
-                  setUserSelectOpen(false);
-                }}
-              >
-                <SelectList>
-                  {users.map(username => (
-                    <SelectOption
-                      isSelected={filters.user === username}
-                      key={username}
-                      value={username}
-                    >
-                      {username}
-                    </SelectOption>
-                  ))}
-                </SelectList>
-              </Select>
-            </ToolbarItem>
-
-            <ToolbarItem>
-              <SearchInput
-                aria-label="Search activity"
-                placeholder="Search tests, Jira, notes..."
-                value={filters.search ?? ''}
-                onChange={(_e, val) => updateFilter('search', val || undefined)}
-                onClear={() => updateFilter('search', undefined)}
-              />
-            </ToolbarItem>
-          </ToolbarGroup>
-        </ToolbarToggleGroup>
-
-        <ToolbarGroup variant="action-group-plain">
-          {currentUser && (
-            <ToolbarItem>
-              <Button
-                icon={<UserIcon />}
-                size="sm"
-                variant={isMyActivity ? 'primary' : 'secondary'}
-                onClick={() => updateFilter('user', isMyActivity ? undefined : currentUser)}
-              >
-                My Activity
-              </Button>
-            </ToolbarItem>
-          )}
-          {presets && presets.length > 0 && onLoadPreset && (
-            <ToolbarItem>
-              <Select
-                aria-label="Load saved filter"
-                isOpen={presetSelectOpen}
-                // eslint-disable-next-line react/no-unstable-nested-components
-                toggle={(toggleRef: React.Ref<MenuToggleElement>) => (
-                  <MenuToggle
-                    isExpanded={presetSelectOpen}
-                    ref={toggleRef}
-                    variant="plain"
-                    onClick={() => setPresetSelectOpen(prevOpen => !prevOpen)}
-                  >
-                    <BookmarkIcon />
-                  </MenuToggle>
-                )}
-                onOpenChange={setPresetSelectOpen}
-                onSelect={(_e, val) => {
-                  const preset = presets.find(entry => entry.name === val);
-                  if (preset) {
-                    onLoadPreset(preset);
-                  }
-                  setPresetSelectOpen(false);
-                }}
-              >
-                <SelectList>
-                  {presets.map(preset => (
-                    <SelectOption key={preset.name} value={preset.name}>
-                      {preset.name}
-                    </SelectOption>
-                  ))}
-                </SelectList>
-              </Select>
-            </ToolbarItem>
-          )}
-          {onSavePreset && hasActiveFilters && (
-            <ToolbarItem>
-              <Popover
-                bodyContent={
-                  <div>
-                    <TextInput
-                      aria-label="Preset name"
-                      placeholder="Preset name"
-                      value={presetName}
-                      onChange={(_e, val) => setPresetName(val)}
-                    />
-                    <Button
-                      className="app-mt-sm"
-                      isDisabled={!presetName.trim()}
-                      size="sm"
-                      variant="primary"
-                      onClick={() => {
-                        onSavePreset(presetName.trim());
-                        setPresetName('');
-                      }}
-                    >
-                      Save
-                    </Button>
-                  </div>
-                }
-                headerContent="Save Filter Preset"
-              >
-                <Button aria-label="Save filter preset" icon={<SaveIcon />} variant="plain" />
-              </Popover>
-            </ToolbarItem>
-          )}
-          <ToolbarItem>
-            <Button
-              aria-label="Export CSV"
-              icon={<DownloadIcon />}
-              isDisabled={!entries?.length}
-              variant="plain"
-              onClick={handleExport}
-            />
-          </ToolbarItem>
-          {hasActiveFilters && (
-            <ToolbarItem>
-              <Button
-                aria-label="Clear all filters"
-                icon={<TimesIcon />}
-                variant="plain"
-                onClick={onClearAll}
-              />
-            </ToolbarItem>
-          )}
-        </ToolbarGroup>
+        <ActivityToolbarActions
+          currentUser={currentUser}
+          hasActiveFilters={hasActiveFilters}
+          hasEntries={Boolean(entries?.length)}
+          isMyActivity={isMyActivity}
+          presets={presets}
+          onClearAll={onClearAll}
+          onExport={() => entries && exportActivityCsv(entries)}
+          onLoadPreset={onLoadPreset}
+          onSavePreset={onSavePreset}
+          onToggleMyActivity={() => updateFilter('user', isMyActivity ? undefined : currentUser)}
+        />
 
         {hasActiveFilters && (
           <ToolbarItem>
@@ -319,7 +84,9 @@ export const ActivityToolbar: React.FC<ActivityToolbarProps> = ({
                 <Label onClose={() => updateFilter('user', undefined)}>{filters.user}</Label>
               )}
               {filters.search && (
-                <Label onClose={() => updateFilter('search', undefined)}>"{filters.search}"</Label>
+                <Label onClose={() => updateFilter('search', undefined)}>
+                  &quot;{filters.search}&quot;
+                </Label>
               )}
             </LabelGroup>
           </ToolbarItem>

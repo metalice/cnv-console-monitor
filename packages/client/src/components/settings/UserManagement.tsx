@@ -1,19 +1,13 @@
-import React, { useState } from 'react';
-
 import {
   Alert,
   Button,
   Card,
   CardBody,
   CardTitle,
-  Content,
   Flex,
   FlexItem,
-  Form,
-  FormGroup,
   Label,
   Spinner,
-  TextInput,
 } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -21,11 +15,11 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 
-import type { AlertMessage, UserRecord } from './types';
+import { ImpersonationButton } from './ImpersonationButton';
+import type { UserRecord } from './types';
 
-export const UserManagement: React.FC = () => {
+export const UserManagement = () => {
   const { isAdmin } = useAuth();
-  const currentImpersonation = new URLSearchParams(window.location.search).get('impersonate');
 
   const { data: adminUsers, refetch: refetchUsers } = useQuery({
     enabled: isAdmin,
@@ -56,31 +50,7 @@ export const UserManagement: React.FC = () => {
         >
           <FlexItem>User Management</FlexItem>
           <FlexItem>
-            {currentImpersonation ? (
-              <Button
-                size="sm"
-                variant="link"
-                onClick={() => {
-                  const url = new URL(window.location.href);
-                  url.searchParams.delete('impersonate');
-                  window.location.href = url.toString();
-                }}
-              >
-                Stop impersonating {currentImpersonation}
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => {
-                  const url = new URL(window.location.href);
-                  url.searchParams.set('impersonate', 'testuser@redhat.com');
-                  window.location.href = url.toString();
-                }}
-              >
-                Impersonate Test User
-              </Button>
-            )}
+            <ImpersonationButton />
           </FlexItem>
         </Flex>
       </CardTitle>
@@ -134,74 +104,6 @@ export const UserManagement: React.FC = () => {
             </Table>
           </div>
         )}
-      </CardBody>
-    </Card>
-  );
-};
-
-export const BootstrapAdmin: React.FC = () => {
-  const { isAdmin } = useAuth();
-  const { data: adminStatus } = useQuery({
-    queryFn: () => apiFetch<{ hasAdmin: boolean }>('/admin/has-admin'),
-    queryKey: ['adminStatus'],
-    staleTime: 60 * 1000,
-  });
-
-  const [bootstrapSecret, setBootstrapSecret] = useState('');
-  const [bootstrapMsg, setBootstrapMsg] = useState<AlertMessage | null>(null);
-
-  const bootstrapAdmin = useMutation({
-    mutationFn: () =>
-      apiFetch<{ success: boolean }>('/admin/bootstrap', {
-        body: JSON.stringify({ secret: bootstrapSecret }),
-        method: 'POST',
-      }),
-    onError: e => setBootstrapMsg({ text: e.message, type: 'danger' }),
-    onSuccess: () =>
-      setBootstrapMsg({ text: 'You are now an admin. Reload the page.', type: 'success' }),
-  });
-
-  if (isAdmin || adminStatus?.hasAdmin) {
-    return null;
-  }
-
-  return (
-    <Card>
-      <CardTitle>Become Admin</CardTitle>
-      <CardBody>
-        <Content className="app-text-muted app-mb-md" component="small">
-          No admin has been set up yet. Enter the admin secret (configured in the server
-          environment) to claim admin privileges.
-        </Content>
-        <Form>
-          <FormGroup fieldId="bootstrap-secret" label="Admin Secret">
-            <TextInput
-              id="bootstrap-secret"
-              placeholder="Enter the admin secret"
-              type="password"
-              value={bootstrapSecret}
-              onChange={(_e, value) => setBootstrapSecret(value)}
-            />
-          </FormGroup>
-          <Button
-            isDisabled={!bootstrapSecret.trim()}
-            isLoading={bootstrapAdmin.isPending}
-            size="sm"
-            variant="primary"
-            onClick={() => bootstrapAdmin.mutate()}
-          >
-            Bootstrap Admin
-          </Button>
-          {bootstrapMsg && (
-            <Alert
-              isInline
-              isPlain
-              className="app-mt-sm"
-              title={bootstrapMsg.text}
-              variant={bootstrapMsg.type}
-            />
-          )}
-        </Form>
       </CardBody>
     </Card>
   );
