@@ -48,8 +48,8 @@ router.get('/report', async (req: Request, res: Response, next: NextFunction) =>
     const components = componentsParam ? componentsParam.split(',').filter(Boolean) : undefined;
 
     const report = since
-      ? await buildDailyReport(24, since, until, components)
-      : await buildDailyReport(hours);
+      ? await buildDailyReport(24, since, until, components, { lightweight: true })
+      : await buildDailyReport(hours, undefined, undefined, undefined, { lightweight: true });
 
     const lightGroups = report.groups.map(
       ({ enrichedFailedItems: _e, failedItems: _f, launches, ...rest }) => ({

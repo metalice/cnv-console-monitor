@@ -139,6 +139,23 @@ export const getUntriagedItems = async (
   return rows.map(toTestItemRecord);
 };
 
+export const getUntriagedCount = async (sinceMs: number, untilMs?: number): Promise<number> => {
+  const query = untilMs
+    ? `SELECT COUNT(*)::int as cnt FROM test_items ti
+       JOIN launches l ON ti.launch_rp_id = l.rp_id
+       WHERE ti.status = 'FAILED'
+         AND (ti.defect_type IS NULL OR ti.defect_type = 'ti001' OR ti.defect_type LIKE 'ti_%')
+         AND l.start_time >= $1 AND l.start_time < $2`
+    : `SELECT COUNT(*)::int as cnt FROM test_items ti
+       JOIN launches l ON ti.launch_rp_id = l.rp_id
+       WHERE ti.status = 'FAILED'
+         AND (ti.defect_type IS NULL OR ti.defect_type = 'ti001' OR ti.defect_type LIKE 'ti_%')
+         AND l.start_time >= $1`;
+  const params: unknown[] = untilMs ? [sinceMs, untilMs] : [sinceMs];
+  const rows: { cnt: number }[] = await AppDataSource.query(query, params);
+  return rows[0]?.cnt ?? 0;
+};
+
 export const getTestItemHistory = async (
   uniqueId: string,
   limit = 20,

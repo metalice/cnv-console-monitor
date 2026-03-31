@@ -103,8 +103,15 @@ export const parseCnvVersion = (launch: LaunchRecord): string => {
   return match ? match[1] : 'unknown';
 };
 
+const isLaunchFailed = (launch: LaunchRecord): boolean => {
+  if (launch.jenkins_status && launch.jenkins_status !== 'no_url') {
+    return launch.jenkins_status === 'failure';
+  }
+  return launch.status === 'FAILED';
+};
+
 export const computeHealth = (launches: LaunchRecord[]): HealthStatus => {
-  if (launches.some(launch => launch.status === 'FAILED')) {
+  if (launches.some(isLaunchFailed)) {
     return 'red';
   }
   if (launches.some(launch => launch.status === 'IN_PROGRESS')) {

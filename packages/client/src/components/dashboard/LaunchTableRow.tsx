@@ -52,7 +52,10 @@ export const LaunchTableRow = ({
         {group.latestLaunch.status === 'IN_PROGRESS' ? (
           <LaunchProgress launchRpId={group.latestLaunch.rp_id} />
         ) : (
-          <StatusBadge status={group.latestLaunch.status} />
+          <StatusBadge
+            rpStatus={group.latestLaunch.status}
+            status={group.latestLaunch.jenkins_status ?? group.latestLaunch.status}
+          />
         )}
       </Td>
     )}
@@ -87,7 +90,7 @@ export const LaunchTableRow = ({
     )}
     {vis('lastRun') && (
       <Td className="app-cell-nowrap" dataLabel="Last Run">
-        <Tooltip content={new Date(group.latestLaunch.start_time).toLocaleString()}>
+        <Tooltip content={fmtTime(group.latestLaunch.start_time)}>
           <span className="app-cursor-help">{fmtTime(group.latestLaunch.start_time)}</span>
         </Tooltip>
       </Td>

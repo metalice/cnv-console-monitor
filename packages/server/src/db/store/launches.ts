@@ -14,7 +14,8 @@ const toLaunchRecord = (row: Launch): LaunchRecord => ({
   cnv_version: row.cnv_version ?? undefined,
   component: row.component ?? undefined,
   duration: row.duration ?? undefined,
-  end_time: row.end_time ?? undefined,
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion -- bigint comes as string from PostgreSQL
+  end_time: row.end_time != null ? Number(row.end_time) : undefined,
   failed: row.failed,
   jenkins_metadata: row.jenkins_metadata ?? undefined,
   jenkins_status: row.jenkins_status ?? undefined,
@@ -25,7 +26,8 @@ const toLaunchRecord = (row: Launch): LaunchRecord => ({
   passed: row.passed,
   rp_id: row.rp_id,
   skipped: row.skipped,
-  start_time: row.start_time,
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion -- bigint comes as string from PostgreSQL
+  start_time: Number(row.start_time),
   status: row.status,
   tier: row.tier ?? undefined,
   total: row.total,
@@ -92,6 +94,26 @@ export const getLastPassedLaunchTime = async (launchName: string): Promise<numbe
     where: { name: launchName, status: 'PASSED' },
   });
   return row ? row.start_time : null;
+};
+
+export const getLastPassedLaunchTimes = async (
+  launchNames: string[],
+): Promise<Map<string, number>> => {
+  if (launchNames.length === 0) {
+    return new Map();
+  }
+  const rows: { name: string; last_passed: string }[] = await AppDataSource.query(
+    `SELECT DISTINCT ON (name) name, start_time as last_passed
+     FROM launches
+     WHERE name = ANY($1) AND status = 'PASSED'
+     ORDER BY name, start_time DESC`,
+    [launchNames],
+  );
+  const map = new Map<string, number>();
+  for (const row of rows) {
+    map.set(row.name, Number(row.last_passed));
+  }
+  return map;
 };
 
 export const getLaunchByRpId = async (rpId: number): Promise<LaunchRecord | undefined> => {

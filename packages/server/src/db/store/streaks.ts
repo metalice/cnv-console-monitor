@@ -174,26 +174,38 @@ export const getNewlyFailingUniqueIds = async (uniqueIds: string[]): Promise<Set
     return new Set();
   }
 
-  const rows: { unique_id: string; prev_status: string | null }[] = await AppDataSource.query(
+  const rows: { unique_id: string; prev_failed: boolean }[] = await AppDataSource.query(
     `
-    SELECT DISTINCT ON (ti.unique_id) ti.unique_id,
-      (SELECT CASE WHEN prev_ti.rp_id IS NOT NULL THEN 'FAILED' ELSE 'PASSED' END
-       FROM launches prev_l
-       LEFT JOIN test_items prev_ti ON prev_ti.launch_rp_id = prev_l.rp_id
-         AND prev_ti.unique_id = ti.unique_id AND prev_ti.status = 'FAILED'
-       WHERE prev_l.name = l.name AND prev_l.start_time < l.start_time
-       ORDER BY prev_l.start_time DESC LIMIT 1
-      ) as prev_status
-    FROM test_items ti
-    JOIN launches l ON l.rp_id = ti.launch_rp_id
-    WHERE ti.unique_id = ANY($1) AND ti.status = 'FAILED'
+    WITH current_failures AS (
+      SELECT DISTINCT ON (ti.unique_id) ti.unique_id, l.name as launch_name, l.start_time
+      FROM test_items ti
+      JOIN launches l ON l.rp_id = ti.launch_rp_id
+      WHERE ti.unique_id = ANY($1) AND ti.status = 'FAILED'
+      ORDER BY ti.unique_id, l.start_time DESC
+    ),
+    prev_launch AS (
+      SELECT cf.unique_id,
+        (SELECT l2.rp_id FROM launches l2
+         WHERE l2.name = cf.launch_name AND l2.start_time < cf.start_time
+         ORDER BY l2.start_time DESC LIMIT 1
+        ) as prev_rp_id
+      FROM current_failures cf
+    )
+    SELECT pl.unique_id,
+      EXISTS (
+        SELECT 1 FROM test_items ti2
+        WHERE ti2.launch_rp_id = pl.prev_rp_id
+          AND ti2.unique_id = pl.unique_id
+          AND ti2.status = 'FAILED'
+      ) as prev_failed
+    FROM prev_launch pl
   `,
     [uniqueIds],
   );
 
   const newIds = new Set<string>();
   for (const row of rows) {
-    if (row.prev_status === null || row.prev_status === 'PASSED') {
+    if (!row.prev_failed) {
       newIds.add(row.unique_id);
     }
   }

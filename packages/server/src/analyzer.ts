@@ -1,13 +1,13 @@
 import {
-  getFailedTestItems,
-  getLastPassedLaunchTime,
+  getFailedTestItemsForLaunches,
+  getLastPassedLaunchTimes,
   getLaunchesInRange,
   getLaunchesSince,
-  getUntriagedItems,
+  getNewlyFailingUniqueIds,
+  getUntriagedCount,
   type LaunchRecord,
   type TestItemRecord,
 } from './db/store';
-import { getNewlyFailingUniqueIds } from './db/store';
 import {
   computeHealth,
   type EnrichedFailedItem,
@@ -108,35 +108,60 @@ const groupByLaunchName = (launches: LaunchRecord[]): LauncherRow[] => {
   );
 };
 
-export const groupLaunches = async (launches: LaunchRecord[]): Promise<LaunchGroup[]> => {
-  const groups = new Map<string, LaunchRecord[]>();
+type GroupLaunchesOptions = {
+  lightweight?: boolean;
+};
+
+export const groupLaunches = async (
+  launches: LaunchRecord[],
+  options: GroupLaunchesOptions = {},
+): Promise<LaunchGroup[]> => {
+  const groupMap = new Map<string, LaunchRecord[]>();
   for (const launch of launches) {
     const version = parseCnvVersion(launch);
     const tier = parseTier(launch);
     const variant = parseLaunchVariant(launch);
     const component = launch.component ?? 'unknown';
     const key = `${component}|${version}|${tier}|${variant}`;
-    if (!groups.has(key)) {
-      groups.set(key, []);
+    if (!groupMap.has(key)) {
+      groupMap.set(key, []);
     }
-    groups.get(key)?.push(launch);
+    groupMap.get(key)?.push(launch);
   }
 
-  const result: LaunchGroup[] = [];
-  for (const [key, versionLaunches] of groups) {
+  const entries = [...groupMap.entries()].map(([key, versionLaunches]) => {
     const [_component, version, tier, _variant] = key.split('|');
     const sorted = versionLaunches.toSorted(
       (first, second) => second.start_time - first.start_time,
     );
-    const latest = sorted[0];
-    // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
-    const failedItems = await getFailedTestItems(latest.rp_id);
-    // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
-    const enrichedFailedItems = await enrichFailedItems(failedItems);
-    // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
-    const lastPassedTime = await getLastPassedLaunchTime(latest.name);
+    return { _variant, latest: sorted[0], sorted, tier, version };
+  });
+
+  const latestRpIds = entries.map(entry => entry.latest.rp_id);
+  const latestNames = [...new Set(entries.map(entry => entry.latest.name))];
+
+  const [allFailedItems, lastPassedMap] = await Promise.all([
+    getFailedTestItemsForLaunches(latestRpIds),
+    getLastPassedLaunchTimes(latestNames),
+  ]);
+
+  const failedByLaunch = new Map<number, TestItemRecord[]>();
+  for (const item of allFailedItems) {
+    const list = failedByLaunch.get(item.launch_rp_id) ?? [];
+    list.push(item);
+    failedByLaunch.set(item.launch_rp_id, list);
+  }
+
+  const result: LaunchGroup[] = [];
+  for (const { _variant, latest, sorted, tier, version } of entries) {
+    const failedItems = failedByLaunch.get(latest.rp_id) ?? [];
+    // eslint-disable-next-line no-await-in-loop -- sequential: needed for full enrichment path
+    const enrichedFailedItems = options.lightweight ? [] : await enrichFailedItems(failedItems);
+    const lastPassedTime = lastPassedMap.get(latest.name) ?? null;
     const totalTests = sorted.reduce((sum, launch) => sum + launch.total, 0);
     const passedTests = sorted.reduce((sum, launch) => sum + launch.passed, 0);
+    const skippedTests = sorted.reduce((sum, launch) => sum + launch.skipped, 0);
+    const activeTests = totalTests - skippedTests;
 
     result.push({
       cnvVersion: version,
@@ -149,8 +174,8 @@ export const groupLaunches = async (launches: LaunchRecord[]): Promise<LaunchGro
       latestLaunch: latest,
       launches: sorted,
       passedTests,
-      passRate: totalTests > 0 ? Math.round((passedTests / totalTests) * 1000) / 10 : 0,
-      skippedTests: sorted.reduce((sum, launch) => sum + launch.skipped, 0),
+      passRate: activeTests > 0 ? Math.round((passedTests / activeTests) * 1000) / 10 : 0,
+      skippedTests,
       tier: `${tier}${_variant !== 'default' ? ` ${_variant}` : ''}`,
       totalTests,
     });
@@ -166,13 +191,14 @@ export const buildDailyReport = async (
   sinceOverride?: number,
   untilOverride?: number,
   componentFilter?: string[],
+  options: GroupLaunchesOptions = {},
 ): Promise<DailyReport> => {
   const sinceMs = sinceOverride ?? Date.now() - lookbackHours * 60 * 60 * 1000;
   const untilMs = untilOverride;
   const launches = untilMs
     ? await getLaunchesInRange(sinceMs, untilMs, componentFilter)
     : await getLaunchesSince(sinceMs);
-  const groups = await groupLaunches(launches);
+  const groups = await groupLaunches(launches, options);
   const launchers = groupByLaunchName(launches);
 
   const passedLaunches = launches.filter(item => item.status === 'PASSED').length;
@@ -181,7 +207,7 @@ export const buildDailyReport = async (
   const allFailedItems = groups.flatMap(item => item.failedItems);
   const allUniqueIds = allFailedItems.map(item => item.unique_id).filter(Boolean) as string[];
   const newlyFailingIds = await getNewlyFailingUniqueIds(allUniqueIds);
-  const untriagedCount = (await getUntriagedItems(sinceMs, untilMs)).length;
+  const untriagedCount = await getUntriagedCount(sinceMs, untilMs);
   const components = [
     ...new Set(launches.map(item => item.component).filter(Boolean) as string[]),
   ].toSorted((nameA, nameB) => nameA.localeCompare(nameB));
