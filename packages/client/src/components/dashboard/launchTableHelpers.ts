@@ -27,7 +27,7 @@ export const SORT_ACCESSORS: Record<number, (g: LaunchGroup) => string | number 
   8: group => group.latestLaunch.start_time,
 };
 
-export const fmtTime = (timestamp: string | number): string => {
+export const fmtTime = (timestamp: number): string => {
   const dateObj = new Date(timestamp);
   return `${dateObj.toLocaleDateString()} ${dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 };

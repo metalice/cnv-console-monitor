@@ -21,6 +21,7 @@ export const LaunchSchema = z.object({
   duration: z.number().nullish(),
   end_time: z.number().nullish(),
   failed: z.number(),
+  jenkins_status: z.string().nullish(),
   name: z.string(),
   number: z.number(),
   ocp_version: z.string().nullish(),
