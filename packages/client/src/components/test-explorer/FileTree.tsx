@@ -1,9 +1,11 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { TreeNode } from '@cnv-monitor/shared';
 
 import {
   Badge,
+  Button,
+  Checkbox,
   Content,
   Label,
   SearchInput,
@@ -28,18 +30,45 @@ import {
 import { GapBadge } from './GapBadge';
 import { type ContextMenuAction, TreeContextMenu } from './TreeContextMenu';
 
+type GenerateDocsTarget = { repoId: string; filePath: string; branch: string };
+
 type FileTreeProps = {
   tree: TreeNode[];
   onSelect: (node: TreeNode) => void;
   selectedPath?: string;
   draftPaths?: Set<string>;
   contextActions?: ContextMenuAction;
+  onGenerateDocs?: (tests: GenerateDocsTarget[]) => void;
 };
+
+type CheckboxState = {
+  selected: Set<string>;
+  toggle: (path: string) => void;
+};
+
+const collectTestInfo = (nodes: TreeNode[], selectedPaths: Set<string>): GenerateDocsTarget[] => {
+  const result: GenerateDocsTarget[] = [];
+  const walk = (node: TreeNode) => {
+    if (node.type === 'test' && node.path && selectedPaths.has(node.path)) {
+      result.push({
+        branch: node.branch ?? 'main',
+        filePath: node.path,
+        repoId: node.repoId ?? '',
+      });
+    }
+    node.children?.forEach(walk);
+  };
+  nodes.forEach(walk);
+  return result;
+};
+
+const MAX_GENERATE_SELECTION = 20;
 
 const nodeToTreeItem = (
   node: TreeNode,
   selectedPath?: string,
   draftPaths?: Set<string>,
+  checkboxes?: CheckboxState,
 ): TreeViewDataItem => {
   const isSelected = (node.path || node.name) === selectedPath;
   const icon =
@@ -83,16 +112,30 @@ const nodeToTreeItem = (
     );
   }
 
+  const nodeId = node.path || node.name;
+  const showCheckbox = checkboxes && node.type === 'test' && node.path;
+
   return {
-    children: node.children?.map(child => nodeToTreeItem(child, selectedPath, draftPaths)),
+    children: node.children?.map(child =>
+      nodeToTreeItem(child, selectedPath, draftPaths, checkboxes),
+    ),
     defaultExpanded: node.type === 'component' || node.type === 'repo',
     icon,
-    id: node.path || node.name,
+    id: nodeId,
     name: (
       <span
         className={`app-tree-node${isSelected ? ' app-tree-node--selected' : ''}`}
-        data-node-id={node.path || node.name}
+        data-node-id={nodeId}
       >
+        {showCheckbox && (
+          <Checkbox
+            className="app-tree-checkbox"
+            id={`gen-cb-${nodeId}`}
+            isChecked={checkboxes.selected.has(node.path ?? '')}
+            onChange={() => checkboxes.toggle(node.path ?? '')}
+            onClick={evt => evt.stopPropagation()}
+          />
+        )}
         <span className="app-tree-node-name">{node.name}</span>
         {badges.length > 0 && <span className="app-tree-badges">{badges}</span>}
       </span>
@@ -169,6 +212,7 @@ const countByType = (nodes: TreeNode[], type: string): number => {
 export const FileTree: React.FC<FileTreeProps> = ({
   contextActions,
   draftPaths,
+  onGenerateDocs,
   onSelect,
   selectedPath,
   tree,
@@ -178,6 +222,11 @@ export const FileTree: React.FC<FileTreeProps> = ({
   const [contextMenu, setContextMenu] = useState<{ node: TreeNode; x: number; y: number } | null>(
     null,
   );
+  const [selected, setSelected] = useState(new Set<string>());
+
+  useEffect(() => {
+    setSelected(new Set<string>());
+  }, [view]);
 
   const documentedTree = useMemo(
     () =>
@@ -218,9 +267,27 @@ export const FileTree: React.FC<FileTreeProps> = ({
     return activeTree.map(filterNode).filter(Boolean) as TreeNode[];
   }, [activeTree, filter]);
 
+  const toggleSelection = useCallback((path: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      return next;
+    });
+  }, []);
+
+  const checkboxState: CheckboxState | undefined = useMemo(
+    () =>
+      view === 'undocumented' && onGenerateDocs ? { selected, toggle: toggleSelection } : undefined,
+    [view, onGenerateDocs, selected, toggleSelection],
+  );
+
   const treeItems = useMemo(
-    () => filteredTree.map(node => nodeToTreeItem(node, selectedPath, draftPaths)),
-    [filteredTree, selectedPath, draftPaths],
+    () => filteredTree.map(node => nodeToTreeItem(node, selectedPath, draftPaths, checkboxState)),
+    [filteredTree, selectedPath, draftPaths, checkboxState],
   );
 
   const totalFiles = useMemo(() => countFiles(activeTree), [activeTree]);
@@ -300,6 +367,23 @@ export const FileTree: React.FC<FileTreeProps> = ({
               onClear={() => setFilter('')}
             />
           </ToolbarItem>
+          {view === 'undocumented' && onGenerateDocs && (
+            <ToolbarItem>
+              <Button
+                isDisabled={selected.size === 0 || selected.size > MAX_GENERATE_SELECTION}
+                variant="primary"
+                onClick={() => {
+                  const tests = collectTestInfo(tree, selected);
+                  if (tests.length > 0) {
+                    onGenerateDocs(tests);
+                    setSelected(new Set<string>());
+                  }
+                }}
+              >
+                Generate Docs ({selected.size})
+              </Button>
+            </ToolbarItem>
+          )}
         </ToolbarContent>
       </Toolbar>
       <div

@@ -2977,6 +2977,19 @@
   margin-bottom: var(--pf-t--global--spacer--md);
 }
 
+.app-docgen-banner {
+  padding: var(--pf-t--global--spacer--sm) var(--pf-t--global--spacer--md);
+  background: var(--pf-t--global--background--color--secondary--default);
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: var(--pf-t--global--border--radius--small);
+  margin-bottom: var(--pf-t--global--spacer--md);
+}
+
+.app-tree-checkbox {
+  display: inline-flex;
+  margin-right: var(--pf-t--global--spacer--xs);
+}
+
 .app-sync-log {
   max-height: 200px;
   overflow-y: auto;
