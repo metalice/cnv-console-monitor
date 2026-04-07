@@ -4,7 +4,8 @@ import { Label, Tooltip } from '@patternfly/react-core';
 import { AngleDownIcon, AngleRightIcon } from '@patternfly/react-icons';
 import { Td, Tr } from '@patternfly/react-table';
 
-import { countdownColor, countdownLabel, fmtDate, phaseBadgeColor } from './timelineHelpers';
+import { PhaseBadge } from './PhaseBadge';
+import { countdownColor, countdownLabel, fmtDate } from './timelineHelpers';
 
 type TimelineTableRowProps = {
   release: ReleaseInfo;
@@ -35,9 +36,7 @@ export const TimelineTableRow = ({
       )}
       {isColumnVisible('phase') && (
         <Td className="app-cell-nowrap">
-          <Label isCompact color={phaseBadgeColor(release.phase)}>
-            {release.phase}
-          </Label>
+          <PhaseBadge phase={release.phase} />
         </Td>
       )}
       {isColumnVisible('gaDate') && <Td className="app-cell-nowrap">{fmtDate(release.gaDate)}</Td>}
@@ -65,16 +64,47 @@ export const TimelineTableRow = ({
       )}
       {isColumnVisible('nextRelease') && (
         <Td className="app-cell-nowrap">
-          {release.nextRelease
-            ? `${release.nextRelease.name.replace(/Batch |GA Stable Release|GA Release/g, '').trim()} (${fmtDate(release.nextRelease.date)})`
-            : '--'}
+          {release.nextRelease ? (
+            <Tooltip
+              content={`${release.nextRelease.name.replace(/Batch |GA Stable Release|GA Release/g, '').trim()} (${fmtDate(release.nextRelease.date)})`}
+            >
+              <span
+                style={{
+                  display: 'inline-block',
+                  maxWidth: '200px',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  verticalAlign: 'middle',
+                }}
+              >
+                {release.nextRelease.name
+                  .replace(/Batch |GA Stable Release|GA Release/g, '')
+                  .trim()}{' '}
+                ({fmtDate(release.nextRelease.date)})
+              </span>
+            </Tooltip>
+          ) : (
+            '--'
+          )}
         </Td>
       )}
       {isColumnVisible('countdown') && (
-        <Td className="app-cell-nowrap">
-          <Label isCompact color={countdownColor(release.daysUntilNext)}>
-            {countdownLabel(release.daysUntilNext)}
-          </Label>
+        <Td
+          className="app-cell-nowrap"
+          style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}
+        >
+          {(() => {
+            const full = countdownLabel(release.daysUntilNext, release.nextRelease?.name);
+            const MAX_LEN = 20;
+            const display = full.length > MAX_LEN ? `${full.substring(0, MAX_LEN)}…` : full;
+            return (
+              <Tooltip content={full}>
+                <Label isCompact color={countdownColor(release.daysUntilNext)}>
+                  {display}
+                </Label>
+              </Tooltip>
+            );
+          })()}
         </Td>
       )}
       {isColumnVisible('releases') && (

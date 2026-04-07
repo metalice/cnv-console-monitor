@@ -25,13 +25,6 @@ export const SORT_ACCESSORS: Record<number, (r: ReleaseInfo) => string | number 
   7: release => release.milestones.filter(milestone => milestone.isPast).length,
 };
 
-export const phaseBadgeColor = (phase: string): 'blue' | 'green' | 'grey' | 'purple' => {
-  if (phase.includes('Concept')) return 'purple';
-  if (phase.includes('Planning') || phase.includes('Development')) return 'blue';
-  if (phase === 'Maintenance') return 'green';
-  return 'grey';
-};
-
 const COUNTDOWN_THRESHOLDS = { caution: 14, critical: 3, warning: 7 } as const;
 
 export const countdownColor = (days: number | null): 'grey' | 'orange' | 'red' | 'yellow' => {
@@ -42,8 +35,16 @@ export const countdownColor = (days: number | null): 'grey' | 'orange' | 'red' |
   return 'grey';
 };
 
-export const countdownLabel = (days: number | null): string =>
-  days === null ? 'No upcoming' : `${days}d`;
+export const countdownLabel = (days: number | null, nextName?: string | null): string => {
+  if (days === null) {
+    return 'No upcoming';
+  }
+  const shortName = nextName
+    ?.replace(/Batch |GA Stable Release|Development Cutoff/g, '')
+    .replace(/CNV-/i, '')
+    .trim();
+  return shortName ? `${days}d to ${shortName}` : `${days}d`;
+};
 
 export const fmtDate = (dateStr: string | null): string =>
   dateStr

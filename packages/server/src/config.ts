@@ -83,6 +83,11 @@ export const config = {
   slack: {
     jiraWebhookUrl: process.env.SLACK_JIRA_WEBHOOK_URL || '',
   },
+
+  smartsheet: {
+    enabled: Boolean(process.env.SMARTSHEET_TOKEN),
+    token: process.env.SMARTSHEET_TOKEN || '',
+  },
 };
 
 const SETTINGS_MAP = {
@@ -177,6 +182,10 @@ const SETTINGS_MAP = {
   },
   'slack.jiraWebhookUrl': settingValue => {
     config.slack.jiraWebhookUrl = settingValue;
+  },
+  'smartsheet.token': settingValue => {
+    config.smartsheet.token = settingValue;
+    config.smartsheet.enabled = Boolean(settingValue);
   },
 } satisfies Record<string, (settingValue: string) => void>;
 

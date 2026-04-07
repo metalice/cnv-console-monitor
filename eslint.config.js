@@ -160,6 +160,7 @@ export default tseslint.config(
             'to',
             'fn',
             'ga',
+            'GA',
             'ms',
             'pr',
             'tz',

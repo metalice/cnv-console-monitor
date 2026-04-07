@@ -13,6 +13,11 @@ import type {
 
 import { jiraSearch } from '../../clients/jira';
 import { fetchCnvReleases } from '../../clients/productpages';
+import {
+  clearSmartsheetCache,
+  fetchSmartsheetReleases,
+  testSmartsheetConnection,
+} from '../../clients/smartsheet';
 import { config } from '../../config';
 import { logger, setResponseError } from '../../logger';
 
@@ -202,6 +207,12 @@ const classifyMilestone = (name: string, slug: string): MilestoneType => {
 
 router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
   try {
+    const smartsheetReleases = await fetchSmartsheetReleases();
+    if (smartsheetReleases.length > 0) {
+      res.json(smartsheetReleases);
+      return;
+    }
+
     const ppReleases = await fetchCnvReleases();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -289,6 +300,25 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
       });
 
     res.json(releases);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/smartsheet/test', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await testSmartsheetConnection();
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/smartsheet/refresh', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    clearSmartsheetCache();
+    const releases = await fetchSmartsheetReleases();
+    res.json({ count: releases.length, success: true });
   } catch (err) {
     next(err);
   }
@@ -489,24 +519,22 @@ router.get('/:version/blockers', async (req: Request, res: Response, _next: Next
   }
 });
 
-// Historical velocity
+// Historical velocity (uses Smartsheet GA/batch milestones)
 router.get('/velocity', async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const ppReleases = await fetchCnvReleases();
-    const metrics = ppReleases
-      .filter(rel => !rel.canceled && rel.all_ga_tasks.length >= 2)
+    const releases = await fetchSmartsheetReleases();
+    const metrics = releases
+      .filter(
+        rel => rel.milestones.filter(ms => ms.type === 'ga' || ms.type === 'batch').length >= 2,
+      )
       .map(rel => {
-        const sorted = [...rel.all_ga_tasks].sort(
-          (taskA, taskB) =>
-            new Date(taskA.date_start).getTime() - new Date(taskB.date_start).getTime(),
-        );
+        const gaDates = rel.milestones
+          .filter(ms => ms.type === 'ga' || ms.type === 'batch')
+          .map(ms => new Date(ms.date).getTime())
+          .sort((dateA, dateB) => dateA - dateB);
         const intervals: number[] = [];
-        for (let i = 1; i < sorted.length; i++) {
-          const days = Math.round(
-            (new Date(sorted[i].date_start).getTime() -
-              new Date(sorted[i - 1].date_start).getTime()) /
-              (24 * 60 * 60 * 1000),
-          );
+        for (let i = 1; i < gaDates.length; i++) {
+          const days = Math.round((gaDates[i] - gaDates[i - 1]) / (24 * 60 * 60 * 1000));
           if (days > 0) {
             intervals.push(days);
           }
@@ -517,7 +545,7 @@ router.get('/velocity', async (_req: Request, res: Response, next: NextFunction)
             : null;
         return {
           avgDaysBetweenReleases: avgInterval,
-          totalReleases: sorted.length,
+          totalReleases: gaDates.length,
           version: rel.shortname,
         };
       })

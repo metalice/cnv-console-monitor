@@ -10,24 +10,55 @@ export const ZOOM_DAYS: Record<ZoomLevel, number> = {
 };
 
 export const PHASE_COLORS: Record<string, string> = {
-  Concept: 'var(--pf-t--global--color--status--purple--default, #6753ac)',
-  Maintenance: 'var(--pf-t--global--color--status--success--default, #3e8635)',
-  'Planning / Development / Testing': 'var(--pf-t--global--color--status--info--default, #2b9af3)',
+  'Blockers Only': '#c9190b',
+  'Code Freeze': '#6753ac',
+  Development: '#2b9af3',
+  'Feature Freeze': '#f0ab00',
+  GA: '#3e8635',
+  Maintenance: '#009596',
+  Planning: '#8a8d90',
 };
 
-export const MILESTONE_SHAPES: Record<MilestoneType, { color: string; symbol: string }> = {
-  batch: { color: '#2b9af3', symbol: '●' },
-  blockers_only: { color: '#c9190b', symbol: '▲' },
-  code_freeze: { color: '#ec7a08', symbol: '■' },
-  custom: { color: '#6753ac', symbol: '◆' },
-  feature_freeze: { color: '#f0ab00', symbol: '◆' },
-  ga: { color: '#c9190b', symbol: '★' },
+export const MILESTONE_SHAPES: Record<
+  MilestoneType,
+  { color: string; label: string; symbol: string }
+> = {
+  batch: {
+    color: 'var(--pf-t--global--color--status--info--default, #2b9af3)',
+    label: 'Z-Stream Release',
+    symbol: '●',
+  },
+  blockers_only: {
+    color: 'var(--pf-t--global--color--status--danger--default, #c9190b)',
+    label: 'Blockers Only',
+    symbol: '▲',
+  },
+  code_freeze: {
+    color: 'var(--pf-t--global--color--status--warning--default, #ec7a08)',
+    label: 'Code Freeze',
+    symbol: '■',
+  },
+  custom: {
+    color: 'var(--pf-t--global--color--status--purple--default, #6753ac)',
+    label: 'KubeVirt CF',
+    symbol: '◇',
+  },
+  feature_freeze: {
+    color: 'var(--pf-t--global--color--status--warning--default, #f0ab00)',
+    label: 'Feature Freeze',
+    symbol: '◆',
+  },
+  ga: {
+    color: 'var(--pf-t--global--color--status--danger--default, #c9190b)',
+    label: 'GA Release',
+    symbol: '★',
+  },
 };
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
-export const ROW_HEIGHT = 62;
+export const ROW_HEIGHT = 72;
 export const HEADER_HEIGHT = 40;
-export const BAR_HEIGHT = 20;
+export const BAR_HEIGHT = 28;
 
 export const toDay = (dateInput: string | Date): number => {
   const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;

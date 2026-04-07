@@ -1164,12 +1164,25 @@
   border-bottom: 1px solid var(--pf-t--global--border--color--default);
 }
 
+.app-rh-subheading {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--pf-t--global--text--color--subtle);
+  display: block;
+  margin-top: var(--pf-t--global--spacer--sm);
+  margin-bottom: var(--pf-t--global--spacer--xs);
+}
+
 .app-rh-item {
   padding: 3px 0;
 }
 
 .app-rh-past {
   opacity: 0.7;
+}
+
+.app-text-bold {
+  font-weight: var(--pf-t--global--font--weight--heading--default);
 }
 
 .app-rh-past:hover {
@@ -1233,11 +1246,11 @@
 }
 
 .app-gantt-row:hover .app-gantt-row-bg {
-  fill: var(--pf-t--global--background--color--primary--hover);
+  fill: transparent;
 }
 
 .app-gantt-row-selected {
-  fill: var(--pf-t--global--background--color--primary--hover) !important;
+  fill: transparent !important;
 }
 
 .app-gantt-version-label {
@@ -1251,7 +1264,8 @@
   transition: opacity 0.15s;
 }
 
-.app-gantt-row:hover .app-gantt-bar {
+.app-gantt-row:hover .app-gantt-bar,
+.app-gantt-row:has(.app-gantt-row-selected) .app-gantt-bar {
   opacity: 1 !important;
 }
 
@@ -1264,6 +1278,16 @@
   font-size: 18px !important;
 }
 
+.app-gantt-key-label {
+  pointer-events: none;
+}
+
+.app-gantt-key-text {
+  font-size: 10px;
+  font-weight: 700;
+  fill: var(--pf-t--global--text--color--regular);
+}
+
 .app-gantt-date-label-group {
   opacity: 0;
   transition: opacity 0.15s;
@@ -1271,7 +1295,7 @@
 }
 
 .app-gantt-row:hover .app-gantt-date-label-group,
-.app-gantt-row-selected ~ .app-gantt-date-label-group {
+.app-gantt-row:has(.app-gantt-row-selected) .app-gantt-date-label-group {
   opacity: 1;
 }
 
@@ -1316,7 +1340,6 @@
 .app-ms-strip {
   display: flex;
   align-items: center;
-  gap: 0;
   position: relative;
   min-width: max-content;
   padding: 32px 12px 32px;
@@ -1357,11 +1380,13 @@
   transform: translateY(-50%) scale(1.4);
 }
 
-.app-ms-past {
-  opacity: 0.5;
+.app-ms-past .app-ms-label-top,
+.app-ms-past .app-ms-label-bot {
+  opacity: 0.6;
 }
 
-.app-ms-past:hover {
+.app-ms-past:hover .app-ms-label-top,
+.app-ms-past:hover .app-ms-label-bot {
   opacity: 1;
 }
 
@@ -1371,6 +1396,9 @@
   position: absolute;
   top: -26px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 50px;
 }
 
 .app-ms-label-bot {
@@ -1381,9 +1409,275 @@
   white-space: nowrap;
 }
 
+.app-ms-today-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 1px;
+  background: var(--pf-t--global--color--status--danger--default);
+  opacity: 0.4;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.app-ms-dot-key {
+  width: 14px !important;
+  height: 14px !important;
+  border: 2px solid var(--pf-t--global--background--color--primary--default);
+}
+
+.app-ms-current {
+  opacity: 1 !important;
+}
+
 .app-ms-dot-more {
   background: var(--pf-t--global--border--color--default) !important;
   border-style: dashed !important;
+}
+
+/* ─── Gantt Legend ─── */
+
+.app-gantt-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--lg);
+  padding: var(--pf-t--global--spacer--sm) var(--pf-t--global--spacer--md);
+  margin-top: var(--pf-t--global--spacer--sm);
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: var(--pf-t--global--border--radius--small);
+  background: var(--pf-t--global--background--color--secondary--default);
+}
+
+.app-gantt-legend-group {
+  display: flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--sm);
+  flex-wrap: wrap;
+}
+
+.app-gantt-legend-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--pf-t--global--text--color--subtle);
+  margin-right: var(--pf-t--global--spacer--xs);
+}
+
+.app-gantt-legend-items {
+  display: flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--md);
+  flex-wrap: wrap;
+}
+
+.app-gantt-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 20px;
+}
+
+.app-gantt-legend-symbol {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.app-gantt-legend-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.app-gantt-legend-text {
+  font-size: 12px;
+  color: var(--pf-t--global--text--color--regular);
+}
+
+.app-gantt-legend-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--pf-t--global--border--color--default);
+  flex-shrink: 0;
+}
+
+/* ─── Gantt Row Alternating ─── */
+
+.app-gantt-row-alt {
+  fill: var(--pf-t--global--background--color--secondary--default);
+  opacity: 0.35;
+}
+
+/* ─── Phase Progress Bar ─── */
+
+.app-phase-bar {
+  padding: var(--pf-t--global--spacer--lg) 0 var(--pf-t--global--spacer--md);
+}
+
+.app-phase-track {
+  position: relative;
+  height: 12px;
+  background: var(--pf-t--global--background--color--secondary--default);
+  border-radius: 6px;
+  border: 1px solid var(--pf-t--global--border--color--default);
+}
+
+.app-phase-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: var(--pf-t--global--color--brand--default);
+  border-radius: 6px;
+  opacity: 0.25;
+}
+
+.app-phase-marker {
+  position: absolute;
+  top: -14px;
+  transform: translateX(-50%);
+  cursor: default;
+  z-index: 2;
+}
+
+.app-phase-marker::after {
+  content: '';
+  display: block;
+  width: 3px;
+  height: 38px;
+  margin: 0 auto;
+  background: var(--pf-t--global--border--color--default);
+  border-radius: 2px;
+}
+
+.app-phase-marker-past::after {
+  opacity: 0.3;
+}
+
+.app-phase-marker-label {
+  display: block;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  padding-bottom: 3px;
+}
+
+.app-phase-marker-warning .app-phase-marker-label {
+  color: var(--pf-t--global--color--status--warning--default);
+}
+
+.app-phase-marker-warning::after {
+  background: var(--pf-t--global--color--status--warning--default);
+}
+
+.app-phase-marker-danger .app-phase-marker-label {
+  color: var(--pf-t--global--color--status--danger--default);
+}
+
+.app-phase-marker-danger::after {
+  background: var(--pf-t--global--color--status--danger--default);
+}
+
+.app-phase-marker-purple .app-phase-marker-label {
+  color: var(--pf-t--global--color--status--purple--default, #6753ac);
+}
+
+.app-phase-marker-purple::after {
+  background: var(--pf-t--global--color--status--purple--default, #6753ac);
+}
+
+.app-phase-marker-success .app-phase-marker-label {
+  color: var(--pf-t--global--color--status--success--default);
+}
+
+.app-phase-marker-success::after {
+  background: var(--pf-t--global--color--status--success--default);
+}
+
+.app-phase-today-pulse {
+  position: absolute;
+  top: -2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--pf-t--global--text--color--regular);
+  border: 2px solid var(--pf-t--global--background--color--primary--default);
+  transform: translateX(-50%);
+  z-index: 1;
+  cursor: default;
+  box-shadow: 0 0 0 2px var(--pf-t--global--text--color--regular);
+}
+
+/* ─── Countdown ─── */
+
+.app-countdown-hero {
+  font-size: var(--pf-t--global--font--size--2xl);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.app-countdown-red {
+  color: var(--pf-t--global--color--status--danger--default);
+  font-weight: 700;
+}
+
+.app-countdown-orange {
+  color: var(--pf-t--global--color--status--warning--default);
+  font-weight: 700;
+}
+
+.app-countdown-yellow {
+  color: var(--pf-t--global--color--status--warning--default);
+}
+
+.app-countdown-grey {
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+/* ─── Milestone Type Icons (Calendar) ─── */
+
+.app-cal-type-icon {
+  display: inline-block;
+  width: 12px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.app-cal-type-ga {
+  color: var(--pf-t--global--color--status--danger--default);
+}
+
+.app-cal-type-ff {
+  color: var(--pf-t--global--color--status--warning--default);
+}
+
+.app-cal-type-cf {
+  color: var(--pf-t--global--color--status--purple--default, #6753ac);
+}
+
+.app-cal-type-bo {
+  color: var(--pf-t--global--color--status--danger--default);
+}
+
+.app-cal-type-batch {
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.app-rel-cal-event-text {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.app-rel-cal-event-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100px;
 }
 
 /* ─── Trend Chart ─── */

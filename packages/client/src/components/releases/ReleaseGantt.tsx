@@ -32,7 +32,12 @@ export const ReleaseGantt = ({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const activeReleases = useMemo(
-    () => (releases ?? []).filter(rel => rel.phase !== 'Unsupported' && rel.startDate),
+    () =>
+      (releases ?? [])
+        .filter(rel => rel.phase !== 'Unsupported' && rel.startDate)
+        .sort((relA, relB) =>
+          relB.shortname.localeCompare(relA.shortname, undefined, { numeric: true }),
+        ),
     [releases],
   );
 

@@ -11,7 +11,7 @@ export type ReleaseMilestone = {
   date: string;
   isPast: boolean;
   type: MilestoneType;
-  source: 'pp' | 'manual';
+  source: 'pp' | 'smartsheet' | 'manual';
 };
 
 export type ReleaseInfo = {

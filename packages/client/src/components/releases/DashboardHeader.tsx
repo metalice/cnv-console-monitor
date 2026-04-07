@@ -13,6 +13,7 @@ import {
 import type { VersionReadiness } from '../../api/releases';
 import { HelpLabel } from '../common/HelpLabel';
 
+import { PhaseBadge } from './PhaseBadge';
 import { TrafficLight } from './TrafficLight';
 
 const DAYS_CRITICAL = 3;
@@ -25,41 +26,33 @@ type DashboardHeaderProps = {
   onClose?: () => void;
 };
 
-export const DashboardHeader = ({ health, onClose, phase, shortname }: DashboardHeaderProps) => {
-  const phaseColor = phase.includes('Maintenance')
-    ? 'green'
-    : phase.includes('Development')
-      ? 'blue'
-      : 'purple';
-
-  return (
-    <Flex
-      alignItems={{ default: 'alignItemsCenter' }}
-      justifyContent={{ default: 'justifyContentSpaceBetween' }}
-    >
-      <FlexItem>
-        <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsMd' }}>
-          <FlexItem>
-            <TrafficLight reason={health.reason} size={16} status={health.status} />
-          </FlexItem>
-          <FlexItem>{shortname.replace('cnv-', 'CNV ')} Dashboard</FlexItem>
-          <FlexItem>
-            <Label isCompact color={phaseColor}>
-              {phase}
-            </Label>
-          </FlexItem>
-        </Flex>
-      </FlexItem>
-      {onClose && (
+export const DashboardHeader = ({ health, onClose, phase, shortname }: DashboardHeaderProps) => (
+  <Flex
+    alignItems={{ default: 'alignItemsCenter' }}
+    justifyContent={{ default: 'justifyContentSpaceBetween' }}
+  >
+    <FlexItem>
+      <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsMd' }}>
         <FlexItem>
-          <Button aria-label="Close dashboard" variant="plain" onClick={onClose}>
-            &times;
-          </Button>
+          <TrafficLight reason={health.reason} size={16} status={health.status} />
         </FlexItem>
-      )}
-    </Flex>
-  );
-};
+        <FlexItem style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {shortname.replace('cnv-', 'CNV ')} Dashboard
+        </FlexItem>
+        <FlexItem>
+          <PhaseBadge phase={phase} />
+        </FlexItem>
+      </Flex>
+    </FlexItem>
+    {onClose && (
+      <FlexItem>
+        <Button aria-label="Close dashboard" variant="plain" onClick={onClose}>
+          &times;
+        </Button>
+      </FlexItem>
+    )}
+  </Flex>
+);
 
 type ReadinessDetailsProps = {
   checklistDone: number;

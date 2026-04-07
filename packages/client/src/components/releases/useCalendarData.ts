@@ -26,6 +26,7 @@ export const useCalendarData = (releases: ReleaseInfo[], monthOffset: number) =>
             .replace(/^Batch\s+/, '')
             .replace(/GA Stable Release|GA Release/g, 'GA')
             .trim(),
+          milestoneType: milestone.type,
           shortname: rel.shortname,
           version: rel.shortname.replace('cnv-', ''),
         });

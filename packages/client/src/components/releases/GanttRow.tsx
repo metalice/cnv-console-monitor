@@ -26,42 +26,83 @@ export const GanttRow = ({
 }: GanttRowProps) => {
   const rowY = headerHeight + index * ROW_HEIGHT;
   const barY = rowY + (ROW_HEIGHT - BAR_HEIGHT) / 2;
-  const startX = release.startDate ? posX(release.startDate) : 0;
-  const endX = release.endDate ? posX(release.endDate) : totalWidth;
+
+  const firstDate = release.milestones.length > 0 ? release.milestones[0].date : release.startDate;
+  const lastDate =
+    release.milestones.length > 0
+      ? release.milestones[release.milestones.length - 1].date
+      : release.endDate;
+
+  const startX = firstDate ? posX(firstDate) : 0;
+  const endX = lastDate ? posX(lastDate) : totalWidth;
   const barWidth = Math.max(MIN_BAR_WIDTH, endX - startX);
   const phaseColor = PHASE_COLORS[release.phase] ?? '#8a8d90';
+  const isAlt = index % 2 === 1;
+
+  const lastReleasedMilestone = [...release.milestones]
+    .reverse()
+    .find(milestone => milestone.isPast && (milestone.type === 'ga' || milestone.type === 'batch'));
+  const splitX = lastReleasedMilestone ? posX(lastReleasedMilestone.date) : startX;
+  const releasedWidth = Math.max(0, splitX - startX);
+  const upcomingWidth = Math.max(0, endX - splitX);
 
   return (
     <g className="app-gantt-row" onClick={onSelect}>
       <rect
-        className={`app-gantt-row-bg ${isSelected ? 'app-gantt-row-selected' : ''}`}
+        className={`app-gantt-row-bg ${isSelected ? 'app-gantt-row-selected' : ''} ${isAlt ? 'app-gantt-row-alt' : ''}`}
         height={ROW_HEIGHT}
         width={totalWidth}
         x={0}
         y={rowY}
       />
-      <text className="app-gantt-version-label" x={8} y={barY + BAR_HEIGHT / 2 + 4}>
+      <text className="app-gantt-version-label" x={8} y={barY + BAR_HEIGHT / 2 + 5}>
         {release.shortname.replace('cnv-', '')}
       </text>
-      <rect
-        className="app-gantt-bar"
-        fill={phaseColor}
-        height={BAR_HEIGHT}
-        opacity={0.9}
-        rx={4}
-        width={barWidth}
-        x={startX}
-        y={barY}
-      />
+      {releasedWidth > 0 && (
+        <rect
+          className="app-gantt-bar"
+          fill="#3e8635"
+          height={BAR_HEIGHT}
+          rx={4}
+          width={releasedWidth}
+          x={startX}
+          y={barY}
+        />
+      )}
+      {upcomingWidth > 0 && (
+        <rect
+          className="app-gantt-bar"
+          fill={phaseColor}
+          height={BAR_HEIGHT}
+          opacity={0.15}
+          rx={upcomingWidth === barWidth ? 4 : 0}
+          stroke={phaseColor}
+          strokeDasharray="4 3"
+          strokeOpacity={0.4}
+          strokeWidth={1}
+          width={upcomingWidth}
+          x={splitX}
+          y={barY}
+        />
+      )}
       {release.milestones
         .filter(milestone => {
           const milestoneX = posX(milestone.date);
           return milestoneX >= 0 && milestoneX <= totalWidth;
         })
-        .map((milestone, milestoneIdx) => (
-          // eslint-disable-next-line react/no-array-index-key
-          <GanttMilestoneMarker barY={barY} key={milestoneIdx} milestone={milestone} posX={posX} />
-        ))}
+        .map((milestone, milestoneIdx, arr) => {
+          const prevX = milestoneIdx > 0 ? posX(arr[milestoneIdx - 1].date) : undefined;
+          return (
+            <GanttMilestoneMarker
+              barY={barY}
+              // eslint-disable-next-line react/no-array-index-key
+              key={milestoneIdx}
+              milestone={milestone}
+              posX={posX}
+              prevMilestoneX={prevX}
+            />
+          );
+        })}
     </g>
   );
 };
