@@ -20,6 +20,7 @@ export type CalendarEvent = {
   shortname: string;
   milestone: string;
   color: string;
+  milestoneType: string;
 };
 
 export type DayEntry = { day: number; dateStr: string };

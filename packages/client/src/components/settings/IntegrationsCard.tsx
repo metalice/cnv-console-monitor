@@ -16,6 +16,7 @@ type IntegrationsCardProps = {
   rpEnabled: boolean;
   jiraEnabled: boolean;
   jenkinsEnabled: boolean;
+  smartsheetEnabled: boolean;
   emailEnabled: boolean;
   gitEnabled: boolean;
   rpProjectOptions: string[];
@@ -35,6 +36,7 @@ const TABS = [
   { key: 'reportportal', label: 'ReportPortal' },
   { key: 'jira', label: 'Jira' },
   { key: 'jenkins', label: 'Jenkins' },
+  { key: 'smartsheet', label: 'Smartsheet' },
   { key: 'git', label: 'Git' },
   { key: 'email', label: 'Email' },
   { key: 'polling', label: 'Polling' },
@@ -51,6 +53,7 @@ export const IntegrationsCard = (props: IntegrationsCardProps) => {
     jiraEnabled,
     rpEnabled,
     setActiveTab,
+    smartsheetEnabled,
   } = props;
 
   const enabled: Record<string, boolean> = {
@@ -62,6 +65,7 @@ export const IntegrationsCard = (props: IntegrationsCardProps) => {
     links: true,
     polling: true,
     reportportal: rpEnabled,
+    smartsheet: smartsheetEnabled,
   };
 
   return (

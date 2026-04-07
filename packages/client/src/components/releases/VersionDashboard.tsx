@@ -23,6 +23,7 @@ import { ChangelogTab } from './ChangelogTab';
 import { DashboardHeader, ReadinessDetails } from './DashboardHeader';
 import { MilestoneTimeline } from './MilestoneTimeline';
 import { PassRateTrend } from './PassRateTrend';
+import { PhaseProgressBar } from './PhaseProgressBar';
 import { ReadinessGauge } from './ReadinessGauge';
 import { ReleaseReport } from './ReleaseReport';
 import { RiskFlags } from './RiskFlags';
@@ -81,6 +82,7 @@ export const VersionDashboard = ({ checklist, onClose, release }: VersionDashboa
         />
       </CardTitle>
       <CardBody>
+        <PhaseProgressBar release={release} />
         <Grid hasGutter className="app-mb-md">
           <GridItem md={3} span={12}>
             <div className="app-text-block-center">

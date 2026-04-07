@@ -8,6 +8,7 @@ import {
   TabTitleText,
 } from '@patternfly/react-core';
 
+import { ActiveReleasesStrip } from '../components/releases/ActiveReleasesStrip';
 import { DeadlineBanner } from '../components/releases/DeadlineBanner';
 import { ReleaseCalendar } from '../components/releases/ReleaseCalendar';
 import { ReleaseChecklist } from '../components/releases/ReleaseChecklist';
@@ -33,6 +34,7 @@ export const ReleasePage = () => {
       {page.releases && page.releases.length > 0 && (
         <PageSection style={{ paddingTop: 0 }}>
           <DeadlineBanner releases={page.releases} />
+          <ActiveReleasesStrip releases={page.releases} onSelectVersion={page.toggleVersion} />
         </PageSection>
       )}
 

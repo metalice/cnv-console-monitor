@@ -68,6 +68,7 @@ export const SettingsPage = () => {
 
   const rpEnabled = Boolean(val('reportportal.url') && val('reportportal.token'));
   const jenkinsEnabled = Boolean(val('jenkins.user') && val('jenkins.token'));
+  const smartsheetEnabled = Boolean(val('smartsheet.token'));
   const gitEnabled = Boolean(val('gitlab.token') || val('github.token'));
 
   return (
@@ -117,6 +118,7 @@ export const SettingsPage = () => {
           setJiraMetaOverride={setJiraMetaOverride}
           setJiraTestMode={setJiraTestMode}
           setJiraTestMsg={setJiraTestMsg}
+          smartsheetEnabled={smartsheetEnabled}
           tokenHandlers={tokenHandlers}
         />
 

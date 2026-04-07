@@ -2,7 +2,14 @@ import { useMemo } from 'react';
 
 import type { ReleaseInfo } from '@cnv-monitor/shared';
 
-import { DAY_MS, toDay, ZOOM_DAYS, type ZoomLevel } from './ganttConstants';
+import {
+  DAY_MS,
+  HEADER_HEIGHT,
+  ROW_HEIGHT,
+  toDay,
+  ZOOM_DAYS,
+  type ZoomLevel,
+} from './ganttConstants';
 
 const PAST_RATIO = 0.3;
 const MIN_WIDTH = 1200;
@@ -77,7 +84,7 @@ export const useGanttTimeline = (zoom: ZoomLevel, activeReleases: ReleaseInfo[])
     }, [zoom]);
 
   const EXTRA_PADDING = 10;
-  const svgHeight = 40 + activeReleases.length * 62 + EXTRA_PADDING;
+  const svgHeight = HEADER_HEIGHT + activeReleases.length * ROW_HEIGHT + EXTRA_PADDING;
 
   const posX = (dateStr: string): number => {
     const day = toDay(dateStr);

@@ -66,8 +66,25 @@ export const CalendarGrid = ({ events, onSelectVersion, todayStr, weeks }: Calen
                         }
                       : {})}
                   >
-                    <span className="app-text-xs">
-                      {evt.version} {evt.milestone.substring(0, 12)}
+                    <span className="app-text-xs app-rel-cal-event-text">
+                      <span className="app-cal-type-icon">
+                        {evt.milestoneType === 'ga' && <span className="app-cal-type-ga">★</span>}
+                        {evt.milestoneType === 'feature_freeze' && (
+                          <span className="app-cal-type-ff">◆</span>
+                        )}
+                        {evt.milestoneType === 'code_freeze' && (
+                          <span className="app-cal-type-cf">■</span>
+                        )}
+                        {evt.milestoneType === 'blockers_only' && (
+                          <span className="app-cal-type-bo">▲</span>
+                        )}
+                        {evt.milestoneType === 'batch' && (
+                          <span className="app-cal-type-batch">·</span>
+                        )}
+                      </span>
+                      <span className="app-rel-cal-event-name">
+                        {evt.version} {evt.milestone}
+                      </span>
                     </span>
                   </div>
                 </Tooltip>

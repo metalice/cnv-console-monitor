@@ -36,7 +36,7 @@ export const GanttGrid = ({ dayMarkers, monthMarkers, svgHeight, todayPos }: Gan
       </g>
     ))}
     <line className="app-gantt-today-line" x1={todayPos} x2={todayPos} y1={0} y2={svgHeight} />
-    <text className="app-gantt-today-text" x={todayPos + 3} y={14}>
+    <text className="app-gantt-today-text" x={todayPos + 4} y={HEADER_HEIGHT - 2}>
       Today
     </text>
   </>

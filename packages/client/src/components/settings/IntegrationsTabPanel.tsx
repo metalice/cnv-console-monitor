@@ -11,6 +11,7 @@ import { JiraSettings } from './JiraSettings';
 import { LinksSettings } from './LinksSettings';
 import { PollingSettings } from './PollingSettings';
 import { ReportPortalSettings } from './ReportPortalSettings';
+import { SmartsheetSettings } from './SmartsheetSettings';
 import type { AlertMessage, SettingsSectionProps, TokenEditHandlers } from './types';
 
 type IntegrationsTabPanelProps = {
@@ -96,6 +97,8 @@ export const IntegrationsTabPanel = ({
     );
   }
   if (activeTab === 'jenkins') return <JenkinsSettings {...sectionProps} {...tokenHandlers} />;
+  if (activeTab === 'smartsheet')
+    return <SmartsheetSettings {...sectionProps} {...tokenHandlers} />;
   if (activeTab === 'git') return <GitSettings {...sectionProps} {...tokenHandlers} />;
   if (activeTab === 'email') {
     return <EmailServerSettings {...sectionProps} emailEnabled={emailEnabled} />;
