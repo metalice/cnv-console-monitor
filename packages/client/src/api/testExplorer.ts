@@ -77,3 +77,19 @@ export const submitDraftsApi = (data: {
   prDescription?: string;
 }): Promise<{ success: boolean; prUrl: string; prNumber: number; filesCommitted: number }> =>
   apiFetch('/test-explorer/submit-drafts', { body: JSON.stringify(data), method: 'POST' });
+
+export type GenerateDocsInput = { repoId: string; filePath: string; branch: string };
+
+export const generateDocsApi = (
+  tests: GenerateDocsInput[],
+): Promise<{ message: string; count: number }> =>
+  apiFetch('/test-explorer/generate-docs', { body: JSON.stringify({ tests }), method: 'POST' });
+
+export const improveDocApi = (data: {
+  repoId: string;
+  filePath: string;
+  branch: string;
+  currentContent: string;
+  instructions: string;
+}): Promise<{ content: string }> =>
+  apiFetch('/test-explorer/improve-doc', { body: JSON.stringify(data), method: 'POST' });
