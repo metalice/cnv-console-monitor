@@ -13,6 +13,7 @@ import {
 import {
   CalendarAltIcon,
   ChartLineIcon,
+  ClipboardCheckIcon,
   CodeBranchIcon,
   CogIcon,
   CubesIcon,
@@ -23,6 +24,7 @@ import {
   ListIcon,
   SearchIcon,
   UserIcon,
+  UsersIcon,
 } from '@patternfly/react-icons';
 import { useQuery } from '@tanstack/react-query';
 
@@ -43,6 +45,8 @@ const navItems = [
   { icon: <CalendarAltIcon />, label: 'Releases', path: '/releases' },
   { icon: <SearchIcon />, label: 'Test Explorer', path: '/test-explorer' },
   { icon: <ListIcon />, label: 'Activity', path: '/activity' },
+  { icon: <ClipboardCheckIcon />, label: 'Weekly Report', path: '/weekly' },
+  { icon: <UsersIcon />, label: 'Team', path: '/weekly/team' },
   { icon: <CogIcon />, label: 'Settings', path: '/settings' },
   { icon: <InfoCircleIcon />, label: 'About', path: '/about' },
 ];

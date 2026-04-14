@@ -42,6 +42,10 @@ import triageRouter from './routes/triage';
 import userRouter from './routes/user';
 import userTokensRouter from './routes/user-tokens';
 import webhooksRouter from './routes/webhooks';
+import { weeklyPollRouter } from './routes/weeklyPoll';
+import { weeklyRepoConfigRouter } from './routes/weeklyRepoConfig';
+import { weeklyReportsRouter } from './routes/weeklyReports';
+import { weeklyTeamRouter } from './routes/weeklyTeam';
 
 export const createApp = (): express.Application => {
   const app = express();
@@ -130,6 +134,10 @@ export const createApp = (): express.Application => {
   app.use('/api/test-explorer', extractUser, testExplorerRouter);
   app.use('/api/quarantine', extractUser, quarantineRouter);
   app.use('/api/webhooks', webhooksRouter);
+  app.use('/api/weekly-report', extractUser, weeklyReportsRouter);
+  app.use('/api/weekly-repos', extractUser, weeklyRepoConfigRouter);
+  app.use('/api/weekly-team', extractUser, weeklyTeamRouter);
+  app.use('/api/weekly-poll', extractUser, weeklyPollRouter);
   app.use('/api/user/tokens', extractUser, userTokensRouter);
 
   app.get('{*path}', (_req, res) => {

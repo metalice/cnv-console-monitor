@@ -201,6 +201,105 @@ export const getIssueStatus = async (key: string): Promise<string> => {
   }
 };
 
+type WeeklyJiraUser = {
+  accountId: string;
+  displayName: string;
+  emailAddress?: string;
+};
+
+type WeeklyJiraChangelogItem = {
+  field: string;
+  fromString: string | null;
+  toString: string | null;
+};
+
+type WeeklyJiraChangelogHistory = {
+  author: WeeklyJiraUser;
+  created: string;
+  items: WeeklyJiraChangelogItem[];
+};
+
+type WeeklyJiraComment = {
+  author: WeeklyJiraUser;
+  created: string;
+};
+
+export type WeeklyJiraIssue = {
+  changelog?: { histories: WeeklyJiraChangelogHistory[] };
+  fields: {
+    assignee: WeeklyJiraUser | null;
+    comment?: { comments: WeeklyJiraComment[]; total: number };
+    issuetype: { name: string } | null;
+    labels: string[];
+    priority: { name: string } | null;
+    status: { name: string };
+    story_points?: number;
+    summary: string;
+    updated: string;
+  };
+  key: string;
+  self: string;
+};
+
+export const searchTeamTickets = async (
+  since: string,
+  component?: string,
+): Promise<WeeklyJiraIssue[]> => {
+  const client = createJiraClient();
+  const componentClause = component ? `AND component = "${component}"` : '';
+  const jql = `project = "${config.jira.projectKey}" ${componentClause} AND updated >= "${since}"`;
+  const fields = [
+    'summary',
+    'status',
+    'assignee',
+    'comment',
+    'priority',
+    'issuetype',
+    'labels',
+    'updated',
+    'story_points',
+  ];
+
+  const MAX_RESULTS = 100;
+
+  const fetchPage = async (
+    token: string | undefined,
+    accumulated: WeeklyJiraIssue[],
+  ): Promise<WeeklyJiraIssue[]> => {
+    const body: Record<string, unknown> = {
+      expand: 'changelog',
+      fields,
+      jql,
+      maxResults: MAX_RESULTS,
+    };
+    if (token) {
+      body.nextPageToken = token;
+    }
+
+    const response = await withRetry(
+      () => client.post('/search/jql', body),
+      'jira.searchTeamTickets',
+    );
+
+    const data = response.data as {
+      isLast?: boolean;
+      issues?: WeeklyJiraIssue[];
+      nextPageToken?: string;
+    };
+    const issues = data.issues ?? [];
+    const combined = [...accumulated, ...issues];
+
+    if (data.isLast || !data.nextPageToken || issues.length === 0) {
+      return combined;
+    }
+    return fetchPage(data.nextPageToken, combined);
+  };
+
+  const allIssues = await fetchPage(undefined, []);
+  log.info({ component, count: allIssues.length, jql }, 'Fetched weekly team Jira tickets');
+  return allIssues;
+};
+
 export const createIssueWithToken = async (
   personalToken: string,
   params: {

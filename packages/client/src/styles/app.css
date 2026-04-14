@@ -3320,3 +3320,106 @@
 .app-spin {
   animation: app-spin-anim 1s linear infinite;
 }
+
+/* Weekly Report */
+
+.app-weekly-initiative-card {
+  border-left: 3px solid var(--pf-t--global--border--color--default);
+}
+
+.app-weekly-initiative-card--done {
+  border-left-color: var(--pf-t--global--color--status--success--default);
+}
+
+.app-weekly-initiative-card--in-progress {
+  border-left-color: var(--pf-t--global--color--status--info--default);
+}
+
+.app-weekly-initiative-card--blocked {
+  border-left-color: var(--pf-t--global--color--status--danger--default);
+}
+
+.app-weekly-initiative-card--at-risk {
+  border-left-color: var(--pf-t--global--color--status--warning--default);
+}
+
+.app-weekly-stat-gallery {
+  margin: var(--pf-t--global--spacer--md) 0;
+}
+
+.app-weekly-stat-card {
+  text-align: center;
+  padding: var(--pf-t--global--spacer--md);
+}
+
+.app-weekly-stat-number {
+  font-size: var(--pf-t--global--font--size--2xl);
+  font-weight: var(--pf-t--global--font--weight--bold);
+}
+
+.app-weekly-stat-number--success {
+  color: var(--pf-t--global--color--status--success--default);
+}
+
+.app-weekly-stat-number--info {
+  color: var(--pf-t--global--color--status--info--default);
+}
+
+.app-weekly-stat-number--warning {
+  color: var(--pf-t--global--color--status--warning--default);
+}
+
+.app-weekly-person-stats {
+  display: flex;
+  gap: var(--pf-t--global--spacer--sm);
+  flex-wrap: wrap;
+}
+
+.app-weekly-person-summary {
+  color: var(--pf-t--global--text--color--subtle);
+  font-style: italic;
+  margin: var(--pf-t--global--spacer--sm) 0;
+}
+
+.app-weekly-pill {
+  display: inline-flex;
+  margin: var(--pf-t--global--spacer--xs);
+}
+
+.app-weekly-highlights {
+  white-space: pre-wrap;
+}
+
+.app-weekly-editor-toolbar {
+  display: flex;
+  gap: var(--pf-t--global--spacer--md);
+  justify-content: flex-end;
+  padding: var(--pf-t--global--spacer--md) 0;
+}
+
+.app-weekly-dual-tabs {
+  margin-top: var(--pf-t--global--spacer--md);
+}
+
+.app-weekly-progress-wrapper {
+  margin-bottom: var(--pf-t--global--spacer--lg);
+}
+
+.app-weekly-log {
+  max-height: 300px;
+  overflow-y: auto;
+  font-family: var(--pf-t--global--font--family--mono);
+  font-size: var(--pf-t--global--font--size--xs);
+  background: var(--pf-t--global--background--color--secondary--default);
+  border-radius: var(--pf-t--global--border--radius--small);
+  padding: var(--pf-t--global--spacer--sm);
+}
+
+.app-weekly-log-entry {
+  padding: var(--pf-t--global--spacer--xs) 0;
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+}
+
+.app-weekly-log-entry:last-child {
+  border-bottom: none;
+}

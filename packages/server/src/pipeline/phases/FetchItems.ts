@@ -1,4 +1,5 @@
 import { fetchTestItemLogs, fetchTestItems, type RPTestItem } from '../../clients/reportportal';
+import { toEpochMs } from '../../clients/reportportal-types';
 import {
   getLaunchesSince,
   type LaunchRecord,
@@ -21,7 +22,7 @@ const parseTestItemRecord = (item: RPTestItem, launchRpId: number): TestItemReco
     ai_prediction: aiPrediction?.value ?? undefined,
     defect_comment: item.issue?.comment ?? undefined,
     defect_type: item.issue?.issueType ?? undefined,
-    end_time: item.endTime ?? undefined,
+    end_time: item.endTime != null ? toEpochMs(item.endTime) : undefined,
     error_message: undefined,
     jira_key: item.issue?.externalSystemIssues?.[0]?.ticketId ?? undefined,
     jira_status: undefined,
@@ -29,7 +30,7 @@ const parseTestItemRecord = (item: RPTestItem, launchRpId: number): TestItemReco
     name: item.name,
     polarion_id: polarionAttr?.value ?? undefined,
     rp_id: item.id,
-    start_time: item.startTime,
+    start_time: toEpochMs(item.startTime),
     status: item.status,
     unique_id: item.uniqueId ?? undefined,
   };

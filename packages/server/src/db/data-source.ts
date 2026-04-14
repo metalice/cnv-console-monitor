@@ -11,6 +11,10 @@ import { ComponentMapping } from './entities/ComponentMapping';
 import { EditActivity } from './entities/EditActivity';
 import { FileDraft } from './entities/FileDraft';
 import { Launch } from './entities/Launch';
+import { PersonReportEntity } from './entities/PersonReportEntity';
+import { TeamMemberEntity } from './entities/TeamMemberEntity';
+import { WeeklyRepoEntity } from './entities/WeeklyRepoEntity';
+import { WeeklyReportEntity } from './entities/WeeklyReportEntity';
 import { NotificationSubscription } from './entities/NotificationSubscription';
 import { PipelineRun } from './entities/PipelineRun';
 import { Quarantine } from './entities/Quarantine';
@@ -50,6 +54,8 @@ import { AddAICorrections1709000000022 } from './migrations/1709000000022-AddAIC
 import { AddTestExplorer1709000000023 } from './migrations/1709000000023-AddTestExplorer';
 import { AddFileDrafts1709000000024 } from './migrations/1709000000024-AddFileDrafts';
 import { AddEditActivity1709000000025 } from './migrations/1709000000025-AddEditActivity';
+import { AddWeeklyReport1709000000026 } from './migrations/1709000000026-AddWeeklyReport';
+import { AddWeeklyRepos1709000000027 } from './migrations/1709000000027-AddWeeklyRepos';
 
 export const AppDataSource = new DataSource({
   entities: [
@@ -74,6 +80,10 @@ export const AppDataSource = new DataSource({
     UserToken,
     FileDraft,
     EditActivity,
+    TeamMemberEntity,
+    WeeklyReportEntity,
+    PersonReportEntity,
+    WeeklyRepoEntity,
   ],
   logging: false,
   migrations: [
@@ -102,6 +112,8 @@ export const AppDataSource = new DataSource({
     AddTestExplorer1709000000023,
     AddFileDrafts1709000000024,
     AddEditActivity1709000000025,
+    AddWeeklyReport1709000000026,
+    AddWeeklyRepos1709000000027,
   ],
   synchronize: false,
   type: 'postgres',

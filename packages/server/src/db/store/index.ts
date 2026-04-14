@@ -160,3 +160,35 @@ export {
   invalidateUserToken,
   saveUserToken,
 } from './userTokens';
+export {
+  createTeamMember,
+  findTeamMemberByGithub,
+  findTeamMemberByGitlab,
+  findTeamMemberByJira,
+  findTeamMemberByNormalizedName,
+  getTeamMemberById,
+  listActiveTeamMembers,
+  listAllTeamMembers,
+  mergeTeamMembers,
+  softDeleteTeamMember,
+  updateTeamMember,
+  upsertTeamMemberByGithub,
+} from './teamMembers';
+export {
+  getCurrentWeeklyReport,
+  getWeeklyReport,
+  listWeeklyReports,
+  savePersonReport,
+  updatePersonReportNotes,
+  updateWeeklyReportNotes,
+  updateWeeklyReportState,
+  upsertWeeklyReport,
+} from './weeklyReports';
+export {
+  createWeeklyRepo,
+  deleteWeeklyRepo,
+  getAllWeeklyRepos,
+  getEnabledWeeklyRepos,
+  getWeeklyReposByComponent,
+  updateWeeklyRepo,
+} from './weeklyRepos';
