@@ -1,8 +1,10 @@
 import { Router } from 'express';
 
 import {
+  type CreateWeeklyRepo,
   CreateWeeklyRepoSchema,
   detectProvider,
+  type UpdateWeeklyRepo,
   UpdateWeeklyRepoSchema,
 } from '@cnv-monitor/shared';
 
@@ -34,9 +36,15 @@ weeklyRepoConfigRouter.get('/', async (req, res, next) => {
 
 weeklyRepoConfigRouter.post('/', validateBody(CreateWeeklyRepoSchema), async (req, res, next) => {
   try {
-    const { component, enabled, name, url } = req.body;
-    const provider = detectProvider(url);
-    const created = await createWeeklyRepo({ component, enabled, name, provider, url });
+    const body = req.body as CreateWeeklyRepo;
+    const provider = detectProvider(body.url);
+    const created = await createWeeklyRepo({
+      component: body.component,
+      enabled: body.enabled,
+      name: body.name,
+      provider,
+      url: body.url,
+    });
     log.info({ id: created.id, name: created.name, provider }, 'Weekly repo created');
     res.status(201).json(created);
   } catch (err) {
@@ -47,9 +55,16 @@ weeklyRepoConfigRouter.post('/', validateBody(CreateWeeklyRepoSchema), async (re
 weeklyRepoConfigRouter.put('/:id', validateBody(UpdateWeeklyRepoSchema), async (req, res, next) => {
   try {
     const id = req.params.id as string;
-    const data = { ...req.body };
-    if (data.url) {
-      data.provider = detectProvider(data.url);
+    const body = req.body as UpdateWeeklyRepo;
+    const data: Partial<{
+      component: string;
+      enabled: boolean;
+      name: string;
+      provider: string;
+      url: string;
+    }> = { ...body };
+    if (body.url) {
+      data.provider = detectProvider(body.url);
     }
     const updated = await updateWeeklyRepo(id, data);
     if (!updated) {

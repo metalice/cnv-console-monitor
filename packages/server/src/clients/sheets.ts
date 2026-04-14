@@ -60,11 +60,11 @@ export const fetchSheetRows = async (tabName: string): Promise<SpreadsheetRow[]>
   if (rawRows.length < 2) return [];
 
   const headers = rawRows[0].map(header => header.toLowerCase().trim());
-  const featureIdx = headers.findIndex(h => h.includes('feature'));
-  const jiraIdx = headers.findIndex(h => h.includes('jira') || h.includes('ticket'));
-  const statusIdx = headers.findIndex(h => h.includes('status'));
-  const assigneeIdx = headers.findIndex(h => h.includes('assignee') || h.includes('owner'));
-  const notesIdx = headers.findIndex(h => h.includes('note'));
+  const featureIdx = headers.findIndex(col => col.includes('feature'));
+  const jiraIdx = headers.findIndex(col => col.includes('jira') || col.includes('ticket'));
+  const statusIdx = headers.findIndex(col => col.includes('status'));
+  const assigneeIdx = headers.findIndex(col => col.includes('assignee') || col.includes('owner'));
+  const notesIdx = headers.findIndex(col => col.includes('note'));
 
   const rows: SpreadsheetRow[] = rawRows.slice(1).map(row => ({
     assignee: assigneeIdx >= 0 ? (row[assigneeIdx] ?? null) : null,
@@ -79,7 +79,7 @@ export const fetchSheetRows = async (tabName: string): Promise<SpreadsheetRow[]>
   return rows;
 };
 
-const JIRA_KEY_REGEX = /[A-Z]+-\d+/;
+const JIRA_KEY_REGEX = /[A-Z]{1,20}-\d{1,10}/;
 
 const extractJiraKey = (cell: string | undefined): string | null => {
   if (!cell) return null;

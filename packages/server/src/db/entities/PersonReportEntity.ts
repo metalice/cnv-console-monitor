@@ -34,7 +34,7 @@ export class PersonReportEntity {
   @Column({ default: '[]', type: 'jsonb' })
   prs!: unknown[];
 
-  @ManyToOne(() => WeeklyReportEntity, wr => wr.person_reports)
+  @ManyToOne(() => WeeklyReportEntity, weeklyReport => weeklyReport.person_reports)
   @JoinColumn({ name: 'week_id' })
   report!: WeeklyReportEntity;
 

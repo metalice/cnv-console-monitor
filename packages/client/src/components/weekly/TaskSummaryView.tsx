@@ -23,8 +23,8 @@ export const TaskSummaryView = ({ taskSummary }: TaskSummaryViewProps) => (
       <StackItem>
         <Title headingLevel="h3">Blockers</Title>
         <Stack hasGutter>
-          {taskSummary.blockers.map((blocker, idx) => (
-            <StackItem key={`blocker-${blocker.description.slice(0, 20)}-${idx}`}>
+          {taskSummary.blockers.map(blocker => (
+            <StackItem key={`blocker-${blocker.description}`}>
               <Alert
                 title={blocker.description}
                 variant={blocker.severity === 'high' ? 'danger' : 'warning'}

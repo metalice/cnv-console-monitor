@@ -15,9 +15,9 @@ import { SystemStatusBanner } from '../components/settings/SystemStatusBanner';
 import { UnsavedChangesBar } from '../components/settings/UnsavedChangesBar';
 import { useCtrlSave } from '../components/settings/useCtrlSave';
 import { UserManagement } from '../components/settings/UserManagement';
-import { WeeklyRepoSettings } from '../components/settings/WeeklyRepoSettings';
 import { useSettingsPageNav } from '../components/settings/useSettingsPageNav';
 import { useSettingsState } from '../components/settings/useSettingsState';
+import { WeeklyRepoSettings } from '../components/settings/WeeklyRepoSettings';
 
 export const SettingsPage = () => {
   useEffect(() => {

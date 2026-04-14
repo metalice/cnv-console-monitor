@@ -43,7 +43,7 @@ const computeAggregateStats = (personReports: PersonReport[]): AggregateStats =>
       commitCount: acc.commitCount + person.stats.commitCount,
       contributorCount: acc.contributorCount + 1,
       prsMerged: acc.prsMerged + person.stats.prsMerged,
-      storyPoints: acc.storyPoints + (person.stats.storyPointsCompleted ?? 0),
+      storyPoints: acc.storyPoints + person.stats.storyPointsCompleted,
       ticketsDone: acc.ticketsDone + person.stats.ticketsDone,
     }),
     { commitCount: 0, contributorCount: 0, prsMerged: 0, storyPoints: 0, ticketsDone: 0 },
@@ -61,8 +61,8 @@ const BlockersAlert = ({ blockers }: { blockers: TaskSummary['blockers'] }) => {
         variant="danger"
       >
         <ul>
-          {blockers.map((blocker, idx) => (
-            <li key={idx}>{blocker.description}</li>
+          {blockers.map(blocker => (
+            <li key={blocker.description}>{blocker.description}</li>
           ))}
         </ul>
       </Alert>

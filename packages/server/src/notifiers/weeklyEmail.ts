@@ -36,7 +36,7 @@ export const sendWeeklyEmailReport = async (
        </div>`
     : '';
 
-  const taskSummaryHtml = report.taskSummary?.initiatives?.length
+  const taskSummaryHtml = report.taskSummary?.initiatives.length
     ? `<div style="margin:16px 0;">
         <h3 style="margin:0 0 8px 0;color:#333;">This Week's Work</h3>
         ${report.taskSummary.initiatives
@@ -58,7 +58,7 @@ export const sendWeeklyEmailReport = async (
        </div>`
     : '';
 
-  const blockersHtml = report.taskSummary?.blockers?.length
+  const blockersHtml = report.taskSummary?.blockers.length
     ? `<div style="background:#fdf0e6;padding:12px 16px;border-radius:6px;margin:16px 0;border-left:4px solid #ec7a08;">
         <strong>Blockers</strong>
         ${report.taskSummary.blockers.map(blocker => `<br/>⚠ ${blocker.description}`).join('')}

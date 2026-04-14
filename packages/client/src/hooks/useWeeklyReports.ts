@@ -36,7 +36,7 @@ export const useCurrentWeeklyReport = () => {
 export const useWeeklyReport = (weekId: string | undefined) => {
   return useQuery({
     enabled: Boolean(weekId),
-    queryFn: () => fetchWeeklyReport(weekId!),
+    queryFn: () => fetchWeeklyReport(weekId ?? ''),
     queryKey: ['weeklyReports', 'detail', weekId],
     staleTime: TWO_MINUTES_MS,
   });

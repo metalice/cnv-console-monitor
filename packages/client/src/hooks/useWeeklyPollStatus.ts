@@ -52,24 +52,27 @@ export const useWeeklyPollStatus = () => {
       // continue polling on transient errors
     }
 
-    if (activeRef.current) {
-      timerRef.current = setTimeout(() => void pollOnce(), POLL_INTERVAL_MS);
-    }
+    timerRef.current = setTimeout(() => {
+      pollOnce().catch(() => undefined);
+    }, POLL_INTERVAL_MS);
   }, [queryClient, stopPolling]);
 
   const startPolling = useCallback(() => {
     stopPolling();
     activeRef.current = true;
-    timerRef.current = setTimeout(() => void pollOnce(), POLL_INTERVAL_MS);
+    timerRef.current = setTimeout(() => {
+      pollOnce().catch(() => undefined);
+    }, POLL_INTERVAL_MS);
   }, [pollOnce, stopPolling]);
 
   useEffect(() => {
-    void fetchWeeklyPollStatus()
+    fetchWeeklyPollStatus()
       .then(initial => {
         setStatus(initial);
         if (initial.status === 'running') {
           startPolling();
         }
+        return undefined;
       })
       .catch(() => undefined);
 

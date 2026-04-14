@@ -1,6 +1,10 @@
 import { Router } from 'express';
 
-import { getWeekId, UpdateReportRequestSchema } from '@cnv-monitor/shared';
+import {
+  getWeekId,
+  type UpdateReportRequest,
+  UpdateReportRequestSchema,
+} from '@cnv-monitor/shared';
 
 import { entityToWeeklyReport } from '../../db/mappers/weeklyReport';
 import {
@@ -62,18 +66,20 @@ weeklyReportsRouter.put(
   async (req, res, next) => {
     try {
       const weekId = req.params.weekId as string;
-      const { managerHighlights, personUpdates, taskSummary } = req.body;
+      const body = req.body as UpdateReportRequest;
 
-      await updateWeeklyReportNotes(weekId, managerHighlights, taskSummary);
+      await updateWeeklyReportNotes(weekId, body.managerHighlights, body.taskSummary);
 
-      if (personUpdates) {
-        for (const update of personUpdates) {
-          await updatePersonReportNotes(weekId, update.memberId, {
-            excluded: update.excluded,
-            managerNotes: update.managerNotes,
-            sortOrder: update.sortOrder,
-          });
-        }
+      if (body.personUpdates) {
+        await Promise.all(
+          body.personUpdates.map(update =>
+            updatePersonReportNotes(weekId, update.memberId, {
+              excluded: update.excluded,
+              managerNotes: update.managerNotes,
+              sortOrder: update.sortOrder,
+            }),
+          ),
+        );
       }
 
       const updated = await getWeeklyReport(weekId);

@@ -4,47 +4,12 @@ import { getEnabledWeeklyRepos, getSetting } from '../db/store';
 import { logger } from '../logger';
 
 import { setAvailableUsers } from './availableUsers';
+import { isBot, parseBaseUrl, parseOwnerRepo, parseProjectPath } from './utils';
 
 const log = logger.child({ module: 'WeeklyReport:FetchUsers' });
 
 const TIMEOUT_MS = 15_000;
 const PER_PAGE = 100;
-
-const BOT_PATTERNS = ['[bot]', 'dependabot', 'openshift-cherrypick-robot', 'renovate', 'codecov'];
-
-const isBot = (username: string): boolean =>
-  BOT_PATTERNS.some(pat => username.toLowerCase().includes(pat));
-
-const parseOwnerRepo = (url: string): string | null => {
-  try {
-    const { pathname } = new URL(url);
-    const parts = pathname
-      .replace(/^\//, '')
-      .replace(/\.git$/, '')
-      .split('/');
-    return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : null;
-  } catch {
-    return null;
-  }
-};
-
-const parseProjectPath = (url: string): string | null => {
-  try {
-    const { pathname } = new URL(url);
-    return pathname.replace(/^\//, '').replace(/\.git$/, '') || null;
-  } catch {
-    return null;
-  }
-};
-
-const parseBaseUrl = (url: string): string => {
-  try {
-    const parsed = new URL(url);
-    return `${parsed.protocol}//${parsed.host}`;
-  } catch {
-    return url;
-  }
-};
 
 const parseLinkNext = (header: string | undefined): string | null => {
   if (!header) return null;
@@ -67,6 +32,7 @@ const fetchAllGitHubContributors = async (
     `https://api.github.com/repos/${ownerRepo}/contributors?per_page=${PER_PAGE}&anon=0`;
 
   while (url) {
+    // eslint-disable-next-line no-await-in-loop -- sequential: paginated API
     const response: AxiosResponse<{ login?: string; type?: string }[]> = await axios.get(url, {
       headers: { Authorization: `Bearer ${token}` },
       timeout: TIMEOUT_MS,
@@ -92,6 +58,7 @@ const fetchAllGitLabMembers = async (
   let hasMore = true;
 
   while (hasMore) {
+    // eslint-disable-next-line no-await-in-loop -- sequential: paginated API
     const response: AxiosResponse<{ username: string }[]> = await axios.get(
       `${baseUrl}/api/v4/projects/${encodeURIComponent(projectPath)}/members/all`,
       {
@@ -132,6 +99,7 @@ export const fetchAvailableUsersFromRepos = async (): Promise<{
       if (repo.provider === 'github' && ghToken) {
         const ownerRepo = parseOwnerRepo(repo.url);
         if (!ownerRepo) continue;
+        // eslint-disable-next-line no-await-in-loop -- sequential: per-repo fetches with error isolation
         const users = await fetchAllGitHubContributors(ownerRepo, ghToken);
         for (const user of users) githubSet.add(user);
         log.info({ count: users.size, repo: repo.name }, 'Fetched all GitHub contributors');
@@ -141,6 +109,7 @@ export const fetchAvailableUsersFromRepos = async (): Promise<{
         const projectPath = parseProjectPath(repo.url);
         const baseUrl = parseBaseUrl(repo.url);
         if (!projectPath) continue;
+        // eslint-disable-next-line no-await-in-loop -- sequential: per-repo fetches with error isolation
         const users = await fetchAllGitLabMembers(projectPath, baseUrl, glToken);
         for (const user of users) gitlabSet.add(user);
         log.info({ count: users.size, repo: repo.name }, 'Fetched all GitLab members');

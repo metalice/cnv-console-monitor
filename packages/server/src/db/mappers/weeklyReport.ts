@@ -16,7 +16,7 @@ import { type WeeklyReportEntity } from '../entities/WeeklyReportEntity';
 export const entityToTeamMember = (entity: TeamMemberEntity): TeamMember => ({
   aiMapped: entity.ai_mapped,
   component: entity.component,
-  createdAt: entity.created_at?.toISOString() ?? null,
+  createdAt: entity.created_at.toISOString(),
   displayName: entity.display_name,
   email: entity.email,
   githubUsername: entity.github_username,
@@ -25,7 +25,7 @@ export const entityToTeamMember = (entity: TeamMemberEntity): TeamMember => ({
   isActive: entity.is_active,
   jiraAccountId: entity.jira_account_id,
   mappingConfidence: entity.mapping_confidence,
-  updatedAt: entity.updated_at?.toISOString() ?? null,
+  updatedAt: entity.updated_at.toISOString(),
 });
 
 const entityToPersonReport = (entity: PersonReportEntity): PersonReport => ({
@@ -34,7 +34,7 @@ const entityToPersonReport = (entity: PersonReportEntity): PersonReport => ({
   excluded: entity.excluded,
   jiraTickets: entity.jira_tickets as JiraTicket[],
   managerNotes: entity.manager_notes,
-  member: entity.member ? entityToTeamMember(entity.member) : ({} as TeamMember),
+  member: entityToTeamMember(entity.member),
   memberId: entity.member_id,
   prs: entity.prs as PRSummary[],
   sortOrder: entity.sort_order,
@@ -46,13 +46,13 @@ export const entityToWeeklyReport = (entity: WeeklyReportEntity): WeeklyReport =
 
   return {
     component: entity.component || null,
-    createdAt: entity.created_at?.toISOString() ?? null,
+    createdAt: entity.created_at.toISOString(),
     managerHighlights: entity.manager_highlights,
-    personReports: (entity.person_reports ?? []).map(entityToPersonReport),
+    personReports: entity.person_reports.map(entityToPersonReport),
     sentAt: entity.sent_at?.toISOString() ?? null,
     state: entity.state as 'DRAFT' | 'FINALIZED' | 'REVIEW' | 'SENT',
     taskSummary: entity.task_summary as TaskSummary | null,
-    updatedAt: entity.updated_at?.toISOString() ?? null,
+    updatedAt: entity.updated_at.toISOString(),
     warnings,
     weekEnd:
       entity.week_end instanceof Date

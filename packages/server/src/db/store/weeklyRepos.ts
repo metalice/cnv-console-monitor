@@ -7,12 +7,12 @@ const repo = () => AppDataSource.getRepository(WeeklyRepoEntity);
 
 const entityToWeeklyRepo = (entity: WeeklyRepoEntity): WeeklyRepo => ({
   component: entity.component,
-  createdAt: entity.created_at?.toISOString() ?? null,
+  createdAt: entity.created_at.toISOString(),
   enabled: entity.enabled,
   id: entity.id,
   name: entity.name,
   provider: entity.provider as 'github' | 'gitlab',
-  updatedAt: entity.updated_at?.toISOString() ?? null,
+  updatedAt: entity.updated_at.toISOString(),
   url: entity.url,
 });
 

@@ -106,16 +106,17 @@ router.put('/:provider', async (req: Request, res: Response, next: NextFunction)
           return;
         }
         const credentials = Buffer.from(`${jiraEmail}:${parsed.data.token}`).toString('base64');
-        const apiRes = await axios.get<{ displayName?: string; emailAddress?: string; name?: string }>(
-          `${jiraUrl}/rest/api/3/myself`,
-          {
-            headers: {
-              Accept: 'application/json',
-              Authorization: `Basic ${credentials}`,
-            },
-            timeout: 10000,
+        const apiRes = await axios.get<{
+          displayName?: string;
+          emailAddress?: string;
+          name?: string;
+        }>(`${jiraUrl}/rest/api/3/myself`, {
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Basic ${credentials}`,
           },
-        );
+          timeout: 10000,
+        });
         providerInfo = {
           email: apiRes.data.emailAddress,
           username: apiRes.data.displayName ?? apiRes.data.name ?? '',

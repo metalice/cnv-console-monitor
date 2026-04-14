@@ -65,8 +65,8 @@ export const PollProgress = ({ isStarting = false, onTrigger, status }: PollProg
         <StackItem>
           <ExpandableSection toggleText={`Activity log (${status.logs.length} entries)`}>
             <div className="app-weekly-log">
-              {status.logs.map((entry, idx) => (
-                <div className="app-weekly-log-entry" key={idx}>
+              {status.logs.map(entry => (
+                <div className="app-weekly-log-entry" key={`${entry.timestamp}-${entry.message}`}>
                   <Content className="app-text-muted" component="small">
                     {new Date(entry.timestamp).toLocaleTimeString()}
                   </Content>{' '}

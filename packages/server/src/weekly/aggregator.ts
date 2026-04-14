@@ -27,78 +27,161 @@ import {
 import { searchTeamTickets, type WeeklyJiraIssue } from '../clients/jira';
 import { fetchSheetRows, fetchVersionTabs, isSheetsConfigured } from '../clients/sheets';
 import {
-  createTeamMember,
-  findTeamMemberByJira,
   getEnabledWeeklyRepos,
   getSetting,
   getWeeklyReposByComponent,
   listActiveTeamMembers,
   savePersonReport,
-  updateTeamMember,
   upsertWeeklyReport,
 } from '../db/store';
 import { logger } from '../logger';
 
-import { setAvailableUsers } from './availableUsers';
+import { discoverAndMapMembers } from './identityMapper';
 import { logWeeklyPoll, stepWeeklyPoll } from './pollState';
+import {
+  daysBetween,
+  isBot,
+  parseBaseUrl,
+  parseOwnerRepo,
+  parseProjectPath,
+  stripMarkdownFences,
+} from './utils';
 
 const log = logger.child({ module: 'WeeklyReport:Aggregator' });
 
 const STUCK_DAYS_THRESHOLD = 3;
-const BOT_PATTERNS = ['[bot]', 'dependabot', 'openshift-cherrypick-robot', 'renovate', 'codecov'];
 
-const isBot = (username: string): boolean =>
-  BOT_PATTERNS.some(pat => username.toLowerCase().includes(pat));
+type RepoConfig = { name: string; provider: string; url: string };
 
-const daysBetween = (from: string, to: Date): number =>
-  Math.floor((to.getTime() - new Date(from).getTime()) / 86_400_000);
+type GitHubFetchResult = {
+  configs: GitHubClientConfig[];
+  commits: GitHubCommit[];
+  prs: GitHubPR[];
+};
 
-const parseOwnerRepo = (url: string): string | null => {
-  try {
-    const { pathname } = new URL(url);
-    const parts = pathname
-      .replace(/^\//, '')
-      .replace(/\.git$/, '')
-      .split('/');
-    if (parts.length >= 2) {
-      return `${parts[0]}/${parts[1]}`;
+const fetchGitHubData = async (
+  repos: RepoConfig[],
+  since: string,
+  until: string,
+  warnings: string[],
+): Promise<GitHubFetchResult> => {
+  const result: GitHubFetchResult = { commits: [], configs: [], prs: [] };
+  if (repos.length === 0) return result;
+
+  const ghToken = await getSetting('github.token');
+  if (!ghToken) {
+    const msg = `⚠ GitHub token missing — ${repos.length} GitHub repo(s) configured but no token set. Go to Settings > Integrations > Git and set github.token`;
+    warnings.push(msg);
+    logWeeklyPoll('github', msg);
+    return result;
+  }
+
+  for (const ghRepo of repos) {
+    const ownerRepo = parseOwnerRepo(ghRepo.url);
+    if (!ownerRepo) {
+      const msg = `Cannot parse owner/repo from URL: ${ghRepo.url}`;
+      warnings.push(msg);
+      logWeeklyPoll('github', msg);
+      continue;
     }
-    return null;
-  } catch {
-    return null;
+    const config: GitHubClientConfig = { repo: ownerRepo, token: ghToken };
+    result.configs.push(config);
+    try {
+      // eslint-disable-next-line no-await-in-loop -- sequential: per-repo fetches with error isolation
+      const [prs, commits] = await Promise.all([
+        fetchPRs(config, since, until),
+        fetchCommits(config, since, until),
+      ]);
+      result.prs = [...result.prs, ...prs];
+      result.commits = [...result.commits, ...commits];
+      logWeeklyPoll('github', `${ghRepo.name}: ${prs.length} PRs, ${commits.length} commits`);
+    } catch (err) {
+      const msg = `GitHub data unavailable for ${ghRepo.name}: ${(err as Error).message}`;
+      log.warn({ err, repo: ghRepo.name }, 'GitHub fetch failed');
+      warnings.push(msg);
+      logWeeklyPoll('github', `⚠ ${msg}`);
+    }
   }
+
+  return result;
 };
 
-const parseProjectPath = (url: string): string | null => {
+type GitLabFetchResult = {
+  commits: GitLabCommit[];
+  mrs: GitLabMR[];
+};
+
+const fetchGitLabData = async (
+  repos: RepoConfig[],
+  since: string,
+  until: string,
+  warnings: string[],
+): Promise<GitLabFetchResult> => {
+  const result: GitLabFetchResult = { commits: [], mrs: [] };
+  if (repos.length === 0) return result;
+
+  const glToken = await getSetting('gitlab.token');
+  if (!glToken) {
+    const msg = `⚠ GitLab token missing — ${repos.length} GitLab repo(s) configured but no token set. Go to Settings > Integrations > Git and set gitlab.token`;
+    warnings.push(msg);
+    logWeeklyPoll('gitlab', msg);
+    return result;
+  }
+
+  for (const glRepo of repos) {
+    const baseUrl = parseBaseUrl(glRepo.url);
+    const projectPath = parseProjectPath(glRepo.url);
+    if (!projectPath) {
+      const msg = `Cannot parse project path from URL: ${glRepo.url}`;
+      warnings.push(msg);
+      logWeeklyPoll('gitlab', msg);
+      continue;
+    }
+    const config: GitLabClientConfig = { project: projectPath, token: glToken, url: baseUrl };
+    try {
+      // eslint-disable-next-line no-await-in-loop -- sequential: per-repo fetches with error isolation
+      const [mrs, commits] = await Promise.all([
+        fetchMRs(config, since, until),
+        fetchGitLabCommits(config, since, until),
+      ]);
+      result.mrs = [...result.mrs, ...mrs];
+      result.commits = [...result.commits, ...commits];
+      logWeeklyPoll('gitlab', `${glRepo.name}: ${mrs.length} MRs, ${commits.length} commits`);
+    } catch (err) {
+      const msg = `GitLab data unavailable for ${glRepo.name}: ${(err as Error).message}`;
+      log.warn({ err, repo: glRepo.name }, 'GitLab fetch failed');
+      warnings.push(msg);
+      logWeeklyPoll('gitlab', `⚠ ${msg}`);
+    }
+  }
+
+  return result;
+};
+
+const fetchJiraData = async (
+  since: string,
+  component: string | undefined,
+  warnings: string[],
+): Promise<WeeklyJiraIssue[]> => {
+  const jiraToken = await getSetting('jira.token');
+  if (!jiraToken) {
+    const msg = '⚠ Jira token missing — Go to Settings > Integrations > Jira and set jira.token';
+    warnings.push(msg);
+    logWeeklyPoll('jira', msg);
+    return [];
+  }
+
   try {
-    const { pathname } = new URL(url);
-    const path = pathname.replace(/^\//, '').replace(/\.git$/, '');
-    return path || null;
-  } catch {
-    return null;
+    const issues = await searchTeamTickets(since, component);
+    logWeeklyPoll('jira', `${issues.length} Jira tickets fetched`);
+    return issues;
+  } catch (err) {
+    const msg = `Jira data unavailable: ${(err as Error).message}`;
+    log.warn({ err }, 'Jira fetch failed');
+    warnings.push(msg);
+    logWeeklyPoll('jira', `⚠ ${msg}`);
+    return [];
   }
-};
-
-const parseBaseUrl = (url: string): string => {
-  try {
-    const parsed = new URL(url);
-    return `${parsed.protocol}//${parsed.host}`;
-  } catch {
-    return url;
-  }
-};
-
-const stripMarkdownFences = (text: string): string => {
-  const trimmed = text.trim();
-  const lines = trimmed.split('\n');
-  if (
-    lines.length >= 2 &&
-    lines[0].startsWith('```') &&
-    lines[lines.length - 1].startsWith('```')
-  ) {
-    return lines.slice(1, -1).join('\n').trim();
-  }
-  return trimmed;
 };
 
 type AggregatorOptions = {
@@ -106,187 +189,36 @@ type AggregatorOptions = {
   date?: Date;
 };
 
-export const generateWeeklyReport = async (options: AggregatorOptions = {}): Promise<void> => {
-  const { component, date = new Date() } = options;
-  const { end, start } = getWeekBoundaries(date);
-  const weekId = getWeekId(date);
-  const since = start.toISOString();
-  const until = end.toISOString();
-  const warnings: string[] = [];
+const findRepoSlugForPR = (configs: GitHubClientConfig[], _pr: GitHubPR): string =>
+  configs[0]?.repo ?? 'unknown/unknown';
 
-  log.info({ component, since, until, weekId }, 'Starting weekly report generation');
-
-  const ai = getAIService();
-  if (!ai) {
-    throw new Error(
-      'AI service is not configured. Enable AI in Settings > AI Configuration to use weekly reports.',
-    );
-  }
-
-  // --- Discover repos from the weekly repo config ---
-  const repos = component
-    ? await getWeeklyReposByComponent(component)
-    : await getEnabledWeeklyRepos();
-
-  const githubRepos = repos.filter(repo => repo.provider === 'github');
-  const gitlabRepos = repos.filter(repo => repo.provider === 'gitlab');
-
-  if (repos.length === 0) {
-    const msg = 'No weekly report repositories configured. Add repos in Settings > Weekly Report.';
-    warnings.push(msg);
-    logWeeklyPoll('github', msg);
-  }
-
-  // --- Fetch from all GitHub repos ---
-  stepWeeklyPoll('github', 'Fetching GitHub PRs and commits');
-  let githubPRs: GitHubPR[] = [];
-  let githubCommits: GitHubCommit[] = [];
-  const githubConfigs: GitHubClientConfig[] = [];
-
-  if (githubRepos.length > 0) {
-    const ghToken = await getSetting('github.token');
-    if (!ghToken) {
-      const msg = `⚠ GitHub token missing — ${githubRepos.length} GitHub repo(s) configured but no token set. Go to Settings > Integrations > Git and set github.token`;
-      warnings.push(msg);
-      logWeeklyPoll('github', msg);
-    } else {
-      for (const ghRepo of githubRepos) {
-        const ownerRepo = parseOwnerRepo(ghRepo.url);
-        if (!ownerRepo) {
-          const msg = `Cannot parse owner/repo from URL: ${ghRepo.url}`;
-          warnings.push(msg);
-          logWeeklyPoll('github', msg);
-          continue;
-        }
-        const config: GitHubClientConfig = { repo: ownerRepo, token: ghToken };
-        githubConfigs.push(config);
-        try {
-          const [prs, commits] = await Promise.all([
-            fetchPRs(config, since, until),
-            fetchCommits(config, since, until),
-          ]);
-          githubPRs = [...githubPRs, ...prs];
-          githubCommits = [...githubCommits, ...commits];
-          logWeeklyPoll('github', `${ghRepo.name}: ${prs.length} PRs, ${commits.length} commits`);
-        } catch (err) {
-          const msg = `GitHub data unavailable for ${ghRepo.name}: ${(err as Error).message}`;
-          log.warn({ err, repo: ghRepo.name }, 'GitHub fetch failed');
-          warnings.push(msg);
-          logWeeklyPoll('github', `⚠ ${msg}`);
-        }
-      }
-    }
-  }
-
-  // --- Fetch from all GitLab repos ---
-  stepWeeklyPoll('gitlab', 'Fetching GitLab MRs and commits');
-  let gitlabMRs: GitLabMR[] = [];
-  let gitlabCommits: GitLabCommit[] = [];
-
-  if (gitlabRepos.length > 0) {
-    const glToken = await getSetting('gitlab.token');
-    if (!glToken) {
-      const msg = `⚠ GitLab token missing — ${gitlabRepos.length} GitLab repo(s) configured but no token set. Go to Settings > Integrations > Git and set gitlab.token`;
-      warnings.push(msg);
-      logWeeklyPoll('gitlab', msg);
-    } else {
-      for (const glRepo of gitlabRepos) {
-        const baseUrl = parseBaseUrl(glRepo.url);
-        const projectPath = parseProjectPath(glRepo.url);
-        if (!projectPath) {
-          const msg = `Cannot parse project path from URL: ${glRepo.url}`;
-          warnings.push(msg);
-          logWeeklyPoll('gitlab', msg);
-          continue;
-        }
-        const config: GitLabClientConfig = { project: projectPath, token: glToken, url: baseUrl };
-        try {
-          const [mrs, commits] = await Promise.all([
-            fetchMRs(config, since, until),
-            fetchGitLabCommits(config, since, until),
-          ]);
-          gitlabMRs = [...gitlabMRs, ...mrs];
-          gitlabCommits = [...gitlabCommits, ...commits];
-          logWeeklyPoll('gitlab', `${glRepo.name}: ${mrs.length} MRs, ${commits.length} commits`);
-        } catch (err) {
-          const msg = `GitLab data unavailable for ${glRepo.name}: ${(err as Error).message}`;
-          log.warn({ err, repo: glRepo.name }, 'GitLab fetch failed');
-          warnings.push(msg);
-          logWeeklyPoll('gitlab', `⚠ ${msg}`);
-        }
-      }
-    }
-  }
-
-  // --- Fetch Jira tickets (uses existing Jira config) ---
-  stepWeeklyPoll('jira', 'Fetching Jira tickets');
-  let jiraIssues: WeeklyJiraIssue[] = [];
-  const jiraToken = await getSetting('jira.token');
-  if (!jiraToken) {
-    const msg = '⚠ Jira token missing — Go to Settings > Integrations > Jira and set jira.token';
-    warnings.push(msg);
-    logWeeklyPoll('jira', msg);
-  } else {
-    try {
-      jiraIssues = await searchTeamTickets(start.toISOString().split('T')[0], component);
-      logWeeklyPoll('jira', `${jiraIssues.length} Jira tickets fetched`);
-    } catch (err) {
-      const msg = `Jira data unavailable: ${(err as Error).message}`;
-      log.warn({ err }, 'Jira fetch failed');
-      warnings.push(msg);
-      logWeeklyPoll('jira', `⚠ ${msg}`);
-    }
-  }
-
-  // --- Fetch Sheets data (optional) ---
-  stepWeeklyPoll('sheets', 'Fetching spreadsheet data');
-  if (await isSheetsConfigured()) {
-    try {
-      const tabs = await fetchVersionTabs();
-      if (tabs.length > 0) {
-        const latestTab = tabs[tabs.length - 1];
-        await fetchSheetRows(latestTab.name);
-      }
-    } catch (err) {
-      log.warn({ err }, 'Sheets fetch failed');
-      warnings.push(`Sheets data unavailable: ${(err as Error).message}`);
-    }
-  }
-
-  // --- AI Identity Mapping (required) ---
-  stepWeeklyPoll('ai-mapping', 'AI mapping team identities');
-  const existingMembers = await listActiveTeamMembers(component);
-  await discoverAndMapMembers(ai, githubPRs, jiraIssues, gitlabMRs, existingMembers, component);
-  const members = await listActiveTeamMembers(component);
-
-  // --- Enrich PRs and build per-person data ---
-  stepWeeklyPoll('ai-summary', 'Building reports and AI summaries');
+const enrichGitHubPRs = async (
+  githubPRs: GitHubPR[],
+  githubConfigs: GitHubClientConfig[],
+): Promise<PRSummary[]> => {
   const now = new Date();
-  const allPRs: PRSummary[] = [];
-  const allTickets: JiraTicket[] = [];
-  const allCommits: CommitSummary[] = [];
+  const prs: PRSummary[] = [];
+  const primaryConfig = githubConfigs[0];
 
   for (const pr of githubPRs) {
     if (!pr.user || isBot(pr.user.login)) continue;
 
     let reviews: { reviewer: string; state: string; submittedAt: string | null }[] = [];
     let commentCount = 0;
-    const prConfig = githubConfigs[0];
-    if (prConfig) {
-      try {
-        const [rawReviews, rawComments] = await Promise.all([
-          fetchPRReviews(prConfig, pr.number),
-          fetchPRCommentCount(prConfig, pr.number),
-        ]);
-        reviews = rawReviews.map(rev => ({
-          reviewer: rev.user?.login ?? 'unknown',
-          state: rev.state,
-          submittedAt: rev.submitted_at,
-        }));
-        commentCount = rawComments;
-      } catch {
-        log.debug({ pr: pr.number }, 'Failed to enrich PR');
-      }
+    try {
+      // eslint-disable-next-line no-await-in-loop -- sequential: ordered PR enrichment
+      const [rawReviews, rawComments] = await Promise.all([
+        fetchPRReviews(primaryConfig, pr.number),
+        fetchPRCommentCount(primaryConfig, pr.number),
+      ]);
+      reviews = rawReviews.map(rev => ({
+        reviewer: rev.user?.login ?? 'unknown',
+        state: rev.state,
+        submittedAt: rev.submitted_at,
+      }));
+      commentCount = rawComments;
+    } catch {
+      log.debug({ pr: pr.number }, 'Failed to enrich PR');
     }
 
     const prState = pr.merged_at ? 'merged' : pr.draft ? 'draft' : (pr.state as 'open' | 'closed');
@@ -298,7 +230,7 @@ export const generateWeeklyReport = async (options: AggregatorOptions = {}): Pro
       reviews.length === 0;
     const repoSlug = findRepoSlugForPR(githubConfigs, pr);
 
-    allPRs.push({
+    prs.push({
       author: pr.user.login,
       closedAt: pr.closed_at,
       commentCount,
@@ -317,39 +249,45 @@ export const generateWeeklyReport = async (options: AggregatorOptions = {}): Pro
     });
   }
 
-  for (const mergeRequest of gitlabMRs) {
-    if (isBot(mergeRequest.author.username)) continue;
-    const mrState = mergeRequest.merged_at
-      ? 'merged'
-      : mergeRequest.state === 'opened'
-        ? mergeRequest.work_in_progress
-          ? 'draft'
-          : 'open'
-        : 'closed';
-    allPRs.push({
-      author: mergeRequest.author.username,
-      closedAt: null,
-      commentCount: 0,
-      createdAt: mergeRequest.created_at,
-      daysOpen: daysBetween(mergeRequest.created_at, now),
-      isStuck: false,
-      mergedAt: mergeRequest.merged_at,
-      number: mergeRequest.iid,
-      reviewCount: 0,
-      reviews: [],
-      source: 'gitlab',
-      state: mrState,
-      title: mergeRequest.title,
-      updatedAt: mergeRequest.updated_at,
-      url: mergeRequest.web_url,
-    });
-  }
+  return prs;
+};
 
-  for (const issue of jiraIssues) {
+const mapGitLabMRs = (gitlabMRs: GitLabMR[]): PRSummary[] =>
+  gitlabMRs
+    .filter(mergeRequest => !isBot(mergeRequest.author.username))
+    .map(mergeRequest => {
+      const mrState = mergeRequest.merged_at
+        ? 'merged'
+        : mergeRequest.state === 'opened'
+          ? mergeRequest.work_in_progress
+            ? 'draft'
+            : 'open'
+          : 'closed';
+      return {
+        author: mergeRequest.author.username,
+        closedAt: null,
+        commentCount: 0,
+        createdAt: mergeRequest.created_at,
+        daysOpen: daysBetween(mergeRequest.created_at, new Date()),
+        isStuck: false,
+        mergedAt: mergeRequest.merged_at,
+        number: mergeRequest.iid,
+        reviewCount: 0,
+        reviews: [],
+        source: 'gitlab' as const,
+        state: mrState,
+        title: mergeRequest.title,
+        updatedAt: mergeRequest.updated_at,
+        url: mergeRequest.web_url,
+      };
+    });
+
+const mapJiraTickets = (jiraIssues: WeeklyJiraIssue[]): JiraTicket[] =>
+  jiraIssues.map(issue => {
     const status = issue.fields.status.name;
     const isBlocked =
       status.toLowerCase().includes('block') ||
-      (issue.fields.labels ?? []).some(lbl => lbl.toLowerCase().includes('blocked'));
+      issue.fields.labels.some(lbl => lbl.toLowerCase().includes('blocked'));
     const transitions = (issue.changelog?.histories ?? []).flatMap(history =>
       history.items
         .filter(item => item.field === 'status')
@@ -361,7 +299,7 @@ export const generateWeeklyReport = async (options: AggregatorOptions = {}): Pro
         })),
     );
 
-    allTickets.push({
+    return {
       assignee: issue.fields.assignee?.displayName ?? null,
       assigneeAccountId: issue.fields.assignee?.accountId ?? null,
       commentCount: issue.fields.comment?.total ?? 0,
@@ -369,8 +307,8 @@ export const generateWeeklyReport = async (options: AggregatorOptions = {}): Pro
       isBlocked,
       issueType: issue.fields.issuetype?.name ?? null,
       key: issue.key,
-      labels: issue.fields.labels ?? [],
-      lastCommentDate: issue.fields.comment?.comments?.length
+      labels: issue.fields.labels,
+      lastCommentDate: issue.fields.comment?.comments.length
         ? issue.fields.comment.comments[issue.fields.comment.comments.length - 1].created
         : null,
       priority: issue.fields.priority?.name ?? null,
@@ -380,12 +318,18 @@ export const generateWeeklyReport = async (options: AggregatorOptions = {}): Pro
       transitions,
       updatedAt: issue.fields.updated,
       url: `https://redhat.atlassian.net/browse/${issue.key}`,
-    });
-  }
+    };
+  });
+
+const collectCommitSummaries = (
+  githubCommits: GitHubCommit[],
+  gitlabCommits: GitLabCommit[],
+): CommitSummary[] => {
+  const commits: CommitSummary[] = [];
 
   for (const commit of githubCommits) {
     if (!commit.author || isBot(commit.author.login)) continue;
-    allCommits.push({
+    commits.push({
       author: commit.author.login,
       date: commit.commit.author?.date ?? '',
       message: commit.commit.message.split('\n')[0],
@@ -396,7 +340,7 @@ export const generateWeeklyReport = async (options: AggregatorOptions = {}): Pro
   }
   for (const commit of gitlabCommits) {
     if (isBot(commit.author_name)) continue;
-    allCommits.push({
+    commits.push({
       author: commit.author_name,
       date: commit.committed_date,
       message: commit.title,
@@ -405,6 +349,78 @@ export const generateWeeklyReport = async (options: AggregatorOptions = {}): Pro
       url: commit.web_url,
     });
   }
+
+  return commits;
+};
+
+export const generateWeeklyReport = async (options: AggregatorOptions = {}): Promise<void> => {
+  const { component, date = new Date() } = options;
+  const { end, start } = getWeekBoundaries(date);
+  const weekId = getWeekId(date);
+  const since = start.toISOString();
+  const until = end.toISOString();
+  const warnings: string[] = [];
+
+  log.info({ component, since, until, weekId }, 'Starting weekly report generation');
+
+  const ai = getAIService();
+
+  // --- Discover repos from the weekly repo config ---
+  const repos = component
+    ? await getWeeklyReposByComponent(component)
+    : await getEnabledWeeklyRepos();
+
+  if (repos.length === 0) {
+    const msg = 'No weekly report repositories configured. Add repos in Settings > Weekly Report.';
+    warnings.push(msg);
+    logWeeklyPoll('github', msg);
+  }
+
+  // --- Fetch from all sources ---
+  stepWeeklyPoll('github', 'Fetching GitHub PRs and commits');
+  const githubRepos = repos.filter(repo => repo.provider === 'github');
+  const githubData = await fetchGitHubData(githubRepos, since, until, warnings);
+
+  stepWeeklyPoll('gitlab', 'Fetching GitLab MRs and commits');
+  const gitlabRepos = repos.filter(repo => repo.provider === 'gitlab');
+  const gitlabData = await fetchGitLabData(gitlabRepos, since, until, warnings);
+
+  stepWeeklyPoll('jira', 'Fetching Jira tickets');
+  const jiraIssues = await fetchJiraData(start.toISOString().split('T')[0], component, warnings);
+
+  // --- Fetch Sheets data (optional) ---
+  stepWeeklyPoll('sheets', 'Fetching spreadsheet data');
+  if (await isSheetsConfigured()) {
+    try {
+      const tabs = await fetchVersionTabs();
+      if (tabs.length > 0) {
+        const latestTab = tabs[tabs.length - 1];
+        await fetchSheetRows(latestTab.name);
+      }
+    } catch (err) {
+      log.warn({ err }, 'Sheets fetch failed');
+      warnings.push(`Sheets data unavailable: ${(err as Error).message}`);
+    }
+  }
+
+  // --- AI Identity Mapping (required) ---
+  stepWeeklyPoll('ai-mapping', 'AI mapping team identities');
+  await discoverAndMapMembers({
+    ai,
+    component,
+    githubPRs: githubData.prs,
+    gitlabMRs: gitlabData.mrs,
+    jiraIssues,
+  });
+  const members = await listActiveTeamMembers(component);
+
+  // --- Enrich PRs and build per-person data ---
+  stepWeeklyPoll('ai-summary', 'Building reports and AI summaries');
+  const githubPRSummaries = await enrichGitHubPRs(githubData.prs, githubData.configs);
+  const gitlabPRSummaries = mapGitLabMRs(gitlabData.mrs);
+  const allPRs: PRSummary[] = [...githubPRSummaries, ...gitlabPRSummaries];
+  const allTickets = mapJiraTickets(jiraIssues);
+  const allCommits = collectCommitSummaries(githubData.commits, gitlabData.commits);
 
   // --- AI Task Summary ---
   let taskSummary: TaskSummary | null = null;
@@ -416,7 +432,7 @@ export const generateWeeklyReport = async (options: AggregatorOptions = {}): Pro
       prs: JSON.stringify(allPRs),
       tickets: JSON.stringify(allTickets),
     });
-    if (taskResult?.content) {
+    if (taskResult.content) {
       try {
         taskSummary = JSON.parse(stripMarkdownFences(taskResult.content)) as TaskSummary;
       } catch {
@@ -436,7 +452,7 @@ export const generateWeeklyReport = async (options: AggregatorOptions = {}): Pro
           .length,
       ),
     });
-    if (summaryResult?.content) {
+    if (summaryResult.content) {
       managerHighlights = summaryResult.content;
     }
   } catch (err) {
@@ -480,6 +496,7 @@ export const generateWeeklyReport = async (options: AggregatorOptions = {}): Pro
 
   for (let i = 0; i < membersNeedingAI.length; i += AI_CONCURRENCY) {
     const batch = membersNeedingAI.slice(i, i + AI_CONCURRENCY);
+    // eslint-disable-next-line no-await-in-loop -- sequential: batched AI concurrency control
     const results = await Promise.allSettled(
       batch.map(async ({ member, memberCommits, memberPRs, memberTickets }) => {
         const result = await ai.runPrompt('person-highlights', {
@@ -488,7 +505,7 @@ export const generateWeeklyReport = async (options: AggregatorOptions = {}): Pro
           prs: JSON.stringify(memberPRs),
           tickets: JSON.stringify(memberTickets),
         });
-        return { id: member.id, summary: result?.content ?? null };
+        return { id: member.id, summary: result.content || null };
       }),
     );
     for (const result of results) {
@@ -525,143 +542,4 @@ export const generateWeeklyReport = async (options: AggregatorOptions = {}): Pro
   );
 
   log.info({ component, memberCount: members.length, weekId }, 'Weekly report generation complete');
-};
-
-const findRepoSlugForPR = (configs: GitHubClientConfig[], _pr: GitHubPR): string =>
-  configs[0]?.repo ?? 'unknown/unknown';
-
-type AIServiceType = NonNullable<ReturnType<typeof getAIService>>;
-
-const discoverAndMapMembers = async (
-  ai: AIServiceType,
-  githubPRs: GitHubPR[],
-  jiraIssues: WeeklyJiraIssue[],
-  gitlabMRs: GitLabMR[],
-  existingMembers: Awaited<ReturnType<typeof listActiveTeamMembers>>,
-  component?: string,
-): Promise<void> => {
-  const githubUsers = [
-    ...new Set(
-      githubPRs
-        .map(pr => pr.user?.login)
-        .filter((user): user is string => Boolean(user))
-        .filter(user => !isBot(user)),
-    ),
-  ];
-
-  const jiraUsersMap = new Map(
-    jiraIssues
-      .filter(issue => issue.fields.assignee && !isBot(issue.fields.assignee.displayName))
-      .map(issue => [issue.fields.assignee!.accountId, issue.fields.assignee!.displayName]),
-  );
-  const jiraUsers = [...jiraUsersMap.entries()].map(([accountId, displayName]) => ({
-    accountId,
-    displayName,
-  }));
-
-  const gitlabUsers = [
-    ...new Set(gitlabMRs.map(glMR => glMR.author.username).filter(user => !isBot(user))),
-  ];
-
-  setAvailableUsers({ githubUsers, gitlabUsers });
-
-  logWeeklyPoll(
-    'ai-mapping',
-    `Found ${githubUsers.length} GitHub, ${jiraUsers.length} Jira, ${gitlabUsers.length} GitLab users`,
-  );
-
-  // --- Step 1: Create team members from Jira assignees only ---
-  let createdCount = 0;
-  for (const jiraUser of jiraUsers) {
-    const existing = await findTeamMemberByJira(jiraUser.accountId);
-    if (!existing) {
-      await createTeamMember({
-        component,
-        displayName: jiraUser.displayName,
-        jiraAccountId: jiraUser.accountId,
-      });
-      createdCount++;
-    }
-  }
-  if (createdCount > 0) {
-    logWeeklyPoll('ai-mapping', `Created ${createdCount} new team members from Jira`);
-  }
-
-  if (githubUsers.length === 0 && gitlabUsers.length === 0) {
-    logWeeklyPoll(
-      'ai-mapping',
-      'No GitHub/GitLab users to map — configure tokens in Settings > Integrations',
-    );
-    return;
-  }
-
-  // --- Step 2: AI maps Jira members → GitHub/GitLab usernames ---
-  const refreshedMembers = await listActiveTeamMembers(component);
-
-  const result = await ai.runPrompt('identity-mapping', {
-    existingMembers: JSON.stringify(
-      refreshedMembers.map(member => ({
-        displayName: member.display_name,
-        githubUsername: member.github_username,
-        gitlabUsername: member.gitlab_username,
-        id: member.id,
-        jiraAccountId: member.jira_account_id,
-      })),
-    ),
-    githubUsers: JSON.stringify(githubUsers),
-    gitlabUsers: JSON.stringify(gitlabUsers),
-    jiraUsers: JSON.stringify(jiraUsers),
-  });
-
-  if (!result?.content) {
-    logWeeklyPoll('ai-mapping', '⚠ AI identity mapping returned empty response');
-    return;
-  }
-
-  const mappings = JSON.parse(stripMarkdownFences(result.content)) as {
-    confidence: number;
-    displayName: string;
-    existingMemberId?: string;
-    githubUsername?: string;
-    gitlabUsername?: string;
-    jiraAccountId?: string;
-  }[];
-
-  logWeeklyPoll('ai-mapping', `AI returned ${mappings.length} identity mappings`);
-
-  let mappedCount = 0;
-  for (const mapping of mappings) {
-    const ghLabel = mapping.githubUsername ?? '—';
-    const glLabel = mapping.gitlabUsername ?? '—';
-    const confidence = Math.round(mapping.confidence * 100);
-
-    if (!mapping.existingMemberId) {
-      logWeeklyPoll('ai-mapping', `  skip: ${mapping.displayName} (no matching team member)`);
-      continue;
-    }
-
-    const hasMapping = mapping.githubUsername ?? mapping.gitlabUsername;
-    if (!hasMapping) {
-      logWeeklyPoll('ai-mapping', `  no match: ${mapping.displayName} (${confidence}%)`);
-      continue;
-    }
-
-    logWeeklyPoll(
-      'ai-mapping',
-      `  mapped: ${mapping.displayName} → GitHub: ${ghLabel}, GitLab: ${glLabel} (${confidence}%)`,
-    );
-
-    const updates: Record<string, unknown> = {
-      aiMapped: true,
-      mappingConfidence: mapping.confidence,
-    };
-    if (mapping.githubUsername) updates.githubUsername = mapping.githubUsername;
-    if (mapping.gitlabUsername) updates.gitlabUsername = mapping.gitlabUsername;
-    if (mapping.displayName) updates.displayName = mapping.displayName;
-    await updateTeamMember(mapping.existingMemberId, updates);
-    mappedCount++;
-  }
-
-  logWeeklyPoll('ai-mapping', `Mapped ${mappedCount}/${refreshedMembers.length} members`);
-  log.info({ mappedCount, total: refreshedMembers.length }, 'AI identity mapping complete');
 };

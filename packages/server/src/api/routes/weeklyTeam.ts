@@ -1,6 +1,11 @@
 import { Router } from 'express';
 
-import { TeamMemberCreateSchema, TeamMemberUpdateSchema } from '@cnv-monitor/shared';
+import {
+  type TeamMemberCreate,
+  TeamMemberCreateSchema,
+  type TeamMemberUpdate,
+  TeamMemberUpdateSchema,
+} from '@cnv-monitor/shared';
 
 import { entityToTeamMember } from '../../db/mappers/weeklyReport';
 import {
@@ -34,7 +39,7 @@ weeklyTeamRouter.get('/', async (req, res, next) => {
 
 weeklyTeamRouter.post('/', validateBody(TeamMemberCreateSchema), async (req, res, next) => {
   try {
-    const member = await createTeamMember(req.body);
+    const member = await createTeamMember(req.body as TeamMemberCreate);
     log.info({ id: member.id, name: member.display_name }, 'Team member created');
     res.status(201).json(entityToTeamMember(member));
   } catch (err) {
@@ -45,7 +50,7 @@ weeklyTeamRouter.post('/', validateBody(TeamMemberCreateSchema), async (req, res
 weeklyTeamRouter.put('/:memberId', validateBody(TeamMemberUpdateSchema), async (req, res, next) => {
   try {
     const memberId = req.params.memberId as string;
-    await updateTeamMember(memberId, req.body);
+    await updateTeamMember(memberId, req.body as TeamMemberUpdate);
     const updated = await getTeamMemberById(memberId);
     if (!updated) {
       res.status(404).json({ error: 'Member not found' });

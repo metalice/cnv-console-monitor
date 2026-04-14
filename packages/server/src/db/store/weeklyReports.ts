@@ -8,10 +8,10 @@ const repo = () => AppDataSource.getRepository(WeeklyReportEntity);
 const personRepo = () => AppDataSource.getRepository(PersonReportEntity);
 
 export const listWeeklyReports = async (component?: string): Promise<WeeklyReportEntity[]> => {
-  const query = repo().createQueryBuilder('wr').orderBy('wr.week_start', 'DESC');
+  const query = repo().createQueryBuilder('report').orderBy('report.week_start', 'DESC');
 
   if (component) {
-    query.where('(wr.component = :component OR wr.component = :empty)', {
+    query.where('(report.component = :component OR report.component = :empty)', {
       component,
       empty: '',
     });
