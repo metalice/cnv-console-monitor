@@ -50,6 +50,18 @@ const AboutPage = React.lazy(() =>
 const TestExplorerPage = React.lazy(() =>
   import('./pages/TestExplorerPage').then(mod => ({ default: mod.TestExplorerPage })),
 );
+const WeeklyDashboardPage = React.lazy(() =>
+  import('./pages/WeeklyDashboardPage').then(mod => ({ default: mod.WeeklyDashboardPage })),
+);
+const WeeklyReportEditorPage = React.lazy(() =>
+  import('./pages/ReportEditorPage').then(mod => ({ default: mod.ReportEditorPage })),
+);
+const WeeklyTeamPage = React.lazy(() =>
+  import('./pages/WeeklyTeamPage').then(mod => ({ default: mod.WeeklyTeamPage })),
+);
+const WeeklyHistoryPage = React.lazy(() =>
+  import('./pages/WeeklyHistoryPage').then(mod => ({ default: mod.WeeklyHistoryPage })),
+);
 
 const PageFallback: React.FC = () => (
   <div className="app-page-spinner">
@@ -77,6 +89,10 @@ const App: React.FC = () => (
         <Route element={<TestProfilePage />} path="/test/:uniqueId" />
         <Route element={<TestExplorerPage />} path="/test-explorer" />
         <Route element={<AboutPage />} path="/about" />
+        <Route element={<WeeklyDashboardPage />} path="/weekly" />
+        <Route element={<WeeklyReportEditorPage />} path="/weekly/report/:weekId" />
+        <Route element={<WeeklyTeamPage />} path="/weekly/team" />
+        <Route element={<WeeklyHistoryPage />} path="/weekly/history" />
         <Route element={<Navigate replace to="/" />} path="*" />
       </Routes>
     </Suspense>

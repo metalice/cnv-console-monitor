@@ -12,6 +12,7 @@ import { EditActivity } from './entities/EditActivity';
 import { FileDraft } from './entities/FileDraft';
 import { Launch } from './entities/Launch';
 import { NotificationSubscription } from './entities/NotificationSubscription';
+import { PersonReportEntity } from './entities/PersonReportEntity';
 import { PipelineRun } from './entities/PipelineRun';
 import { Quarantine } from './entities/Quarantine';
 import { QuarantineLog } from './entities/QuarantineLog';
@@ -20,11 +21,14 @@ import { RepoFile } from './entities/RepoFile';
 import { Repository } from './entities/Repository';
 import { Setting } from './entities/Setting';
 import { SettingsLog } from './entities/SettingsLog';
+import { TeamMemberEntity } from './entities/TeamMemberEntity';
 import { TestItem } from './entities/TestItem';
 import { TriageLog } from './entities/TriageLog';
 import { UserEntity } from './entities/UserEntity';
 import { UserPreference } from './entities/UserPreference';
 import { UserToken } from './entities/UserToken';
+import { WeeklyRepoEntity } from './entities/WeeklyRepoEntity';
+import { WeeklyReportEntity } from './entities/WeeklyReportEntity';
 import { InitialSchema1709000000000 } from './migrations/1709000000000-InitialSchema';
 import { AddArtifactsUrl1709000000001 } from './migrations/1709000000001-AddArtifactsUrl';
 import { AddSettings1709000000002 } from './migrations/1709000000002-AddSettings';
@@ -50,6 +54,8 @@ import { AddAICorrections1709000000022 } from './migrations/1709000000022-AddAIC
 import { AddTestExplorer1709000000023 } from './migrations/1709000000023-AddTestExplorer';
 import { AddFileDrafts1709000000024 } from './migrations/1709000000024-AddFileDrafts';
 import { AddEditActivity1709000000025 } from './migrations/1709000000025-AddEditActivity';
+import { AddWeeklyReport1709000000026 } from './migrations/1709000000026-AddWeeklyReport';
+import { AddWeeklyRepos1709000000027 } from './migrations/1709000000027-AddWeeklyRepos';
 
 export const AppDataSource = new DataSource({
   entities: [
@@ -74,6 +80,10 @@ export const AppDataSource = new DataSource({
     UserToken,
     FileDraft,
     EditActivity,
+    TeamMemberEntity,
+    WeeklyReportEntity,
+    PersonReportEntity,
+    WeeklyRepoEntity,
   ],
   logging: false,
   migrations: [
@@ -102,6 +112,8 @@ export const AppDataSource = new DataSource({
     AddTestExplorer1709000000023,
     AddFileDrafts1709000000024,
     AddEditActivity1709000000025,
+    AddWeeklyReport1709000000026,
+    AddWeeklyRepos1709000000027,
   ],
   synchronize: false,
   type: 'postgres',

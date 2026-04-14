@@ -11,9 +11,9 @@ export type RPLaunch = {
   number: number;
   status: string;
   description?: string;
-  startTime: number;
-  endTime?: number;
-  lastModified?: number;
+  startTime: number | string;
+  endTime?: number | string;
+  lastModified?: number | string;
   approximateDuration?: number;
   statistics: {
     executions: { total?: number; passed?: number; failed?: number; skipped?: number };
@@ -29,8 +29,8 @@ export type RPTestItem = {
   description?: string;
   status: string;
   type: string;
-  startTime: number;
-  endTime?: number;
+  startTime: number | string;
+  endTime?: number | string;
   attributes: { key?: string; value: string }[];
   issue?: {
     issueType: string;
@@ -60,6 +60,18 @@ export type RPLogEntry = {
   level: string;
   time: number;
   binaryContent?: { id: string; contentType: string };
+};
+
+/** RP may return epoch ms (number) or ISO-8601 strings — normalize to epoch ms. */
+export const toEpochMs = (value: number | string): number => {
+  if (typeof value === 'number') {
+    return value;
+  }
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) {
+    throw new Error(`Cannot parse RP timestamp: ${value}`);
+  }
+  return parsed;
 };
 
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });

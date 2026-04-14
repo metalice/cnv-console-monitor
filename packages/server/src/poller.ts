@@ -4,6 +4,7 @@ import {
   fetchLaunches,
   type RPLaunch,
 } from './clients/reportportal';
+import { toEpochMs } from './clients/reportportal-types';
 import { type LaunchRecord, type TestItemRecord, upsertLaunch } from './db/store';
 import { getErrorInfo, setGlobalRetryCounter } from './utils/retry';
 import { logger } from './logger';
@@ -80,7 +81,7 @@ const parseLaunchRecord = (rpLaunch: RPLaunch): LaunchRecord => {
       parseClusterFromHosts(extractAttribute(attrs, 'HOSTS')),
     cnv_version: extractAttribute(attrs, 'CNV_XY_VER') || extractAttribute(attrs, 'VERSION'),
     duration: rpLaunch.approximateDuration,
-    end_time: rpLaunch.endTime,
+    end_time: rpLaunch.endTime != null ? toEpochMs(rpLaunch.endTime) : undefined,
     failed: execs.failed || 0,
     name: rpLaunch.name,
     number: rpLaunch.number,
@@ -88,7 +89,7 @@ const parseLaunchRecord = (rpLaunch: RPLaunch): LaunchRecord => {
     passed: execs.passed || 0,
     rp_id: rpLaunch.id,
     skipped: execs.skipped || 0,
-    start_time: rpLaunch.startTime,
+    start_time: toEpochMs(rpLaunch.startTime),
     status: rpLaunch.status,
     tier: extractAttribute(attrs, 'TIER'),
     total: execs.total || 0,
@@ -352,7 +353,7 @@ export const refreshStaleInProgress = async (): Promise<number> => {
         await repo.update(
           { rp_id: row.rp_id },
           {
-            end_time: rpLaunch.endTime ?? null,
+            end_time: rpLaunch.endTime != null ? toEpochMs(rpLaunch.endTime) : null,
             failed: rpLaunch.statistics.executions.failed ?? 0,
             passed: rpLaunch.statistics.executions.passed ?? 0,
             skipped: rpLaunch.statistics.executions.skipped ?? 0,

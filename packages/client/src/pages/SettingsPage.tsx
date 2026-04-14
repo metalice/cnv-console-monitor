@@ -17,6 +17,7 @@ import { useCtrlSave } from '../components/settings/useCtrlSave';
 import { UserManagement } from '../components/settings/UserManagement';
 import { useSettingsPageNav } from '../components/settings/useSettingsPageNav';
 import { useSettingsState } from '../components/settings/useSettingsState';
+import { WeeklyRepoSettings } from '../components/settings/WeeklyRepoSettings';
 
 export const SettingsPage = () => {
   useEffect(() => {
@@ -123,6 +124,10 @@ export const SettingsPage = () => {
         />
 
         <NotificationPreview />
+
+        <div className="app-mb-lg">
+          <WeeklyRepoSettings />
+        </div>
 
         <div className="app-mb-lg">
           <UserManagement />

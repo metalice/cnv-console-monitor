@@ -112,6 +112,20 @@ export {
   updateSubscription,
 } from './subscriptions';
 export {
+  createTeamMember,
+  findTeamMemberByGithub,
+  findTeamMemberByGitlab,
+  findTeamMemberByJira,
+  findTeamMemberByNormalizedName,
+  getTeamMemberById,
+  listActiveTeamMembers,
+  listAllTeamMembers,
+  mergeTeamMembers,
+  softDeleteTeamMember,
+  updateTeamMember,
+  upsertTeamMemberByGithub,
+} from './teamMembers';
+export {
   clearAllTestItems,
   getAllTestItems,
   getFailedTestItems,
@@ -160,3 +174,21 @@ export {
   invalidateUserToken,
   saveUserToken,
 } from './userTokens';
+export {
+  getCurrentWeeklyReport,
+  getWeeklyReport,
+  listWeeklyReports,
+  savePersonReport,
+  updatePersonReportNotes,
+  updateWeeklyReportNotes,
+  updateWeeklyReportState,
+  upsertWeeklyReport,
+} from './weeklyReports';
+export {
+  createWeeklyRepo,
+  deleteWeeklyRepo,
+  getAllWeeklyRepos,
+  getEnabledWeeklyRepos,
+  getWeeklyReposByComponent,
+  updateWeeklyRepo,
+} from './weeklyRepos';

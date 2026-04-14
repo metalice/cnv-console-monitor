@@ -98,18 +98,29 @@ router.put('/:provider', async (req: Request, res: Response, next: NextFunction)
         providerInfo = { email: apiRes.data.email, username: apiRes.data.login };
       } else if (provider === 'jira') {
         const { config } = await import('../../config');
-        if (!config.jira.url) {
+        const { getSetting } = await import('../../db/store');
+        const jiraUrl = (await getSetting('jira.url')) || config.jira.url;
+        const jiraEmail = (await getSetting('jira.email')) || config.jira.email;
+        if (!jiraUrl) {
           res.status(400).json({ error: 'Jira URL is not configured in the server settings.' });
           return;
         }
-        const apiRes = await axios.get<{ emailAddress?: string; name: string }>(
-          `${config.jira.url}/rest/api/2/myself`,
-          {
-            headers: { Authorization: `Bearer ${parsed.data.token}` },
-            timeout: 10000,
+        const credentials = Buffer.from(`${jiraEmail}:${parsed.data.token}`).toString('base64');
+        const apiRes = await axios.get<{
+          displayName?: string;
+          emailAddress?: string;
+          name?: string;
+        }>(`${jiraUrl}/rest/api/3/myself`, {
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Basic ${credentials}`,
           },
-        );
-        providerInfo = { email: apiRes.data.emailAddress, username: apiRes.data.name };
+          timeout: 10000,
+        });
+        providerInfo = {
+          email: apiRes.data.emailAddress,
+          username: apiRes.data.displayName ?? apiRes.data.name ?? '',
+        };
       }
     } catch (err: unknown) {
       const axiosErr = err as {
