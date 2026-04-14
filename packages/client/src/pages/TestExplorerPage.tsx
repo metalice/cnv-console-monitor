@@ -36,6 +36,8 @@ import {
   fetchDraftPaths,
   fetchExplorerStats,
   fetchTree,
+  generateDocsApi,
+  type GenerateDocsInput,
   syncAllRepos,
   syncRepo,
 } from '../api/testExplorer';
@@ -45,6 +47,7 @@ import { AIInsightsDrawer } from '../components/test-explorer/AIInsightsDrawer';
 import { EditActivitySection } from '../components/test-explorer/EditActivitySection';
 import { FileDetail } from '../components/test-explorer/FileDetail';
 import { FileTree } from '../components/test-explorer/FileTree';
+import { GenerateProgressBanner } from '../components/test-explorer/GenerateProgressBanner';
 import { QuarantineDashboard } from '../components/test-explorer/QuarantineDashboard';
 import { CreateQuarantineModal } from '../components/test-explorer/QuarantineModal';
 import { SubmitDraftsModal } from '../components/test-explorer/SubmitDraftsModal';
@@ -133,6 +136,18 @@ export const TestExplorerPage: React.FC = () => {
       setTimeout(() => refetch(), 5000);
     },
   });
+
+  const generateMutation = useMutation({
+    mutationFn: (tests: GenerateDocsInput[]) => generateDocsApi(tests),
+  });
+
+  const handleGenerateDocs = useCallback(
+    (tests: GenerateDocsInput[]) => {
+      generateMutation.mutate(tests);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- generateMutation is stable via useMutation
+    [],
+  );
 
   const handleQuarantine = useCallback((node: TreeNode) => {
     setQuarantineTarget(node);
@@ -264,6 +279,7 @@ export const TestExplorerPage: React.FC = () => {
 
       <PageSection>
         <SyncProgressBanner />
+        <GenerateProgressBanner />
       </PageSection>
 
       {(syncMutation.isError || syncErrors.length > 0) && (
@@ -367,6 +383,7 @@ export const TestExplorerPage: React.FC = () => {
                 draftPaths={draftPathSet}
                 selectedPath={selectedNode?.path}
                 tree={tree}
+                onGenerateDocs={handleGenerateDocs}
                 onSelect={n => {
                   setSelectedNode(n);
                   setHighlightInfo(null);
@@ -376,6 +393,7 @@ export const TestExplorerPage: React.FC = () => {
             <div className="app-explorer-detail-panel">
               {selectedNode ? (
                 <FileDetail
+                  draftPaths={draftPathSet}
                   highlightInfo={highlightInfo}
                   node={selectedNode}
                   onNavigate={(path, highlight) => {
