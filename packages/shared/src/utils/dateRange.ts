@@ -31,3 +31,26 @@ export const formatDateRange = (start: Date, end: Date): string => {
   const endStr = end.toLocaleDateString('en-US', { ...opts, year: 'numeric' });
   return `${startStr} - ${endStr}`;
 };
+
+export const getReportId = (since: string, until: string): string => {
+  const start = new Date(since);
+  const end = new Date(until);
+  const { end: weekEnd, start: weekStart } = getWeekBoundaries(start);
+  const isWeekAligned =
+    start.toDateString() === weekStart.toDateString() &&
+    end.toDateString() === weekEnd.toDateString();
+  return isWeekAligned ? getWeekId(start) : `${since.split('T')[0]}_${until.split('T')[0]}`;
+};
+
+const MAX_REPORT_RANGE_DAYS = 30;
+
+export const validateDateRange = (since: string, until: string): string | null => {
+  const start = new Date(since);
+  const end = new Date(until);
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return 'Invalid date format.';
+  if (start >= end) return 'Start date must be before end date.';
+  const daysDiff = Math.ceil((end.getTime() - start.getTime()) / 86_400_000);
+  if (daysDiff > MAX_REPORT_RANGE_DAYS)
+    return `Date range cannot exceed ${MAX_REPORT_RANGE_DAYS} days.`;
+  return null;
+};

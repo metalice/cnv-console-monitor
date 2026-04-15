@@ -61,7 +61,7 @@ export const WeeklyHistoryPage = () => {
   return (
     <>
       <PageSection>
-        <Content component="h1">Weekly Report History</Content>
+        <Content component="h1">Team Report History</Content>
         <Content component="small">
           {reports?.length ?? 0} report{reports?.length !== 1 ? 's' : ''}
         </Content>
@@ -91,7 +91,11 @@ export const WeeklyHistoryPage = () => {
                   isClickable
                   className="app-weekly-history-row"
                   key={report.weekId}
-                  onRowClick={() => navigate(`/weekly/report/${report.weekId}`)}
+                  onRowClick={() =>
+                    navigate(
+                      `/report/${encodeURIComponent(report.component ?? '')}/${report.weekId}`,
+                    )
+                  }
                 >
                   <Td dataLabel="Week ID">{report.weekId}</Td>
                   <Td dataLabel="Date Range">

@@ -18,7 +18,7 @@ import {
 import { logger } from '../../logger';
 import { validateBody } from '../middleware/validate';
 
-const log = logger.child({ module: 'WeeklyReport:Routes' });
+const log = logger.child({ module: 'TeamReport:Routes' });
 
 export const weeklyReportsRouter = Router();
 
@@ -49,7 +49,8 @@ weeklyReportsRouter.get('/current', async (req, res, next) => {
 
 weeklyReportsRouter.get('/:weekId', async (req, res, next) => {
   try {
-    const report = await getWeeklyReport(req.params.weekId);
+    const component = req.query.component as string | undefined;
+    const report = await getWeeklyReport(req.params.weekId, component);
     if (!report) {
       res.status(404).json({ error: 'Report not found' });
       return;
@@ -66,9 +67,10 @@ weeklyReportsRouter.put(
   async (req, res, next) => {
     try {
       const weekId = req.params.weekId as string;
+      const component = (req.query.component as string) || '';
       const body = req.body as UpdateReportRequest;
 
-      await updateWeeklyReportNotes(weekId, body.managerHighlights, body.taskSummary);
+      await updateWeeklyReportNotes(weekId, component, body.managerHighlights, body.taskSummary);
 
       if (body.personUpdates) {
         await Promise.all(
@@ -82,7 +84,7 @@ weeklyReportsRouter.put(
         );
       }
 
-      const updated = await getWeeklyReport(weekId);
+      const updated = await getWeeklyReport(weekId, component || undefined);
       if (!updated) {
         res.status(404).json({ error: 'Report not found' });
         return;
@@ -97,8 +99,9 @@ weeklyReportsRouter.put(
 weeklyReportsRouter.post('/:weekId/finalize', async (req, res, next) => {
   try {
     const weekId = req.params.weekId;
-    await updateWeeklyReportState(weekId, 'FINALIZED');
-    log.info({ weekId }, 'Weekly report finalized');
+    const component = req.query.component as string | undefined;
+    await updateWeeklyReportState(weekId, 'FINALIZED', component);
+    log.info({ component, weekId }, 'Team report finalized');
     res.json({ success: true });
   } catch (err) {
     next(err);
@@ -108,7 +111,8 @@ weeklyReportsRouter.post('/:weekId/finalize', async (req, res, next) => {
 weeklyReportsRouter.post('/:weekId/send', async (req, res, next) => {
   try {
     const weekId = req.params.weekId;
-    const report = await getWeeklyReport(weekId);
+    const component = req.query.component as string | undefined;
+    const report = await getWeeklyReport(weekId, component);
     if (!report) {
       res.status(404).json({ error: 'Report not found' });
       return;
@@ -116,8 +120,8 @@ weeklyReportsRouter.post('/:weekId/send', async (req, res, next) => {
 
     const { distributeWeeklyReport } = await import('../../notifiers/sendWeeklyReport');
     await distributeWeeklyReport(entityToWeeklyReport(report));
-    await updateWeeklyReportState(weekId, 'SENT');
-    log.info({ weekId }, 'Weekly report sent');
+    await updateWeeklyReportState(weekId, 'SENT', component);
+    log.info({ component, weekId }, 'Team report sent');
     res.json({ success: true });
   } catch (err) {
     next(err);
@@ -131,7 +135,7 @@ weeklyReportsRouter.post('/:weekId/ai-enhance', async (req, res, next) => {
     const component = req.query.component as string | undefined;
     await generateWeeklyReport({ component });
 
-    const report = await getWeeklyReport(weekId);
+    const report = await getWeeklyReport(weekId, component);
     if (!report) {
       res.status(404).json({ error: 'Report not found' });
       return;

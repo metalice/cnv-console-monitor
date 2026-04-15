@@ -1,5 +1,7 @@
+/* eslint-disable max-lines -- orchestrator module, will be split in a follow-up */
 import {
   type CommitSummary,
+  getReportId,
   getWeekBoundaries,
   getWeekId,
   type JiraTicket,
@@ -37,7 +39,7 @@ import {
 import { logger } from '../logger';
 
 import { discoverAndMapMembers } from './identityMapper';
-import { logWeeklyPoll, stepWeeklyPoll } from './pollState';
+import { logWeeklyPoll, setCurrentPollComponent, stepWeeklyPoll } from './pollState';
 import {
   daysBetween,
   isBot,
@@ -187,6 +189,8 @@ const fetchJiraData = async (
 type AggregatorOptions = {
   component?: string;
   date?: Date;
+  since?: string;
+  until?: string;
 };
 
 const findRepoSlugForPR = (configs: GitHubClientConfig[], _pr: GitHubPR): string =>
@@ -195,8 +199,12 @@ const findRepoSlugForPR = (configs: GitHubClientConfig[], _pr: GitHubPR): string
 const enrichGitHubPRs = async (
   githubPRs: GitHubPR[],
   githubConfigs: GitHubClientConfig[],
+  since: string,
+  until: string,
 ): Promise<PRSummary[]> => {
   const now = new Date();
+  const sinceDate = new Date(since);
+  const untilDate = new Date(until);
   const prs: PRSummary[] = [];
   const primaryConfig = githubConfigs[0];
 
@@ -221,7 +229,9 @@ const enrichGitHubPRs = async (
       log.debug({ pr: pr.number }, 'Failed to enrich PR');
     }
 
-    const prState = pr.merged_at ? 'merged' : pr.draft ? 'draft' : (pr.state as 'open' | 'closed');
+    const mergedAt = pr.merged_at ? new Date(pr.merged_at) : null;
+    const mergedInRange = mergedAt !== null && mergedAt >= sinceDate && mergedAt <= untilDate;
+    const prState = mergedInRange ? 'merged' : pr.draft ? 'draft' : (pr.state as 'open' | 'closed');
     const daysOpen = daysBetween(pr.created_at, now);
     const isStuck =
       prState !== 'merged' &&
@@ -252,11 +262,18 @@ const enrichGitHubPRs = async (
   return prs;
 };
 
-const mapGitLabMRs = (gitlabMRs: GitLabMR[]): PRSummary[] =>
-  gitlabMRs
+const mapGitLabMRs = (gitlabMRs: GitLabMR[], since: string, until: string): PRSummary[] => {
+  const sinceDate = new Date(since);
+  const untilDate = new Date(until);
+
+  return gitlabMRs
     .filter(mergeRequest => !isBot(mergeRequest.author.username))
     .map(mergeRequest => {
-      const mrState = mergeRequest.merged_at
+      const mergedInRange =
+        mergeRequest.merged_at !== null &&
+        new Date(mergeRequest.merged_at) >= sinceDate &&
+        new Date(mergeRequest.merged_at) <= untilDate;
+      const mrState = mergedInRange
         ? 'merged'
         : mergeRequest.state === 'opened'
           ? mergeRequest.work_in_progress
@@ -281,13 +298,12 @@ const mapGitLabMRs = (gitlabMRs: GitLabMR[]): PRSummary[] =>
         url: mergeRequest.web_url,
       };
     });
+};
 
 const mapJiraTickets = (jiraIssues: WeeklyJiraIssue[]): JiraTicket[] =>
   jiraIssues.map(issue => {
     const status = issue.fields.status.name;
-    const isBlocked =
-      status.toLowerCase().includes('block') ||
-      issue.fields.labels.some(lbl => lbl.toLowerCase().includes('blocked'));
+    const isBlocked = (issue.fields.priority?.name ?? '').toLowerCase() === 'blocker';
     const transitions = (issue.changelog?.histories ?? []).flatMap(history =>
       history.items
         .filter(item => item.field === 'status')
@@ -328,9 +344,10 @@ const collectCommitSummaries = (
   const commits: CommitSummary[] = [];
 
   for (const commit of githubCommits) {
-    if (!commit.author || isBot(commit.author.login)) continue;
+    const author = commit.author?.login ?? commit.commit.author?.name ?? '';
+    if (!author || isBot(author)) continue;
     commits.push({
-      author: commit.author.login,
+      author,
       date: commit.commit.author?.date ?? '',
       message: commit.commit.message.split('\n')[0],
       sha: commit.sha.slice(0, 7),
@@ -353,15 +370,27 @@ const collectCommitSummaries = (
   return commits;
 };
 
+// eslint-disable-next-line sonarjs/cognitive-complexity -- large orchestrator function, splitting adds indirection
 export const generateWeeklyReport = async (options: AggregatorOptions = {}): Promise<void> => {
   const { component, date = new Date() } = options;
-  const { end, start } = getWeekBoundaries(date);
-  const weekId = getWeekId(date);
-  const since = start.toISOString();
-  const until = end.toISOString();
+  let since: string;
+  let until: string;
+  let weekId: string;
+
+  if (options.since && options.until) {
+    since = new Date(options.since).toISOString();
+    until = new Date(options.until).toISOString();
+    weekId = getReportId(options.since, options.until);
+  } else {
+    const { end, start } = getWeekBoundaries(date);
+    since = start.toISOString();
+    until = end.toISOString();
+    weekId = getWeekId(date);
+  }
   const warnings: string[] = [];
 
-  log.info({ component, since, until, weekId }, 'Starting weekly report generation');
+  setCurrentPollComponent(component);
+  log.info({ component, since, until, weekId }, 'Starting team report generation');
 
   const ai = getAIService();
 
@@ -386,7 +415,7 @@ export const generateWeeklyReport = async (options: AggregatorOptions = {}): Pro
   const gitlabData = await fetchGitLabData(gitlabRepos, since, until, warnings);
 
   stepWeeklyPoll('jira', 'Fetching Jira tickets');
-  const jiraIssues = await fetchJiraData(start.toISOString().split('T')[0], component, warnings);
+  const jiraIssues = await fetchJiraData(since.split('T')[0], component, warnings);
 
   // --- Fetch Sheets data (optional) ---
   stepWeeklyPoll('sheets', 'Fetching spreadsheet data');
@@ -416,8 +445,8 @@ export const generateWeeklyReport = async (options: AggregatorOptions = {}): Pro
 
   // --- Enrich PRs and build per-person data ---
   stepWeeklyPoll('ai-summary', 'Building reports and AI summaries');
-  const githubPRSummaries = await enrichGitHubPRs(githubData.prs, githubData.configs);
-  const gitlabPRSummaries = mapGitLabMRs(gitlabData.mrs);
+  const githubPRSummaries = await enrichGitHubPRs(githubData.prs, githubData.configs, since, until);
+  const gitlabPRSummaries = mapGitLabMRs(gitlabData.mrs, since, until);
   const allPRs: PRSummary[] = [...githubPRSummaries, ...gitlabPRSummaries];
   const allTickets = mapJiraTickets(jiraIssues);
   const allCommits = collectCommitSummaries(githubData.commits, gitlabData.commits);
@@ -472,7 +501,10 @@ export const generateWeeklyReport = async (options: AggregatorOptions = {}): Pro
       ? allTickets.filter(tkt => tkt.assigneeAccountId === member.jira_account_id)
       : [];
     const memberCommits = allCommits.filter(
-      cmt => cmt.author === member.github_username || cmt.author === member.gitlab_username,
+      cmt =>
+        cmt.author === member.github_username ||
+        cmt.author === member.gitlab_username ||
+        cmt.author === member.display_name,
     );
     const stats = {
       commitCount: memberCommits.length,
@@ -515,16 +547,38 @@ export const generateWeeklyReport = async (options: AggregatorOptions = {}): Pro
     }
   }
 
+  // --- Compute repo-level aggregate stats ---
+  const uniqueAuthors = new Set<string>();
+  for (const pr of allPRs) {
+    if (pr.state === 'merged' || pr.state === 'open' || pr.state === 'draft') {
+      uniqueAuthors.add(pr.author);
+    }
+  }
+  for (const cmt of allCommits) {
+    uniqueAuthors.add(cmt.author);
+  }
+
+  const aggregateStats = {
+    commitCount: allCommits.length,
+    contributorCount: uniqueAuthors.size,
+    prsMerged: allPRs.filter(pr => pr.state === 'merged').length,
+    storyPoints: allTickets
+      .filter(tkt => doneStatuses.has(tkt.status.toLowerCase()))
+      .reduce((sum, tkt) => sum + (tkt.storyPoints ?? 0), 0),
+    ticketsDone: allTickets.filter(tkt => doneStatuses.has(tkt.status.toLowerCase())).length,
+  };
+
   // --- Save report ---
   stepWeeklyPoll('saving', 'Saving weekly report');
   const report = await upsertWeeklyReport({
+    aggregateStats,
     component: component ?? '',
     managerHighlights,
     taskSummary,
     warnings,
-    weekEnd: end.toISOString().split('T')[0],
+    weekEnd: until.split('T')[0],
     weekId,
-    weekStart: start.toISOString().split('T')[0],
+    weekStart: since.split('T')[0],
   });
 
   await Promise.all(
@@ -535,6 +589,7 @@ export const generateWeeklyReport = async (options: AggregatorOptions = {}): Pro
         jiraTickets: memberTickets,
         memberId: member.id,
         prs: memberPRs,
+        reportId: report.id,
         stats,
         weekId: report.week_id,
       }),

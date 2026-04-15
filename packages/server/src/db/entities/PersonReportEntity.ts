@@ -34,9 +34,14 @@ export class PersonReportEntity {
   @Column({ default: '[]', type: 'jsonb' })
   prs!: unknown[];
 
-  @ManyToOne(() => WeeklyReportEntity, weeklyReport => weeklyReport.person_reports)
-  @JoinColumn({ name: 'week_id' })
+  @ManyToOne(() => WeeklyReportEntity, weeklyReport => weeklyReport.person_reports, {
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'report_id' })
   report!: WeeklyReportEntity;
+
+  @Column({ nullable: true, type: 'uuid' })
+  report_id!: string;
 
   @Column({ default: 0, type: 'int' })
   sort_order!: number;

@@ -2,20 +2,28 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   OneToMany,
-  PrimaryColumn,
+  PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 
 import { PersonReportEntity } from './PersonReportEntity';
 
 @Entity('weekly_reports')
+@Index('idx_weekly_reports_week_component', ['week_id', 'component'], { unique: true })
 export class WeeklyReportEntity {
+  @Column({ nullable: true, type: 'jsonb' })
+  aggregate_stats!: Record<string, unknown> | null;
+
   @Column({ default: '', type: 'varchar' })
   component!: string;
 
   @CreateDateColumn()
   created_at!: Date;
+
+  @PrimaryGeneratedColumn('uuid')
+  id!: string;
 
   @Column({ nullable: true, type: 'text' })
   manager_highlights!: string | null;
@@ -41,7 +49,7 @@ export class WeeklyReportEntity {
   @Column({ type: 'date' })
   week_end!: Date;
 
-  @PrimaryColumn({ type: 'varchar' })
+  @Column({ type: 'varchar' })
   week_id!: string;
 
   @Column({ type: 'date' })

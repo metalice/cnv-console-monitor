@@ -310,7 +310,7 @@ export const WeeklyRepoSettings = () => {
             ),
           }}
         >
-          <CardTitle>Weekly Report &mdash; Repositories</CardTitle>
+          <CardTitle>Team Report &mdash; Repositories</CardTitle>
         </CardHeader>
         <CardBody>
           {repos.length === 0 ? (

@@ -21,6 +21,9 @@
 .app-mt-md {
   margin-top: var(--pf-t--global--spacer--md);
 }
+.app-mt-lg {
+  margin-top: var(--pf-t--global--spacer--lg);
+}
 .app-mr-xs {
   margin-right: var(--pf-t--global--spacer--xs);
 }
@@ -371,6 +374,20 @@
 }
 .app-full-height {
   height: 100vh;
+}
+.app-empty-state-centered {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--pf-t--global--background--color--primary--default);
+}
+.pf-v6-c-page__main:has(> .app-empty-state-centered) {
+  height: calc(100vh - 56px);
+  overflow: hidden;
+}
+.pf-v6-c-page__main-container {
+  align-self: stretch;
+  max-height: none;
 }
 
 /* Centered spinner inside a card */
@@ -3386,8 +3403,21 @@
   margin: var(--pf-t--global--spacer--xs);
 }
 
+.app-weekly-highlights-panel {
+  background: var(--pf-t--global--background--color--secondary--default);
+  border: var(--pf-t--global--border--width--default) solid
+    var(--pf-t--global--border--color--default);
+  border-left-width: 3px;
+  border-left-color: var(--pf-t--global--color--status--info--default);
+  border-radius: var(--pf-t--global--border--radius--small);
+  padding: var(--pf-t--global--spacer--md) var(--pf-t--global--spacer--lg);
+}
+
 .app-weekly-highlights {
   white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+  margin-top: var(--pf-t--global--spacer--sm);
 }
 
 .app-weekly-editor-toolbar {

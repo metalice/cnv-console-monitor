@@ -1,5 +1,7 @@
 import React from 'react';
 
+import { type SubscriptionType } from '@cnv-monitor/shared';
+
 import {
   Alert,
   Button,
@@ -20,6 +22,7 @@ import type { AlertMessage } from './types';
 
 export type NewRowState = {
   name: string;
+  type: SubscriptionType;
   components: string[];
   slackWebhook: string;
   jiraWebhook: string;
@@ -29,6 +32,9 @@ export type NewRowState = {
   reminderEnabled: boolean;
   reminderTime: string;
   aiDigest?: boolean;
+  teamReportSlackWebhook: string;
+  teamReportEmailRecipients: string;
+  teamReportSchedule: string;
 };
 
 type NewSubscriptionFormProps = {
@@ -38,7 +44,7 @@ type NewSubscriptionFormProps = {
   newRowTested: boolean;
   availableComponents: string[];
   testingSubId: number | string | null;
-  subTestMessages: Record<number | string, AlertMessage>;
+  subTestMessages: Record<number | string, AlertMessage[]>;
   userEmail: string;
   onTest: () => void;
   onSave: () => void;
@@ -65,7 +71,10 @@ export const NewSubscriptionForm = ({
     setNewRowTested(false);
   };
 
-  const hasDestination = Boolean(newRow.slackWebhook || newRow.emailRecipients);
+  const hasDestination =
+    newRow.type === 'team_report'
+      ? Boolean(newRow.teamReportSlackWebhook || newRow.teamReportEmailRecipients)
+      : Boolean(newRow.slackWebhook || newRow.emailRecipients);
 
   return (
     <Card isCompact className="app-sub-card app-sub-card--new">
@@ -104,27 +113,37 @@ export const NewSubscriptionForm = ({
         />
 
         <ScheduleEditor
-          schedule={newRow.schedule}
+          schedule={
+            newRow.type === 'team_report'
+              ? newRow.teamReportSchedule || '0 9 * * 1'
+              : newRow.schedule
+          }
           subId={0}
           timezone="Asia/Jerusalem"
-          onScheduleChange={schedule => updateField('schedule', schedule)}
+          onScheduleChange={schedule =>
+            updateField(newRow.type === 'team_report' ? 'teamReportSchedule' : 'schedule', schedule)
+          }
           onTimezoneChange={() => {
             // no-op
           }}
         />
 
-        <NewSubscriptionExtras newRow={newRow} onFieldChange={updateField} />
+        {newRow.type !== 'team_report' && (
+          <NewSubscriptionExtras newRow={newRow} onFieldChange={updateField} />
+        )}
 
         {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: runtime data */}
-        {subTestMessages.new && (
+        {subTestMessages.new?.map((msg, idx) => (
           <Alert
             isInline
             isPlain
             className="app-mt-sm"
-            title={subTestMessages.new.text}
-            variant={subTestMessages.new.type}
+            // eslint-disable-next-line react/no-array-index-key -- static list from test result
+            key={idx}
+            title={msg.text}
+            variant={msg.type}
           />
-        )}
+        ))}
 
         <NewSubscriptionFooter
           canSave={newRowTested}

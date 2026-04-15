@@ -118,6 +118,7 @@ export {
   findTeamMemberByJira,
   findTeamMemberByNormalizedName,
   getTeamMemberById,
+  hardDeleteTeamMember,
   listActiveTeamMembers,
   listAllTeamMembers,
   mergeTeamMembers,
@@ -177,6 +178,7 @@ export {
 export {
   getCurrentWeeklyReport,
   getWeeklyReport,
+  getWeeklyReportById,
   listWeeklyReports,
   savePersonReport,
   updatePersonReportNotes,

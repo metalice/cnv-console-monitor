@@ -85,8 +85,22 @@ export const fetchMRs = async (
     [],
   );
 
-  log.info({ count: allMRs.length, project: config.project, since, until }, 'Fetched GitLab MRs');
-  return allMRs;
+  const sinceDate = new Date(since);
+  const untilDate = new Date(until);
+  const filtered = allMRs.filter(mergeRequest => {
+    const createdAt = new Date(mergeRequest.created_at);
+    const createdThisWeek = createdAt >= sinceDate && createdAt <= untilDate;
+    const mergedThisWeek =
+      mergeRequest.merged_at !== null &&
+      new Date(mergeRequest.merged_at) >= sinceDate &&
+      new Date(mergeRequest.merged_at) <= untilDate;
+    const isStillOpen = mergeRequest.state === 'opened';
+
+    return createdThisWeek || mergedThisWeek || isStillOpen;
+  });
+
+  log.info({ count: filtered.length, project: config.project, since, until }, 'Fetched GitLab MRs');
+  return filtered;
 };
 
 export const fetchGitLabCommits = async (

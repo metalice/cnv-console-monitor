@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { fetchWeeklyPollStatus, triggerWeeklyPoll } from '../api/weeklyPoll';
 import { useComponentFilter } from '../context/ComponentFilterContext';
+import { useToast } from '../context/ToastContext';
 
 const POLL_INTERVAL_MS = 2_000;
 
@@ -19,11 +20,12 @@ const INITIAL_STATE: WeeklyPollStatus = {
   status: 'idle',
 };
 
-export const useWeeklyPollStatus = () => {
+export const useWeeklyPollStatus = ({ silent = false } = {}) => {
   const [status, setStatus] = useState(INITIAL_STATE);
   const [isStarting, setIsStarting] = useState(false);
   const queryClient = useQueryClient();
   const { selectedComponent } = useComponentFilter();
+  const { addToast } = useToast();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeRef = useRef(false);
 
@@ -39,13 +41,21 @@ export const useWeeklyPollStatus = () => {
     if (!activeRef.current) return;
 
     try {
-      const updated = await fetchWeeklyPollStatus();
+      const updated = await fetchWeeklyPollStatus(selectedComponent);
       setStatus(updated);
 
-      if (updated.status === 'completed' || updated.status === 'failed') {
+      if (updated.status === 'completed') {
         stopPolling();
-        await queryClient.invalidateQueries({ queryKey: ['weeklyReports'] });
-        await queryClient.invalidateQueries({ queryKey: ['weeklyTeam'] });
+        if (!silent) addToast('success', 'Team report generated successfully');
+        void queryClient.invalidateQueries({ queryKey: ['weeklyReports'] });
+        void queryClient.invalidateQueries({ queryKey: ['weeklyTeam'] });
+        setStatus(INITIAL_STATE);
+        return;
+      }
+      if (updated.status === 'failed') {
+        stopPolling();
+        if (!silent) addToast('danger', 'Report generation failed', updated.error ?? undefined);
+        setStatus(INITIAL_STATE);
         return;
       }
     } catch {
@@ -55,7 +65,7 @@ export const useWeeklyPollStatus = () => {
     timerRef.current = setTimeout(() => {
       pollOnce().catch(() => undefined);
     }, POLL_INTERVAL_MS);
-  }, [queryClient, stopPolling]);
+  }, [addToast, queryClient, selectedComponent, silent, stopPolling]);
 
   const startPolling = useCallback(() => {
     stopPolling();
@@ -66,7 +76,7 @@ export const useWeeklyPollStatus = () => {
   }, [pollOnce, stopPolling]);
 
   useEffect(() => {
-    fetchWeeklyPollStatus()
+    fetchWeeklyPollStatus(selectedComponent)
       .then(initial => {
         setStatus(initial);
         if (initial.status === 'running') {
@@ -77,19 +87,25 @@ export const useWeeklyPollStatus = () => {
       .catch(() => undefined);
 
     return stopPolling;
-  }, [startPolling, stopPolling]);
+  }, [selectedComponent, startPolling, stopPolling]);
 
-  const trigger = useCallback(async () => {
-    setIsStarting(true);
-    try {
-      await triggerWeeklyPoll(selectedComponent);
-      const updated = await fetchWeeklyPollStatus();
-      setStatus(updated);
-      startPolling();
-    } finally {
-      setIsStarting(false);
-    }
-  }, [selectedComponent, startPolling]);
+  const trigger = useCallback(
+    async (params?: { components?: string[]; since?: string; until?: string }) => {
+      setIsStarting(true);
+      try {
+        await triggerWeeklyPoll({
+          component: selectedComponent,
+          ...params,
+        });
+        const updated = await fetchWeeklyPollStatus(selectedComponent);
+        setStatus(updated);
+        startPolling();
+      } finally {
+        setIsStarting(false);
+      }
+    },
+    [selectedComponent, startPolling],
+  );
 
   return { isStarting, status, trigger };
 };

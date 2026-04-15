@@ -71,7 +71,7 @@ export const WeeklyTeamPage = () => {
   }, []);
 
   const { data: members, error, isLoading } = useTeamMembers();
-  const pollStatus = useWeeklyPollStatus();
+  const pollStatus = useWeeklyPollStatus({ silent: true });
   const createMutation = useCreateTeamMember();
   const updateMutation = useUpdateTeamMember();
   const deleteMutation = useDeleteTeamMember();
@@ -197,11 +197,7 @@ export const WeeklyTeamPage = () => {
 
       {pollStatus.status.status === 'running' && (
         <PageSection>
-          <PollProgress
-            isStarting={pollStatus.isStarting}
-            status={pollStatus.status}
-            onTrigger={pollStatus.trigger}
-          />
+          <PollProgress status={pollStatus.status} />
         </PageSection>
       )}
 

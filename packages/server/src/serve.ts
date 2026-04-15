@@ -11,7 +11,7 @@ import { applySettingsOverrides, config, setLastPollAt } from './config';
 import { logger } from './logger';
 import { enrichLaunchesFromJenkins, pollReportPortal, refreshStaleInProgress } from './poller';
 import { isAutoPollPaused, isPollLocked, lockPoll, unlockPoll } from './pollLock';
-import { setupAckReminder, setupSubscriptionCrons } from './serve-cron';
+import { setupAckReminder, setupSubscriptionCrons, setupTeamReportCrons } from './serve-cron';
 import { broadcast, initWebSocket } from './ws';
 
 const log = logger.child({ module: 'Dashboard' });
@@ -114,6 +114,7 @@ const main = async (): Promise<void> => {
     );
 
     setupSubscriptionCrons().catch(err => log.error({ err }, 'Failed to setup subscription crons'));
+    setupTeamReportCrons().catch(err => log.error({ err }, 'Failed to setup team report crons'));
 
     const scheduleNextPoll = () => {
       const intervalMs = config.schedule.pollIntervalMinutes * 60 * 1000;

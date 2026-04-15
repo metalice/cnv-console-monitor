@@ -61,6 +61,7 @@ export type TriageLogRecord = {
 export type SubscriptionRecord = {
   id: number;
   name: string;
+  type: 'test' | 'team_report';
   components: string[];
   slackWebhook: string | null;
   jiraWebhook: string | null;
@@ -72,6 +73,9 @@ export type SubscriptionRecord = {
   reminderEnabled: boolean;
   reminderTime: string;
   reminderDays: string;
+  teamReportSlackWebhook?: string | null;
+  teamReportEmailRecipients?: string[];
+  teamReportSchedule?: string | null;
 };
 
 export type UserRecord = {

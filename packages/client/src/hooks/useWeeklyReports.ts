@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   aiEnhanceReport,
-  fetchCurrentWeeklyReport,
   fetchWeeklyReport,
   fetchWeeklyReportList,
   finalizeWeeklyReport,
@@ -20,36 +19,35 @@ export const useWeeklyReportList = () => {
   return useQuery({
     queryFn: () => fetchWeeklyReportList(selectedComponent),
     queryKey: ['weeklyReports', 'list', selectedComponent],
-    staleTime: TWO_MINUTES_MS,
   });
 };
 
-export const useCurrentWeeklyReport = () => {
-  const { selectedComponent } = useComponentFilter();
-  return useQuery({
-    queryFn: () => fetchCurrentWeeklyReport(selectedComponent),
-    queryKey: ['weeklyReports', 'current', selectedComponent],
-    staleTime: TWO_MINUTES_MS,
-  });
-};
-
-export const useWeeklyReport = (weekId: string | undefined) => {
-  return useQuery({
+export const useWeeklyReport = (weekId: string | undefined, component?: string) =>
+  useQuery({
     enabled: Boolean(weekId),
-    queryFn: () => fetchWeeklyReport(weekId ?? ''),
-    queryKey: ['weeklyReports', 'detail', weekId],
+    queryFn: () => fetchWeeklyReport(weekId ?? '', component),
+    queryKey: ['weeklyReports', 'detail', weekId, component],
     staleTime: TWO_MINUTES_MS,
   });
-};
 
 export const useUpdateWeeklyReport = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ data, weekId }: { data: UpdateReportRequest; weekId: string }) =>
-      updateWeeklyReport(weekId, data),
+    mutationFn: ({
+      component,
+      data,
+      weekId,
+    }: {
+      component?: string;
+      data: UpdateReportRequest;
+      weekId: string;
+    }) => updateWeeklyReport(weekId, data, component),
     onSuccess: (updated: WeeklyReport) => {
-      void queryClient.invalidateQueries({ queryKey: ['weeklyReports'] });
-      queryClient.setQueryData(['weeklyReports', 'detail', updated.weekId], updated);
+      queryClient.setQueryData(
+        ['weeklyReports', 'detail', updated.weekId, updated.component],
+        updated,
+      );
+      void queryClient.invalidateQueries({ queryKey: ['weeklyReports', 'list'] });
     },
   });
 };
@@ -57,7 +55,8 @@ export const useUpdateWeeklyReport = () => {
 export const useFinalizeWeeklyReport = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (weekId: string) => finalizeWeeklyReport(weekId),
+    mutationFn: ({ component, weekId }: { component?: string; weekId: string }) =>
+      finalizeWeeklyReport(weekId, component),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['weeklyReports'] });
     },
@@ -67,7 +66,8 @@ export const useFinalizeWeeklyReport = () => {
 export const useSendWeeklyReport = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (weekId: string) => sendWeeklyReport(weekId),
+    mutationFn: ({ component, weekId }: { component?: string; weekId: string }) =>
+      sendWeeklyReport(weekId, component),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['weeklyReports'] });
     },

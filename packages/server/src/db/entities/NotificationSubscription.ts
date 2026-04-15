@@ -47,8 +47,20 @@ export class NotificationSubscription {
   @Column({ nullable: true, type: 'varchar' })
   slack_webhook!: string | null;
 
+  @Column({ nullable: true, type: 'text' })
+  team_report_email_recipients!: string | null;
+
+  @Column({ nullable: true, type: 'varchar' })
+  team_report_schedule!: string | null;
+
+  @Column({ nullable: true, type: 'varchar' })
+  team_report_slack_webhook!: string | null;
+
   @Column({ default: 'Asia/Jerusalem', type: 'varchar' })
   timezone!: string;
+
+  @Column({ default: 'test', type: 'varchar' })
+  type!: string;
 
   @UpdateDateColumn()
   updated_at!: Date;

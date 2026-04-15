@@ -116,9 +116,10 @@ router.get('/file/:repoId/{*filePath}', async (req: Request, res: Response, next
       }
     }
 
-    const testBlocks = (file.frontmatter as unknown as Record<string, unknown>).testBlocks as
-      | { name: string; line: number; type: string }[]
-      | undefined;
+    const frontmatter = file.frontmatter as Record<string, unknown> | null;
+    const testBlocks =
+      (frontmatter?.testBlocks as { line: number; name: string; type: string }[] | undefined) ??
+      null;
 
     let testCaseLinks:
       | { caseId: string; caseTitle: string; testName: string; line: number }[]

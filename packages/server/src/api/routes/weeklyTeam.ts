@@ -11,6 +11,7 @@ import { entityToTeamMember } from '../../db/mappers/weeklyReport';
 import {
   createTeamMember,
   getTeamMemberById,
+  hardDeleteTeamMember,
   listActiveTeamMembers,
   listAllTeamMembers,
   mergeTeamMembers,
@@ -125,9 +126,20 @@ weeklyTeamRouter.post('/restore-deleted', async (_req, res, next) => {
 weeklyTeamRouter.delete('/:memberId', async (req, res, next) => {
   try {
     const memberId = req.params.memberId;
-    await softDeleteTeamMember(memberId);
-    log.info({ id: memberId }, 'Team member soft deleted');
-    res.json({ success: true });
+    const hard = req.query.hard === 'true';
+
+    if (hard) {
+      const deleted = await hardDeleteTeamMember(memberId);
+      if (!deleted) {
+        res.status(404).json({ error: 'Team member not found' });
+        return;
+      }
+      log.info({ id: memberId }, 'Team member permanently deleted');
+    } else {
+      await softDeleteTeamMember(memberId);
+      log.info({ id: memberId }, 'Team member deactivated');
+    }
+    res.json({ hard, success: true });
   } catch (err) {
     next(err);
   }

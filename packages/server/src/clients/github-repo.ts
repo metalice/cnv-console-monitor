@@ -51,10 +51,15 @@ export class GitHubProvider implements GitProvider {
       `/repos/${this.owner}/${this.repo}/git/ref/heads/${fromBranch}`,
     );
     const { sha } = (refRes.data as { object: { sha: string } }).object;
-    await this.client.post(`/repos/${this.owner}/${this.repo}/git/refs`, {
-      ref: `refs/heads/${name}`,
-      sha,
-    });
+    try {
+      await this.client.post(`/repos/${this.owner}/${this.repo}/git/refs`, {
+        ref: `refs/heads/${name}`,
+        sha,
+      });
+    } catch (err) {
+      const status = (err as { response?: { status?: number } }).response?.status;
+      if (status !== 422) throw err;
+    }
   }
 
   async createPR(params: {

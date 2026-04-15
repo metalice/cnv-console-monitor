@@ -11,21 +11,31 @@ export const listWeeklyReports = async (component?: string): Promise<WeeklyRepor
   const query = repo().createQueryBuilder('report').orderBy('report.week_start', 'DESC');
 
   if (component) {
-    query.where('(report.component = :component OR report.component = :empty)', {
-      component,
-      empty: '',
-    });
+    query.where('report.component = :component', { component });
   }
 
   return query.getMany();
 };
 
-export const getWeeklyReport = async (weekId: string): Promise<WeeklyReportEntity | null> => {
+export const getWeeklyReport = async (
+  weekId: string,
+  component?: string,
+): Promise<WeeklyReportEntity | null> => {
+  const where: Record<string, string> = { week_id: weekId };
+  if (component) {
+    where.component = component;
+  }
   return repo().findOne({
     relations: ['person_reports', 'person_reports.member'],
-    where: { week_id: weekId },
+    where,
   });
 };
+
+export const getWeeklyReportById = async (id: string): Promise<WeeklyReportEntity | null> =>
+  repo().findOne({
+    relations: ['person_reports', 'person_reports.member'],
+    where: { id },
+  });
 
 export const getCurrentWeeklyReport = async (
   weekId: string,
@@ -46,6 +56,7 @@ export const getCurrentWeeklyReport = async (
 };
 
 export const upsertWeeklyReport = async (data: {
+  aggregateStats?: Record<string, unknown> | null;
   component?: string;
   managerHighlights?: string | null;
   taskSummary?: TaskSummary | null;
@@ -54,7 +65,8 @@ export const upsertWeeklyReport = async (data: {
   weekId: string;
   weekStart: string;
 }): Promise<WeeklyReportEntity> => {
-  const existing = await repo().findOneBy({ week_id: data.weekId });
+  const componentVal = data.component ?? '';
+  const existing = await repo().findOneBy({ component: componentVal, week_id: data.weekId });
 
   if (existing) {
     if (data.managerHighlights !== undefined) {
@@ -63,6 +75,9 @@ export const upsertWeeklyReport = async (data: {
     if (data.taskSummary !== undefined) {
       existing.task_summary = data.taskSummary as Record<string, unknown> | null;
     }
+    if (data.aggregateStats !== undefined) {
+      existing.aggregate_stats = data.aggregateStats ?? null;
+    }
     if (data.warnings) {
       existing.warnings = data.warnings.join(',');
     }
@@ -70,7 +85,8 @@ export const upsertWeeklyReport = async (data: {
   }
 
   const report = repo().create({
-    component: data.component ?? '',
+    aggregate_stats: data.aggregateStats ?? null,
+    component: componentVal,
     manager_highlights: data.managerHighlights ?? null,
     state: 'DRAFT',
     task_summary: (data.taskSummary as Record<string, unknown> | null) ?? null,
@@ -85,10 +101,11 @@ export const upsertWeeklyReport = async (data: {
 
 export const updateWeeklyReportNotes = async (
   weekId: string,
+  component: string,
   managerHighlights?: string | null,
   taskSummary?: TaskSummary | null,
 ): Promise<void> => {
-  const report = await repo().findOneBy({ week_id: weekId });
+  const report = await repo().findOneBy({ component, week_id: weekId });
   if (!report) return;
 
   if (managerHighlights !== undefined) {
@@ -100,8 +117,16 @@ export const updateWeeklyReportNotes = async (
   await repo().save(report);
 };
 
-export const updateWeeklyReportState = async (weekId: string, state: string): Promise<void> => {
-  const report = await repo().findOneBy({ week_id: weekId });
+export const updateWeeklyReportState = async (
+  weekId: string,
+  state: string,
+  component?: string,
+): Promise<void> => {
+  const where: Record<string, string> = { week_id: weekId };
+  if (component) {
+    where.component = component;
+  }
+  const report = await repo().findOneBy(where);
   if (!report) return;
 
   report.state = state;
@@ -119,6 +144,7 @@ export const savePersonReport = async (data: {
   managerNotes?: string | null;
   memberId: string;
   prs: unknown[];
+  reportId: string;
   sortOrder?: number;
   stats: Record<string, number>;
   weekId: string;
@@ -132,6 +158,7 @@ export const savePersonReport = async (data: {
     existing.jira_tickets = data.jiraTickets;
     existing.commits = data.commits;
     existing.stats = data.stats;
+    existing.report_id = data.reportId;
     if (data.aiSummary !== undefined) existing.ai_summary = data.aiSummary ?? null;
     if (data.managerNotes !== undefined) existing.manager_notes = data.managerNotes ?? null;
     if (data.excluded !== undefined) existing.excluded = data.excluded;
@@ -147,6 +174,7 @@ export const savePersonReport = async (data: {
     manager_notes: data.managerNotes ?? null,
     member_id: data.memberId,
     prs: data.prs,
+    report_id: data.reportId,
     sort_order: data.sortOrder ?? 0,
     stats: data.stats,
     week_id: data.weekId,

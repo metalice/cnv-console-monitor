@@ -20,5 +20,7 @@ export const updateSubscriptionApi = (
 export const deleteSubscriptionApi = (id: number): Promise<{ success: boolean }> =>
   apiFetch(`/subscriptions/${id}`, { method: 'DELETE' });
 
-export const testSubscriptionApi = (id: number): Promise<{ success: boolean; message: string }> =>
+export const testSubscriptionApi = (
+  id: number,
+): Promise<{ success: boolean; message: string; results: string[] }> =>
   apiFetch(`/subscriptions/${id}/test`, { method: 'POST' });

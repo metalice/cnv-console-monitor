@@ -29,7 +29,9 @@ export const useSubscriptions = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const [subTestMessages, setSubTestMessages] = useState<Record<number | string, AlertMessage>>({});
+  const [subTestMessages, setSubTestMessages] = useState<Record<number | string, AlertMessage[]>>(
+    {},
+  );
   const [testingSubId, setTestingSubId] = useState<number | string | null>(null);
   const [newRow, setNewRow] = useState<NewRowState | null>(null);
   const [newRowTested, setNewRowTested] = useState(false);
@@ -38,6 +40,7 @@ export const useSubscriptions = () => {
   const createSub = useMutation({
     mutationFn: (data: {
       name: string;
+      type?: 'test' | 'team_report';
       components: string[];
       slackWebhook: string;
       jiraWebhook: string;
@@ -46,6 +49,9 @@ export const useSubscriptions = () => {
       enabled: boolean;
       reminderEnabled?: boolean;
       reminderTime?: string;
+      teamReportSlackWebhook?: string | null;
+      teamReportEmailRecipients?: string[];
+      teamReportSchedule?: string | null;
     }) =>
       createSubscriptionApi({
         ...data,
@@ -54,7 +60,11 @@ export const useSubscriptions = () => {
         reminderEnabled: data.reminderEnabled ?? false,
         reminderTime: data.reminderTime ?? '10:00',
         slackWebhook: data.slackWebhook || null,
+        teamReportEmailRecipients: data.teamReportEmailRecipients ?? [],
+        teamReportSchedule: data.teamReportSchedule ?? null,
+        teamReportSlackWebhook: data.teamReportSlackWebhook ?? null,
         timezone: 'Asia/Jerusalem',
+        type: data.type ?? 'test',
       }),
     onError: e => setSubSaveMsg({ text: e.message, type: 'danger' }),
     onSuccess: () => {
@@ -88,14 +98,25 @@ export const useSubscriptions = () => {
   const testSub = useMutation({
     mutationFn: (id: number) => {
       setTestingSubId(id);
+      setSubTestMessages(prev => {
+        const { [id]: _, ...rest } = prev;
+        return rest;
+      });
       return testSubscriptionApi(id);
     },
     onError: (error, id) => {
-      setSubTestMessages(prev => ({ ...prev, [id]: { text: error.message, type: 'danger' } }));
+      setSubTestMessages(prev => ({
+        ...prev,
+        [id]: [{ text: error.message, type: 'danger' }],
+      }));
       setTestingSubId(null);
     },
     onSuccess: (result, id) => {
-      setSubTestMessages(prev => ({ ...prev, [id]: { text: result.message, type: 'success' } }));
+      const alerts: AlertMessage[] = result.results.map(msg => ({
+        text: msg,
+        type: msg.toLowerCase().includes('failed') ? 'danger' : 'success',
+      }));
+      setSubTestMessages(prev => ({ ...prev, [id]: alerts }));
       setTestingSubId(null);
     },
   });
@@ -106,6 +127,10 @@ export const useSubscriptions = () => {
         throw new Error('No new row');
       }
       setTestingSubId('new');
+      setSubTestMessages(prev => {
+        const { new: _, ...rest } = prev;
+        return rest;
+      });
       const temp = await createSubscriptionApi({
         components: newRow.components,
         emailRecipients: newRow.emailRecipients
@@ -121,21 +146,37 @@ export const useSubscriptions = () => {
         reminderTime: '10:00',
         schedule: newRow.schedule || '0 7 * * *',
         slackWebhook: newRow.slackWebhook || null,
+        teamReportEmailRecipients: newRow.teamReportEmailRecipients
+          ? newRow.teamReportEmailRecipients
+              .split(',')
+              .map(addr => addr.trim())
+              .filter(Boolean)
+          : [],
+        teamReportSchedule: newRow.teamReportSchedule || null,
+        teamReportSlackWebhook: newRow.teamReportSlackWebhook || null,
         timezone: 'Asia/Jerusalem',
+        type: newRow.type,
       });
       const result = await testSubscriptionApi(temp.id);
       await deleteSubscriptionApi(temp.id);
       return result;
     },
     onError: error => {
-      setSubTestMessages(prev => ({ ...prev, new: { text: error.message, type: 'danger' } }));
+      setSubTestMessages(prev => ({
+        ...prev,
+        new: [{ text: error.message, type: 'danger' }],
+      }));
       setTestingSubId(null);
       setNewRowTested(false);
     },
     onSuccess: result => {
-      setSubTestMessages(prev => ({ ...prev, new: { text: result.message, type: 'success' } }));
+      const alerts: AlertMessage[] = result.results.map(msg => ({
+        text: msg,
+        type: msg.toLowerCase().includes('failed') ? 'danger' : 'success',
+      }));
+      setSubTestMessages(prev => ({ ...prev, new: alerts }));
       setTestingSubId(null);
-      setNewRowTested(true);
+      setNewRowTested(result.success);
     },
   });
 
@@ -150,6 +191,10 @@ export const useSubscriptions = () => {
       reminderTime: '10:00',
       schedule: '0 7 * * *',
       slackWebhook: '',
+      teamReportEmailRecipients: '',
+      teamReportSchedule: '',
+      teamReportSlackWebhook: '',
+      type: 'test',
     });
     setNewRowTested(false);
     setSubTestMessages(prev => {

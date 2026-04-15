@@ -1,16 +1,21 @@
-import https from 'https';
-
-import axios from 'axios';
 import { type NextFunction, type Request, type Response, Router } from 'express';
 
 import { SaveUserTokenSchema, TokenProviderEnum } from '@cnv-monitor/shared';
 
+import { validateToken } from '../../clients/token-validator';
 import { deleteUserToken, getUserTokens, saveUserToken } from '../../db/store';
 import { logger } from '../../logger';
 
 const log = logger.child({ module: 'UserTokens' });
 const router = Router();
-const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+
+const extractUpstreamDetail = (upstream: unknown): string => {
+  if (typeof upstream !== 'object' || upstream === null) return '';
+  const obj = upstream as Record<string, unknown>;
+  const msg = obj.message ?? obj.errorMessage ?? obj.error;
+  if (typeof msg === 'string' && msg.length > 0) return ` Server: "${msg}"`;
+  return '';
+};
 
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -64,64 +69,11 @@ router.put('/:provider', async (req: Request, res: Response, next: NextFunction)
       return;
     }
 
+    const apiBaseUrl = (req.body as { apiBaseUrl?: string }).apiBaseUrl;
     let providerInfo: { username?: string; email?: string } = {};
 
     try {
-      if (provider === 'gitlab') {
-        const { getAllRepositories } = await import('../../db/store');
-        const repos = await getAllRepositories();
-        const gitlabRepo = repos.find(repo => repo.provider === 'gitlab');
-        const baseUrl =
-          (req.body as { apiBaseUrl?: string }).apiBaseUrl || gitlabRepo?.api_base_url;
-        if (!baseUrl) {
-          res.status(400).json({
-            error:
-              'No GitLab API URL configured. Either add a GitLab repository first, or include apiBaseUrl in the request body (e.g., "https://gitlab.example.com/api/v4").',
-          });
-          return;
-        }
-        log.info({ baseUrl }, 'Validating GitLab token');
-        const apiRes = await axios.get<{ email?: string; username: string }>(`${baseUrl}/user`, {
-          headers: { 'Private-Token': parsed.data.token },
-          httpsAgent,
-          timeout: 10000,
-        });
-        providerInfo = { email: apiRes.data.email, username: apiRes.data.username };
-      } else if (provider === 'github') {
-        const apiRes = await axios.get<{ email?: string; login: string }>(
-          'https://api.github.com/user',
-          {
-            headers: { Authorization: `Bearer ${parsed.data.token}` },
-            timeout: 10000,
-          },
-        );
-        providerInfo = { email: apiRes.data.email, username: apiRes.data.login };
-      } else if (provider === 'jira') {
-        const { config } = await import('../../config');
-        const { getSetting } = await import('../../db/store');
-        const jiraUrl = (await getSetting('jira.url')) || config.jira.url;
-        const jiraEmail = (await getSetting('jira.email')) || config.jira.email;
-        if (!jiraUrl) {
-          res.status(400).json({ error: 'Jira URL is not configured in the server settings.' });
-          return;
-        }
-        const credentials = Buffer.from(`${jiraEmail}:${parsed.data.token}`).toString('base64');
-        const apiRes = await axios.get<{
-          displayName?: string;
-          emailAddress?: string;
-          name?: string;
-        }>(`${jiraUrl}/rest/api/3/myself`, {
-          headers: {
-            Accept: 'application/json',
-            Authorization: `Basic ${credentials}`,
-          },
-          timeout: 10000,
-        });
-        providerInfo = {
-          email: apiRes.data.emailAddress,
-          username: apiRes.data.displayName ?? apiRes.data.name ?? '',
-        };
-      }
+      providerInfo = await validateToken(provider, parsed.data.token, apiBaseUrl);
     } catch (err: unknown) {
       const axiosErr = err as {
         response?: { status?: number; data?: unknown };
@@ -142,10 +94,18 @@ router.put('/:provider', async (req: Request, res: Response, next: NextFunction)
 
       let hint: string;
       if (status === 401) {
-        hint = 'The token is invalid or expired.';
-      } else if (status === 403) {
         hint =
-          'The token lacks required permissions. GitLab needs at least read_api scope; GitHub needs repo scope.';
+          provider === 'jira'
+            ? 'The token is invalid, expired, or the email/token combination is incorrect. Generate a new API token at https://id.atlassian.com/manage-profile/security/api-tokens.'
+            : 'The token is invalid or expired.';
+      } else if (status === 403) {
+        const serverDetail = extractUpstreamDetail(upstream);
+        hint =
+          provider === 'jira'
+            ? `Jira permission denied. Required: "Browse Projects" and "Create Issues" project permissions. Verify the API token is not restricted to specific IPs or apps.${serverDetail}`
+            : provider === 'gitlab'
+              ? `GitLab permission denied. Required scopes: api (or read_api + write_repository).${serverDetail}`
+              : `GitHub permission denied. Required scope: repo.${serverDetail}`;
       } else if (status === 404) {
         hint = 'The API endpoint was not found. Check that the provider URL is correct.';
       } else if (code === 'ECONNREFUSED') {
@@ -213,51 +173,29 @@ router.post('/:provider/test', async (req: Request, res: Response, _next: NextFu
       return;
     }
 
-    let providerInfo: Record<string, unknown> = {};
-
-    if (provider === 'gitlab') {
-      const { getAllRepositories } = await import('../../db/store');
-      const repos = await getAllRepositories();
-      const gitlabRepo = repos.find(repo => repo.provider === 'gitlab');
-      const baseUrl = gitlabRepo?.api_base_url || '';
-      const apiRes = await axios.get<{ email?: string; username: string }>(`${baseUrl}/user`, {
-        headers: { 'Private-Token': token },
-        httpsAgent,
-        timeout: 10000,
-      });
-      providerInfo = { email: apiRes.data.email, username: apiRes.data.username };
-    } else if (provider === 'github') {
-      const apiRes = await axios.get<{ email?: string; login: string }>(
-        'https://api.github.com/user',
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 10000,
-        },
-      );
-      providerInfo = { email: apiRes.data.email, username: apiRes.data.login };
-    } else if (provider === 'jira') {
-      const { config } = await import('../../config');
-      const apiRes = await axios.get<{ emailAddress?: string; name: string }>(
-        `${config.jira.url}/rest/api/2/myself`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 10000,
-        },
-      );
-      providerInfo = { email: apiRes.data.emailAddress, username: apiRes.data.name };
-    }
-
+    const providerInfo = await validateToken(provider, token);
     res.json({ success: true, ...providerInfo });
   } catch (err: unknown) {
     const axiosErr = err as { response?: { status?: number; data?: unknown }; message?: string };
     const status = axiosErr.response?.status;
+    const upstream = axiosErr.response?.data;
+    const prov = req.params.provider as string;
+    const serverDetail = extractUpstreamDetail(upstream);
     let hint = err instanceof Error ? err.message : 'Validation failed';
     if (status === 401) {
-      hint = 'Token is invalid or expired';
+      hint =
+        prov === 'jira'
+          ? `Token is invalid, expired, or email/token mismatch. Generate a new API token at https://id.atlassian.com/manage-profile/security/api-tokens.${serverDetail}`
+          : `Token is invalid or expired. Generate a new token from your provider settings.${serverDetail}`;
     } else if (status === 403) {
-      hint = 'Token lacks required permissions';
+      hint =
+        prov === 'jira'
+          ? `Jira permission denied. Required: "Browse Projects" and "Create Issues" project permissions.${serverDetail}`
+          : prov === 'gitlab'
+            ? `GitLab permission denied. Required scopes: api (or read_api + write_repository).${serverDetail}`
+            : `GitHub permission denied. Required scope: repo.${serverDetail}`;
     }
-    res.json({ error: hint, success: false });
+    res.status(status === 401 || status === 403 ? 401 : 502).json({ error: hint, success: false });
   }
 });
 

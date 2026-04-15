@@ -1,166 +1,137 @@
-import { useEffect, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-import { type PersonReport, type TaskSummary } from '@cnv-monitor/shared';
+import { type ReportState } from '@cnv-monitor/shared';
 
 import {
-  Alert,
-  Card,
-  CardBody,
   Content,
   EmptyState,
+  EmptyStateActions,
   EmptyStateBody,
+  EmptyStateFooter,
   Flex,
   FlexItem,
-  Grid,
-  GridItem,
+  Label,
   PageSection,
   Spinner,
   Tab,
   Tabs,
   TabTitleText,
 } from '@patternfly/react-core';
-import { CubesIcon, ExclamationTriangleIcon, ListIcon, UsersIcon } from '@patternfly/react-icons';
+import { CubesIcon, ExclamationTriangleIcon } from '@patternfly/react-icons';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 
-import { PersonCard } from '../components/weekly/PersonCard';
+import { GenerateReportButton } from '../components/report/GenerateReportButton';
 import { PollProgress } from '../components/weekly/PollProgress';
-import { StatCards } from '../components/weekly/StatCards';
-import { TaskSummaryView } from '../components/weekly/TaskSummaryView';
 import { useWeeklyPollStatus } from '../hooks/useWeeklyPollStatus';
-import { useCurrentWeeklyReport } from '../hooks/useWeeklyReports';
+import { useWeeklyReportList } from '../hooks/useWeeklyReports';
 
-type AggregateStats = {
-  commitCount: number;
-  contributorCount: number;
-  prsMerged: number;
-  storyPoints: number;
-  ticketsDone: number;
-};
-
-const computeAggregateStats = (personReports: PersonReport[]): AggregateStats => {
-  const active = personReports.filter(person => !person.excluded);
-  return active.reduce(
-    (acc, person) => ({
-      commitCount: acc.commitCount + person.stats.commitCount,
-      contributorCount: acc.contributorCount + 1,
-      prsMerged: acc.prsMerged + person.stats.prsMerged,
-      storyPoints: acc.storyPoints + person.stats.storyPointsCompleted,
-      ticketsDone: acc.ticketsDone + person.stats.ticketsDone,
-    }),
-    { commitCount: 0, contributorCount: 0, prsMerged: 0, storyPoints: 0, ticketsDone: 0 },
-  );
-};
-
-const BlockersAlert = ({ blockers }: { blockers: TaskSummary['blockers'] }) => {
-  if (blockers.length === 0) return null;
-
-  return (
-    <PageSection>
-      <Alert
-        isInline
-        title={`${blockers.length} Blocker${blockers.length > 1 ? 's' : ''}`}
-        variant="danger"
-      >
-        <ul>
-          {blockers.map(blocker => (
-            <li key={blocker.description}>{blocker.description}</li>
-          ))}
-        </ul>
-      </Alert>
-    </PageSection>
-  );
-};
-
-const WeeklyDashboardLoading = () => (
-  <div className="app-page-spinner">
-    <Spinner aria-label="Loading weekly report" />
-  </div>
+const LazyTeamTab = React.lazy(() =>
+  import('./WeeklyTeamPage').then(mod => ({ default: mod.WeeklyTeamPage })),
 );
 
-const WeeklyDashboardError = ({ message }: { message: string }) => (
-  <PageSection>
-    <EmptyState
-      headingLevel="h2"
-      icon={ExclamationTriangleIcon}
-      titleText="Error loading weekly report"
-    >
-      <EmptyStateBody>{message}</EmptyStateBody>
-    </EmptyState>
-  </PageSection>
-);
+const STATE_COLORS: Record<ReportState, 'blue' | 'green' | 'grey' | 'orange'> = {
+  DRAFT: 'blue',
+  FINALIZED: 'orange',
+  REVIEW: 'grey',
+  SENT: 'green',
+};
 
-const WeeklyDashboardEmpty = ({
-  pollStatus,
-}: {
+const formatDate = (dateStr: string | null | undefined): string => {
+  if (!dateStr) return '\u2014';
+  return new Date(dateStr).toLocaleDateString();
+};
+
+type ReportsTabProps = {
   pollStatus: ReturnType<typeof useWeeklyPollStatus>;
-}) => (
-  <PageSection>
-    <EmptyState headingLevel="h2" icon={CubesIcon} titleText="No weekly report">
-      <EmptyStateBody>
-        Generate a report to see your team&apos;s weekly activity across GitHub, GitLab, and Jira.
-      </EmptyStateBody>
-      <PollProgress
-        isStarting={pollStatus.isStarting}
-        status={pollStatus.status}
-        onTrigger={pollStatus.trigger}
-      />
-    </EmptyState>
-  </PageSection>
-);
-
-const ByTaskTab = ({ taskSummary }: { taskSummary: TaskSummary | null | undefined }) => {
-  if (!taskSummary) {
-    return (
-      <EmptyState headingLevel="h3" icon={ListIcon} titleText="Run AI Enhance">
-        <EmptyStateBody>
-          Use the AI Enhance action on the report editor to generate a task summary.
-        </EmptyStateBody>
-      </EmptyState>
-    );
-  }
-
-  return <TaskSummaryView taskSummary={taskSummary} />;
 };
 
-const ByPersonTab = ({ personReports }: { personReports: PersonReport[] }) => {
-  const visible = personReports.filter(person => !person.excluded);
+const ReportsTab = ({ pollStatus }: ReportsTabProps) => {
+  const navigate = useNavigate();
+  const { data: reports, error, isLoading } = useWeeklyReportList();
 
-  if (visible.length === 0) {
+  if (isLoading) {
     return (
-      <EmptyState headingLevel="h3" icon={UsersIcon} titleText="No team members">
-        <EmptyStateBody>Add team members on the Team page, then run a weekly poll.</EmptyStateBody>
+      <div className="app-page-spinner">
+        <Spinner aria-label="Loading reports" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <EmptyState
+        headingLevel="h3"
+        icon={ExclamationTriangleIcon}
+        titleText="Error loading reports"
+      >
+        <EmptyStateBody>{error.message}</EmptyStateBody>
       </EmptyState>
     );
   }
 
+  const isRunning = pollStatus.status.status === 'running' || pollStatus.isStarting;
+
   return (
-    <Grid hasGutter>
-      {visible.map(pr => (
-        <GridItem key={pr.memberId} span={12}>
-          <PersonCard personReport={pr} />
-        </GridItem>
-      ))}
-    </Grid>
+    <>
+      <PollProgress status={pollStatus.status} />
+
+      {!reports?.length && !isRunning ? (
+        <EmptyState headingLevel="h3" icon={CubesIcon} titleText="No team reports">
+          <EmptyStateBody>
+            Generate a report to see your team&apos;s activity across GitHub, GitLab, and Jira.
+          </EmptyStateBody>
+          <EmptyStateFooter>
+            <EmptyStateActions>
+              <GenerateReportButton />
+            </EmptyStateActions>
+          </EmptyStateFooter>
+        </EmptyState>
+      ) : (
+        <Table aria-label="Team reports" variant="compact">
+          <Thead>
+            <Tr>
+              <Th>Component</Th>
+              <Th>Date Range</Th>
+              <Th>Week ID</Th>
+              <Th>State</Th>
+              <Th>Sent</Th>
+            </Tr>
+          </Thead>
+          <Tbody>
+            {(reports ?? []).map(report => (
+              <Tr
+                isClickable
+                key={`${report.weekId}-${report.component ?? ''}`}
+                onRowClick={() =>
+                  navigate(`/report/${encodeURIComponent(report.component ?? '')}/${report.weekId}`)
+                }
+              >
+                <Td dataLabel="Component">{report.component || 'All'}</Td>
+                <Td dataLabel="Date Range">
+                  {report.weekStart} &ndash; {report.weekEnd}
+                </Td>
+                <Td dataLabel="Week ID">{report.weekId}</Td>
+                <Td dataLabel="State">
+                  <Label color={STATE_COLORS[report.state]}>{report.state}</Label>
+                </Td>
+                <Td dataLabel="Sent">{formatDate(report.sentAt)}</Td>
+              </Tr>
+            ))}
+          </Tbody>
+        </Table>
+      )}
+    </>
   );
 };
 
 export const WeeklyDashboardPage = () => {
-  useEffect(() => {
-    document.title = 'Weekly Report | CNV Console Monitor';
-  }, []);
-
-  const { data: report, error, isLoading } = useCurrentWeeklyReport();
+  const [activeTab, setActiveTab] = useState(0);
   const pollStatus = useWeeklyPollStatus();
 
-  const aggregateStats = useMemo(
-    () => (report ? computeAggregateStats(report.personReports) : null),
-    [report],
-  );
-
-  if (isLoading) return <WeeklyDashboardLoading />;
-  if (error) return <WeeklyDashboardError message={error.message} />;
-  if (!report) return <WeeklyDashboardEmpty pollStatus={pollStatus} />;
-
-  const blockers = report.taskSummary?.blockers ?? [];
+  useEffect(() => {
+    document.title = 'Team Report | CNV Console Monitor';
+  }, []);
 
   return (
     <>
@@ -170,48 +141,34 @@ export const WeeklyDashboardPage = () => {
           justifyContent={{ default: 'justifyContentSpaceBetween' }}
         >
           <FlexItem>
-            <Content component="h1">Weekly Report</Content>
-            <Content component="small">
-              {report.weekStart} &ndash; {report.weekEnd}
-            </Content>
+            <Content component="h1">Team Report</Content>
+          </FlexItem>
+          <FlexItem>
+            <GenerateReportButton pollStatusOverride={pollStatus} />
           </FlexItem>
         </Flex>
       </PageSection>
 
-      <PageSection>
-        <PollProgress
-          isStarting={pollStatus.isStarting}
-          status={pollStatus.status}
-          onTrigger={pollStatus.trigger}
-        />
+      <PageSection isFilled>
+        <Tabs
+          activeKey={activeTab}
+          className="app-w-full"
+          onSelect={(_e, key) => setActiveTab(Number(key))}
+        >
+          <Tab eventKey={0} title={<TabTitleText>Reports</TabTitleText>}>
+            <div className="app-mt-md">
+              <ReportsTab pollStatus={pollStatus} />
+            </div>
+          </Tab>
+          <Tab eventKey={1} title={<TabTitleText>Team</TabTitleText>}>
+            <div className="app-mt-md">
+              <React.Suspense fallback={<Spinner aria-label="Loading team" />}>
+                <LazyTeamTab />
+              </React.Suspense>
+            </div>
+          </Tab>
+        </Tabs>
       </PageSection>
-
-      {aggregateStats && (
-        <PageSection>
-          <StatCards {...aggregateStats} />
-        </PageSection>
-      )}
-
-      <PageSection>
-        <Card>
-          <CardBody>
-            <Tabs defaultActiveKey={0}>
-              <Tab eventKey={0} title={<TabTitleText>By Task</TabTitleText>}>
-                <div className="app-weekly-tab-content">
-                  <ByTaskTab taskSummary={report.taskSummary} />
-                </div>
-              </Tab>
-              <Tab eventKey={1} title={<TabTitleText>By Person</TabTitleText>}>
-                <div className="app-weekly-tab-content">
-                  <ByPersonTab personReports={report.personReports} />
-                </div>
-              </Tab>
-            </Tabs>
-          </CardBody>
-        </Card>
-      </PageSection>
-
-      <BlockersAlert blockers={blockers} />
     </>
   );
 };

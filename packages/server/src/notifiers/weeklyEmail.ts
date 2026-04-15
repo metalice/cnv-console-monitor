@@ -7,28 +7,21 @@ import { logger } from '../logger';
 
 const log = logger.child({ module: 'WeeklyReport:Email' });
 
-export const sendWeeklyEmailReport = async (
-  report: WeeklyReport,
-  recipients: string[],
-): Promise<void> => {
-  const transporter = nodemailer.createTransport({
-    auth: config.email.user ? { pass: config.email.pass, user: config.email.user } : undefined,
-    host: config.email.host,
-    port: config.email.port,
-    secure: config.email.port === 465,
-  });
-
+export const buildWeeklyEmailHtml = (report: WeeklyReport): string => {
   const dateRange = formatDateRange(new Date(report.weekStart), new Date(report.weekEnd));
   const componentLabel = report.component ? ` - ${report.component}` : '';
+  const stats = report.aggregateStats;
   const includedReports = report.personReports.filter(pr => !pr.excluded);
 
-  const totalPRsMerged = includedReports.reduce((sum, pr) => sum + pr.stats.prsMerged, 0);
-  const totalTicketsDone = includedReports.reduce((sum, pr) => sum + pr.stats.ticketsDone, 0);
-  const totalCommits = includedReports.reduce((sum, pr) => sum + pr.stats.commitCount, 0);
-  const totalStoryPoints = includedReports.reduce(
-    (sum, pr) => sum + pr.stats.storyPointsCompleted,
-    0,
-  );
+  const totalPRsMerged =
+    stats?.prsMerged ?? includedReports.reduce((sum, per) => sum + per.stats.prsMerged, 0);
+  const totalTicketsDone =
+    stats?.ticketsDone ?? includedReports.reduce((sum, per) => sum + per.stats.ticketsDone, 0);
+  const totalCommits =
+    stats?.commitCount ?? includedReports.reduce((sum, per) => sum + per.stats.commitCount, 0);
+  const totalStoryPoints =
+    stats?.storyPoints ??
+    includedReports.reduce((sum, per) => sum + per.stats.storyPointsCompleted, 0);
 
   const highlightsHtml = report.managerHighlights
     ? `<div style="background:#e8f4fd;padding:12px 16px;border-radius:6px;margin:16px 0;border-left:4px solid #0066cc;">
@@ -84,9 +77,9 @@ export const sendWeeklyEmailReport = async (
     })
     .join('');
 
-  const html = `
+  return `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:700px;margin:0 auto;">
-      <h2 style="color:#151515;margin-bottom:4px;">CNV UI Weekly Report${componentLabel}</h2>
+      <h2 style="color:#151515;margin-bottom:4px;">CNV UI Team Report${componentLabel}</h2>
       <p style="color:#6a6e73;margin-top:0;">${dateRange}</p>
       <div style="display:flex;gap:16px;flex-wrap:wrap;margin:16px 0;">
         <div style="background:#f0faf0;padding:8px 16px;border-radius:6px;text-align:center;">
@@ -115,11 +108,27 @@ export const sendWeeklyEmailReport = async (
       <p style="color:#8a8d90;font-size:12px;">CNV Console Monitor · ${report.weekId}</p>
     </div>
   `;
+};
+
+export const sendWeeklyEmailReport = async (
+  report: WeeklyReport,
+  recipients: string[],
+): Promise<void> => {
+  const transporter = nodemailer.createTransport({
+    auth: config.email.user ? { pass: config.email.pass, user: config.email.user } : undefined,
+    host: config.email.host,
+    port: config.email.port,
+    secure: config.email.port === 465,
+  });
+
+  const dateRange = formatDateRange(new Date(report.weekStart), new Date(report.weekEnd));
+  const componentLabel = report.component ? ` - ${report.component}` : '';
+  const html = buildWeeklyEmailHtml(report);
 
   await transporter.sendMail({
     from: config.email.from,
     html,
-    subject: `CNV UI Weekly Report: ${dateRange}${componentLabel}`,
+    subject: `CNV UI Team Report: ${dateRange}${componentLabel}`,
     to: recipients.join(','),
   });
 

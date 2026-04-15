@@ -37,9 +37,21 @@ export const PersonReportSchema = z.object({
 
 export type PersonReport = z.infer<typeof PersonReportSchema>;
 
+export const AggregateStatsSchema = z.object({
+  commitCount: z.number().default(0),
+  contributorCount: z.number().default(0),
+  prsMerged: z.number().default(0),
+  storyPoints: z.number().default(0),
+  ticketsDone: z.number().default(0),
+});
+
+export type AggregateStats = z.infer<typeof AggregateStatsSchema>;
+
 export const WeeklyReportSchema = z.object({
+  aggregateStats: AggregateStatsSchema.nullish(),
   component: z.string().nullish(),
   createdAt: z.string().nullish(),
+  id: z.string(),
   managerHighlights: z.string().nullish(),
   personReports: z.array(PersonReportSchema).default([]),
   sentAt: z.string().nullish(),

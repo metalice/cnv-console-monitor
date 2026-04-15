@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 import { type ReportState } from '@cnv-monitor/shared';
 
 import {
+  Breadcrumb,
+  BreadcrumbItem,
   Button,
   Card,
   CardBody,
@@ -11,8 +13,6 @@ import {
   Content,
   EmptyState,
   EmptyStateBody,
-  Flex,
-  FlexItem,
   Grid,
   GridItem,
   Modal,
@@ -55,7 +55,7 @@ const getStepVariant = (step: ReportState, current: ReportState) => {
   const currentIdx = STEP_ORDER.indexOf(current);
   const stepIdx = STEP_ORDER.indexOf(step);
   if (stepIdx < currentIdx) return 'success' as const;
-  if (stepIdx === currentIdx) return 'info' as const;
+  if (stepIdx === currentIdx) return current === 'SENT' ? ('success' as const) : ('info' as const);
   return 'pending' as const;
 };
 
@@ -90,7 +90,7 @@ const EditorEmpty = () => (
   <PageSection>
     <EmptyState headingLevel="h2" icon={CubesIcon} titleText="Report not found">
       <EmptyStateBody>
-        This weekly report does not exist. Check the URL or go back to the weekly dashboard.
+        This report does not exist. Check the URL or go back to the Team Report page.
       </EmptyStateBody>
     </EmptyState>
   </PageSection>
@@ -113,8 +113,9 @@ const ReportProgressStepper = ({ state }: { state: ReportState }) => (
 );
 
 export const ReportEditorPage = () => {
-  const { weekId } = useParams<{ weekId: string }>();
-  const { data: report, error, isLoading } = useWeeklyReport(weekId);
+  const { component, weekId } = useParams<{ component: string; weekId: string }>();
+  const decodedComponent = component ? decodeURIComponent(component) : undefined;
+  const { data: report, error, isLoading } = useWeeklyReport(weekId, decodedComponent);
   const updateMutation = useUpdateWeeklyReport();
   const finalizeMutation = useFinalizeWeeklyReport();
   const sendMutation = useSendWeeklyReport();
@@ -125,10 +126,11 @@ export const ReportEditorPage = () => {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    document.title = weekId
-      ? `Edit Report ${weekId} | CNV Console Monitor`
-      : 'Edit Report | CNV Console Monitor';
-  }, [weekId]);
+    const parts = [decodedComponent, weekId].filter(Boolean).join(' — ');
+    document.title = parts
+      ? `Team Report: ${parts} | CNV Console Monitor`
+      : 'Team Report | CNV Console Monitor';
+  }, [decodedComponent, weekId]);
 
   useEffect(() => {
     if (report?.managerHighlights) {
@@ -141,10 +143,14 @@ export const ReportEditorPage = () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (!weekId) return;
       debounceRef.current = setTimeout(() => {
-        updateMutation.mutate({ data: { managerHighlights: value }, weekId });
+        updateMutation.mutate({
+          component: decodedComponent,
+          data: { managerHighlights: value },
+          weekId,
+        });
       }, DEBOUNCE_MS);
     },
-    [weekId, updateMutation],
+    [decodedComponent, weekId, updateMutation],
   );
 
   const handleHighlightsChange = (_event: unknown, value: string) => {
@@ -156,19 +162,26 @@ export const ReportEditorPage = () => {
     (memberId: string, notes: string) => {
       if (!weekId) return;
       updateMutation.mutate({
+        component: decodedComponent,
         data: { personUpdates: [{ managerNotes: notes, memberId }] },
         weekId,
       });
     },
-    [weekId, updateMutation],
+    [decodedComponent, weekId, updateMutation],
   );
 
   const handleConfirm = () => {
     if (!weekId || !confirmAction) return;
     if (confirmAction === 'finalize') {
-      finalizeMutation.mutate(weekId, { onSuccess: () => setConfirmAction(null) });
+      finalizeMutation.mutate(
+        { component: decodedComponent, weekId },
+        { onSuccess: () => setConfirmAction(null) },
+      );
     } else {
-      sendMutation.mutate(weekId, { onSuccess: () => setConfirmAction(null) });
+      sendMutation.mutate(
+        { component: decodedComponent, weekId },
+        { onSuccess: () => setConfirmAction(null) },
+      );
     }
   };
 
@@ -183,17 +196,18 @@ export const ReportEditorPage = () => {
   return (
     <>
       <PageSection>
-        <Flex
-          alignItems={{ default: 'alignItemsCenter' }}
-          justifyContent={{ default: 'justifyContentSpaceBetween' }}
-        >
-          <FlexItem>
-            <Content component="h1">Edit Report &mdash; {report.weekId}</Content>
-            <Content component="small">
-              {report.weekStart} &ndash; {report.weekEnd}
-            </Content>
-          </FlexItem>
-        </Flex>
+        <Breadcrumb>
+          <BreadcrumbItem>
+            <Link to="/report">Team Report</Link>
+          </BreadcrumbItem>
+          {decodedComponent && <BreadcrumbItem>{decodedComponent}</BreadcrumbItem>}
+          <BreadcrumbItem isActive>
+            {report.weekStart} &ndash; {report.weekEnd}
+          </BreadcrumbItem>
+        </Breadcrumb>
+        <Content className="app-mt-md" component="h1">
+          {decodedComponent ?? 'Team Report'} &mdash; {report.weekStart} &ndash; {report.weekEnd}
+        </Content>
       </PageSection>
 
       <PageSection>
@@ -244,42 +258,50 @@ export const ReportEditorPage = () => {
         </Grid>
       </PageSection>
 
-      <PageSection>
-        <Toolbar>
-          <ToolbarContent>
-            <ToolbarItem>
-              <Button
-                isDisabled={isLocked || isActionPending}
-                isLoading={aiEnhanceMutation.isPending}
-                variant="secondary"
-                onClick={() => weekId && aiEnhanceMutation.mutate(weekId)}
-              >
-                AI Enhance
-              </Button>
-            </ToolbarItem>
-            <ToolbarItem>
-              <Button
-                isDisabled={report.state !== 'DRAFT' || isActionPending}
-                isLoading={finalizeMutation.isPending}
-                variant="primary"
-                onClick={() => setConfirmAction('finalize')}
-              >
-                Finalize
-              </Button>
-            </ToolbarItem>
-            <ToolbarItem>
-              <Button
-                isDisabled={report.state !== 'FINALIZED' || isActionPending}
-                isLoading={sendMutation.isPending}
-                variant="primary"
-                onClick={() => setConfirmAction('send')}
-              >
-                Send
-              </Button>
-            </ToolbarItem>
-          </ToolbarContent>
-        </Toolbar>
-      </PageSection>
+      {report.state !== 'SENT' && (
+        <PageSection>
+          <Toolbar>
+            <ToolbarContent>
+              {!isLocked && (
+                <>
+                  <ToolbarItem>
+                    <Button
+                      isDisabled={isActionPending}
+                      isLoading={aiEnhanceMutation.isPending}
+                      variant="secondary"
+                      onClick={() => weekId && aiEnhanceMutation.mutate(weekId)}
+                    >
+                      AI Enhance
+                    </Button>
+                  </ToolbarItem>
+                  <ToolbarItem>
+                    <Button
+                      isDisabled={isActionPending}
+                      isLoading={finalizeMutation.isPending}
+                      variant="primary"
+                      onClick={() => setConfirmAction('finalize')}
+                    >
+                      Finalize
+                    </Button>
+                  </ToolbarItem>
+                </>
+              )}
+              {report.state === 'FINALIZED' && (
+                <ToolbarItem>
+                  <Button
+                    isDisabled={isActionPending}
+                    isLoading={sendMutation.isPending}
+                    variant="primary"
+                    onClick={() => setConfirmAction('send')}
+                  >
+                    Send
+                  </Button>
+                </ToolbarItem>
+              )}
+            </ToolbarContent>
+          </Toolbar>
+        </PageSection>
+      )}
 
       {confirmAction && (
         <Modal
