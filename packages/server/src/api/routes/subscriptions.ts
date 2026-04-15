@@ -12,7 +12,7 @@ import {
 } from '../../db/store';
 import { logger } from '../../logger';
 import { dispatchToSubscription } from '../../notifiers/dispatch';
-import { setupSubscriptionCrons } from '../../serve-cron';
+import { setupSubscriptionCrons, setupTeamReportCrons } from '../../serve-cron';
 import { getSubscriptionOwner, requireOwnerOrAdmin } from '../middleware/auth';
 
 const log = logger.child({ module: 'Subscriptions' });
@@ -40,8 +40,11 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       createdBy,
       jiraWebhook: parsed.data.jiraWebhook ?? null,
       slackWebhook: parsed.data.slackWebhook ?? null,
+      teamReportSchedule: parsed.data.teamReportSchedule ?? null,
+      type: parsed.data.type,
     });
     setupSubscriptionCrons().catch(err => log.warn({ err }, 'Failed to refresh crons'));
+    setupTeamReportCrons().catch(err => log.warn({ err }, 'Failed to refresh team report crons'));
     res.status(201).json(sub);
   } catch (err) {
     next(err);
@@ -71,6 +74,7 @@ router.put(
         return;
       }
       setupSubscriptionCrons().catch(err => log.warn({ err }, 'Failed to refresh crons'));
+      setupTeamReportCrons().catch(err => log.warn({ err }, 'Failed to refresh team report crons'));
       res.json(updated);
     } catch (err) {
       next(err);
@@ -90,12 +94,55 @@ router.delete(
       }
       await deleteSubscription(id);
       setupSubscriptionCrons().catch(err => log.warn({ err }, 'Failed to refresh crons'));
+      setupTeamReportCrons().catch(err => log.warn({ err }, 'Failed to refresh team report crons'));
       res.json({ success: true });
     } catch (err) {
       next(err);
     }
   },
 );
+
+const testTeamReportSubscription = async (
+  sub: Awaited<ReturnType<typeof getSubscription>> & object,
+): Promise<string[]> => {
+  const results: string[] = [];
+
+  const { listWeeklyReports } = await import('../../db/store/weeklyReports');
+  const { entityToWeeklyReport } = await import('../../db/mappers/weeklyReport');
+  const reports = await listWeeklyReports();
+  if (reports.length === 0) {
+    results.push('No weekly report available to send. Generate one first.');
+    return results;
+  }
+  const report = entityToWeeklyReport(reports[0]);
+
+  if (sub.teamReportSlackWebhook) {
+    try {
+      const { sendWeeklySlackReport } = await import('../../notifiers/weeklySlack');
+      await sendWeeklySlackReport(report, sub.teamReportSlackWebhook);
+      results.push('Team Report Slack sent');
+    } catch (err) {
+      results.push(`Team Report Slack failed: ${err instanceof Error ? err.message : 'unknown'}`);
+    }
+  }
+
+  const recipients = sub.teamReportEmailRecipients ?? [];
+  if (recipients.length > 0) {
+    try {
+      const { sendWeeklyEmailReport } = await import('../../notifiers/weeklyEmail');
+      await sendWeeklyEmailReport(report, recipients);
+      results.push(`Team Report Email sent to ${recipients.join(', ')}`);
+    } catch (err) {
+      results.push(`Team Report Email failed: ${err instanceof Error ? err.message : 'unknown'}`);
+    }
+  }
+
+  if (results.length === 0) {
+    results.push('No team report Slack webhook or email recipients configured');
+  }
+
+  return results;
+};
 
 router.post(
   '/:id/test',
@@ -114,11 +161,15 @@ router.post(
         return;
       }
 
-      const report = await buildDailyReport(24);
-      const results = await dispatchToSubscription(report, sub);
+      const results =
+        sub.type === 'team_report'
+          ? await testTeamReportSubscription(sub)
+          : await dispatchToSubscription(await buildDailyReport(24), sub);
+
+      const hasFailure = results.some(msg => msg.toLowerCase().includes('failed'));
 
       log.info({ results, subId: id }, 'Test notification sent');
-      res.json({ message: results.join('; '), success: true });
+      res.json({ message: results.join('; '), results, success: !hasFailure });
     } catch (err) {
       next(err);
     }

@@ -118,9 +118,20 @@ export const fetchPRs = async (
 
   const sinceDate = new Date(since);
   const untilDate = new Date(until);
-  const filtered = allPRs.filter(
-    pr => new Date(pr.updated_at) >= sinceDate && new Date(pr.created_at) <= untilDate,
-  );
+  const filtered = allPRs.filter(pr => {
+    const updatedAt = new Date(pr.updated_at);
+    if (updatedAt < sinceDate) return false;
+
+    const createdAt = new Date(pr.created_at);
+    const createdThisWeek = createdAt >= sinceDate && createdAt <= untilDate;
+    const mergedThisWeek =
+      pr.merged_at !== null &&
+      new Date(pr.merged_at) >= sinceDate &&
+      new Date(pr.merged_at) <= untilDate;
+    const isStillOpen = pr.state === 'open';
+
+    return createdThisWeek || mergedThisWeek || isStillOpen;
+  });
 
   log.info({ count: filtered.length, repo: config.repo, since, until }, 'Fetched GitHub PRs');
   return filtered;

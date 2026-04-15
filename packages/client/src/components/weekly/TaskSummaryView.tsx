@@ -1,7 +1,18 @@
+import { type ReactNode } from 'react';
+
 import { type TaskSummary } from '@cnv-monitor/shared';
 
-import { Alert, Content, Stack, StackItem, Title } from '@patternfly/react-core';
-import { ExternalLinkAltIcon } from '@patternfly/react-icons';
+import {
+  Alert,
+  Content,
+  Flex,
+  FlexItem,
+  Label,
+  Stack,
+  StackItem,
+  Title,
+} from '@patternfly/react-core';
+import { ExternalLinkAltIcon, MagicIcon } from '@patternfly/react-icons';
 
 import { InitiativeCard } from './InitiativeCard';
 
@@ -9,13 +20,58 @@ type TaskSummaryViewProps = {
   taskSummary: TaskSummary;
 };
 
+const JIRA_KEY_PATTERN = /\bCNV-\d+\b/g;
+const PR_NUMBER_PATTERN = /#\d+/g;
+
+const formatHighlights = (text: string): ReactNode[] => {
+  const parts = text.split(/(\bCNV-\d+\b|#\d+)/);
+  let keyCounter = 0;
+  return parts.map(part => {
+    if (JIRA_KEY_PATTERN.test(part)) {
+      JIRA_KEY_PATTERN.lastIndex = 0;
+      keyCounter += 1;
+      return (
+        <a
+          href={`https://issues.redhat.com/browse/${part}`}
+          key={`jira-${part}-${keyCounter}`}
+          rel="noreferrer"
+          target="_blank"
+        >
+          {part}
+        </a>
+      );
+    }
+    if (PR_NUMBER_PATTERN.test(part)) {
+      PR_NUMBER_PATTERN.lastIndex = 0;
+      keyCounter += 1;
+      return <strong key={`pr-${part}-${keyCounter}`}>{part}</strong>;
+    }
+    return part;
+  });
+};
+
 export const TaskSummaryView = ({ taskSummary }: TaskSummaryViewProps) => (
   <Stack hasGutter>
     {taskSummary.weekHighlights && (
       <StackItem>
-        <Content className="app-weekly-highlights" component="p">
-          {taskSummary.weekHighlights}
-        </Content>
+        <div className="app-weekly-highlights-panel">
+          <Flex
+            alignItems={{ default: 'alignItemsCenter' }}
+            justifyContent={{ default: 'justifyContentSpaceBetween' }}
+          >
+            <FlexItem>
+              <Title headingLevel="h3">Week Highlights</Title>
+            </FlexItem>
+            <FlexItem>
+              <Label isCompact color="grey" icon={<MagicIcon />}>
+                AI generated
+              </Label>
+            </FlexItem>
+          </Flex>
+          <Content className="app-weekly-highlights" component="p">
+            {formatHighlights(taskSummary.weekHighlights)}
+          </Content>
+        </div>
       </StackItem>
     )}
 

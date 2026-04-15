@@ -35,10 +35,15 @@ export class GitLabProvider implements GitProvider {
   }
 
   async createBranch(name: string, fromBranch: string): Promise<void> {
-    await this.client.post(`/projects/${this.projectId}/repository/branches`, {
-      branch: name,
-      ref: fromBranch,
-    });
+    try {
+      await this.client.post(`/projects/${this.projectId}/repository/branches`, {
+        branch: name,
+        ref: fromBranch,
+      });
+    } catch (err) {
+      const status = (err as { response?: { status?: number } }).response?.status;
+      if (status !== 400) throw err;
+    }
   }
 
   async createPR(params: {

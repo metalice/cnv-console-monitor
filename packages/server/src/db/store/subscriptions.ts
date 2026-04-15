@@ -26,7 +26,12 @@ const toSubscriptionRecord = (row: NotificationSubscription): SubscriptionRecord
     reminderTime: row.reminder_time || '10:00',
     schedule: row.schedule,
     slackWebhook: row.slack_webhook,
+    teamReportEmailRecipients: (row.team_report_email_recipients || '').split(',').filter(Boolean),
+    teamReportSchedule: row.team_report_schedule ?? null,
+    teamReportSlackWebhook: row.team_report_slack_webhook,
     timezone: row.timezone || 'Asia/Jerusalem',
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: DB data
+    type: (row.type as 'test' | 'team_report') ?? 'test',
   };
 };
 
@@ -56,7 +61,11 @@ export const createSubscription = async (
     reminder_time: data.reminderTime || '10:00',
     schedule: data.schedule,
     slack_webhook: data.slackWebhook ?? null,
+    team_report_email_recipients: data.teamReportEmailRecipients?.join(',') || null,
+    team_report_schedule: data.teamReportSchedule ?? null,
+    team_report_slack_webhook: data.teamReportSlackWebhook ?? null,
     timezone: data.timezone || 'Asia/Jerusalem',
+    type: data.type,
   });
   return toSubscriptionRecord(row);
 };
@@ -98,6 +107,15 @@ export const updateSubscription = async (
   }
   if (data.reminderDays !== undefined) {
     update.reminder_days = data.reminderDays;
+  }
+  if (data.teamReportSlackWebhook !== undefined) {
+    update.team_report_slack_webhook = data.teamReportSlackWebhook ?? null;
+  }
+  if (data.teamReportEmailRecipients !== undefined) {
+    update.team_report_email_recipients = data.teamReportEmailRecipients.join(',') || null;
+  }
+  if (data.teamReportSchedule !== undefined) {
+    update.team_report_schedule = data.teamReportSchedule ?? null;
   }
 
   await subscriptions().update({ id }, update);

@@ -92,6 +92,13 @@ export const NotificationSubscriptions = () => {
                   reminderTime: row.reminderTime,
                   schedule: row.schedule,
                   slackWebhook: row.slackWebhook,
+                  teamReportEmailRecipients: row.teamReportEmailRecipients
+                    .split(',')
+                    .map(addr => addr.trim())
+                    .filter(Boolean),
+                  teamReportSchedule: row.teamReportSchedule || null,
+                  teamReportSlackWebhook: row.teamReportSlackWebhook || null,
+                  type: row.type,
                 });
               }}
               onTest={() => subs.testNewRow.mutate()}

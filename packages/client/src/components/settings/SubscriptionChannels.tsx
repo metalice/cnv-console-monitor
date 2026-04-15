@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import type { Subscription } from '@cnv-monitor/shared';
 
 import { Flex, FlexItem, Tooltip } from '@patternfly/react-core';
-import { BugIcon, EnvelopeIcon, SlackIcon } from '@patternfly/react-icons';
+import { BugIcon, ClipboardCheckIcon, EnvelopeIcon, SlackIcon } from '@patternfly/react-icons';
 
 type SubscriptionChannelsProps = {
   sub: Subscription;
@@ -18,18 +18,33 @@ const truncateUrl = (url: string | null | undefined): string => {
 };
 
 export const SubscriptionChannels = ({ sub }: SubscriptionChannelsProps) => {
+  const isTeamReport = sub.type === 'team_report';
+
   const channelCount = useMemo(() => {
+    if (isTeamReport) {
+      let count = 0;
+      if (sub.teamReportSlackWebhook) count++;
+      if (sub.teamReportEmailRecipients.length > 0) count++;
+      return count;
+    }
     let count = 0;
     if (sub.slackWebhook) count++;
     if (sub.jiraWebhook) count++;
     if (sub.emailRecipients.length > 0) count++;
     return count;
-  }, [sub.slackWebhook, sub.jiraWebhook, sub.emailRecipients]);
+  }, [
+    isTeamReport,
+    sub.slackWebhook,
+    sub.jiraWebhook,
+    sub.emailRecipients,
+    sub.teamReportSlackWebhook,
+    sub.teamReportEmailRecipients,
+  ]);
 
   return (
     <div className="app-sub-channels">
       <Flex spaceItems={{ default: 'spaceItemsMd' }}>
-        {sub.slackWebhook && (
+        {!isTeamReport && sub.slackWebhook && (
           <FlexItem>
             <Tooltip content={sub.slackWebhook}>
               <div className="app-sub-channel-chip app-sub-channel-chip--slack">
@@ -40,7 +55,7 @@ export const SubscriptionChannels = ({ sub }: SubscriptionChannelsProps) => {
             </Tooltip>
           </FlexItem>
         )}
-        {sub.jiraWebhook && (
+        {!isTeamReport && sub.jiraWebhook && (
           <FlexItem>
             <Tooltip content={sub.jiraWebhook}>
               <div className="app-sub-channel-chip app-sub-channel-chip--jira">
@@ -51,7 +66,7 @@ export const SubscriptionChannels = ({ sub }: SubscriptionChannelsProps) => {
             </Tooltip>
           </FlexItem>
         )}
-        {sub.emailRecipients.length > 0 && (
+        {!isTeamReport && sub.emailRecipients.length > 0 && (
           <FlexItem>
             <Tooltip content={sub.emailRecipients.join(', ')}>
               <div className="app-sub-channel-chip app-sub-channel-chip--email">
@@ -62,6 +77,26 @@ export const SubscriptionChannels = ({ sub }: SubscriptionChannelsProps) => {
                     ? sub.emailRecipients[0]
                     : `${sub.emailRecipients.length} recipients`}
                 </span>
+              </div>
+            </Tooltip>
+          </FlexItem>
+        )}
+        {sub.teamReportSlackWebhook && (
+          <FlexItem>
+            <Tooltip content={`Team Report: ${sub.teamReportSlackWebhook}`}>
+              <div className="app-sub-channel-chip app-sub-channel-chip--slack">
+                <ClipboardCheckIcon className="app-sub-channel-icon" />
+                <span>Team Slack</span>
+              </div>
+            </Tooltip>
+          </FlexItem>
+        )}
+        {sub.teamReportEmailRecipients.length > 0 && (
+          <FlexItem>
+            <Tooltip content={`Team Report: ${sub.teamReportEmailRecipients.join(', ')}`}>
+              <div className="app-sub-channel-chip app-sub-channel-chip--email">
+                <ClipboardCheckIcon className="app-sub-channel-icon" />
+                <span>Team Email</span>
               </div>
             </Tooltip>
           </FlexItem>

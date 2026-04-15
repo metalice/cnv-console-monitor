@@ -24,7 +24,6 @@ import {
   ListIcon,
   SearchIcon,
   UserIcon,
-  UsersIcon,
 } from '@patternfly/react-icons';
 import { useQuery } from '@tanstack/react-query';
 
@@ -45,8 +44,7 @@ const navItems = [
   { icon: <CalendarAltIcon />, label: 'Releases', path: '/releases' },
   { icon: <SearchIcon />, label: 'Test Explorer', path: '/test-explorer' },
   { icon: <ListIcon />, label: 'Activity', path: '/activity' },
-  { icon: <ClipboardCheckIcon />, label: 'Weekly Report', path: '/weekly' },
-  { icon: <UsersIcon />, label: 'Team', path: '/weekly/team' },
+  { icon: <ClipboardCheckIcon />, label: 'Team Report', path: '/report' },
   { icon: <CogIcon />, label: 'Settings', path: '/settings' },
   { icon: <InfoCircleIcon />, label: 'About', path: '/about' },
 ];
@@ -116,7 +114,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                   (item.path === '/' &&
                     (location.pathname.startsWith('/launch/') ||
                       location.pathname.startsWith('/test/'))) ||
-                  (item.path === '/releases' && location.pathname.startsWith('/readiness'))
+                  (item.path === '/releases' && location.pathname.startsWith('/readiness')) ||
+                  (item.path === '/report' && location.pathname.startsWith('/report/'))
                 }
                 key={item.path}
                 onClick={() => navigateWithFilter(item.path)}

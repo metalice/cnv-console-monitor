@@ -18,7 +18,7 @@ const dispatchSubscriptionNotifications = async (): Promise<void> => {
     const report = await buildDailyReport(24);
 
     for (const sub of subs) {
-      if (!sub.enabled) {
+      if (!sub.enabled || sub.type === 'team_report') {
         continue;
       }
       // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
@@ -30,6 +30,7 @@ const dispatchSubscriptionNotifications = async (): Promise<void> => {
 };
 
 const scheduledJobs = new Map<string, ScheduledTask>();
+const teamReportJobs = new Map<string, ScheduledTask>();
 
 export const setupSubscriptionCrons = async (): Promise<void> => {
   for (const [, job] of scheduledJobs) {
@@ -40,7 +41,7 @@ export const setupSubscriptionCrons = async (): Promise<void> => {
   const subs = await getAllSubscriptions();
   const scheduleGroups = new Map<string, string>();
   for (const sub of subs) {
-    if (!sub.enabled) {
+    if (!sub.enabled || sub.type === 'team_report') {
       continue;
     }
     const key = `${sub.schedule}|${sub.timezone || 'Asia/Jerusalem'}`;
@@ -64,6 +65,97 @@ export const setupSubscriptionCrons = async (): Promise<void> => {
     );
     scheduledJobs.set(key, job);
     log.info({ schedule, timezone }, 'Subscription cron scheduled');
+  }
+};
+
+const dispatchTeamReportForSubs = async (subIds: number[]): Promise<void> => {
+  try {
+    const subs = await getAllSubscriptions();
+    const targets = subs.filter(sub => sub.enabled && subIds.includes(sub.id));
+
+    if (targets.length === 0) {
+      return;
+    }
+
+    const { generateWeeklyReport } = await import('./weekly/aggregator');
+    await generateWeeklyReport();
+
+    const { listWeeklyReports } = await import('./db/store/weeklyReports');
+    const { entityToWeeklyReport } = await import('./db/mappers/weeklyReport');
+    const reports = await listWeeklyReports();
+    if (reports.length === 0) {
+      log.warn('No weekly report found after generation');
+      return;
+    }
+    const latest = reports[0];
+
+    const report = entityToWeeklyReport(latest);
+    const { sendWeeklySlackReport } = await import('./notifiers/weeklySlack');
+    const { sendWeeklyEmailReport } = await import('./notifiers/weeklyEmail');
+
+    for (const sub of targets) {
+      if (sub.teamReportSlackWebhook) {
+        try {
+          // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
+          await sendWeeklySlackReport(report, sub.teamReportSlackWebhook);
+          log.info({ subId: sub.id, subName: sub.name }, 'Team report Slack sent');
+        } catch (err) {
+          log.error({ err, subId: sub.id }, 'Team report Slack failed');
+        }
+      }
+      const recipients = sub.teamReportEmailRecipients ?? [];
+      if (recipients.length > 0) {
+        try {
+          // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
+          await sendWeeklyEmailReport(report, recipients);
+          log.info({ subId: sub.id, subName: sub.name }, 'Team report email sent');
+        } catch (err) {
+          log.error({ err, subId: sub.id }, 'Team report email failed');
+        }
+      }
+    }
+  } catch (err) {
+    log.error({ err }, 'Team report dispatch failed');
+  }
+};
+
+export const setupTeamReportCrons = async (): Promise<void> => {
+  for (const [, job] of teamReportJobs) {
+    void job.stop();
+  }
+  teamReportJobs.clear();
+
+  const subs = await getAllSubscriptions();
+  const scheduleGroups = new Map<string, number[]>();
+
+  for (const sub of subs) {
+    if (!sub.enabled || sub.type !== 'team_report' || !sub.teamReportSchedule) {
+      continue;
+    }
+    const key = `${sub.teamReportSchedule}|${sub.timezone || 'Asia/Jerusalem'}`;
+    const group = scheduleGroups.get(key) ?? [];
+    group.push(sub.id);
+    scheduleGroups.set(key, group);
+  }
+
+  for (const [key, subIds] of scheduleGroups) {
+    const schedule = key.split('|')[0];
+    const timezone = key.split('|').slice(1).join('|');
+    if (!cron.validate(schedule)) {
+      log.warn({ schedule }, 'Invalid team report cron, skipping');
+      continue;
+    }
+    const job = cron.schedule(
+      schedule,
+      () => {
+        dispatchTeamReportForSubs(subIds).catch(err =>
+          log.error({ err }, 'Team report dispatch failed'),
+        );
+      },
+      { timezone },
+    );
+    teamReportJobs.set(key, job);
+    log.info({ schedule, subCount: subIds.length, timezone }, 'Team report cron scheduled');
   }
 };
 

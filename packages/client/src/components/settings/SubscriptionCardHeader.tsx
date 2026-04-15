@@ -11,6 +11,7 @@ import {
   Flex,
   FlexItem,
   Icon,
+  Label,
   MenuToggle,
   Switch,
 } from '@patternfly/react-core';
@@ -107,6 +108,11 @@ export const SubscriptionCardHeader = ({
             </Icon>
           </FlexItem>
           <FlexItem className="app-sub-card-name">{sub.name}</FlexItem>
+          <FlexItem>
+            <Label isCompact color={sub.type === 'team_report' ? 'purple' : 'blue'}>
+              {sub.type === 'team_report' ? 'Team Report' : 'Test'}
+            </Label>
+          </FlexItem>
         </Flex>
       </CardTitle>
     </CardHeader>

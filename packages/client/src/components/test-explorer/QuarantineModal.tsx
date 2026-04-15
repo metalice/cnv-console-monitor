@@ -29,10 +29,14 @@ import { createQuarantineApi } from '../../api/quarantine';
 
 type QuarantineResult = {
   quarantineId?: string;
+  status?: string;
+  errors?: string[];
   jiraKey?: string;
   skipPrUrl?: string;
   jiraSkipped?: boolean;
   skipPrSkipped?: boolean;
+  skipPrFailed?: boolean;
+  skipPrError?: string;
 };
 
 type CreateQuarantineModalProps = {
@@ -88,87 +92,103 @@ export const CreateQuarantineModal: React.FC<CreateQuarantineModalProps> = ({
   };
 
   if (result) {
+    const isValidationFailure = result.status === 'validation_failed';
+
     return (
       <Modal isOpen={isOpen} variant={ModalVariant.medium} onClose={handleClose}>
-        <ModalHeader title="Test Quarantined" />
+        <ModalHeader title={isValidationFailure ? 'Cannot Quarantine' : 'Test Quarantined'} />
         <ModalBody>
-          <Alert
-            isInline
-            className="app-mb-md"
-            title="Quarantine created successfully"
-            variant="success"
-          />
+          {isValidationFailure ? (
+            <Alert isInline className="app-mb-md" title="Pre-flight check failed" variant="danger">
+              {result.errors?.map(errMsg => (
+                <p key={errMsg}>{errMsg}</p>
+              ))}
+            </Alert>
+          ) : (
+            <Alert
+              isInline
+              className="app-mb-md"
+              title="Quarantine created successfully"
+              variant="success"
+            />
+          )}
 
-          <DescriptionList isCompact isHorizontal>
-            <DescriptionListGroup>
-              <DescriptionListTerm>Test</DescriptionListTerm>
-              <DescriptionListDescription className="app-text-mono">
-                {shortName}
-              </DescriptionListDescription>
-            </DescriptionListGroup>
-            <DescriptionListGroup>
-              <DescriptionListTerm>Status</DescriptionListTerm>
-              <DescriptionListDescription>
-                <Label isCompact color="blue" icon={<CheckCircleIcon />}>
-                  Active
-                </Label>
-              </DescriptionListDescription>
-            </DescriptionListGroup>
+          {!isValidationFailure && (
+            <DescriptionList isCompact isHorizontal>
+              <DescriptionListGroup>
+                <DescriptionListTerm>Test</DescriptionListTerm>
+                <DescriptionListDescription className="app-text-mono">
+                  {shortName}
+                </DescriptionListDescription>
+              </DescriptionListGroup>
+              <DescriptionListGroup>
+                <DescriptionListTerm>Status</DescriptionListTerm>
+                <DescriptionListDescription>
+                  <Label isCompact color="blue" icon={<CheckCircleIcon />}>
+                    Active
+                  </Label>
+                </DescriptionListDescription>
+              </DescriptionListGroup>
 
-            <DescriptionListGroup>
-              <DescriptionListTerm>Jira Ticket</DescriptionListTerm>
-              <DescriptionListDescription>
-                {result.jiraKey ? (
-                  <Button
-                    isInline
-                    component="a"
-                    href={`https://issues.redhat.com/browse/${result.jiraKey}`}
-                    icon={<ExternalLinkAltIcon />}
-                    rel="noreferrer"
-                    target="_blank"
-                    variant="link"
-                  >
-                    {result.jiraKey}
-                  </Button>
-                ) : result.jiraSkipped ? (
-                  <Label isCompact color="orange">
-                    Skipped (no personal Jira token)
-                  </Label>
-                ) : (
-                  <Label isCompact color="grey">
-                    Not requested
-                  </Label>
-                )}
-              </DescriptionListDescription>
-            </DescriptionListGroup>
+              <DescriptionListGroup>
+                <DescriptionListTerm>Jira Ticket</DescriptionListTerm>
+                <DescriptionListDescription>
+                  {result.jiraKey ? (
+                    <Button
+                      isInline
+                      component="a"
+                      href={`https://issues.redhat.com/browse/${result.jiraKey}`}
+                      icon={<ExternalLinkAltIcon />}
+                      rel="noreferrer"
+                      target="_blank"
+                      variant="link"
+                    >
+                      {result.jiraKey}
+                    </Button>
+                  ) : result.jiraSkipped ? (
+                    <Label isCompact color="orange">
+                      Skipped (no personal Jira token)
+                    </Label>
+                  ) : (
+                    <Label isCompact color="grey">
+                      Not requested
+                    </Label>
+                  )}
+                </DescriptionListDescription>
+              </DescriptionListGroup>
 
-            <DescriptionListGroup>
-              <DescriptionListTerm>Skip PR</DescriptionListTerm>
-              <DescriptionListDescription>
-                {result.skipPrUrl ? (
-                  <Button
-                    isInline
-                    component="a"
-                    href={result.skipPrUrl}
-                    icon={<ExternalLinkAltIcon />}
-                    rel="noreferrer"
-                    target="_blank"
-                    variant="link"
-                  >
-                    View Pull Request
-                  </Button>
-                ) : result.skipPrSkipped ? (
-                  <Label isCompact color="orange">
-                    Skipped (no personal Git token)
-                  </Label>
-                ) : (
-                  <Label isCompact color="grey">
-                    Not requested
-                  </Label>
-                )}
-              </DescriptionListDescription>
-            </DescriptionListGroup>
-          </DescriptionList>
+              <DescriptionListGroup>
+                <DescriptionListTerm>Skip PR</DescriptionListTerm>
+                <DescriptionListDescription>
+                  {result.skipPrUrl ? (
+                    <Button
+                      isInline
+                      component="a"
+                      href={result.skipPrUrl}
+                      icon={<ExternalLinkAltIcon />}
+                      rel="noreferrer"
+                      target="_blank"
+                      variant="link"
+                    >
+                      View Pull Request
+                    </Button>
+                  ) : result.skipPrFailed ? (
+                    <Label isCompact color="red">
+                      Failed: {result.skipPrError ?? 'Unknown error'}
+                    </Label>
+                  ) : result.skipPrSkipped ? (
+                    <Label isCompact color="orange">
+                      Skipped (no personal Git token)
+                    </Label>
+                  ) : (
+                    <Label isCompact color="grey">
+                      Not requested
+                    </Label>
+                  )}
+                </DescriptionListDescription>
+              </DescriptionListGroup>
+            </DescriptionList>
+          )}
         </ModalBody>
         <ModalFooter>
           <Button variant="primary" onClick={handleClose}>

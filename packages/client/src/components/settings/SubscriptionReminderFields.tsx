@@ -14,6 +14,7 @@ import {
 type SubscriptionReminderFieldsProps = {
   sub: Subscription;
   draft: Partial<Subscription>;
+  isHidden?: boolean;
   onDraftChange: (updater: (prev: Partial<Subscription>) => Partial<Subscription>) => void;
   onSave: () => void;
   onCancel: () => void;
@@ -21,53 +22,56 @@ type SubscriptionReminderFieldsProps = {
 
 export const SubscriptionReminderFields = ({
   draft,
+  isHidden,
   onCancel,
   onDraftChange,
   onSave,
   sub,
 }: SubscriptionReminderFieldsProps) => (
   <>
-    <DescriptionList
-      isCompact
-      isHorizontal
-      className="app-mt-md"
-      columnModifier={{ default: '1Col' }}
-    >
-      <DescriptionListGroup>
-        <DescriptionListTerm>Ack Reminder</DescriptionListTerm>
-        <DescriptionListDescription>
-          <Flex
-            alignItems={{ default: 'alignItemsCenter' }}
-            spaceItems={{ default: 'spaceItemsSm' }}
-          >
-            <FlexItem>
-              <Switch
-                hasCheckIcon
-                isReversed
-                id={`sub-reminder-${sub.id}`}
-                isChecked={draft.reminderEnabled ?? sub.reminderEnabled ?? false}
-                label="Enabled"
-                onChange={(_e, checked) =>
-                  onDraftChange(prev => ({ ...prev, reminderEnabled: checked }))
-                }
-              />
-            </FlexItem>
-            {(draft.reminderEnabled ?? sub.reminderEnabled) && (
+    {!isHidden && (
+      <DescriptionList
+        isCompact
+        isHorizontal
+        className="app-mt-md"
+        columnModifier={{ default: '1Col' }}
+      >
+        <DescriptionListGroup>
+          <DescriptionListTerm>Ack Reminder</DescriptionListTerm>
+          <DescriptionListDescription>
+            <Flex
+              alignItems={{ default: 'alignItemsCenter' }}
+              spaceItems={{ default: 'spaceItemsSm' }}
+            >
               <FlexItem>
-                <input
-                  className="app-time-input-sm"
-                  type="time"
-                  value={draft.reminderTime ?? sub.reminderTime ?? '10:00'}
-                  onChange={evt =>
-                    onDraftChange(prev => ({ ...prev, reminderTime: evt.target.value }))
+                <Switch
+                  hasCheckIcon
+                  isReversed
+                  id={`sub-reminder-${sub.id}`}
+                  isChecked={draft.reminderEnabled ?? sub.reminderEnabled ?? false}
+                  label="Enabled"
+                  onChange={(_e, checked) =>
+                    onDraftChange(prev => ({ ...prev, reminderEnabled: checked }))
                   }
                 />
               </FlexItem>
-            )}
-          </Flex>
-        </DescriptionListDescription>
-      </DescriptionListGroup>
-    </DescriptionList>
+              {(draft.reminderEnabled ?? sub.reminderEnabled) && (
+                <FlexItem>
+                  <input
+                    className="app-time-input-sm"
+                    type="time"
+                    value={draft.reminderTime ?? sub.reminderTime ?? '10:00'}
+                    onChange={evt =>
+                      onDraftChange(prev => ({ ...prev, reminderTime: evt.target.value }))
+                    }
+                  />
+                </FlexItem>
+              )}
+            </Flex>
+          </DescriptionListDescription>
+        </DescriptionListGroup>
+      </DescriptionList>
+    )}
 
     <Flex className="app-mt-md" spaceItems={{ default: 'spaceItemsSm' }}>
       <FlexItem>

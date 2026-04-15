@@ -8,27 +8,28 @@ const log = logger.child({ module: 'WeeklyReport:Slack' });
 
 const TIMEOUT_MS = 10_000;
 
-export const sendWeeklySlackReport = async (
-  report: WeeklyReport,
-  webhookUrl: string,
-): Promise<void> => {
+export const buildWeeklySlackBlocks = (report: WeeklyReport): Record<string, unknown>[] => {
   const dateRange = formatDateRange(new Date(report.weekStart), new Date(report.weekEnd));
   const componentLabel = report.component ? ` (${report.component})` : '';
+  const stats = report.aggregateStats;
   const includedReports = report.personReports.filter(pr => !pr.excluded);
 
-  const totalPRsMerged = includedReports.reduce((sum, pr) => sum + pr.stats.prsMerged, 0);
-  const totalTicketsDone = includedReports.reduce((sum, pr) => sum + pr.stats.ticketsDone, 0);
-  const totalCommits = includedReports.reduce((sum, pr) => sum + pr.stats.commitCount, 0);
-  const totalStoryPoints = includedReports.reduce(
-    (sum, pr) => sum + pr.stats.storyPointsCompleted,
-    0,
-  );
+  const totalPRsMerged =
+    stats?.prsMerged ?? includedReports.reduce((sum, per) => sum + per.stats.prsMerged, 0);
+  const totalTicketsDone =
+    stats?.ticketsDone ?? includedReports.reduce((sum, per) => sum + per.stats.ticketsDone, 0);
+  const totalCommits =
+    stats?.commitCount ?? includedReports.reduce((sum, per) => sum + per.stats.commitCount, 0);
+  const totalStoryPoints =
+    stats?.storyPoints ??
+    includedReports.reduce((sum, per) => sum + per.stats.storyPointsCompleted, 0);
+  const totalContributors = stats?.contributorCount ?? includedReports.length;
 
   const blocks: Record<string, unknown>[] = [
     {
       text: {
-        text: `:clipboard: *CNV UI Weekly Report: ${dateRange}${componentLabel}*`,
-        type: 'mrkdwn',
+        text: `📋 CNV UI Team Report: ${dateRange}${componentLabel}`,
+        type: 'plain_text',
       },
       type: 'header',
     },
@@ -39,7 +40,7 @@ export const sendWeeklySlackReport = async (
           `:ballot_box_with_check: ${pluralize(totalTicketsDone, 'ticket')} done`,
           `:pencil: ${pluralize(totalCommits, 'commit')}`,
           `:dart: ${totalStoryPoints} story points`,
-          `:busts_in_silhouette: ${pluralize(includedReports.length, 'contributor')}`,
+          `:busts_in_silhouette: ${pluralize(totalContributors, 'contributor')}`,
         ].join('  |  '),
         type: 'mrkdwn',
       },
@@ -100,6 +101,14 @@ export const sendWeeklySlackReport = async (
     );
   }
 
+  return blocks;
+};
+
+export const sendWeeklySlackReport = async (
+  report: WeeklyReport,
+  webhookUrl: string,
+): Promise<void> => {
+  const blocks = buildWeeklySlackBlocks(report);
   await axios.post(webhookUrl, { blocks }, { timeout: TIMEOUT_MS });
   log.info({ weekId: report.weekId }, 'Slack weekly report sent');
 };

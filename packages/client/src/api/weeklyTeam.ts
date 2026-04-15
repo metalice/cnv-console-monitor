@@ -5,8 +5,16 @@ import { apiFetch, apiPost } from './client';
 const buildQuery = (component?: string): string =>
   component ? `?component=${encodeURIComponent(component)}` : '';
 
-export const fetchTeamMembers = (component?: string): Promise<TeamMember[]> =>
-  apiFetch(`/weekly-team${buildQuery(component)}`);
+export const fetchTeamMembers = (
+  component?: string,
+  includeInactive = false,
+): Promise<TeamMember[]> => {
+  const params = new URLSearchParams();
+  if (component) params.set('component', component);
+  if (includeInactive) params.set('includeInactive', 'true');
+  const queryStr = params.toString();
+  return apiFetch(`/weekly-team${queryStr ? `?${queryStr}` : ''}`);
+};
 
 export const createTeamMember = (data: TeamMemberCreate): Promise<TeamMember> =>
   apiPost('/weekly-team', data);
@@ -17,15 +25,15 @@ export const updateTeamMember = (memberId: string, data: TeamMemberUpdate): Prom
     method: 'PUT',
   });
 
-export const deleteTeamMember = (memberId: string): Promise<{ success: boolean }> =>
-  apiFetch(`/weekly-team/${memberId}`, { method: 'DELETE' });
+export const deleteTeamMember = (memberId: string, hard = false): Promise<{ success: boolean }> => {
+  const query = hard ? '?hard=true' : '';
+  return apiFetch(`/weekly-team/${memberId}${query}`, { method: 'DELETE' });
+};
 
 export const restoreDeletedMembers = (): Promise<{ restored: number }> =>
   apiPost('/weekly-team/restore-deleted', {});
 
 export const fetchAvailableUsers = (
   component?: string,
-): Promise<{ githubUsers: string[]; gitlabUsers: string[] }> => {
-  const query = component ? `?component=${encodeURIComponent(component)}` : '';
-  return apiFetch(`/weekly-team/available-users${query}`);
-};
+): Promise<{ githubUsers: string[]; gitlabUsers: string[] }> =>
+  apiFetch(`/weekly-team/available-users${buildQuery(component)}`);

@@ -56,6 +56,10 @@ import { AddFileDrafts1709000000024 } from './migrations/1709000000024-AddFileDr
 import { AddEditActivity1709000000025 } from './migrations/1709000000025-AddEditActivity';
 import { AddWeeklyReport1709000000026 } from './migrations/1709000000026-AddWeeklyReport';
 import { AddWeeklyRepos1709000000027 } from './migrations/1709000000027-AddWeeklyRepos';
+import { AddWeeklyAggregateStats1709000000028 } from './migrations/1709000000028-AddWeeklyAggregateStats';
+import { ReportCompositeKey1709000000029 } from './migrations/1709000000029-ReportCompositeKey';
+import { AddTeamReportChannels1709000000030 } from './migrations/1709000000030-AddTeamReportChannels';
+import { AddSubscriptionType1709000000031 } from './migrations/1709000000031-AddSubscriptionType';
 
 export const AppDataSource = new DataSource({
   entities: [
@@ -114,6 +118,10 @@ export const AppDataSource = new DataSource({
     AddEditActivity1709000000025,
     AddWeeklyReport1709000000026,
     AddWeeklyRepos1709000000027,
+    AddWeeklyAggregateStats1709000000028,
+    ReportCompositeKey1709000000029,
+    AddTeamReportChannels1709000000030,
+    AddSubscriptionType1709000000031,
   ],
   synchronize: false,
   type: 'postgres',

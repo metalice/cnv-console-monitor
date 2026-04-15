@@ -1,58 +1,60 @@
 import { type WeeklyReport } from '@cnv-monitor/shared';
 
-import { config } from '../config';
-import { getSetting } from '../db/store/settings';
+import { getAllSubscriptions } from '../db/store/subscriptions';
 import { logger } from '../logger';
 
 import { sendWeeklyEmailReport } from './weeklyEmail';
 import { sendWeeklySlackReport } from './weeklySlack';
 
-const log = logger.child({ module: 'WeeklyReport:Distribution' });
+const log = logger.child({ module: 'TeamReport:Distribution' });
 
 export const distributeWeeklyReport = async (report: WeeklyReport): Promise<void> => {
-  const results = await Promise.allSettled([
-    sendWeeklySlackNotification(report),
-    sendWeeklyEmailNotification(report),
-  ]);
+  const subs = await getAllSubscriptions();
+  const enabled = subs.filter(sub => sub.enabled);
+  let slackSent = 0;
+  let emailSent = 0;
+
+  const tasks: Promise<void>[] = [];
+
+  for (const sub of enabled) {
+    if (sub.teamReportSlackWebhook) {
+      const webhook = sub.teamReportSlackWebhook;
+      tasks.push(
+        sendWeeklySlackReport(report, webhook).then(() => {
+          slackSent++;
+          log.info({ subId: sub.id, subName: sub.name, weekId: report.weekId }, 'Slack sent');
+          return undefined;
+        }),
+      );
+    }
+
+    const emailRecipients = sub.teamReportEmailRecipients ?? [];
+    if (emailRecipients.length > 0) {
+      tasks.push(
+        sendWeeklyEmailReport(report, emailRecipients).then(() => {
+          emailSent++;
+          log.info(
+            { recipients: emailRecipients.length, subId: sub.id, subName: sub.name },
+            'Email sent',
+          );
+          return undefined;
+        }),
+      );
+    }
+  }
+
+  const results = await Promise.allSettled(tasks);
 
   for (const result of results) {
     if (result.status === 'rejected') {
-      log.error({ err: result.reason }, 'Weekly report distribution channel failed');
+      log.error({ err: result.reason }, 'Team report distribution channel failed');
     }
   }
-};
 
-const sendWeeklySlackNotification = async (report: WeeklyReport): Promise<void> => {
-  const webhookUrl = await getSetting('weekly.slack.webhookUrl');
-  const fallbackUrl = config.slack.jiraWebhookUrl;
-  const url = webhookUrl ?? fallbackUrl;
-
-  if (!url) {
-    log.debug('Slack not configured for weekly report, skipping');
-    return;
+  if (slackSent === 0 && emailSent === 0) {
+    log.warn(
+      { weekId: report.weekId },
+      'No team report channels configured. Set them in Settings > Notifications.',
+    );
   }
-
-  await sendWeeklySlackReport(report, url);
-  log.info({ weekId: report.weekId }, 'Weekly report sent to Slack');
-};
-
-const sendWeeklyEmailNotification = async (report: WeeklyReport): Promise<void> => {
-  if (!config.email.enabled) {
-    log.debug('Email not configured, skipping weekly report email');
-    return;
-  }
-
-  const recipientsSetting = await getSetting('weekly.email.recipients');
-  const recipients = recipientsSetting ? recipientsSetting.split(',').filter(Boolean) : [];
-
-  if (recipients.length === 0) {
-    log.debug('No weekly report email recipients configured, skipping');
-    return;
-  }
-
-  await sendWeeklyEmailReport(report, recipients);
-  log.info(
-    { recipients: recipients.length, weekId: report.weekId },
-    'Weekly report sent via email',
-  );
 };

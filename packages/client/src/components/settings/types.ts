@@ -1,6 +1,6 @@
 import type { SearchableSelectOption } from '../common/SearchableSelect';
 
-export type AlertMessage = { type: 'success' | 'danger'; text: string };
+export type AlertMessage = { type: 'success' | 'danger' | 'warning'; text: string };
 
 export type SettingsSectionProps = {
   val: (key: string) => string;

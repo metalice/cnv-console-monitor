@@ -109,6 +109,11 @@ export const softDeleteTeamMember = async (id: string): Promise<void> => {
   await repo().update({ id }, { is_active: false });
 };
 
+export const hardDeleteTeamMember = async (id: string): Promise<boolean> => {
+  const result = await repo().delete({ id });
+  return (result.affected ?? 0) > 0;
+};
+
 export const mergeTeamMembers = async (targetId: string, sourceId: string): Promise<void> => {
   const target = await repo().findOneBy({ id: targetId });
   const source = await repo().findOneBy({ id: sourceId });

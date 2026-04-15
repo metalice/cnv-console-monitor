@@ -1,4 +1,5 @@
 import {
+  type AggregateStats,
   type CommitSummary,
   type JiraTicket,
   type PersonReport,
@@ -45,11 +46,14 @@ export const entityToWeeklyReport = (entity: WeeklyReportEntity): WeeklyReport =
   const warnings = entity.warnings ? entity.warnings.split(',').filter(Boolean) : [];
 
   return {
+    aggregateStats: entity.aggregate_stats as AggregateStats | null,
     component: entity.component || null,
     createdAt: entity.created_at.toISOString(),
+    id: entity.id,
     managerHighlights: entity.manager_highlights,
-    personReports: entity.person_reports.map(entityToPersonReport),
-    sentAt: entity.sent_at?.toISOString() ?? null,
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: relation may not be loaded
+    personReports: (entity.person_reports ?? []).map(entityToPersonReport),
+    sentAt: entity.sent_at ? entity.sent_at.toISOString() : null,
     state: entity.state as 'DRAFT' | 'FINALIZED' | 'REVIEW' | 'SENT',
     taskSummary: entity.task_summary as TaskSummary | null,
     updatedAt: entity.updated_at.toISOString(),

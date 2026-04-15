@@ -53,7 +53,7 @@ const TestExplorerPage = React.lazy(() =>
 const WeeklyDashboardPage = React.lazy(() =>
   import('./pages/WeeklyDashboardPage').then(mod => ({ default: mod.WeeklyDashboardPage })),
 );
-const WeeklyReportEditorPage = React.lazy(() =>
+const ReportDetailPage = React.lazy(() =>
   import('./pages/ReportEditorPage').then(mod => ({ default: mod.ReportEditorPage })),
 );
 const WeeklyTeamPage = React.lazy(() =>
@@ -89,10 +89,13 @@ const App: React.FC = () => (
         <Route element={<TestProfilePage />} path="/test/:uniqueId" />
         <Route element={<TestExplorerPage />} path="/test-explorer" />
         <Route element={<AboutPage />} path="/about" />
-        <Route element={<WeeklyDashboardPage />} path="/weekly" />
-        <Route element={<WeeklyReportEditorPage />} path="/weekly/report/:weekId" />
-        <Route element={<WeeklyTeamPage />} path="/weekly/team" />
-        <Route element={<WeeklyHistoryPage />} path="/weekly/history" />
+        <Route element={<WeeklyDashboardPage />} path="/report" />
+        <Route element={<ReportDetailPage />} path="/report/:component/:weekId" />
+        <Route element={<WeeklyTeamPage />} path="/report/team" />
+        <Route element={<WeeklyHistoryPage />} path="/report/history" />
+        <Route element={<Navigate replace to="/report" />} path="/weekly" />
+        <Route element={<Navigate replace to="/report/team" />} path="/weekly/team" />
+        <Route element={<Navigate replace to="/report/history" />} path="/weekly/history" />
         <Route element={<Navigate replace to="/" />} path="*" />
       </Routes>
     </Suspense>

@@ -2,16 +2,12 @@ import { type WeeklyPollStatus } from '@cnv-monitor/shared';
 
 import {
   Alert,
-  Button,
   Content,
   ExpandableSection,
-  Flex,
-  FlexItem,
   Progress,
   Stack,
   StackItem,
 } from '@patternfly/react-core';
-import { CheckCircleIcon, PlayIcon, RedoIcon } from '@patternfly/react-icons';
 
 const STEP_LABELS: Record<string, string> = {
   'ai-mapping': 'Mapping identities with AI',
@@ -25,17 +21,15 @@ const STEP_LABELS: Record<string, string> = {
 };
 
 type PollProgressProps = {
-  isStarting?: boolean;
-  onTrigger: () => void;
   status: WeeklyPollStatus;
 };
 
-export const PollProgress = ({ isStarting = false, onTrigger, status }: PollProgressProps) => {
+export const PollProgress = ({ status }: PollProgressProps) => {
   const isRunning = status.status === 'running';
   const isFailed = status.status === 'failed';
-  const isCompleted = status.status === 'completed';
   const stepLabel = STEP_LABELS[status.currentStep] ?? status.currentStep;
-  const hasLogs = status.logs.length > 0;
+
+  if (!isRunning && !isFailed) return null;
 
   return (
     <Stack hasGutter>
@@ -47,21 +41,18 @@ export const PollProgress = ({ isStarting = false, onTrigger, status }: PollProg
         </StackItem>
       )}
 
-      {(isRunning || isStarting) && (
+      {isRunning && (
         <StackItem>
           <Progress
-            aria-label="Weekly report generation progress"
+            aria-label="Report generation progress"
             className="app-weekly-progress"
             title={stepLabel}
             value={status.progress}
           />
-          <Content className="app-text-muted" component="small">
-            {stepLabel}
-          </Content>
         </StackItem>
       )}
 
-      {(isRunning || isCompleted || isFailed) && hasLogs && (
+      {isRunning && status.logs.length > 0 && (
         <StackItem>
           <ExpandableSection toggleText={`Activity log (${status.logs.length} entries)`}>
             <div className="app-weekly-log">
@@ -75,37 +66,6 @@ export const PollProgress = ({ isStarting = false, onTrigger, status }: PollProg
               ))}
             </div>
           </ExpandableSection>
-        </StackItem>
-      )}
-
-      {!isRunning && (
-        <StackItem>
-          <Flex alignItems={{ default: 'alignItemsCenter' }} gap={{ default: 'gapMd' }}>
-            {isCompleted && (
-              <FlexItem>
-                <Flex alignItems={{ default: 'alignItemsCenter' }} gap={{ default: 'gapSm' }}>
-                  <FlexItem>
-                    <CheckCircleIcon className="app-weekly-check" />
-                  </FlexItem>
-                  <FlexItem>
-                    <Content component="small">Report generated</Content>
-                  </FlexItem>
-                </Flex>
-              </FlexItem>
-            )}
-            <FlexItem>
-              <Button
-                icon={isCompleted ? <RedoIcon /> : <PlayIcon />}
-                isDisabled={isStarting}
-                isLoading={isStarting}
-                size="sm"
-                variant={isCompleted ? 'secondary' : 'primary'}
-                onClick={onTrigger}
-              >
-                {isCompleted ? 'Regenerate' : 'Generate Report'}
-              </Button>
-            </FlexItem>
-          </Flex>
         </StackItem>
       )}
     </Stack>
