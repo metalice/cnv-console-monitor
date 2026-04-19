@@ -47,22 +47,18 @@ const ReadinessPage = React.lazy(() =>
 const AboutPage = React.lazy(() =>
   import('./pages/AboutPage').then(mod => ({ default: mod.AboutPage })),
 );
+const FeedbackPage = React.lazy(() =>
+  import('./pages/FeedbackPage').then(mod => ({ default: mod.FeedbackPage })),
+);
 const TestExplorerPage = React.lazy(() =>
   import('./pages/TestExplorerPage').then(mod => ({ default: mod.TestExplorerPage })),
 );
-const WeeklyDashboardPage = React.lazy(() =>
-  import('./pages/WeeklyDashboardPage').then(mod => ({ default: mod.WeeklyDashboardPage })),
+const ReportDashboardPage = React.lazy(() =>
+  import('./pages/ReportDashboardPage').then(mod => ({ default: mod.ReportDashboardPage })),
 );
 const ReportDetailPage = React.lazy(() =>
   import('./pages/ReportEditorPage').then(mod => ({ default: mod.ReportEditorPage })),
 );
-const WeeklyTeamPage = React.lazy(() =>
-  import('./pages/WeeklyTeamPage').then(mod => ({ default: mod.WeeklyTeamPage })),
-);
-const WeeklyHistoryPage = React.lazy(() =>
-  import('./pages/WeeklyHistoryPage').then(mod => ({ default: mod.WeeklyHistoryPage })),
-);
-
 const PageFallback: React.FC = () => (
   <div className="app-page-spinner">
     <Spinner aria-label="Loading page" />
@@ -88,14 +84,12 @@ const App: React.FC = () => (
         <Route element={<ReadinessPage />} path="/readiness/:version" />
         <Route element={<TestProfilePage />} path="/test/:uniqueId" />
         <Route element={<TestExplorerPage />} path="/test-explorer" />
+        <Route element={<FeedbackPage />} path="/feedback" />
         <Route element={<AboutPage />} path="/about" />
-        <Route element={<WeeklyDashboardPage />} path="/report" />
+        <Route element={<ReportDashboardPage />} path="/report" />
         <Route element={<ReportDetailPage />} path="/report/:component/:weekId" />
-        <Route element={<WeeklyTeamPage />} path="/report/team" />
-        <Route element={<WeeklyHistoryPage />} path="/report/history" />
         <Route element={<Navigate replace to="/report" />} path="/weekly" />
-        <Route element={<Navigate replace to="/report/team" />} path="/weekly/team" />
-        <Route element={<Navigate replace to="/report/history" />} path="/weekly/history" />
+        <Route element={<Navigate replace to="/report" />} path="/weekly/*" />
         <Route element={<Navigate replace to="/" />} path="*" />
       </Routes>
     </Suspense>

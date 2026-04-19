@@ -201,34 +201,34 @@ export const getIssueStatus = async (key: string): Promise<string> => {
   }
 };
 
-type WeeklyJiraUser = {
+type ReportJiraUser = {
   accountId: string;
   displayName: string;
   emailAddress?: string;
 };
 
-type WeeklyJiraChangelogItem = {
+type ReportJiraChangelogItem = {
   field: string;
   fromString: string | null;
   toString: string | null;
 };
 
-type WeeklyJiraChangelogHistory = {
-  author: WeeklyJiraUser;
+type ReportJiraChangelogHistory = {
+  author: ReportJiraUser;
   created: string;
-  items: WeeklyJiraChangelogItem[];
+  items: ReportJiraChangelogItem[];
 };
 
-type WeeklyJiraComment = {
-  author: WeeklyJiraUser;
+type ReportJiraComment = {
+  author: ReportJiraUser;
   created: string;
 };
 
-export type WeeklyJiraIssue = {
-  changelog?: { histories: WeeklyJiraChangelogHistory[] };
+export type ReportJiraIssue = {
+  changelog?: { histories: ReportJiraChangelogHistory[] };
   fields: {
-    assignee: WeeklyJiraUser | null;
-    comment?: { comments: WeeklyJiraComment[]; total: number };
+    assignee: ReportJiraUser | null;
+    comment?: { comments: ReportJiraComment[]; total: number };
     issuetype: { name: string } | null;
     labels: string[];
     priority: { name: string } | null;
@@ -244,7 +244,7 @@ export type WeeklyJiraIssue = {
 export const searchTeamTickets = async (
   since: string,
   component?: string,
-): Promise<WeeklyJiraIssue[]> => {
+): Promise<ReportJiraIssue[]> => {
   const client = createJiraClient();
   const componentClause = component ? `AND component = "${component}"` : '';
   const jql = `project = "${config.jira.projectKey}" ${componentClause} AND updated >= "${since}"`;
@@ -264,8 +264,8 @@ export const searchTeamTickets = async (
 
   const fetchPage = async (
     token: string | undefined,
-    accumulated: WeeklyJiraIssue[],
-  ): Promise<WeeklyJiraIssue[]> => {
+    accumulated: ReportJiraIssue[],
+  ): Promise<ReportJiraIssue[]> => {
     const body: Record<string, unknown> = {
       expand: 'changelog',
       fields,
@@ -283,7 +283,7 @@ export const searchTeamTickets = async (
 
     const data = response.data as {
       isLast?: boolean;
-      issues?: WeeklyJiraIssue[];
+      issues?: ReportJiraIssue[];
       nextPageToken?: string;
     };
     const issues = data.issues ?? [];
@@ -296,7 +296,7 @@ export const searchTeamTickets = async (
   };
 
   const allIssues = await fetchPage(undefined, []);
-  log.info({ component, count: allIssues.length, jql }, 'Fetched weekly team Jira tickets');
+  log.info({ component, count: allIssues.length, jql }, 'Fetched team report Jira tickets');
   return allIssues;
 };
 

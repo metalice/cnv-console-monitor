@@ -16,17 +16,17 @@ import {
 import { PlayIcon } from '@patternfly/react-icons';
 
 import { useComponentFilter } from '../../context/ComponentFilterContext';
-import { useWeeklyPollStatus } from '../../hooks/useWeeklyPollStatus';
+import { useReportPollStatus } from '../../hooks/useReportPollStatus';
 
 const toDateStr = (date: Date): string => date.toISOString().split('T')[0];
 
 type GenerateReportButtonProps = {
-  pollStatusOverride?: ReturnType<typeof useWeeklyPollStatus>;
+  pollStatusOverride?: ReturnType<typeof useReportPollStatus>;
 };
 
 export const GenerateReportButton = ({ pollStatusOverride }: GenerateReportButtonProps) => {
   const { selectedComponents } = useComponentFilter();
-  const ownPollStatus = useWeeklyPollStatus({ silent: true });
+  const ownPollStatus = useReportPollStatus({ silent: true });
   const pollStatus = pollStatusOverride ?? ownPollStatus;
   const isRunning = pollStatus.status.status === 'running' || pollStatus.isStarting;
 

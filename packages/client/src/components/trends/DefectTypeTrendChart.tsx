@@ -32,7 +32,7 @@ export const DefectTypeTrendChart: React.FC<DefectTypeTrendChartProps> = ({ defe
         Defect Classification Trend (last 90 days)
       </Content>
       <Content className="app-section-subheading" component="small">
-        Weekly breakdown of how failures are classified
+        Trend breakdown of how failures are classified
       </Content>
       <div className="app-chart-container">
         <Chart

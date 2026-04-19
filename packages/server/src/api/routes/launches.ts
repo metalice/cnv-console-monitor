@@ -4,17 +4,20 @@ import axios from 'axios';
 import { type NextFunction, type Request, type Response, Router } from 'express';
 
 import { buildDailyReport, groupLaunches } from '../../analyzer';
+import { fetchJiraComponents } from '../../componentMap';
 import {
   getDistinctComponents,
   getLaunchByRpId,
   getLaunchCount,
   getLaunchesSince,
 } from '../../db/store';
+import { logger } from '../../logger';
 import { clampInt } from '../middleware/validate';
 
 import trendsRouter from './launches-trends';
 
 const router = Router();
+const log = logger.child({ module: 'launches-route' });
 const jenkinsAgent = new https.Agent({ rejectUnauthorized: false });
 
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
@@ -116,8 +119,22 @@ router.get('/by-name/:name', async (req: Request, res: Response, next: NextFunct
 
 router.get('/components', async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const components = await getDistinctComponents();
-    res.json(components);
+    const [dbComponents, jiraComponents] = await Promise.all([
+      getDistinctComponents(),
+      fetchJiraComponents().catch(err => {
+        log.warn({ err }, 'Failed to fetch Jira components for toolbar, using DB-only list');
+        return [] as string[];
+      }),
+    ]);
+
+    const merged = new Set<string>(dbComponents);
+    for (const jiraComp of jiraComponents) {
+      if (!dbComponents.some(dbComp => dbComp.toLowerCase() === jiraComp.toLowerCase())) {
+        merged.add(jiraComp);
+      }
+    }
+
+    res.json([...merged].toSorted((left, right) => left.localeCompare(right)));
   } catch (err) {
     next(err);
   }
