@@ -107,19 +107,19 @@ const testTeamReportSubscription = async (
 ): Promise<string[]> => {
   const results: string[] = [];
 
-  const { listWeeklyReports } = await import('../../db/store/weeklyReports');
-  const { entityToWeeklyReport } = await import('../../db/mappers/weeklyReport');
-  const reports = await listWeeklyReports();
+  const { listReports } = await import('../../db/store/reports');
+  const { entityToReport } = await import('../../db/mappers/report');
+  const reports = await listReports();
   if (reports.length === 0) {
-    results.push('No weekly report available to send. Generate one first.');
+    results.push('No team report available to send. Generate one first.');
     return results;
   }
-  const report = entityToWeeklyReport(reports[0]);
+  const report = entityToReport(reports[0]);
 
   if (sub.teamReportSlackWebhook) {
     try {
-      const { sendWeeklySlackReport } = await import('../../notifiers/weeklySlack');
-      await sendWeeklySlackReport(report, sub.teamReportSlackWebhook);
+      const { sendReportSlack } = await import('../../notifiers/reportSlack');
+      await sendReportSlack(report, sub.teamReportSlackWebhook);
       results.push('Team Report Slack sent');
     } catch (err) {
       results.push(`Team Report Slack failed: ${err instanceof Error ? err.message : 'unknown'}`);
@@ -129,8 +129,8 @@ const testTeamReportSubscription = async (
   const recipients = sub.teamReportEmailRecipients ?? [];
   if (recipients.length > 0) {
     try {
-      const { sendWeeklyEmailReport } = await import('../../notifiers/weeklyEmail');
-      await sendWeeklyEmailReport(report, recipients);
+      const { sendReportEmail } = await import('../../notifiers/reportEmail');
+      await sendReportEmail(report, recipients);
       results.push(`Team Report Email sent to ${recipients.join(', ')}`);
     } catch (err) {
       results.push(`Team Report Email failed: ${err instanceof Error ? err.message : 'unknown'}`);

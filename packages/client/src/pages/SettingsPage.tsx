@@ -10,6 +10,7 @@ import { IntegrationsCard } from '../components/settings/IntegrationsCard';
 import { NotificationPreview } from '../components/settings/NotificationPreview';
 import { NotificationSubscriptions } from '../components/settings/NotificationSubscriptions';
 import { PersonalTokensSection } from '../components/settings/PersonalTokensSection';
+import { ReportRepoSettings } from '../components/settings/ReportRepoSettings';
 import { RepositoryMappingSection } from '../components/settings/RepositoryMappingSection';
 import { SystemStatusBanner } from '../components/settings/SystemStatusBanner';
 import { UnsavedChangesBar } from '../components/settings/UnsavedChangesBar';
@@ -17,7 +18,6 @@ import { useCtrlSave } from '../components/settings/useCtrlSave';
 import { UserManagement } from '../components/settings/UserManagement';
 import { useSettingsPageNav } from '../components/settings/useSettingsPageNav';
 import { useSettingsState } from '../components/settings/useSettingsState';
-import { WeeklyRepoSettings } from '../components/settings/WeeklyRepoSettings';
 
 export const SettingsPage = () => {
   useEffect(() => {
@@ -126,7 +126,7 @@ export const SettingsPage = () => {
         <NotificationPreview />
 
         <div className="app-mb-lg">
-          <WeeklyRepoSettings />
+          <ReportRepoSettings />
         </div>
 
         <div className="app-mb-lg">

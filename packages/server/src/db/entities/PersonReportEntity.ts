@@ -1,7 +1,7 @@
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, Unique } from 'typeorm';
 
+import { ReportEntity } from './ReportEntity';
 import { TeamMemberEntity } from './TeamMemberEntity';
-import { WeeklyReportEntity } from './WeeklyReportEntity';
 
 @Entity('person_reports_weekly')
 @Unique(['week_id', 'member_id'])
@@ -34,11 +34,11 @@ export class PersonReportEntity {
   @Column({ default: '[]', type: 'jsonb' })
   prs!: unknown[];
 
-  @ManyToOne(() => WeeklyReportEntity, weeklyReport => weeklyReport.person_reports, {
+  @ManyToOne(() => ReportEntity, parentReport => parentReport.person_reports, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'report_id' })
-  report!: WeeklyReportEntity;
+  report!: ReportEntity;
 
   @Column({ nullable: true, type: 'uuid' })
   report_id!: string;

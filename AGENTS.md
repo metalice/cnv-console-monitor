@@ -44,6 +44,7 @@ Persistent memory for AI agents working on this project. Updated as corrections 
 - Knip: blocking in pre-commit and CI (no unused files, deps, or exports)
 - Husky pre-commit: lint-staged + format:check + knip
 - CI: lint -> format:check -> build shared -> knip -> typecheck -> build -> test
+- **BEFORE EVERY PR**: must run `npx eslint . --max-warnings 0 --fix` then `npx eslint . --max-warnings 0` and verify zero errors. Run against the ENTIRE repo (`.`), not just changed files — CI lints everything. Also run `npx knip` to catch unused exports. Never push without both passing.
 
 ---
 
@@ -75,6 +76,32 @@ Output format: summary table first, then details per persona, then ask to procee
 ## External Dependencies (dynamically loaded)
 
 - `pino-pretty`: loaded by pino via string reference, NOT a static import. Knip `ignoreDependencies` entry required.
+
+---
+
+## Mandatory Regression Tests
+
+### Report Table Visibility (recurring bug)
+
+After ANY change to the following files, you MUST run the weekly report regression test:
+
+```bash
+npx vitest run packages/server/src/api/routes/reports.test.ts
+```
+
+**Affected files** (any modification triggers mandatory test run):
+- `packages/client/src/pages/ReportEditorPage.tsx`
+- `packages/client/src/pages/ReportDashboardPage.tsx`
+- `packages/client/src/hooks/useReports.ts`
+- `packages/client/src/hooks/useReportPollStatus.ts`
+- `packages/client/src/api/reports.ts`
+- `packages/client/src/components/report/**`
+- `packages/server/src/api/routes/reports.ts`
+- `packages/server/src/db/store/reports.ts`
+- `packages/server/src/db/mappers/report.ts`
+- `packages/server/src/report/aggregator.ts`
+
+**Root cause context:** Generated reports not appearing in the dashboard table. The bug stems from component filter mismatches (`component=''` vs `undefined` vs specific string), cache key inconsistencies between the list query and invalidation, and entity-to-DTO mapping of the `component` field (empty string → `null`). The test file guards these invariants.
 
 ---
 

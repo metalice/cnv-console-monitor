@@ -31,7 +31,7 @@ export const NewSubscriptionFields = ({
       <DescriptionListGroup>
         <DescriptionListTerm>
           <HelpLabel
-            help="Choose the subscription type. Test notifications send daily test results. Team reports send weekly summaries."
+            help="Choose the subscription type. Test notifications send daily test results. Team reports send team report summaries."
             label="Type"
           />
         </DescriptionListTerm>
@@ -66,7 +66,7 @@ export const NewSubscriptionFields = ({
             <TextInput
               aria-label="Subscription name"
               placeholder={
-                isTeamReport ? 'e.g. Networking Weekly Summary' : 'e.g. CNV 4.17 Daily Report'
+                isTeamReport ? 'e.g. Networking Team Report' : 'e.g. CNV 4.17 Daily Report'
               }
               value={newRow.name}
               onChange={(_e, value) => onFieldChange('name', value)}

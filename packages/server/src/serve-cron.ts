@@ -77,27 +77,27 @@ const dispatchTeamReportForSubs = async (subIds: number[]): Promise<void> => {
       return;
     }
 
-    const { generateWeeklyReport } = await import('./weekly/aggregator');
-    await generateWeeklyReport();
+    const { generateReport } = await import('./report/aggregator');
+    await generateReport();
 
-    const { listWeeklyReports } = await import('./db/store/weeklyReports');
-    const { entityToWeeklyReport } = await import('./db/mappers/weeklyReport');
-    const reports = await listWeeklyReports();
+    const { listReports } = await import('./db/store/reports');
+    const { entityToReport } = await import('./db/mappers/report');
+    const reports = await listReports();
     if (reports.length === 0) {
-      log.warn('No weekly report found after generation');
+      log.warn('No team report found after generation');
       return;
     }
     const latest = reports[0];
 
-    const report = entityToWeeklyReport(latest);
-    const { sendWeeklySlackReport } = await import('./notifiers/weeklySlack');
-    const { sendWeeklyEmailReport } = await import('./notifiers/weeklyEmail');
+    const report = entityToReport(latest);
+    const { sendReportSlack } = await import('./notifiers/reportSlack');
+    const { sendReportEmail } = await import('./notifiers/reportEmail');
 
     for (const sub of targets) {
       if (sub.teamReportSlackWebhook) {
         try {
           // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
-          await sendWeeklySlackReport(report, sub.teamReportSlackWebhook);
+          await sendReportSlack(report, sub.teamReportSlackWebhook);
           log.info({ subId: sub.id, subName: sub.name }, 'Team report Slack sent');
         } catch (err) {
           log.error({ err, subId: sub.id }, 'Team report Slack failed');
@@ -107,7 +107,7 @@ const dispatchTeamReportForSubs = async (subIds: number[]): Promise<void> => {
       if (recipients.length > 0) {
         try {
           // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
-          await sendWeeklyEmailReport(report, recipients);
+          await sendReportEmail(report, recipients);
           log.info({ subId: sub.id, subName: sub.name }, 'Team report email sent');
         } catch (err) {
           log.error({ err, subId: sub.id }, 'Team report email failed');

@@ -13,10 +13,13 @@ import { DateProvider } from './context/DateContext';
 import { PreferencesProvider, usePreferences } from './context/PreferencesContext';
 import { ToastProvider } from './context/ToastContext';
 import { useWebSocket } from './hooks/useWebSocket';
+import { initConsoleBuffer } from './utils/consoleBuffer';
 import App from './App';
 
 import '@patternfly/react-core/dist/styles/base.css';
 import './styles/app.css';
+
+initConsoleBuffer();
 
 const queryClient = new QueryClient({
   defaultOptions: {
