@@ -16,6 +16,13 @@ type ReadinessTrendPoint = {
   rate: number;
 };
 
+export type ComponentBreakdownEntry = {
+  component: string;
+  passRate: number;
+  totalLaunches: number;
+  failedLaunches: number;
+};
+
 type ReadinessAssessment = {
   version: string;
   passRate: number;
@@ -25,9 +32,34 @@ type ReadinessAssessment = {
   blockingFailures: BlockingFailure[];
   trend: ReadinessTrendPoint[];
   recommendation: 'ready' | 'at_risk' | 'blocked';
+  componentBreakdown: ComponentBreakdownEntry[];
 };
 
-export const fetchReadiness = (version: string, days = 30): Promise<ReadinessAssessment> =>
-  apiFetch(`/readiness/${encodeURIComponent(version)}?days=${days}`);
+export type VersionSummary = {
+  version: string;
+  passRate: number;
+  totalLaunches: number;
+  recommendation: 'ready' | 'at_risk' | 'blocked';
+  lastRun: string | null;
+};
 
-export const fetchReadinessVersions = (): Promise<string[]> => apiFetch('/readiness/versions');
+export const fetchReadiness = (
+  version: string,
+  days = 30,
+  components?: string[],
+): Promise<ReadinessAssessment> => {
+  const params = new URLSearchParams({ days: String(days) });
+  if (components?.length) {
+    params.set('components', components.join(','));
+  }
+  return apiFetch(`/readiness/${encodeURIComponent(version)}?${params.toString()}`);
+};
+
+export const fetchReadinessVersions = (components?: string[]): Promise<VersionSummary[]> => {
+  const params = new URLSearchParams();
+  if (components?.length) {
+    params.set('components', components.join(','));
+  }
+  const queryString = params.toString();
+  return apiFetch(`/readiness/versions${queryString ? `?${queryString}` : ''}`);
+};

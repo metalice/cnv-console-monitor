@@ -9,6 +9,9 @@ import { AICache } from './entities/AICache';
 import { AICorrection } from './entities/AICorrection';
 import { ComponentMapping } from './entities/ComponentMapping';
 import { EditActivity } from './entities/EditActivity';
+import { FeedbackEntity } from './entities/FeedbackEntity';
+import { FeedbackResponseEntity } from './entities/FeedbackResponseEntity';
+import { FeedbackVoteEntity } from './entities/FeedbackVoteEntity';
 import { FileDraft } from './entities/FileDraft';
 import { Launch } from './entities/Launch';
 import { NotificationSubscription } from './entities/NotificationSubscription';
@@ -17,7 +20,9 @@ import { PipelineRun } from './entities/PipelineRun';
 import { Quarantine } from './entities/Quarantine';
 import { QuarantineLog } from './entities/QuarantineLog';
 import { ReleaseMilestoneEntity } from './entities/ReleaseMilestone';
+import { RepoConfigEntity } from './entities/RepoConfigEntity';
 import { RepoFile } from './entities/RepoFile';
+import { ReportEntity } from './entities/ReportEntity';
 import { Repository } from './entities/Repository';
 import { Setting } from './entities/Setting';
 import { SettingsLog } from './entities/SettingsLog';
@@ -27,8 +32,6 @@ import { TriageLog } from './entities/TriageLog';
 import { UserEntity } from './entities/UserEntity';
 import { UserPreference } from './entities/UserPreference';
 import { UserToken } from './entities/UserToken';
-import { WeeklyRepoEntity } from './entities/WeeklyRepoEntity';
-import { WeeklyReportEntity } from './entities/WeeklyReportEntity';
 import { InitialSchema1709000000000 } from './migrations/1709000000000-InitialSchema';
 import { AddArtifactsUrl1709000000001 } from './migrations/1709000000001-AddArtifactsUrl';
 import { AddSettings1709000000002 } from './migrations/1709000000002-AddSettings';
@@ -60,6 +63,7 @@ import { AddWeeklyAggregateStats1709000000028 } from './migrations/1709000000028
 import { ReportCompositeKey1709000000029 } from './migrations/1709000000029-ReportCompositeKey';
 import { AddTeamReportChannels1709000000030 } from './migrations/1709000000030-AddTeamReportChannels';
 import { AddSubscriptionType1709000000031 } from './migrations/1709000000031-AddSubscriptionType';
+import { AddFeedback1709000000032 } from './migrations/1709000000032-AddFeedback';
 
 export const AppDataSource = new DataSource({
   entities: [
@@ -84,10 +88,13 @@ export const AppDataSource = new DataSource({
     UserToken,
     FileDraft,
     EditActivity,
+    FeedbackEntity,
+    FeedbackVoteEntity,
+    FeedbackResponseEntity,
     TeamMemberEntity,
-    WeeklyReportEntity,
+    ReportEntity,
     PersonReportEntity,
-    WeeklyRepoEntity,
+    RepoConfigEntity,
   ],
   logging: false,
   migrations: [
@@ -122,6 +129,7 @@ export const AppDataSource = new DataSource({
     ReportCompositeKey1709000000029,
     AddTeamReportChannels1709000000030,
     AddSubscriptionType1709000000031,
+    AddFeedback1709000000032,
   ],
   synchronize: false,
   type: 'postgres',

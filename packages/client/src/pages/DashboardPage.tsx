@@ -84,7 +84,7 @@ export const DashboardPage = () => {
       />
     );
   }
-  if (queries.isLoading || !queries.report) {
+  if (queries.isLoading || queries.isFetching || !queries.report) {
     return <DashboardSkeleton />;
   }
   if (queries.report.groups.length === 0) {
@@ -106,7 +106,9 @@ export const DashboardPage = () => {
         lastPollAt={queries.pollStatus?.lastPollAt}
       />
       <PageSection>
-        <AckBanner component={selectedComponent} onAcknowledge={() => setAckModalOpen(true)} />
+        {selectedComponent && (
+          <AckBanner component={selectedComponent} onAcknowledge={() => setAckModalOpen(true)} />
+        )}
         <UpcomingReleasesAlert
           releases={upcomingReleases}
           onNavigate={() => navigate('/releases')}
@@ -140,12 +142,14 @@ export const DashboardPage = () => {
           onViewChange={handleViewChange}
         />
       </PageSection>
-      <AcknowledgeModal
-        component={selectedComponent}
-        groups={filters.filteredGroups}
-        isOpen={ackModalOpen}
-        onClose={() => setAckModalOpen(false)}
-      />
+      {selectedComponent && (
+        <AcknowledgeModal
+          component={selectedComponent}
+          groups={filters.filteredGroups}
+          isOpen={ackModalOpen}
+          onClose={() => setAckModalOpen(false)}
+        />
+      )}
     </>
   );
 };

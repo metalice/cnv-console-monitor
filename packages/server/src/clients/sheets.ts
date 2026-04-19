@@ -5,7 +5,7 @@ import { type SpreadsheetRow, type VersionTab } from '@cnv-monitor/shared';
 import { getSetting } from '../db/store/settings';
 import { logger } from '../logger';
 
-const log = logger.child({ module: 'WeeklyReport:Sheets' });
+const log = logger.child({ module: 'TeamReport:Sheets' });
 
 const TIMEOUT_MS = 15_000;
 

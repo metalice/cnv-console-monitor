@@ -3,22 +3,25 @@ import { BanIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@patternfly/r
 
 import { StatCard } from '../common/StatCard';
 
+const PASS_RATE_GREEN = 95;
+const PASS_RATE_YELLOW = 80;
+
 const RECOMMENDATION_CONFIG = {
   at_risk: {
     color: 'yellow' as const,
-    description: 'Some untriaged failures or moderate pass rate',
+    description: 'Moderate pass rate or some untriaged failures remain',
     icon: ExclamationTriangleIcon,
     label: 'At Risk',
   },
   blocked: {
     color: 'red' as const,
-    description: 'Pass rate < 80% or > 10 untriaged failures',
+    description: 'Pass rate below 80% or more than 10 untriaged failures',
     icon: BanIcon,
     label: 'Blocked',
   },
   ready: {
     color: 'green' as const,
-    description: 'Pass rate ≥ 95% with no untriaged failures',
+    description: 'Pass rate at or above 95% with zero untriaged failures',
     icon: CheckCircleIcon,
     label: 'Ready to Ship',
   },
@@ -34,6 +37,12 @@ type ReadinessData = {
 
 type ReadinessStatsSectionProps = {
   data: ReadinessData;
+};
+
+const getPassRateColor = (rate: number): string => {
+  if (rate >= PASS_RATE_GREEN) return 'var(--pf-t--global--color--status--success--default)';
+  if (rate >= PASS_RATE_YELLOW) return 'var(--pf-t--global--color--status--warning--default)';
+  return 'var(--pf-t--global--color--status--danger--default)';
 };
 
 export const ReadinessBanner = ({ data }: ReadinessStatsSectionProps) => {
@@ -61,13 +70,7 @@ export const ReadinessStatsGallery = ({ data }: ReadinessStatsSectionProps) => (
     <Gallery hasGutter minWidths={{ default: '160px' }}>
       <GalleryItem>
         <StatCard
-          color={
-            data.passRate >= 95
-              ? 'var(--pf-t--global--color--status--success--default)'
-              : data.passRate >= 80
-                ? 'var(--pf-t--global--color--status--warning--default)'
-                : 'var(--pf-t--global--color--status--danger--default)'
-          }
+          color={getPassRateColor(data.passRate)}
           help="Percentage of tests passing across all launches for this version"
           label="Pass Rate"
           value={`${data.passRate}%`}

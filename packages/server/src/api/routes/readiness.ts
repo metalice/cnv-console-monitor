@@ -2,20 +2,31 @@ import { type NextFunction, type Request, type Response, Router } from 'express'
 
 import { AppDataSource } from '../../db/data-source';
 
-import { fetchBlockingFailures, fetchTrendData, type ReadinessResponse } from './readiness-helpers';
+import {
+  computeRecommendation,
+  fetchBlockingFailures,
+  fetchComponentBreakdown,
+  fetchTrendData,
+  fetchVersionSummaries,
+  type ReadinessResponse,
+} from './readiness-helpers';
 
 const router = Router();
 
-router.get('/versions', async (_req: Request, res: Response, next: NextFunction) => {
+const parseComponents = (param: string | undefined): string[] | undefined => {
+  if (!param) return undefined;
+  const list = param.split(',').filter(Boolean);
+  return list.length > 0 ? list : undefined;
+};
+
+router.get('/versions', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const rows: { cnv_version: string }[] = await AppDataSource.query(`
-      SELECT DISTINCT cnv_version
-      FROM launches
-      WHERE cnv_version IS NOT NULL AND cnv_version != ''
-      ORDER BY cnv_version DESC
-    `);
-    const versions = rows.map(row => row.cnv_version);
-    res.json(versions);
+    const components = parseComponents(req.query.components as string | undefined);
+    const days = parseInt(req.query.days as string) || 30;
+    const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+
+    const summaries = await fetchVersionSummaries(sinceMs, components);
+    res.json(summaries);
   } catch (err) {
     next(err);
   }
@@ -25,8 +36,19 @@ router.get('/:version', async (req: Request, res: Response, next: NextFunction) 
   try {
     const version = req.params.version as string;
     const days = parseInt(req.query.days as string) || 30;
+    const components = parseComponents(req.query.components as string | undefined);
     const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
     const midMs = Date.now() - (days / 2) * 24 * 60 * 60 * 1000;
+
+    const params: unknown[] = [version, sinceMs];
+    let componentClause = '';
+    if (components?.length) {
+      const placeholders = components.map(comp => {
+        params.push(comp);
+        return `$${params.length}`;
+      });
+      componentClause = ` AND component IN (${placeholders.join(', ')})`;
+    }
 
     type LaunchStatsRow = {
       total_launches: number;
@@ -42,9 +64,9 @@ router.get('/:version', async (req: Request, res: Response, next: NextFunction) 
         SUM(total)::int as total_tests,
         SUM(passed)::int as passed_tests
       FROM launches
-      WHERE cnv_version = $1 AND start_time >= $2
+      WHERE cnv_version = $1 AND start_time >= $2${componentClause}
     `,
-      [version, sinceMs],
+      params,
     );
     const launchStats = launchStatsRows[0];
 
@@ -54,6 +76,16 @@ router.get('/:version', async (req: Request, res: Response, next: NextFunction) 
     const passedTests = launchStats.passed_tests || 0;
     const passRate = totalTests > 0 ? Math.round((passedTests / totalTests) * 1000) / 10 : 0;
 
+    const untriagedParams: unknown[] = [version, sinceMs];
+    let untriagedComponentClause = '';
+    if (components?.length) {
+      const placeholders = components.map(comp => {
+        untriagedParams.push(comp);
+        return `$${untriagedParams.length}`;
+      });
+      untriagedComponentClause = ` AND l.component IN (${placeholders.join(', ')})`;
+    }
+
     const untriagedRows: { cnt: number }[] = await AppDataSource.query(
       `
       SELECT COUNT(*)::int as cnt
@@ -62,26 +94,23 @@ router.get('/:version', async (req: Request, res: Response, next: NextFunction) 
       WHERE l.cnv_version = $1
         AND l.start_time >= $2
         AND ti.status = 'FAILED'
-        AND (ti.defect_type IS NULL OR ti.defect_type LIKE 'ti%')
+        AND (ti.defect_type IS NULL OR ti.defect_type LIKE 'ti%')${untriagedComponentClause}
     `,
-      [version, sinceMs],
+      untriagedParams,
     );
     const untriagedCount = untriagedRows[0]?.cnt ?? 0;
 
-    const blockingFailures = await fetchBlockingFailures(version, sinceMs, midMs);
-    const trend = await fetchTrendData(version, sinceMs);
+    const [blockingFailures, trend, componentBreakdown] = await Promise.all([
+      fetchBlockingFailures(version, sinceMs, midMs, components),
+      fetchTrendData(version, sinceMs, components),
+      fetchComponentBreakdown(version, sinceMs, components),
+    ]);
 
-    let recommendation: ReadinessResponse['recommendation'];
-    if (passRate >= 95 && untriagedCount === 0) {
-      recommendation = 'ready';
-    } else if (passRate < 80 || untriagedCount > 10) {
-      recommendation = 'blocked';
-    } else {
-      recommendation = 'at_risk';
-    }
+    const recommendation = computeRecommendation(passRate, untriagedCount);
 
     const body: ReadinessResponse = {
       blockingFailures,
+      componentBreakdown,
       failedLaunches,
       passRate,
       recommendation,

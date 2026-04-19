@@ -26,6 +26,7 @@ router.get('/', requireAdmin, async (_req: Request, res: Response, next: NextFun
       'email.pass': config.email.pass ? '••••••' : '',
       'email.port': String(config.email.port),
       'email.user': config.email.user,
+      'feedback.adminEmail': config.feedback.adminEmail,
       'jenkins.token': maskToken(config.jenkins.token),
       'jenkins.user': config.jenkins.user,
       'jira.component': dbSettings['jira.component'] || 'CNV User Interface',

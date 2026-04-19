@@ -11,6 +11,14 @@ export type BlockingFailure = {
 
 export type TrendPoint = { date: string; total: number; passed: number; rate: number };
 
+type VersionSummary = {
+  version: string;
+  passRate: number;
+  totalLaunches: number;
+  recommendation: 'ready' | 'at_risk' | 'blocked';
+  lastRun: string | null;
+};
+
 export type ReadinessResponse = {
   version: string;
   passRate: number;
@@ -20,13 +28,57 @@ export type ReadinessResponse = {
   blockingFailures: BlockingFailure[];
   trend: TrendPoint[];
   recommendation: 'ready' | 'at_risk' | 'blocked';
+  componentBreakdown: ComponentBreakdownEntry[];
+};
+
+export type ComponentBreakdownEntry = {
+  component: string;
+  passRate: number;
+  totalLaunches: number;
+  failedLaunches: number;
+};
+
+const PASS_RATE_READY = 95;
+const PASS_RATE_BLOCKED = 80;
+const UNTRIAGED_BLOCKED_THRESHOLD = 10;
+const TREND_DIFF_THRESHOLD = 0.1;
+const BLOCKING_FAILURES_LIMIT = 20;
+
+type ComponentFilter = string[] | undefined;
+
+const buildComponentClause = (
+  components: ComponentFilter,
+  params: unknown[],
+  alias = 'l',
+): string => {
+  if (!components?.length) return '';
+  const placeholders = components.map(comp => {
+    params.push(comp);
+    return `$${params.length}`;
+  });
+  return ` AND ${alias}.component IN (${placeholders.join(', ')})`;
+};
+
+export const computeRecommendation = (
+  passRate: number,
+  untriagedCount: number,
+): ReadinessResponse['recommendation'] => {
+  if (passRate >= PASS_RATE_READY && untriagedCount === 0) return 'ready';
+  if (passRate < PASS_RATE_BLOCKED || untriagedCount > UNTRIAGED_BLOCKED_THRESHOLD) {
+    return 'blocked';
+  }
+  return 'at_risk';
 };
 
 export const fetchBlockingFailures = async (
   version: string,
   sinceMs: number,
   midMs: number,
+  components?: ComponentFilter,
 ): Promise<BlockingFailure[]> => {
+  const params: unknown[] = [version, sinceMs, midMs];
+  const componentClause = buildComponentClause(components, params);
+
   const rows: Record<string, unknown>[] = await AppDataSource.query(
     `
     WITH test_failures AS (
@@ -40,11 +92,11 @@ export const fetchBlockingFailures = async (
         COUNT(*) FILTER (WHERE l.start_time >= $3)::int as second_half_runs
       FROM test_items ti
       JOIN launches l ON ti.launch_rp_id = l.rp_id
-      WHERE l.cnv_version = $1 AND l.start_time >= $2 AND ti.unique_id IS NOT NULL
+      WHERE l.cnv_version = $1 AND l.start_time >= $2 AND ti.unique_id IS NOT NULL${componentClause}
       GROUP BY ti.unique_id, ti.name
       HAVING COUNT(*) FILTER (WHERE ti.status = 'FAILED') > 0
       ORDER BY fail_count DESC
-      LIMIT 20
+      LIMIT ${BLOCKING_FAILURES_LIMIT}
     )
     SELECT
       name, unique_id, fail_count, total_runs,
@@ -52,25 +104,30 @@ export const fetchBlockingFailures = async (
       first_half_fails, first_half_runs, second_half_fails, second_half_runs
     FROM test_failures
   `,
-    [version, sinceMs, midMs],
+    params,
   );
 
   return rows.map((row: Record<string, unknown>) => {
-    const firstRate =
-      Number(row.first_half_runs) > 0
-        ? Number(row.first_half_fails) / Number(row.first_half_runs)
-        : 0;
-    const secondRate =
-      Number(row.second_half_runs) > 0
-        ? Number(row.second_half_fails) / Number(row.second_half_runs)
-        : 0;
-    const diff = secondRate - firstRate;
-    const trend =
-      diff > 0.1
-        ? ('worsening' as const)
-        : diff < -0.1
-          ? ('improving' as const)
-          : ('stable' as const);
+    const firstHalfRuns = Number(row.first_half_runs);
+    const secondHalfRuns = Number(row.second_half_runs);
+    const firstRate = firstHalfRuns > 0 ? Number(row.first_half_fails) / firstHalfRuns : null;
+    const secondRate = secondHalfRuns > 0 ? Number(row.second_half_fails) / secondHalfRuns : null;
+
+    let trend: BlockingFailure['recent_trend'] = 'stable';
+    if (firstRate !== null && secondRate !== null) {
+      const diff = secondRate - firstRate;
+      trend =
+        diff > TREND_DIFF_THRESHOLD
+          ? 'worsening'
+          : diff < -TREND_DIFF_THRESHOLD
+            ? 'improving'
+            : 'stable';
+    } else if (firstRate === null && secondRate !== null) {
+      trend = 'worsening';
+    } else if (firstRate !== null && secondRate === null) {
+      trend = 'improving';
+    }
+
     return {
       fail_count: Number(row.fail_count),
       failure_rate: Number(row.failure_rate),
@@ -82,7 +139,14 @@ export const fetchBlockingFailures = async (
   });
 };
 
-export const fetchTrendData = async (version: string, sinceMs: number): Promise<TrendPoint[]> => {
+export const fetchTrendData = async (
+  version: string,
+  sinceMs: number,
+  components?: ComponentFilter,
+): Promise<TrendPoint[]> => {
+  const params: unknown[] = [version, sinceMs];
+  const componentClause = buildComponentClause(components, params);
+
   const rows: Record<string, unknown>[] = await AppDataSource.query(
     `
     SELECT
@@ -91,11 +155,11 @@ export const fetchTrendData = async (version: string, sinceMs: number): Promise<
       SUM(l.passed)::int as passed,
       ROUND(CAST(SUM(l.passed) AS NUMERIC) / NULLIF(SUM(l.total), 0) * 100, 1) as rate
     FROM launches l
-    WHERE l.cnv_version = $1 AND l.start_time >= $2
+    WHERE l.cnv_version = $1 AND l.start_time >= $2${componentClause}
     GROUP BY TO_CHAR(TO_TIMESTAMP(l.start_time / 1000), 'YYYY-MM-DD')
     ORDER BY date ASC
   `,
-    [version, sinceMs],
+    params,
   );
 
   return rows.map((row: Record<string, unknown>) => ({
@@ -104,4 +168,72 @@ export const fetchTrendData = async (version: string, sinceMs: number): Promise<
     rate: Number(row.rate),
     total: Number(row.total),
   }));
+};
+
+export const fetchComponentBreakdown = async (
+  version: string,
+  sinceMs: number,
+  components?: ComponentFilter,
+): Promise<ComponentBreakdownEntry[]> => {
+  const params: unknown[] = [version, sinceMs];
+  const componentClause = buildComponentClause(components, params);
+
+  const rows: Record<string, unknown>[] = await AppDataSource.query(
+    `
+    SELECT
+      l.component,
+      COUNT(*)::int as total_launches,
+      COUNT(*) FILTER (WHERE l.status = 'FAILED' OR l.status = 'INTERRUPTED')::int as failed_launches,
+      ROUND(CAST(SUM(l.passed) AS NUMERIC) / NULLIF(SUM(l.total), 0) * 100, 1) as pass_rate
+    FROM launches l
+    WHERE l.cnv_version = $1 AND l.start_time >= $2 AND l.component IS NOT NULL${componentClause}
+    GROUP BY l.component
+    ORDER BY pass_rate ASC
+  `,
+    params,
+  );
+
+  return rows.map((row: Record<string, unknown>) => ({
+    component: row.component as string,
+    failedLaunches: Number(row.failed_launches),
+    passRate: Number(row.pass_rate),
+    totalLaunches: Number(row.total_launches),
+  }));
+};
+
+export const fetchVersionSummaries = async (
+  sinceMs: number,
+  components?: ComponentFilter,
+): Promise<VersionSummary[]> => {
+  const params: unknown[] = [sinceMs];
+  const componentClause = buildComponentClause(components, params);
+
+  const launchRows: Record<string, unknown>[] = await AppDataSource.query(
+    `
+    SELECT
+      l.cnv_version,
+      COUNT(*)::int as total_launches,
+      ROUND(CAST(SUM(l.passed) AS NUMERIC) / NULLIF(SUM(l.total), 0) * 100, 1) as pass_rate,
+      MAX(l.start_time) as last_run
+    FROM launches l
+    WHERE l.cnv_version IS NOT NULL
+      AND l.cnv_version != ''
+      AND l.cnv_version != '-'
+      AND l.start_time >= $1${componentClause}
+    GROUP BY l.cnv_version
+    ORDER BY l.cnv_version DESC
+  `,
+    params,
+  );
+
+  return launchRows.map((row: Record<string, unknown>) => {
+    const passRate = Number(row.pass_rate) || 0;
+    return {
+      lastRun: row.last_run ? new Date(Number(row.last_run)).toISOString() : null,
+      passRate,
+      recommendation: computeRecommendation(passRate, 0),
+      totalLaunches: Number(row.total_launches),
+      version: row.cnv_version as string,
+    };
+  });
 };

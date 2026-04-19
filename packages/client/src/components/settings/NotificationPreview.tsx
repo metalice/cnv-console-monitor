@@ -52,7 +52,7 @@ export const NotificationPreview = () => (
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => window.open('/api/notifications/preview/weekly-email', '_blank')}
+                onClick={() => window.open('/api/notifications/preview/report-email', '_blank')}
               >
                 Preview Team Report Email
               </Button>
@@ -61,7 +61,7 @@ export const NotificationPreview = () => (
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => window.open('/api/notifications/preview/weekly-slack', '_blank')}
+                onClick={() => window.open('/api/notifications/preview/report-slack', '_blank')}
               >
                 Preview Team Report Slack JSON
               </Button>

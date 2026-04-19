@@ -147,7 +147,32 @@ The `orchestrator.mdc` automatically runs all 6 personas on implementation promp
 
 ---
 
-## 7. Phase 6: Prepare PR
+## 7. Phase 6: Update About Page
+
+After implementing any user-visible feature, update the About page feature data:
+
+1. Open the relevant feature group file in `packages/client/src/components/about/featureData/`
+2. Add or update the `FeatureItem` entry with:
+   - `title`: Short feature name
+   - `description`: One-sentence summary
+   - `capabilities`: Array of bullet points describing what it does
+   - `path`: Route path (if navigable)
+   - `aiPowered`: `true` if AI-driven
+   - `adminOnly`: `true` if admin-restricted
+   - `icon`: PatternFly icon (optional)
+3. If the feature doesn't fit existing groups, create a new group file and register it in `featureData/index.ts`
+
+**Feature group files:**
+- `monitoringFeatures.tsx` -- Dashboard, Acknowledgment, My Work, Launch Detail, Failures, Flaky, Compare
+- `analyticsFeatures.tsx` -- Trends, Heatmap, Advanced Analytics
+- `workflowFeatures.tsx` -- Triage & Jira, Releases, Notifications
+- `componentFeatures.tsx` -- Component Health, Mappings, Global Filter
+- `aiFeatures.tsx` -- Failure Analysis, Smart Triage, Report Generation, NL Search, Multi-Provider
+- `adminFeatures.tsx` -- Settings, User Management, Data Pipeline
+
+---
+
+## 8. Phase 7: Prepare PR
 
 ```bash
 npm run lint && npm run format:check && npm run knip && npm run typecheck && npm run test && npm run build
@@ -160,4 +185,5 @@ Verify:
 - [ ] Shared types exported and built
 - [ ] Server routes validated with Zod
 - [ ] Client handles loading/error/empty states
+- [ ] About page updated with new feature
 - [ ] No debug code

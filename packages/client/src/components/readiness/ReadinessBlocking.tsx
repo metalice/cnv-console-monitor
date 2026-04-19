@@ -1,7 +1,7 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import {
+  Badge,
   Button,
   Card,
   CardBody,
@@ -18,21 +18,60 @@ import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 
 import type { BlockingFailure } from '../../api/readiness';
 
-const TREND_ICONS: Record<BlockingFailure['recent_trend'], React.ReactNode> = {
-  improving: <TrendDownIcon color="var(--pf-t--global--color--status--success--default)" />,
-  stable: <EqualsIcon color="var(--pf-t--global--color--status--info--default)" />,
-  worsening: <TrendUpIcon color="var(--pf-t--global--color--status--danger--default)" />,
+const FAILURE_RATE_HIGH = 50;
+const FAILURE_RATE_MED = 20;
+
+const TREND_CONFIG = {
+  improving: {
+    color: 'var(--pf-t--global--color--status--success--default)' as const,
+    icon: TrendDownIcon,
+    label: 'Improving',
+  },
+  stable: {
+    color: 'var(--pf-t--global--color--status--info--default)' as const,
+    icon: EqualsIcon,
+    label: 'Stable',
+  },
+  worsening: {
+    color: 'var(--pf-t--global--color--status--danger--default)' as const,
+    icon: TrendUpIcon,
+    label: 'Getting worse',
+  },
 };
 
-export const ReadinessBlocking: React.FC<{ failures: BlockingFailure[] }> = ({ failures }) => {
+const getFailureRateColor = (rate: number): 'red' | 'orange' | 'blue' => {
+  if (rate >= FAILURE_RATE_HIGH) return 'red';
+  if (rate >= FAILURE_RATE_MED) return 'orange';
+  return 'blue';
+};
+
+export const ReadinessBlocking = ({ failures }: { failures: BlockingFailure[] }) => {
   const navigate = useNavigate();
 
   return (
     <Card>
       <CardBody>
-        <Content className="app-section-heading" component="h3">
-          Blocking Failures
-        </Content>
+        <Flex
+          alignItems={{ default: 'alignItemsCenter' }}
+          justifyContent={{ default: 'justifyContentSpaceBetween' }}
+        >
+          <FlexItem>
+            <Flex
+              alignItems={{ default: 'alignItemsCenter' }}
+              spaceItems={{ default: 'spaceItemsSm' }}
+            >
+              <FlexItem>
+                <Content className="app-section-heading" component="h3">
+                  Blocking Failures
+                </Content>
+              </FlexItem>
+              <FlexItem>
+                <Badge isRead={failures.length === 0}>{failures.length}</Badge>
+              </FlexItem>
+            </Flex>
+          </FlexItem>
+        </Flex>
+
         {failures.length === 0 ? (
           <EmptyState headingLevel="h4" icon={CheckCircleIcon} titleText="No blocking failures">
             <EmptyStateBody>All tests are passing for this version.</EmptyStateBody>
@@ -41,16 +80,19 @@ export const ReadinessBlocking: React.FC<{ failures: BlockingFailure[] }> = ({ f
           <Table isStickyHeader aria-label="Blocking failures" variant="compact">
             <Thead>
               <Tr>
-                <Th>Test Name</Th>
-                <Th>Fail Count</Th>
-                <Th>Total Runs</Th>
-                <Th>Failure Rate</Th>
-                <Th>Trend</Th>
+                <Th width={40}>Test Name</Th>
+                <Th width={10}>Fails</Th>
+                <Th width={10}>Runs</Th>
+                <Th width={15}>Failure Rate</Th>
+                <Th width={15}>Trend</Th>
               </Tr>
             </Thead>
             <Tbody>
               {failures.map(failure => {
-                const shortName = failure.name.split('.').pop() || failure.name;
+                const shortName = failure.name.split('.').pop() ?? failure.name;
+                const trendCfg = TREND_CONFIG[failure.recent_trend];
+                const TrendIcon = trendCfg.icon;
+
                 return (
                   <Tr key={failure.unique_id}>
                     <Td className="app-cell-truncate" dataLabel="Test Name">
@@ -65,33 +107,31 @@ export const ReadinessBlocking: React.FC<{ failures: BlockingFailure[] }> = ({ f
                         </Button>
                       </Tooltip>
                     </Td>
-                    <Td className="app-cell-nowrap" dataLabel="Fail Count">
+                    <Td className="app-cell-nowrap" dataLabel="Fails">
                       <strong>{failure.fail_count}</strong>
                     </Td>
-                    <Td className="app-cell-nowrap" dataLabel="Total Runs">
+                    <Td className="app-cell-nowrap" dataLabel="Runs">
                       {failure.total_runs}
                     </Td>
                     <Td className="app-cell-nowrap" dataLabel="Failure Rate">
-                      <Label
-                        color={
-                          failure.failure_rate >= 50
-                            ? 'red'
-                            : failure.failure_rate >= 20
-                              ? 'yellow'
-                              : 'blue'
-                        }
-                      >
+                      <Label isCompact color={getFailureRateColor(failure.failure_rate)}>
                         {failure.failure_rate}%
                       </Label>
                     </Td>
                     <Td className="app-cell-nowrap" dataLabel="Trend">
-                      <Flex
-                        alignItems={{ default: 'alignItemsCenter' }}
-                        spaceItems={{ default: 'spaceItemsXs' }}
-                      >
-                        <FlexItem>{TREND_ICONS[failure.recent_trend]}</FlexItem>
-                        <FlexItem>{failure.recent_trend}</FlexItem>
-                      </Flex>
+                      <Tooltip content={trendCfg.label}>
+                        <Flex
+                          alignItems={{ default: 'alignItemsCenter' }}
+                          spaceItems={{ default: 'spaceItemsXs' }}
+                        >
+                          <FlexItem>
+                            <TrendIcon color={trendCfg.color} />
+                          </FlexItem>
+                          <FlexItem>
+                            <Content component="small">{trendCfg.label}</Content>
+                          </FlexItem>
+                        </Flex>
+                      </Tooltip>
                     </Td>
                   </Tr>
                 );

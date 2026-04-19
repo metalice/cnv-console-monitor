@@ -1,10 +1,9 @@
-import { type ReportState } from '../schemas/weeklyReport';
+import { type ReportState } from '../schemas/teamReport';
 import { type WorkItemStatus } from '../schemas/workItem';
 
 const REPORT_STATE_LABELS: Record<ReportState, string> = {
   DRAFT: 'Draft',
   FINALIZED: 'Finalized',
-  REVIEW: 'In Review',
   SENT: 'Sent',
 };
 

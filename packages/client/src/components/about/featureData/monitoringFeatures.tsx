@@ -5,6 +5,7 @@ import {
   ExclamationCircleIcon,
   ExclamationTriangleIcon,
   HomeIcon,
+  ListIcon,
   SearchIcon,
   UserIcon,
 } from '@patternfly/react-icons';
@@ -48,6 +49,20 @@ export const DAILY_MONITORING_GROUP: FeatureGroupProps = {
       icon: <UserIcon />,
       path: '/my-work',
       title: 'My Work',
+    },
+    {
+      capabilities: [
+        'Triage, acknowledgment, and comment history',
+        'Reviewer stats and streak tracking',
+        'Component activity breakdown chart',
+        'Review calendar heatmap',
+        'Filter by action type, user, and date range',
+      ],
+      description:
+        'Audit trail of all triage actions, acknowledgments, and comments across the team.',
+      icon: <ListIcon />,
+      path: '/activity',
+      title: 'Activity Feed',
     },
   ],
   icon: <HomeIcon />,
@@ -114,6 +129,20 @@ export const TEST_ANALYSIS_GROUP: FeatureGroupProps = {
       icon: <CodeBranchIcon />,
       path: '/compare',
       title: 'Compare',
+    },
+    {
+      capabilities: [
+        'Hierarchical file tree of test suites',
+        'Monaco code viewer for test sources',
+        'AI-powered test summaries per file',
+        'Repository sync from GitHub/GitLab',
+        'Component-scoped filtering',
+      ],
+      description:
+        'Browse and explore test source files from linked repositories with AI-generated summaries.',
+      icon: <SearchIcon />,
+      path: '/test-explorer',
+      title: 'Test Explorer',
     },
   ],
   icon: <SearchIcon />,

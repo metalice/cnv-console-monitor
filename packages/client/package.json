@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@cnv-monitor/shared": "*",
+    "@hello-pangea/dnd": "^18.0.1",
     "@monaco-editor/react": "^4.7.0",
     "@patternfly/react-charts": "^8.3.1",
     "@patternfly/react-core": "^6.4.0",
@@ -20,6 +21,7 @@
     "@patternfly/react-table": "^6.4.0",
     "@tanstack/react-query": "^5.60.0",
     "diff": "^8.0.3",
+    "html-to-image": "^1.11.13",
     "marked": "^17.0.5",
     "monaco-editor": "^0.55.1",
     "react": "^18.3.1",

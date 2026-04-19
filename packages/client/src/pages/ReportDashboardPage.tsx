@@ -1,0 +1,252 @@
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+import { type ReportState } from '@cnv-monitor/shared';
+
+import {
+  Button,
+  Content,
+  EmptyState,
+  EmptyStateActions,
+  EmptyStateBody,
+  EmptyStateFooter,
+  Flex,
+  FlexItem,
+  Label,
+  Modal,
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
+  PageSection,
+  Spinner,
+  Tab,
+  Tabs,
+  TabTitleText,
+} from '@patternfly/react-core';
+import { CubesIcon, ExclamationTriangleIcon, TrashIcon } from '@patternfly/react-icons';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
+
+import { GenerateReportButton } from '../components/report/GenerateReportButton';
+import { PollProgress } from '../components/report/PollProgress';
+import { useReportPollStatus } from '../hooks/useReportPollStatus';
+import { useDeleteReport, useReportList } from '../hooks/useReports';
+
+const LazyTeamTab = React.lazy(() =>
+  import('./ReportTeamPage').then(mod => ({ default: mod.ReportTeamPage })),
+);
+
+const STATE_COLORS: Record<ReportState, 'blue' | 'green' | 'orange'> = {
+  DRAFT: 'blue',
+  FINALIZED: 'orange',
+  SENT: 'green',
+};
+
+const formatDate = (dateStr: string | null | undefined): string => {
+  if (!dateStr) return '\u2014';
+  return new Date(dateStr).toLocaleDateString();
+};
+
+const formatDateRange = (
+  start: string | null | undefined,
+  end: string | null | undefined,
+): string => {
+  if (!start || !end) return '\u2014';
+  const startDate = new Date(start + 'T00:00:00');
+  const endDate = new Date(end + 'T00:00:00');
+  const startStr = startDate.toLocaleDateString('en-US', {
+    day: 'numeric',
+    month: 'short',
+    weekday: 'short',
+  });
+  const endStr = endDate.toLocaleDateString('en-US', {
+    day: 'numeric',
+    month: 'short',
+    weekday: 'short',
+    year: 'numeric',
+  });
+  return `${startStr} \u2013 ${endStr}`;
+};
+
+type ReportsTabProps = {
+  pollStatus: ReturnType<typeof useReportPollStatus>;
+};
+
+const ReportsTab = ({ pollStatus }: ReportsTabProps) => {
+  const navigate = useNavigate();
+  const { data: reports, error, isFetching, isLoading } = useReportList();
+  const deleteMutation = useDeleteReport();
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; label: string } | null>(null);
+
+  if (isLoading) {
+    return (
+      <div className="app-page-spinner">
+        <Spinner aria-label="Loading reports" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <EmptyState
+        headingLevel="h3"
+        icon={ExclamationTriangleIcon}
+        titleText="Error loading reports"
+      >
+        <EmptyStateBody>{error.message}</EmptyStateBody>
+      </EmptyState>
+    );
+  }
+
+  const isRunning = pollStatus.status.status === 'running' || pollStatus.isStarting;
+  const showEmptyState = !reports?.length && !isRunning && !isFetching;
+  const distinctComponents = new Set((reports ?? []).map(rep => rep.component ?? ''));
+  const showComponentColumn = distinctComponents.size >= 2;
+
+  return (
+    <>
+      <PollProgress status={pollStatus.status} />
+
+      {showEmptyState ? (
+        <EmptyState headingLevel="h3" icon={CubesIcon} titleText="No team reports">
+          <EmptyStateBody>
+            Generate a report to see your team&apos;s activity across GitHub, GitLab, and Jira.
+          </EmptyStateBody>
+          <EmptyStateFooter>
+            <EmptyStateActions>
+              <GenerateReportButton />
+            </EmptyStateActions>
+          </EmptyStateFooter>
+        </EmptyState>
+      ) : (
+        <Table aria-label="Team reports" variant="compact">
+          <Thead>
+            <Tr>
+              {showComponentColumn && <Th>Component</Th>}
+              <Th>Date Range</Th>
+              <Th>State</Th>
+              <Th>Sent</Th>
+              <Th />
+            </Tr>
+          </Thead>
+          <Tbody>
+            {(reports ?? []).map(report => (
+              <Tr
+                isClickable
+                key={`${report.weekId}-${report.component ?? ''}`}
+                onRowClick={() =>
+                  navigate(
+                    `/report/${encodeURIComponent(report.component || '_all')}/${report.weekId}`,
+                  )
+                }
+              >
+                {showComponentColumn && <Td dataLabel="Component">{report.component || 'All'}</Td>}
+                <Td dataLabel="Date Range">{formatDateRange(report.weekStart, report.weekEnd)}</Td>
+                <Td dataLabel="State">
+                  <Label color={STATE_COLORS[report.state]}>{report.state}</Label>
+                </Td>
+                <Td dataLabel="Sent">{formatDate(report.sentAt)}</Td>
+                <Td dataLabel="Actions">
+                  <Button
+                    isDanger
+                    aria-label="Delete report"
+                    size="sm"
+                    variant="plain"
+                    onClick={evt => {
+                      evt.stopPropagation();
+                      setDeleteTarget({
+                        id: report.id,
+                        label: `${report.component || 'All'} — ${report.weekId}`,
+                      });
+                    }}
+                  >
+                    <TrashIcon />
+                  </Button>
+                </Td>
+              </Tr>
+            ))}
+          </Tbody>
+        </Table>
+      )}
+
+      {deleteTarget && (
+        <Modal
+          isOpen
+          aria-label="Delete report"
+          variant="small"
+          onClose={() => setDeleteTarget(null)}
+        >
+          <ModalHeader title="Delete this report?" />
+          <ModalBody>
+            Are you sure you want to delete <strong>{deleteTarget.label}</strong>? This action
+            cannot be undone.
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              isDanger
+              isLoading={deleteMutation.isPending}
+              variant="primary"
+              onClick={() =>
+                deleteMutation.mutate(deleteTarget.id, {
+                  onSuccess: () => setDeleteTarget(null),
+                })
+              }
+            >
+              Delete
+            </Button>
+            <Button variant="link" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+          </ModalFooter>
+        </Modal>
+      )}
+    </>
+  );
+};
+
+export const ReportDashboardPage = () => {
+  const [activeTab, setActiveTab] = useState(0);
+  const pollStatus = useReportPollStatus();
+
+  useEffect(() => {
+    document.title = 'Team Report | CNV Console Monitor';
+  }, []);
+
+  return (
+    <>
+      <PageSection>
+        <Flex
+          alignItems={{ default: 'alignItemsCenter' }}
+          justifyContent={{ default: 'justifyContentSpaceBetween' }}
+        >
+          <FlexItem>
+            <Content component="h1">Team Report</Content>
+          </FlexItem>
+          <FlexItem>
+            <GenerateReportButton pollStatusOverride={pollStatus} />
+          </FlexItem>
+        </Flex>
+      </PageSection>
+
+      <PageSection isFilled>
+        <Tabs
+          activeKey={activeTab}
+          className="app-w-full"
+          onSelect={(_e, key) => setActiveTab(Number(key))}
+        >
+          <Tab eventKey={0} title={<TabTitleText>Reports</TabTitleText>}>
+            <div className="app-mt-md">
+              <ReportsTab pollStatus={pollStatus} />
+            </div>
+          </Tab>
+          <Tab eventKey={1} title={<TabTitleText>Team</TabTitleText>}>
+            <div className="app-mt-md">
+              <React.Suspense fallback={<Spinner aria-label="Loading team" />}>
+                <LazyTeamTab />
+              </React.Suspense>
+            </div>
+          </Tab>
+        </Tabs>
+      </PageSection>
+    </>
+  );
+};

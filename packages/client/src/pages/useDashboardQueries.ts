@@ -25,6 +25,7 @@ export const useDashboardQueries = () => {
   const {
     data: report,
     error: reportError,
+    isFetching,
     isLoading,
     refetch,
   } = useQuery({
@@ -55,6 +56,7 @@ export const useDashboardQueries = () => {
   return {
     config,
     displayLabel,
+    isFetching,
     isLoading,
     pollStatus,
     priorReport,

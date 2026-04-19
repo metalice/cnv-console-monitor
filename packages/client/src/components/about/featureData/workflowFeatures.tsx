@@ -1,4 +1,12 @@
-import { BellIcon, BugIcon, CalendarAltIcon, FlagIcon } from '@patternfly/react-icons';
+import {
+  BellIcon,
+  BugIcon,
+  CalendarAltIcon,
+  CheckCircleIcon,
+  ClipboardCheckIcon,
+  FlagIcon,
+  OutlinedCommentsIcon,
+} from '@patternfly/react-icons';
 
 import { type FeatureGroupProps } from '../FeatureCard';
 
@@ -64,6 +72,20 @@ export const RELEASES_GROUP: FeatureGroupProps = {
     },
     {
       capabilities: [
+        'Version cards with pass rate, launch count, and recommendation',
+        'Component-aware filtering via global toolbar',
+        'Pass rate trend with 95% threshold reference line',
+        'Per-component breakdown with progress bars',
+        'Blocking failures table with trend indicators',
+      ],
+      description:
+        'Dedicated readiness assessment page with detailed metrics, trends, and component health per CNV version.',
+      icon: <CheckCircleIcon />,
+      path: '/readiness',
+      title: 'Version Readiness',
+    },
+    {
+      capabilities: [
         'Tasks pulled from Jira',
         'Status transitions from the dashboard',
         'Comments and notes per task',
@@ -86,6 +108,58 @@ export const RELEASES_GROUP: FeatureGroupProps = {
   ],
   icon: <CalendarAltIcon />,
   title: 'Releases',
+};
+
+export const TEAM_REPORT_GROUP: FeatureGroupProps = {
+  features: [
+    {
+      aiPowered: true,
+      capabilities: [
+        'Aggregates GitHub PRs, GitLab MRs, and Jira tickets',
+        'AI-generated per-person highlights',
+        'Manager summary with task breakdown',
+        'Configurable date range and component scope',
+      ],
+      description:
+        'Weekly team status report generated from Git activity and Jira, with AI summaries per contributor.',
+      icon: <ClipboardCheckIcon />,
+      path: '/report',
+      title: 'Weekly Report',
+    },
+    {
+      adminOnly: true,
+      capabilities: [
+        'GitHub and GitLab repository registration',
+        'Team member identity mapping across platforms',
+        'Component-scoped repository assignments',
+      ],
+      description: 'Configure which repositories and team members to include in weekly reports.',
+      path: '/settings',
+      title: 'Report Configuration',
+    },
+  ],
+  icon: <ClipboardCheckIcon />,
+  title: 'Team Reports',
+};
+
+export const FEEDBACK_GROUP: FeatureGroupProps = {
+  features: [
+    {
+      capabilities: [
+        'Categorized feedback (bug, feature, improvement, question)',
+        'Priority levels and status tracking',
+        'Component tagging for targeted feedback',
+        'Admin response and resolution workflow',
+      ],
+      description:
+        'Submit and track feedback, feature requests, and bug reports directly from the dashboard.',
+      icon: <OutlinedCommentsIcon />,
+      path: '/feedback',
+      title: 'Feedback Portal',
+    },
+  ],
+  icon: <OutlinedCommentsIcon />,
+  title: 'Feedback',
 };
 
 export const NOTIFICATIONS_GROUP: FeatureGroupProps = {

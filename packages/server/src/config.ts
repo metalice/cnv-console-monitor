@@ -37,6 +37,10 @@ export const config = {
     user: process.env.SMTP_USER || '',
   },
 
+  feedback: {
+    adminEmail: process.env.FEEDBACK_EMAIL_TO || '',
+  },
+
   jenkins: {
     token: process.env.JENKINS_TOKEN || '',
     user: process.env.JENKINS_USER || '',
@@ -109,6 +113,9 @@ const SETTINGS_MAP = {
   },
   'email.user': settingValue => {
     config.email.user = settingValue;
+  },
+  'feedback.adminEmail': (settingValue: string) => {
+    config.feedback.adminEmail = settingValue;
   },
   'github.token': () => {
     // no-op

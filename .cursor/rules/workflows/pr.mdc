@@ -48,32 +48,34 @@ Use conventional commit format: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`
 ## 4. Run ALL Quality Gates
 
 Run every check **before pushing**. If any step fails, stop and fix.
+**This is NON-NEGOTIABLE — never skip any step, never push without all checks passing.**
 
 ```bash
-# Lint (zero warnings enforced)
-npm run lint
+# 1. Lint + format autofix (MUST run first, catches formatting + import order)
+npx eslint . --max-warnings 0 --fix
 
-# Format check
+# 2. Verify lint is clean (no remaining errors after autofix)
+npx eslint . --max-warnings 0
+
+# 3. Format check
 npm run format:check
 
-# Unused code detection
-npm run knip
-
-# Build shared first (other packages depend on it)
+# 4. Build shared first (other packages depend on it)
 npm run build -w packages/shared
 
-# Type check all packages
+# 5. Unused code detection (MUST pass — no unused exports, files, or deps)
+npx knip
+
+# 6. Type check all packages
 npm run typecheck -w packages/shared
 npm run typecheck -w packages/server
 npx tsc --noEmit -p packages/client/tsconfig.json
 
-# Build server
-npm run build -w packages/server
-
-# Run tests
+# 7. Run tests
 npm run test
 
-# Build client (includes tsc + vite build)
+# 8. Build all (final verification)
+npm run build -w packages/server
 npm run build -w packages/client
 ```
 

@@ -26,6 +26,22 @@ export {
   updateComponentByJenkinsTeam,
 } from './enrichment';
 export {
+  addResponse,
+  addVote,
+  createFeedback,
+  exportFeedbackCsv,
+  getFeedbackById,
+  getFeedbackStats,
+  getResponseCountsForFeedback,
+  getResponses,
+  getVoteCount,
+  getVoteCountsForFeedback,
+  listFeedback,
+  removeVote,
+  searchSimilarFeedback,
+  updateFeedback,
+} from './feedback';
+export {
   deleteDraft,
   deleteDraftByPath,
   deleteDraftsById,
@@ -78,6 +94,26 @@ export {
   updateFileCounterpart,
   upsertRepoFile,
 } from './repoFiles';
+export {
+  createReportRepo,
+  deleteReportRepo,
+  getAllReportRepos,
+  getEnabledReportRepos,
+  getReportReposByComponent,
+  updateReportRepo,
+} from './reportRepos';
+export {
+  deleteReport,
+  getCurrentReport,
+  getReport,
+  getReportById,
+  listReports,
+  savePersonReport,
+  updatePersonReportNotes,
+  updateReportNotes,
+  updateReportState,
+  upsertReport,
+} from './reports';
 export {
   createRepository,
   deleteRepository,
@@ -175,22 +211,3 @@ export {
   invalidateUserToken,
   saveUserToken,
 } from './userTokens';
-export {
-  getCurrentWeeklyReport,
-  getWeeklyReport,
-  getWeeklyReportById,
-  listWeeklyReports,
-  savePersonReport,
-  updatePersonReportNotes,
-  updateWeeklyReportNotes,
-  updateWeeklyReportState,
-  upsertWeeklyReport,
-} from './weeklyReports';
-export {
-  createWeeklyRepo,
-  deleteWeeklyRepo,
-  getAllWeeklyRepos,
-  getEnabledWeeklyRepos,
-  getWeeklyReposByComponent,
-  updateWeeklyRepo,
-} from './weeklyRepos';

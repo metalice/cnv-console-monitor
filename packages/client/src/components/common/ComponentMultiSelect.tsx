@@ -88,10 +88,19 @@ export const ComponentMultiSelect: React.FC<ComponentMultiSelectProps> = ({
     >
       <div className="app-select-all-row">
         <button className="app-select-all-toggle" type="button" onClick={toggleAll}>
-          {allSelected ? 'Clear selection' : 'Select all'}
+          {allSelected ? 'Deselect all' : 'Select all'}
         </button>
         {selected.size > 0 && !allSelected && (
-          <span className="app-select-count">{selected.size} selected</span>
+          <>
+            <span className="app-select-count">{selected.size} selected</span>
+            <button
+              className="app-select-all-toggle"
+              type="button"
+              onClick={() => onChange(new Set())}
+            >
+              Deselect all
+            </button>
+          </>
         )}
       </div>
       <Divider />

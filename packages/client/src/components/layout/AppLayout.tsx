@@ -13,6 +13,7 @@ import {
 import {
   CalendarAltIcon,
   ChartLineIcon,
+  CheckCircleIcon,
   ClipboardCheckIcon,
   CodeBranchIcon,
   CogIcon,
@@ -22,6 +23,7 @@ import {
   HomeIcon,
   InfoCircleIcon,
   ListIcon,
+  OutlinedCommentsIcon,
   SearchIcon,
   UserIcon,
 } from '@patternfly/react-icons';
@@ -42,10 +44,12 @@ const navItems = [
   { icon: <CubesIcon />, label: 'Components', path: '/components' },
   { icon: <CodeBranchIcon />, label: 'Compare', path: '/compare' },
   { icon: <CalendarAltIcon />, label: 'Releases', path: '/releases' },
+  { icon: <CheckCircleIcon />, label: 'Readiness', path: '/readiness' },
   { icon: <SearchIcon />, label: 'Test Explorer', path: '/test-explorer' },
   { icon: <ListIcon />, label: 'Activity', path: '/activity' },
   { icon: <ClipboardCheckIcon />, label: 'Team Report', path: '/report' },
   { icon: <CogIcon />, label: 'Settings', path: '/settings' },
+  { icon: <OutlinedCommentsIcon />, label: 'Feedback', path: '/feedback' },
   { icon: <InfoCircleIcon />, label: 'About', path: '/about' },
 ];
 
@@ -92,6 +96,18 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     staleTime: 60 * 1000,
   });
 
+  const { data: feedbackStats } = useQuery({
+    queryFn: async () => {
+      const { fetchFeedbackStats } = await import('../../api/feedback');
+      return fetchFeedbackStats();
+    },
+    queryKey: ['feedback', 'stats', 'badge'],
+    refetchInterval: 60 * 1000,
+    staleTime: 60 * 1000,
+  });
+
+  const newFeedbackCount = feedbackStats?.new ?? 0;
+
   const hasNewActivity = React.useMemo(() => {
     const lastViewed = preferences.lastActivityViewedAt;
     const latest = activitySummary?.latestActivityAt;
@@ -114,7 +130,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                   (item.path === '/' &&
                     (location.pathname.startsWith('/launch/') ||
                       location.pathname.startsWith('/test/'))) ||
-                  (item.path === '/releases' && location.pathname.startsWith('/readiness')) ||
+                  (item.path === '/readiness' && location.pathname.startsWith('/readiness/')) ||
                   (item.path === '/report' && location.pathname.startsWith('/report/'))
                 }
                 key={item.path}
@@ -124,6 +140,12 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                 {item.path === '/activity' &&
                   hasNewActivity &&
                   location.pathname !== '/activity' && <span className="app-nav-badge" />}
+                {item.path === '/feedback' &&
+                  isAdmin &&
+                  newFeedbackCount > 0 &&
+                  location.pathname !== '/feedback' && (
+                    <span className="app-nav-count-badge">{newFeedbackCount}</span>
+                  )}
               </NavItem>
             ))}
           </NavList>
