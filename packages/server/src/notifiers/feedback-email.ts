@@ -30,11 +30,12 @@ type FeedbackEmailData = {
   description: string;
   id: number;
   pageUrl: string;
+  screenshot?: string | null;
   submittedBy: string;
 };
 
 export const sendFeedbackAdminNotification = async (feedback: FeedbackEmailData): Promise<void> => {
-  const adminEmail = process.env.FEEDBACK_EMAIL_TO || config.email.from;
+  const adminEmail = config.feedback.adminEmail || config.email.from;
   if (!config.email.enabled || !adminEmail) {
     log.debug('Email not configured, skipping feedback admin notification');
     return;
@@ -45,7 +46,23 @@ export const sendFeedbackAdminNotification = async (feedback: FeedbackEmailData)
     const categoryLabel = CATEGORY_LABELS[feedback.category] ?? feedback.category;
     const dashboardUrl = config.dashboard.url ? `${config.dashboard.url}/feedback` : '/feedback';
 
+    const screenshotHtml = feedback.screenshot
+      ? '<hr><p><strong>Screenshot:</strong></p><p><img src="cid:screenshot" style="max-width:100%;border:1px solid #ddd;border-radius:4px" /></p>'
+      : '';
+
+    const attachments = feedback.screenshot
+      ? [
+          {
+            cid: 'screenshot',
+            content: feedback.screenshot.replace(/^data:image\/\w+;base64,/, ''),
+            encoding: 'base64' as const,
+            filename: `feedback-${feedback.id}.jpg`,
+          },
+        ]
+      : [];
+
     await transporter.sendMail({
+      attachments,
       from: config.email.from,
       html: `
         <h2>New Feedback: ${categoryLabel}</h2>
@@ -53,6 +70,7 @@ export const sendFeedbackAdminNotification = async (feedback: FeedbackEmailData)
         <p><strong>Page:</strong> ${feedback.pageUrl}</p>
         <hr>
         <p>${feedback.description.replaceAll('\n', '<br>')}</p>
+        ${screenshotHtml}
         <hr>
         <p><a href="${dashboardUrl}">View in Dashboard</a></p>
       `,
@@ -60,9 +78,13 @@ export const sendFeedbackAdminNotification = async (feedback: FeedbackEmailData)
       to: adminEmail,
     });
 
-    log.info({ feedbackId: feedback.id }, 'Feedback admin notification sent');
+    log.info({ feedbackId: feedback.id, to: adminEmail }, 'Feedback admin notification sent');
   } catch (err) {
-    log.warn({ err, feedbackId: feedback.id }, 'Failed to send feedback admin notification');
+    const message = err instanceof Error ? err.message : String(err);
+    log.warn(
+      { feedbackId: feedback.id, host: config.email.host, to: adminEmail },
+      `Failed to send feedback admin notification: ${message}`,
+    );
   }
 };
 
@@ -72,8 +94,8 @@ export const sendFeedbackStatusNotification = async (
   newStatus: string,
   category: string,
 ): Promise<void> => {
-  if (!config.email.enabled || !submitterEmail) {
-    log.debug('Email not configured or no submitter email, skipping status notification');
+  if (!config.email.enabled || !submitterEmail.includes('@')) {
+    log.debug('Email not configured or no valid submitter email, skipping status notification');
     return;
   }
 

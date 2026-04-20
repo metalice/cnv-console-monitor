@@ -1,4 +1,4 @@
-import { Card, CardBody, CardTitle } from '@patternfly/react-core';
+import { Tab, Tabs, TabTitleText } from '@patternfly/react-core';
 import { CheckCircleIcon } from '@patternfly/react-icons';
 import type { UseMutationResult } from '@tanstack/react-query';
 
@@ -9,27 +9,27 @@ import { IntegrationsTabPanel } from './IntegrationsTabPanel';
 import type { AlertMessage, SettingsSectionProps, TokenEditHandlers } from './types';
 
 type IntegrationsCardProps = {
-  sectionProps: SettingsSectionProps;
-  tokenHandlers: TokenEditHandlers;
   activeTab: string | number;
-  setActiveTab: (tab: string | number) => void;
-  rpEnabled: boolean;
-  jiraEnabled: boolean;
-  jenkinsEnabled: boolean;
-  smartsheetEnabled: boolean;
   emailEnabled: boolean;
   gitEnabled: boolean;
-  rpProjectOptions: string[];
-  rpTestMsg: AlertMessage | null;
-  rpTest: UseMutationResult<unknown, Error, void>;
-  jiraProjectSelectOptions: SearchableSelectOption[];
   issueTypeSelectOptions: SearchableSelectOption[];
-  jiraTestMsg: AlertMessage | null;
+  jenkinsEnabled: boolean;
+  jiraEnabled: boolean;
+  jiraProjectSelectOptions: SearchableSelectOption[];
   jiraTest: UseMutationResult<unknown, Error, void>;
+  jiraTestMsg: AlertMessage | null;
   jiraTokenDirty: boolean;
+  rpEnabled: boolean;
+  rpProjectOptions: string[];
+  rpTest: UseMutationResult<unknown, Error, void>;
+  rpTestMsg: AlertMessage | null;
+  sectionProps: SettingsSectionProps;
+  setActiveTab: (tab: string | number) => void;
   setJiraMetaOverride: (meta: JiraMeta | null) => void;
   setJiraTestMode: (mode: boolean) => void;
   setJiraTestMsg: (msg: AlertMessage | null) => void;
+  smartsheetEnabled: boolean;
+  tokenHandlers: TokenEditHandlers;
 };
 
 const TABS = [
@@ -44,7 +44,7 @@ const TABS = [
   { key: 'ai', label: 'AI' },
 ] as const;
 
-export const IntegrationsCard = (props: IntegrationsCardProps) => {
+export const IntegrationsSection = (props: IntegrationsCardProps) => {
   const {
     activeTab,
     emailEnabled,
@@ -69,30 +69,26 @@ export const IntegrationsCard = (props: IntegrationsCardProps) => {
   };
 
   return (
-    <Card className="app-mb-lg" id="integrations">
-      <CardTitle>Integrations</CardTitle>
-      <CardBody>
-        <div className="app-vtabs">
-          <nav className="app-vtabs-nav">
-            {TABS.map(({ key, label }) => (
-              <button
-                className={`app-vtabs-btn${activeTab === key ? ' app-vtabs-btn--active' : ''}`}
-                key={key}
-                type="button"
-                onClick={() => setActiveTab(key)}
-              >
+    <>
+      <Tabs activeKey={activeTab} onSelect={(_event, key) => setActiveTab(key)}>
+        {TABS.map(({ key, label }) => (
+          <Tab
+            eventKey={key}
+            key={key}
+            title={
+              <TabTitleText>
                 <CheckCircleIcon
-                  className={enabled[key] ? 'app-vtabs-icon--ok' : 'app-vtabs-icon--off'}
+                  className={`${enabled[key] ? 'app-vtabs-icon--ok' : 'app-vtabs-icon--off'} app-mr-xs`}
                 />
                 {label}
-              </button>
-            ))}
-          </nav>
-          <div className="app-vtabs-panel">
-            <IntegrationsTabPanel {...props} />
-          </div>
-        </div>
-      </CardBody>
-    </Card>
+              </TabTitleText>
+            }
+          />
+        ))}
+      </Tabs>
+      <div className="app-mt-md">
+        <IntegrationsTabPanel {...props} />
+      </div>
+    </>
   );
 };

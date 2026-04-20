@@ -47,9 +47,9 @@ const navItems = [
   { icon: <CheckCircleIcon />, label: 'Readiness', path: '/readiness' },
   { icon: <SearchIcon />, label: 'Test Explorer', path: '/test-explorer' },
   { icon: <ListIcon />, label: 'Activity', path: '/activity' },
-  { icon: <OutlinedCommentsIcon />, label: 'Feedback', path: '/feedback' },
   { icon: <ClipboardCheckIcon />, label: 'Team Report', path: '/report' },
   { icon: <CogIcon />, label: 'Settings', path: '/settings' },
+  { icon: <OutlinedCommentsIcon />, label: 'Feedback', path: '/feedback' },
   { icon: <InfoCircleIcon />, label: 'About', path: '/about' },
 ];
 
@@ -144,7 +144,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                   isAdmin &&
                   newFeedbackCount > 0 &&
                   location.pathname !== '/feedback' && (
-                    <span className="app-nav-badge">{newFeedbackCount}</span>
+                    <span className="app-nav-count-badge">{newFeedbackCount}</span>
                   )}
               </NavItem>
             ))}

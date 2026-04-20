@@ -105,6 +105,16 @@ npx vitest run packages/server/src/api/routes/reports.test.ts
 
 ---
 
+## About Page Requirement
+
+After implementing any user-visible feature, the About page MUST be updated:
+- Feature data lives in `packages/client/src/components/about/featureData/`
+- Add a `FeatureItem` entry to the appropriate group file
+- If adding a new category, create a group file and register in `featureData/index.ts`
+- This is part of the feature development workflow (Phase 6) and the PR checklist
+
+---
+
 ## Common Mistakes to Avoid
 
 - Don't install Zod 4 in server -- shared uses Zod 3, they must match
