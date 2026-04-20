@@ -1,6 +1,13 @@
 import React from 'react';
 
-import { Content, Form, FormGroup, TextInput } from '@patternfly/react-core';
+import {
+  Content,
+  Form,
+  FormGroup,
+  HelperText,
+  HelperTextItem,
+  TextInput,
+} from '@patternfly/react-core';
 
 import type { SettingsSectionProps } from './types';
 
@@ -64,6 +71,21 @@ export const EmailServerSettings: React.FC<EmailServerSettingsProps> = ({
           value={val('email.from')}
           onChange={(_e, value) => set('email.from', value)}
         />
+      </FormGroup>
+      <FormGroup fieldId="feedback-admin-email" label="Feedback Notification Email">
+        <TextInput
+          id="feedback-admin-email"
+          isDisabled={adminOnly}
+          placeholder="team-lead@redhat.com"
+          value={val('feedback.adminEmail')}
+          onChange={(_e, value) => set('feedback.adminEmail', value)}
+        />
+        <HelperText>
+          <HelperTextItem>
+            Email address that receives new feedback notifications. Defaults to the From Address if
+            empty.
+          </HelperTextItem>
+        </HelperText>
       </FormGroup>
     </Form>
   </>

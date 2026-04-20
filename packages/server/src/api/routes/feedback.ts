@@ -121,6 +121,7 @@ router.post(
         description: entity.description,
         id: entity.id,
         pageUrl: entity.page_url,
+        screenshot: entity.screenshot,
         submittedBy: entity.submitted_by,
       });
 

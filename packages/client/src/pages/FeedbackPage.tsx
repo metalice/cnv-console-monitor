@@ -40,7 +40,11 @@ export const FeedbackPage = () => {
     status: status || undefined,
   });
 
-  const { data: detailItem } = useFeedbackDetail(selectedId);
+  const {
+    data: detailItem,
+    isError: isDetailError,
+    isPending: isDetailLoading,
+  } = useFeedbackDetail(selectedId);
 
   const handleFilterChange = (setter: (val: string) => void) => (val: string) => {
     setter(val);
@@ -110,15 +114,25 @@ export const FeedbackPage = () => {
         )}
       </PageSection>
 
-      {selectedId && detailItem && (
-        <Modal
-          isOpen={Boolean(selectedId)}
-          variant={ModalVariant.large}
-          onClose={() => setSelectedId(undefined)}
-        >
-          <ModalHeader title={`Feedback #${detailItem.id}`} />
+      {selectedId !== undefined && (
+        <Modal isOpen variant={ModalVariant.large} onClose={() => setSelectedId(undefined)}>
+          <ModalHeader title={`Feedback #${selectedId}`} />
           <ModalBody>
-            <FeedbackDetail item={detailItem} />
+            {isDetailLoading && (
+              <Bullseye>
+                <Spinner aria-label="Loading feedback detail" />
+              </Bullseye>
+            )}
+            {isDetailError && (
+              <EmptyState
+                headingLevel="h3"
+                icon={OutlinedCommentsIcon}
+                titleText="Error loading feedback"
+              >
+                <EmptyStateBody>Could not load this feedback item.</EmptyStateBody>
+              </EmptyState>
+            )}
+            {detailItem && <FeedbackDetail item={detailItem} />}
           </ModalBody>
         </Modal>
       )}

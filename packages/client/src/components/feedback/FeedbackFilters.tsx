@@ -3,6 +3,7 @@ import { DownloadIcon } from '@patternfly/react-icons';
 
 import { exportFeedbackCsv } from '../../api/feedback';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 
 import { FeedbackSelect } from './FeedbackSelect';
 
@@ -57,6 +58,7 @@ export const FeedbackFilters = ({
   status,
 }: FeedbackFiltersProps) => {
   const { isAdmin } = useAuth();
+  const { addToast } = useToast();
 
   return (
     <Toolbar>
@@ -100,7 +102,7 @@ export const FeedbackFilters = ({
                 icon={<DownloadIcon />}
                 variant="secondary"
                 onClick={() => {
-                  exportFeedbackCsv().catch(() => undefined);
+                  exportFeedbackCsv().catch(() => addToast('danger', 'CSV export failed'));
                 }}
               >
                 Export CSV

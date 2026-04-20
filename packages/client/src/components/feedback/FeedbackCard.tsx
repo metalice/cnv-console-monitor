@@ -101,11 +101,13 @@ export const FeedbackCard = ({ item, onSelect }: FeedbackCardProps) => {
               </span>
             )}
             <Button
+              aria-label={`${item.voteCount} votes`}
+              aria-pressed={item.userHasVoted}
               className={item.userHasVoted ? 'app-feedback-voted' : ''}
               icon={<ArrowUpIcon />}
               isDisabled={voteMutation.isPending}
               size="sm"
-              variant={item.userHasVoted ? 'primary' : 'plain'}
+              variant="plain"
               onClick={handleVote}
             >
               {item.voteCount}
