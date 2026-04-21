@@ -12,6 +12,7 @@ reportPollRouter.post('/', (req, res) => {
   const components = req.query.components as string | undefined;
   const since = req.query.since as string | undefined;
   const until = req.query.until as string | undefined;
+  const generatedBy = req.user?.email ?? req.user?.name;
 
   if (since && until) {
     const rangeError = validateDateRange(since, until);
@@ -38,7 +39,7 @@ reportPollRouter.post('/', (req, res) => {
     }
 
     res.status(202).json({ components: componentList, message: 'Parallel polls started' });
-    runParallelPollCycles(componentList, since, until).catch(Boolean);
+    runParallelPollCycles(componentList, since, until, generatedBy).catch(Boolean);
     return;
   }
 
@@ -50,7 +51,7 @@ reportPollRouter.post('/', (req, res) => {
   }
 
   res.status(202).json({ message: 'Poll started' });
-  runReportPollCycle(component, since, until).catch(Boolean);
+  runReportPollCycle(component, since, until, generatedBy).catch(Boolean);
 });
 
 reportPollRouter.get('/status', (req, res) => {

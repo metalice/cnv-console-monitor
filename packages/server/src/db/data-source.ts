@@ -66,6 +66,7 @@ import { AddTeamReportChannels1709000000030 } from './migrations/1709000000030-A
 import { AddSubscriptionType1709000000031 } from './migrations/1709000000031-AddSubscriptionType';
 import { AddFeedback1709000000032 } from './migrations/1709000000032-AddFeedback';
 import { AddJobInsight1709000000033 } from './migrations/1709000000033-AddJobInsight';
+import { AddReportGeneratedBy1709000000034 } from './migrations/1709000000034-AddReportGeneratedBy';
 
 export const AppDataSource = new DataSource({
   entities: [
@@ -134,6 +135,7 @@ export const AppDataSource = new DataSource({
     AddSubscriptionType1709000000031,
     AddFeedback1709000000032,
     AddJobInsight1709000000033,
+    AddReportGeneratedBy1709000000034,
   ],
   synchronize: false,
   type: 'postgres',

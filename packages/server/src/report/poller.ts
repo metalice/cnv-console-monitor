@@ -16,6 +16,7 @@ export const runReportPollCycle = async (
   component?: string,
   since?: string,
   until?: string,
+  generatedBy?: string,
 ): Promise<{ error?: string; success: boolean }> => {
   if (isReportPollRunning(component)) {
     log.warn({ component }, 'Poll already running for component, skipping');
@@ -26,7 +27,7 @@ export const runReportPollCycle = async (
   broadcastStatus();
 
   try {
-    await generateReport({ component, since, until });
+    await generateReport({ component, generatedBy, since, until });
     completeReportPoll(component);
     broadcastStatus();
     broadcast('report-data-updated');
@@ -44,10 +45,11 @@ export const runParallelPollCycles = async (
   components: string[],
   since?: string,
   until?: string,
+  generatedBy?: string,
 ): Promise<{ results: Record<string, { error?: string; success: boolean }> }> => {
   const results = await Promise.allSettled(
     components.map(async comp => {
-      const result = await runReportPollCycle(comp, since, until);
+      const result = await runReportPollCycle(comp, since, until, generatedBy);
       return { component: comp, ...result };
     }),
   );
