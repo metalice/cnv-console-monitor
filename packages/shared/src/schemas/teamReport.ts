@@ -51,6 +51,7 @@ export const TeamReportSchema = z.object({
   aggregateStats: AggregateStatsSchema.nullish(),
   component: z.string().nullish(),
   createdAt: z.string().nullish(),
+  generatedBy: z.string().nullish(),
   id: z.string(),
   managerHighlights: z.string().nullish(),
   personReports: z.array(PersonReportSchema).default([]),

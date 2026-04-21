@@ -22,6 +22,9 @@ export class ReportEntity {
   @CreateDateColumn()
   created_at!: Date;
 
+  @Column({ nullable: true, type: 'varchar' })
+  generated_by!: string | null;
+
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 

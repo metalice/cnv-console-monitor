@@ -31,6 +31,7 @@ const log = logger.child({ module: 'TeamReport:Aggregator' });
 type AggregatorOptions = {
   component?: string;
   date?: Date;
+  generatedBy?: string;
   since?: string;
   until?: string;
 };
@@ -207,7 +208,7 @@ const computeAggregateStats = (
 };
 
 export const generateReport = async (options: AggregatorOptions = {}): Promise<void> => {
-  const { component, date = new Date() } = options;
+  const { component, date = new Date(), generatedBy } = options;
   let since: string;
   let until: string;
   let weekId: string;
@@ -307,6 +308,7 @@ export const generateReport = async (options: AggregatorOptions = {}): Promise<v
   const report = await upsertReport({
     aggregateStats,
     component: component ?? '',
+    generatedBy,
     managerHighlights,
     taskSummary,
     warnings,

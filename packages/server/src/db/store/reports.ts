@@ -58,6 +58,7 @@ export const getCurrentReport = async (
 export const upsertReport = async (data: {
   aggregateStats?: Record<string, unknown> | null;
   component?: string;
+  generatedBy?: string;
   managerHighlights?: string | null;
   taskSummary?: TaskSummary | null;
   warnings?: string[];
@@ -83,12 +84,16 @@ export const upsertReport = async (data: {
     if (data.warnings) {
       existing.warnings = data.warnings.join(',');
     }
+    if (data.generatedBy) {
+      existing.generated_by = data.generatedBy;
+    }
     return repo().save(existing);
   }
 
   const report = repo().create({
     aggregate_stats: data.aggregateStats ?? null,
     component: componentVal,
+    generated_by: data.generatedBy ?? null,
     manager_highlights: data.managerHighlights ?? null,
     state: 'DRAFT',
     task_summary: (data.taskSummary as Record<string, unknown> | null) ?? null,

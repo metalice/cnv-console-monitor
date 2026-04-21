@@ -49,6 +49,7 @@ export const entityToReport = (entity: ReportEntity): TeamReport => {
     aggregateStats: entity.aggregate_stats as AggregateStats | null,
     component: entity.component || null,
     createdAt: entity.created_at.toISOString(),
+    generatedBy: entity.generated_by,
     id: entity.id,
     managerHighlights: entity.manager_highlights,
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: relation may not be loaded
