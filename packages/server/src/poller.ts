@@ -9,7 +9,7 @@ import { type LaunchRecord, type TestItemRecord, upsertLaunch } from './db/store
 import { getErrorInfo, setGlobalRetryCounter } from './utils/retry';
 import { logger } from './logger';
 import { fetchFailedItemsForLaunch } from './poller-backfill';
-import { enrichLaunchFromJenkins } from './poller-enrichment';
+import { enrichLaunchFromJenkins, resolveJenkinsUrl } from './poller-enrichment';
 import {
   addFailedItemLaunch,
   getFailedItemLaunches,
@@ -401,14 +401,24 @@ export const enrichLaunchesFromJenkins = async (
   // TODO: Refactor to reduce cognitive complexity
   // eslint-disable-next-line sonarjs/cognitive-complexity
 ): Promise<EnrichmentResult> => {
-  const withArtifacts = launchList.filter(launch => launch.artifacts_url);
-  const withoutArtifacts = launchList.length - withArtifacts.length;
-
   for (const launch of launchList.filter(item => !item.artifacts_url)) {
-    launch.jenkins_status = 'no_url';
+    // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
+    const resolved = await resolveJenkinsUrl(launch);
+    if (resolved) {
+      launch.artifacts_url = resolved;
+      log.info(
+        { launchName: launch.name, rpId: launch.rp_id, url: resolved },
+        'Resolved Jenkins URL from API',
+      );
+    } else {
+      launch.jenkins_status = 'no_url';
+    }
     // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
     await upsertLaunch(launch);
   }
+
+  const withArtifacts = launchList.filter(launch => launch.artifacts_url);
+  const withoutArtifacts = launchList.length - withArtifacts.length;
 
   if (withArtifacts.length === 0) {
     emitProgress('jenkins-progress', 'complete', 0, 0, 'No launches with Jenkins URLs');
