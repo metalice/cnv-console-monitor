@@ -33,12 +33,20 @@ import {
   ToolbarContent,
   ToolbarItem,
 } from '@patternfly/react-core';
-import { ClockIcon, CopyIcon, CubesIcon, ExclamationTriangleIcon } from '@patternfly/react-icons';
+import {
+  ClockIcon,
+  CopyIcon,
+  CubesIcon,
+  ExclamationTriangleIcon,
+  FileWordIcon,
+} from '@patternfly/react-icons';
 
 import { PersonCard } from '../components/report/PersonCard';
 import {
   computeDaysAgo,
+  copyAsRichText,
   formatHighlightText,
+  generateDocsHtml,
   generateMarkdown,
   STAT_ITEMS,
 } from '../components/report/reportEditorUtils';
@@ -443,6 +451,15 @@ export const ReportEditorPage = () => {
                 }}
               >
                 Copy as Markdown
+              </Button>
+            </ToolbarItem>
+            <ToolbarItem>
+              <Button
+                icon={<FileWordIcon />}
+                variant="secondary"
+                onClick={() => copyAsRichText(generateDocsHtml(report))}
+              >
+                Copy for Docs
               </Button>
             </ToolbarItem>
             {!isLocked && (

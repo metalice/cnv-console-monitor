@@ -13,6 +13,7 @@ import { FeedbackEntity } from './entities/FeedbackEntity';
 import { FeedbackResponseEntity } from './entities/FeedbackResponseEntity';
 import { FeedbackVoteEntity } from './entities/FeedbackVoteEntity';
 import { FileDraft } from './entities/FileDraft';
+import { JobInsightResult } from './entities/JobInsightResult';
 import { Launch } from './entities/Launch';
 import { NotificationSubscription } from './entities/NotificationSubscription';
 import { PersonReportEntity } from './entities/PersonReportEntity';
@@ -64,6 +65,7 @@ import { ReportCompositeKey1709000000029 } from './migrations/1709000000029-Repo
 import { AddTeamReportChannels1709000000030 } from './migrations/1709000000030-AddTeamReportChannels';
 import { AddSubscriptionType1709000000031 } from './migrations/1709000000031-AddSubscriptionType';
 import { AddFeedback1709000000032 } from './migrations/1709000000032-AddFeedback';
+import { AddJobInsight1709000000033 } from './migrations/1709000000033-AddJobInsight';
 
 export const AppDataSource = new DataSource({
   entities: [
@@ -95,6 +97,7 @@ export const AppDataSource = new DataSource({
     ReportEntity,
     PersonReportEntity,
     RepoConfigEntity,
+    JobInsightResult,
   ],
   logging: false,
   migrations: [
@@ -130,6 +133,7 @@ export const AppDataSource = new DataSource({
     AddTeamReportChannels1709000000030,
     AddSubscriptionType1709000000031,
     AddFeedback1709000000032,
+    AddJobInsight1709000000033,
   ],
   synchronize: false,
   type: 'postgres',

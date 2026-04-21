@@ -55,6 +55,14 @@ export const config = {
     url: process.env.JIRA_URL || '',
   },
 
+  jobInsight: {
+    defaultModel: process.env.JOB_INSIGHT_MODEL || 'claude-opus-4-6[1m]',
+    defaultProvider: process.env.JOB_INSIGHT_PROVIDER || 'claude',
+    url:
+      process.env.JOB_INSIGHT_URL ||
+      'https://jenkins-job-route-jenkins-job-insight.apps.cnv2.engineering.redhat.com',
+  },
+
   polarion: {
     url: process.env.POLARION_URL || '',
   },
@@ -147,6 +155,15 @@ const SETTINGS_MAP = {
   'jira.url': settingValue => {
     config.jira.url = settingValue;
     config.jira.enabled = Boolean(settingValue);
+  },
+  'jobInsight.defaultModel': settingValue => {
+    config.jobInsight.defaultModel = settingValue;
+  },
+  'jobInsight.defaultProvider': settingValue => {
+    config.jobInsight.defaultProvider = settingValue;
+  },
+  'jobInsight.url': settingValue => {
+    config.jobInsight.url = settingValue;
   },
   'polarion.url': settingValue => {
     config.polarion.url = settingValue;

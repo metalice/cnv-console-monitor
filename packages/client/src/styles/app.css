@@ -3807,3 +3807,12 @@
 .app-text-subtle {
   color: var(--pf-t--global--text--color--subtle);
 }
+
+.app-job-insight-log {
+  max-height: 150px;
+  overflow-y: auto;
+  border: var(--pf-t--global--border--width--default) solid
+    var(--pf-t--global--border--color--default);
+  border-radius: var(--pf-t--global--border--radius--small);
+  padding: var(--pf-t--global--spacer--sm);
+}

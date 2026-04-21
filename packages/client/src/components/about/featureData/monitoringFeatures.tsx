@@ -5,6 +5,7 @@ import {
   ExclamationCircleIcon,
   ExclamationTriangleIcon,
   HomeIcon,
+  MagicIcon,
   SearchIcon,
   UserIcon,
 } from '@patternfly/react-icons';
@@ -114,6 +115,19 @@ export const TEST_ANALYSIS_GROUP: FeatureGroupProps = {
       icon: <CodeBranchIcon />,
       path: '/compare',
       title: 'Compare',
+    },
+    {
+      capabilities: [
+        'Multi-AI root cause analysis with log evidence',
+        'Code fix suggestions with file, line, and change',
+        'Multi-model peer review with consensus tracking',
+        'Regenerate analysis on demand',
+        'Results persisted in database for future reference',
+      ],
+      description:
+        'Deep AI-powered failure analysis via Jenkins Job Insight, with peer review from multiple AI models.',
+      icon: <MagicIcon />,
+      title: 'AI Deep Analysis',
     },
   ],
   icon: <SearchIcon />,

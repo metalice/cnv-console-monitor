@@ -12,6 +12,7 @@ import {
 import { ExternalLinkAltIcon } from '@patternfly/react-icons';
 
 import { ArtifactsPanel } from '../components/detail/ArtifactsPanel';
+import { JobInsightPanel } from '../components/detail/JobInsightPanel';
 import { TestItemsTable } from '../components/detail/TestItemsTable';
 import { type AggregatedItem } from '../utils/aggregation';
 
@@ -87,6 +88,11 @@ export const LaunchDetailContent = ({
 
   return (
     <>
+      {!isGroupMode && (
+        <PageSection>
+          <JobInsightPanel launchRpId={launchRpId} />
+        </PageSection>
+      )}
       <PageSection>
         <Card>
           <CardBody>

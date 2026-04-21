@@ -26,6 +26,7 @@ import defectTypesRouter from './routes/defectTypes';
 import feedbackRouter from './routes/feedback';
 import flakyRouter from './routes/flaky';
 import jiraRouter from './routes/jira';
+import jobInsightRouter from './routes/job-insight';
 import launchesRouter from './routes/launches';
 import myWorkRouter from './routes/myWork';
 import notificationsRouter from './routes/notifications';
@@ -55,11 +56,12 @@ export const createApp = (): express.Application => {
     helmet({
       contentSecurityPolicy: {
         directives: {
-          connectSrc: ["'self'", 'wss:', 'ws:'],
+          connectSrc: ["'self'", 'wss:', 'ws:', 'https://cdn.jsdelivr.net'],
           defaultSrc: ["'self'"],
           imgSrc: ["'self'", 'data:', 'https:'],
-          scriptSrc: ["'self'", "'unsafe-inline'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
+          styleSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
+          workerSrc: ["'self'", 'blob:'],
         },
       },
       crossOriginEmbedderPolicy: false,
@@ -113,6 +115,7 @@ export const createApp = (): express.Application => {
   app.use('/api/triage', extractUser, triageRouter);
   app.use('/api/analysis', extractUser, analysisRouter);
   app.use('/api/jira', extractUser, jiraRouter);
+  app.use('/api/job-insight', extractUser, jobInsightRouter);
   app.use('/api/acknowledgment', extractUser, acknowledgmentRouter);
   app.use('/api/flaky-tests', extractUser, flakyRouter);
   app.use('/api/defect-types', extractUser, defectTypesRouter);

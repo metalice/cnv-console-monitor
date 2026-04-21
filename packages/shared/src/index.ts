@@ -6,6 +6,7 @@ export * from './schemas/defectType';
 export * from './schemas/feedback';
 export * from './schemas/flaky';
 export * from './schemas/jiraTicket';
+export * from './schemas/jobInsight';
 export * from './schemas/launch';
 export * from './schemas/pr';
 export * from './schemas/quarantineSchema';
