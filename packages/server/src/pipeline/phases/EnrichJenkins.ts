@@ -5,6 +5,7 @@ import axios, { type AxiosRequestConfig } from 'axios';
 import { resolveComponent } from '../../componentMap';
 import { config } from '../../config';
 import { type LaunchRecord, upsertLaunch } from '../../db/store';
+import { resolveJenkinsUrl } from '../../poller-enrichment';
 import { withRetry } from '../../utils/retry';
 import type { PhaseContext, PhaseEstimate, PipelinePhase } from '../types';
 
@@ -190,7 +191,7 @@ export class EnrichJenkinsPhase implements PipelinePhase {
     const rows = await repo
       .createQueryBuilder('l')
       .where('l.jenkins_status IN (:...statuses)', {
-        statuses: ['pending', 'failed', 'auth_required'],
+        statuses: ['pending', 'failed', 'auth_required', 'no_url'],
       })
       .orderBy('l.start_time', 'DESC')
       .getMany();
@@ -287,35 +288,42 @@ export class EnrichJenkinsPhase implements PipelinePhase {
       this.launches = await this.loadUnenrichedLaunches();
       ctx.log('info', `Found ${this.launches.length} launches needing enrichment`);
     }
-    const withArtifacts = this.launches.filter(launch => launch.artifacts_url);
     const withoutArtifacts = this.launches.filter(launch => !launch.artifacts_url);
 
     if (withoutArtifacts.length > 0) {
+      ctx.log('info', `Attempting Jenkins URL resolution for ${withoutArtifacts.length} launches`);
       await Promise.all(
-        withoutArtifacts.map(launch => {
-          launch.jenkins_status = 'no_url';
+        withoutArtifacts.map(async launch => {
+          const resolved = await resolveJenkinsUrl(launch);
+          if (resolved) {
+            launch.artifacts_url = resolved;
+            ctx.log('info', `Resolved Jenkins URL for ${launch.name} (rp_id=${launch.rp_id})`);
+          } else {
+            launch.jenkins_status = 'no_url';
+          }
           return upsertLaunch(launch);
         }),
       );
     }
 
-    ctx.setTotal(withArtifacts.length);
-    if (withArtifacts.length === 0) {
+    const allWithArtifacts = this.launches.filter(launch => launch.artifacts_url);
+    ctx.setTotal(allWithArtifacts.length);
+    if (allWithArtifacts.length === 0) {
       return;
     }
 
     ctx.log(
       'info',
-      `Enriching ${withArtifacts.length} launches (${withoutArtifacts.length} without URL)`,
+      `Enriching ${allWithArtifacts.length} launches (${this.launches.length - allWithArtifacts.length} without URL)`,
     );
 
     const concurrency = ctx.getConcurrency();
-    for (let i = 0; i < withArtifacts.length; i += concurrency) {
+    for (let i = 0; i < allWithArtifacts.length; i += concurrency) {
       if (ctx.isCancelled()) {
         break;
       }
 
-      const batch = withArtifacts.slice(i, i + concurrency);
+      const batch = allWithArtifacts.slice(i, i + concurrency);
       // eslint-disable-next-line no-await-in-loop -- sequential: ordered operations
       await Promise.all(
         batch.map(async launch => {

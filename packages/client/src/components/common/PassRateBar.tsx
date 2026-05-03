@@ -1,6 +1,7 @@
 import React from 'react';
 
-import { Progress, ProgressMeasureLocation, Tooltip } from '@patternfly/react-core';
+import { Flex, FlexItem, Progress, ProgressMeasureLocation, Tooltip } from '@patternfly/react-core';
+import { CheckCircleIcon, TimesCircleIcon } from '@patternfly/react-icons';
 
 type PassRateBarProps = {
   rate: number;
@@ -11,10 +12,12 @@ type PassRateBarProps = {
   launchName?: string;
   startTime?: number;
   launchCount?: number;
+  lastLaunchPassed?: boolean;
 };
 
 export const PassRateBar: React.FC<PassRateBarProps> = ({
   failed,
+  lastLaunchPassed,
   launchCount,
   launchName,
   passed,
@@ -43,6 +46,9 @@ export const PassRateBar: React.FC<PassRateBarProps> = ({
     }
     tooltipLines.push(`Pass rate: ${rate}%`);
   }
+  if (lastLaunchPassed !== undefined) {
+    tooltipLines.push(`Latest launch: ${lastLaunchPassed ? 'PASSED' : 'FAILED'}`);
+  }
   if (launchName) {
     tooltipLines.push('');
     tooltipLines.push(`Latest: ${launchName}`);
@@ -52,12 +58,29 @@ export const PassRateBar: React.FC<PassRateBarProps> = ({
   }
 
   const bar = (
-    <Progress
-      className="app-min-w-120"
-      measureLocation={ProgressMeasureLocation.outside}
-      value={rate}
-      variant={variant}
-    />
+    <Flex
+      alignItems={{ default: 'alignItemsCenter' }}
+      flexWrap={{ default: 'nowrap' }}
+      gap={{ default: 'gapSm' }}
+    >
+      {lastLaunchPassed !== undefined && (
+        <FlexItem>
+          {lastLaunchPassed ? (
+            <CheckCircleIcon className="pf-v6-u-success-color-100" />
+          ) : (
+            <TimesCircleIcon className="pf-v6-u-danger-color-100" />
+          )}
+        </FlexItem>
+      )}
+      <FlexItem grow={{ default: 'grow' }}>
+        <Progress
+          className="app-min-w-120"
+          measureLocation={ProgressMeasureLocation.outside}
+          value={rate}
+          variant={variant}
+        />
+      </FlexItem>
+    </Flex>
   );
 
   if (!hasDetails) {

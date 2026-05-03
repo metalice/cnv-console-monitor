@@ -32,6 +32,7 @@ RUN npm ci --omit=dev --ignore-scripts && chown -R appuser:appgroup /app
 
 COPY --from=build-shared /app/packages/shared/dist/ ./packages/shared/dist/
 COPY --from=build-server /app/packages/server/dist/ ./packages/server/dist/
+COPY --from=build-server /app/packages/server/src/ai/prompts/ ./packages/server/dist/ai/prompts/
 COPY --from=build-client /app/packages/client/dist/ ./packages/client/dist/
 
 USER appuser
