@@ -191,7 +191,7 @@ export class EnrichJenkinsPhase implements PipelinePhase {
     const rows = await repo
       .createQueryBuilder('l')
       .where('l.jenkins_status IN (:...statuses)', {
-        statuses: ['pending', 'failed', 'auth_required'],
+        statuses: ['pending', 'failed', 'auth_required', 'no_url'],
       })
       .orderBy('l.start_time', 'DESC')
       .getMany();

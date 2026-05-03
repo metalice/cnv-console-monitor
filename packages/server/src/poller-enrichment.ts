@@ -184,45 +184,29 @@ export const enrichLaunchFromJenkins = async (launch: LaunchRecord): Promise<str
 };
 
 const JENKINS_BASE_URL = 'https://jenkins-csb-cnvqe-main.dno.corp.redhat.com';
-const FIVE_MINUTES_MS = 5 * 60 * 1000;
 
 export const resolveJenkinsUrl = async (launch: LaunchRecord): Promise<string | null> => {
-  if (!config.jenkins.user || !config.jenkins.token) {
-    return null;
-  }
-
-  const jobApiUrl = `${JENKINS_BASE_URL}/job/${encodeURIComponent(launch.name)}/api/json?tree=builds[number,timestamp]{0,10}`;
+  const jobApiUrl = `${JENKINS_BASE_URL}/job/${encodeURIComponent(launch.name)}/api/json`;
 
   try {
-    type JenkinsBuildsResponse = { builds?: { number: number; timestamp: number }[] };
-    const response = await axios.get<JenkinsBuildsResponse>(jobApiUrl, buildJenkinsRequestConfig());
+    type JenkinsBuild = { number: number; url: string };
+    type JenkinsJobResponse = { builds?: JenkinsBuild[] };
+    const response = await axios.get<JenkinsJobResponse>(jobApiUrl, {
+      ...buildJenkinsRequestConfig(),
+      timeout: 10_000,
+    });
     const builds = response.data.builds ?? [];
 
-    if (builds.length === 0) {
-      return null;
+    const match = builds.find(build => build.number === launch.number);
+    if (match) {
+      return `${JENKINS_BASE_URL}/job/${encodeURIComponent(launch.name)}/${match.number}/artifact`;
     }
 
-    const launchStartMs = launch.start_time;
-    let bestMatch = builds[0];
-    let bestDiff = Math.abs(builds[0].timestamp - launchStartMs);
-
-    for (const build of builds.slice(1)) {
-      const diff = Math.abs(build.timestamp - launchStartMs);
-      if (diff < bestDiff) {
-        bestDiff = diff;
-        bestMatch = build;
-      }
-    }
-
-    if (bestDiff > FIVE_MINUTES_MS) {
-      log.debug(
-        { bestDiff, buildNumber: bestMatch.number, launchName: launch.name },
-        'No Jenkins build within 5 minutes of launch start time',
-      );
-      return null;
-    }
-
-    return `${JENKINS_BASE_URL}/job/${encodeURIComponent(launch.name)}/${bestMatch.number}/artifact`;
+    log.debug(
+      { buildNumber: launch.number, launchName: launch.name },
+      'No matching Jenkins build found by number',
+    );
+    return null;
   } catch (error) {
     const status = getHttpStatus(error);
     if (status === 404) {
