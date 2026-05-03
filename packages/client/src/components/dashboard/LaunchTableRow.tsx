@@ -63,6 +63,7 @@ export const LaunchTableRow = ({
       <Td className="app-cell-nowrap" dataLabel="Pass Rate">
         <PassRateBar
           failed={group.failedTests}
+          lastLaunchPassed={group.latestLaunch.status === 'PASSED'}
           launchCount={group.launchCount ?? group.launches?.length ?? 1}
           launchName={group.latestLaunch.name}
           passed={group.passedTests}

@@ -182,3 +182,38 @@ export const enrichLaunchFromJenkins = async (launch: LaunchRecord): Promise<str
   }
   return null;
 };
+
+const JENKINS_BASE_URL = 'https://jenkins-csb-cnvqe-main.dno.corp.redhat.com';
+
+export const resolveJenkinsUrl = async (launch: LaunchRecord): Promise<string | null> => {
+  const jobApiUrl = `${JENKINS_BASE_URL}/job/${encodeURIComponent(launch.name)}/api/json`;
+
+  try {
+    type JenkinsBuild = { number: number; url: string };
+    type JenkinsJobResponse = { builds?: JenkinsBuild[] };
+    const response = await axios.get<JenkinsJobResponse>(jobApiUrl, {
+      ...buildJenkinsRequestConfig(),
+      timeout: 10_000,
+    });
+    const builds = response.data.builds ?? [];
+
+    const match = builds.find(build => build.number === launch.number);
+    if (match) {
+      return `${JENKINS_BASE_URL}/job/${encodeURIComponent(launch.name)}/${match.number}/artifact`;
+    }
+
+    log.debug(
+      { buildNumber: launch.number, launchName: launch.name },
+      'No matching Jenkins build found by number',
+    );
+    return null;
+  } catch (error) {
+    const status = getHttpStatus(error);
+    if (status === 404) {
+      log.debug({ launchName: launch.name }, 'Jenkins job not found');
+    } else {
+      log.debug({ error, launchName: launch.name }, 'Failed to resolve Jenkins URL');
+    }
+    return null;
+  }
+};

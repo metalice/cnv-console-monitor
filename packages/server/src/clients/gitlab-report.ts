@@ -1,6 +1,10 @@
+import https from 'https';
+
 import axios, { type AxiosInstance, type AxiosResponse } from 'axios';
 
 import { logger } from '../logger';
+
+const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 const log = logger.child({ module: 'TeamReport:GitLab' });
 
@@ -49,6 +53,7 @@ const createClient = (
   client: axios.create({
     baseURL: `${config.url}/api/v4`,
     headers: { 'PRIVATE-TOKEN': config.token },
+    httpsAgent,
     timeout: TIMEOUT_MS,
   }),
   encodedProject: encodeURIComponent(config.project),
